@@ -1,3 +1,3 @@
-import './pagination';
-import './shared';
-import './soft-delete';
+import './pagination.d.ts';
+import './shared.d.ts';
+import './soft-delete.d.ts';
