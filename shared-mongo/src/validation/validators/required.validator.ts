@@ -13,5 +13,5 @@ export function required(args: ValidatorOptions<true>) {
 				? !isNil(value)
 				: !isNil(value) && !isEmpty(value);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

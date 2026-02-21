@@ -14,5 +14,5 @@ export function notEmpty(args: ValidatorOptions<true>) {
 				((typeof value === 'string' || isArray(value)) && !isEmpty(value))
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

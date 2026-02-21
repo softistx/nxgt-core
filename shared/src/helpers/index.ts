@@ -1,3 +1,4 @@
+export * from '../../../shared-exceptions/src/validation-utils';
 export * from './array-filter.utils';
 export * from './audit';
 export * from './date.utils';
@@ -15,4 +16,3 @@ export * from './request.utils';
 export * from './server.utils';
 export * from './sort.utils';
 export * from './strings.utils';
-export * from './validation.utils';

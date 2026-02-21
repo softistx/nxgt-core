@@ -11,5 +11,5 @@ export function positive(args: ValidatorOptions<true>) {
 		validator(value) {
 			return isNil(value) || (typeof value === 'number' && value >= 0);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

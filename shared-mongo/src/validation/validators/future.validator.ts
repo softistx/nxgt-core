@@ -35,5 +35,5 @@ export function future(
 					DateTime.fromJSDate(value) >= limit)
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

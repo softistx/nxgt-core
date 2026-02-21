@@ -1,0 +1,22 @@
+{
+	"mail": {
+		"common": {
+			"thanks": "Thanks,",
+			"greeting": "Hello {name},",
+			"copyright": "&copy; {date} Strange. All rights reserved."
+		},
+		"templates": {
+			"verification": {
+				"message": "We''re happy to have you on board! Use your verification code in order to activate your account. Verification code:",
+				"verify": "Verify email",
+				"notes": "We are not responsible if you decide to share you're account credentials. Make sure to keep secret."
+			}
+		}
+	},
+	"opening-hours": {
+		"errors": {
+			"invalid-start-time-format": "The opening time format is invalid. Please use the HH:mm format.",
+			"invalid-end-time-format": "The closing time format is invalid. Please use the HH:mm format."
+		}
+	}
+}

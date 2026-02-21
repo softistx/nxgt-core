@@ -1,5 +1,5 @@
+import { CustomException } from '@nxgt/shared-exceptions';
 import type { QueryFilter, Schema } from 'mongoose';
-import { CustomException } from '@/shared/exceptions';
 import type {
 	CursorPaginateOptions,
 	NestedPaginationOptions,

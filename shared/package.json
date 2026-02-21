@@ -15,9 +15,6 @@
 		"./types": {
 			"import": "./src/types/index.ts"
 		},
-		"./exceptions": {
-			"import": "./src/exceptions/index.ts"
-		},
 		"./logging": {
 			"import": "./src/logging/index.ts"
 		},
@@ -25,12 +22,11 @@
 			"import": "./src/caching/index.ts"
 		}
 	},
-	"devDependencies": {
-		"@types/bun": "latest",
-		"@types/lodash": "^4.17.23"
-	},
-	"peerDependencies": {
-		"typescript": "^5"
+	"scripts": {
+		"tsc": "tsc --noEmit",
+		"check": "biome check --write",
+		"format": "biome format --write",
+		"lint": "biome lint --write"
 	},
 	"dependencies": {
 		"@hono/zod-validator": "^0.7.6",
@@ -38,6 +34,15 @@
 		"lodash": "^4.17.23",
 		"mongoose": "^9.2.1",
 		"winston": "^3.19.0",
-		"winston-daily-rotate-file": "^5.0.0"
+		"winston-daily-rotate-file": "^5.0.0",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.4",
+		"@types/bun": "latest",
+		"@types/lodash": "^4.17.23"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
 	}
 }

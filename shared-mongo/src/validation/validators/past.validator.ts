@@ -35,5 +35,5 @@ export function past(
 					DateTime.fromJSDate(value) <= limit)
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

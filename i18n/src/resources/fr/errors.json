@@ -1,0 +1,17 @@
+{
+	"not-found": "Impossible de trouver la ressource demandée.",
+	"unauthenticated": "Vous n'êtes pas authentifié",
+	"duplicate-key": "Il y a eu une erreur de clé dupliquée. Veuillez vérifier les données et réessayer",
+	"something-went-wrong": "Quelque chose n'a pas fonctionné. Veuillez vérifier et réessayer.",
+	"insufficient-permissions": "Vous n'avez pas les permissions nécessaires pour accéder à cette ressource. Veuillez contacter votre administrateur.",
+	"cast-failed": "Valeur incorrecte pour le champ ''{field}''. Veuillez vérifier la valeur et réessayer.",
+	"server-connection-failed": "Échec de la connexion au serveur de base de données. Veuillez contacter votre administrateur.",
+	"forbidden": "Vous n'avez pas la permission nécessaire pour accéder à cette ressource. Veuillez contacter votre administrateur.",
+	"optimistic-lock-failed": "La ressource a été modifiée par un autre utilisateur. Veuillez actualiser et réessayer.",
+	"internal-server-error": "Erreur interne du serveur. Veuillez contacter votre administrateur.",
+	"validation-failed": "La validation a échoué pour un ou plusieurs champs. Veuillez vérifier les données et réessayer.",
+	"address-blocked": "L'accès est bloqué pour l'adresse ``{address}``.",
+	"could-not-use-first-and-last-together": "Vous ne pouvez pas utiliser les paramètres ''first'' et ''last'' ensemble dans la pagination.",
+	"invalid-cursor": "Le curseur fourni est invalide. Veuillez vérifier et réessayer.",
+	"invalid-status-transition": "Impossible de changer le statut de ''{from}'' à ''{to}''."
+}

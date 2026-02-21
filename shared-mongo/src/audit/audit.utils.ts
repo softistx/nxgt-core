@@ -1,8 +1,8 @@
+import { delay } from '@nxgt/shared/helpers';
 import { Mutex } from 'async-mutex';
 import { diff } from 'just-diff';
 import { omit } from 'lodash';
 import mongoose from 'mongoose';
-import { delay } from '../../helpers';
 import { MONGO_UTILS } from '../index';
 import { AuditModel } from './audit.model';
 import type { ChangeListeningOptions } from './audit.types';

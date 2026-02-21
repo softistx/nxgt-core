@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { auditChanges } from './audit';
 import { castError } from './error.utils';
 import * as helpers from './helpers';
@@ -32,3 +33,5 @@ export * from './models';
 export * from './plugins';
 export * from './schema';
 export * from './validation';
+
+export { mongoose };

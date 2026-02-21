@@ -13,5 +13,5 @@ export function max(args: ValidatorOptions<number>) {
 				isNil(value) || (typeof value === 'number' && value <= options.value)
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

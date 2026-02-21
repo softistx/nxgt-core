@@ -1,6 +1,6 @@
+import { type LocaleKey, translate } from '@nxgt/i18n';
+import { cast } from '@nxgt/shared/helpers';
 import { isArray, isNil } from 'lodash';
-import { type LocaleKey, translate } from '../../../i18n';
-import { cast } from '../../helpers';
 import type { MessageType, ValidatorOptions } from './validation.types';
 
 export function parseValidatorOptions<T>(args: ValidatorOptions<T>): {

@@ -1,8 +1,9 @@
-import { CustomException } from '@nxgt/shared/exceptions';
+import type { LocaleKey } from '@nxgt/i18n';
+import { CustomException } from '@nxgt/shared-exceptions';
 import mongoose from 'mongoose';
 
 export function castError(error: mongoose.MongooseError) {
-	let props: { message?: string; options?: object } = {};
+	let props: { message?: LocaleKey; options?: object } = {};
 	if (error instanceof CustomException) {
 		return error;
 	}
@@ -27,7 +28,7 @@ export function castError(error: mongoose.MongooseError) {
 			props = {
 				message: Object.values(error.errors)
 					.map((e) => e.message)
-					.join(' '),
+					.join(' ') as LocaleKey,
 			};
 			break;
 		default:

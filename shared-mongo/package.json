@@ -2,18 +2,37 @@
 	"name": "@nxgt/shared-mongo",
 	"module": "src/index.ts",
 	"type": "module",
-	"devDependencies": {
-		"@types/bun": "latest",
-		"@types/lodash": "^4.17.23"
+	"exports": {
+		".": {
+			"import": "./src/index.ts"
+		}
 	},
-	"peerDependencies": {
-		"typescript": "^5"
+	"scripts": {
+		"tsc": "tsc --noEmit",
+		"check": "biome check --write",
+		"format": "biome format --write",
+		"lint": "biome lint --write"
 	},
 	"dependencies": {
+		"@nxgt/i18n": "workspace:*",
 		"@nxgt/shared": "workspace:*",
+		"@nxgt/shared-exceptions": "workspace:*",
+		"async-mutex": "^0.5.0",
+		"i18next": "^25.8.13",
+		"just-diff": "^6.0.2",
 		"lodash": "^4.17.23",
+		"luxon": "^3.7.2",
 		"mongoose": "^9.2.1",
 		"mongoose-autopopulate": "^1.2.1",
 		"mongoose-lean-virtuals": "^2.1.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.4",
+		"@types/bun": "latest",
+		"@types/lodash": "^4.17.23",
+		"@types/luxon": "^3.7.1"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
 	}
 }

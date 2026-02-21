@@ -1,8 +1,8 @@
+import { type LocaleKey, translate } from '@nxgt/i18n';
+import { CustomException } from '@nxgt/shared-exceptions';
 import { has } from 'lodash';
 import type { Schema } from 'mongoose';
 import mongoose from 'mongoose';
-import { type LocaleKey, translate } from '@/i18n';
-import { CustomException } from '@/shared/exceptions';
 
 export function applySharedOperations(schema: Schema) {
 	schema.static('ensureExists', async function () {

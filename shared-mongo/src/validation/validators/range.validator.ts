@@ -25,5 +25,5 @@ export function range(args: ValidatorOptions<[number, number]>) {
 					value <= options.value[1])
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

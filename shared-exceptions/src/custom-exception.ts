@@ -1,6 +1,7 @@
-import type { StatusCode } from 'hono/utils/http-status';
+import type { LocaleKey } from '@nxgt/i18n';
+import type { StatusCode } from './status';
 
-export class CustomException<T extends string = string> extends Error {
+export class CustomException<T extends string = LocaleKey> extends Error {
 	code: StatusCode;
 	debugMessage?: string;
 	options?: any;
@@ -17,7 +18,7 @@ export class CustomException<T extends string = string> extends Error {
 		this.options = options;
 	}
 
-	static from<T extends string = string>({
+	static from<T extends string = LocaleKey>({
 		message,
 		code,
 		options,
@@ -28,7 +29,7 @@ export class CustomException<T extends string = string> extends Error {
 		return new CustomException(message, code ?? 400, options, debugMessage);
 	}
 
-	static badRequest<T extends string = string>({
+	static badRequest<T extends string = LocaleKey>({
 		message,
 		options,
 		debugMessage,
@@ -36,7 +37,7 @@ export class CustomException<T extends string = string> extends Error {
 		return new CustomException(message, 400, options, debugMessage);
 	}
 
-	static notFound<T extends string = string>({
+	static notFound<T extends string = LocaleKey>({
 		message,
 		options,
 		debugMessage,
@@ -44,7 +45,7 @@ export class CustomException<T extends string = string> extends Error {
 		return new CustomException(message, 404, options, debugMessage);
 	}
 
-	static internal<T extends string = string>({
+	static internal<T extends string = LocaleKey>({
 		message,
 		options,
 		debugMessage,
@@ -52,7 +53,7 @@ export class CustomException<T extends string = string> extends Error {
 		return new CustomException(message, 500, options, debugMessage);
 	}
 
-	static unauthorized<T extends string = string>({
+	static unauthorized<T extends string = LocaleKey>({
 		message,
 		options,
 		debugMessage,
@@ -60,7 +61,7 @@ export class CustomException<T extends string = string> extends Error {
 		return new CustomException(message, 401, options, debugMessage);
 	}
 
-	static forbidden<T extends string = string>({
+	static forbidden<T extends string = LocaleKey>({
 		message,
 		options,
 		debugMessage,
@@ -68,7 +69,7 @@ export class CustomException<T extends string = string> extends Error {
 		return new CustomException(message, 403, options, debugMessage);
 	}
 
-	static conflict<T extends string = string>({
+	static conflict<T extends string = LocaleKey>({
 		message,
 		options,
 		debugMessage,
@@ -77,7 +78,7 @@ export class CustomException<T extends string = string> extends Error {
 	}
 }
 
-export type ErrorProps<T extends string = string> = {
+export type ErrorProps<T extends string = LocaleKey> = {
 	message: T;
 	options?: object;
 	debugMessage?: string;

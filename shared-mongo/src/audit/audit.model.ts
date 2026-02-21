@@ -1,7 +1,7 @@
+import { logger } from '@nxgt/shared';
 import { redis } from 'bun';
 import type { HydratedDocument, Model } from 'mongoose';
 import { model, Schema } from 'mongoose';
-import { logger } from '@/shared/logging';
 import { pagination } from '../plugins/pagination';
 import { CommitType } from './audit.types';
 import { AUDIT_EVENT } from './audit.utils';

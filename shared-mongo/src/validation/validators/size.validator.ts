@@ -25,5 +25,5 @@ export function size(args: ValidatorOptions<[number, number]>) {
 					value.length <= options.value[1])
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

@@ -1,0 +1,30 @@
+{
+	"name": "@nxgt/i18n",
+	"module": "src/index.ts",
+	"type": "module",
+	"exports": {
+		".": {
+			"import": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"tsc": "tsc --noEmit",
+		"check": "biome check --write",
+		"format": "biome format --write",
+		"lint": "biome lint --write"
+	},
+	"dependencies": {
+		"@nxgt/shared": "workspace:*",
+		"hono": "^4.12.1",
+		"intl-messageformat": "^11.1.2",
+		"lodash": "^4.17.23"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.4",
+		"@types/bun": "latest",
+		"@types/lodash": "^4.17.23"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
+}

@@ -18,5 +18,5 @@ export function maxLength(args: ValidatorOptions<number>) {
 				(isArray(value) && value.length <= options.value)
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

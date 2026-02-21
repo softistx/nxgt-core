@@ -13,5 +13,5 @@ export function notBlank(args: ValidatorOptions<true>) {
 				isNil(value) || (typeof value === 'string' && !isEmpty(value.trim()))
 			);
 		},
-	} satisfies ValidateOpts<object, object, object>;
+	} satisfies ValidateOpts<object, object>;
 }

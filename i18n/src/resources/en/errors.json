@@ -1,0 +1,17 @@
+{
+	"not-found": "Could not find the requested resource.",
+	"unauthenticated": "You're not authenticated",
+	"duplicate-key": "There was a duplicate key error. Please, check data and try again",
+	"something-went-wrong": "Something went wrong. Please, check and try again.",
+	"insufficient-permissions": "You don't have required permissions to access this resource. Please, contact your administrator.",
+	"cast-failed": "Incorrect value for the field ''{field}''. Please, check the value and try again.",
+	"server-connection-failed": "Failed to connect to the database server. Please, contact your administrator.",
+	"forbidden": "You don't have necessary permission to access this resource. Please, contact your administrator.",
+	"optimistic-lock-failed": "The resource has been modified by another user. Please refresh and try again.",
+	"internal-server-error": "Internal server error. Please, contact your administrator.",
+	"validation-failed": "Validation failed for one or more fields. Please, check the data and try again.",
+	"address-blocked": "The access is blocked for address ``{address}``.",
+	"could-not-use-first-and-last-together": "You cannot use ''first'' and ''last'' parameters together in pagination.",
+	"invalid-cursor": "The provided cursor is invalid. Please, check and try again.",
+	"invalid-status-transition": "Cannot change status from ''{from}'' to ''{to}''."
+}

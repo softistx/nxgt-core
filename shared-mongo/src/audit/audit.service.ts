@@ -1,5 +1,5 @@
+import { castAsync } from '@nxgt/shared/helpers';
 import type { QueryFilter } from 'mongoose';
-import { castAsync } from '../../helpers';
 import type { IPaginatedType, PaginationOptions } from '../plugins';
 import { type Audit, type AuditDocument, AuditModel } from './audit.model';
 import type { Change } from './audit.types';
