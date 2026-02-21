@@ -171,7 +171,7 @@ export function generateEntityEtag(entity: object, prefix?: string): string {
 
 export function generateEtagForList(data: any, prefix?: string): string {
 	if (!Array.isArray(data) || data.length === 0) {
-		return null;
+		return '';
 	}
 	return hexaHash(
 		`${data.map((entity) => getField(entity, 'id', prefix)).join('.')}-${extractLastModifiedDateFromList(data, prefix).getTime()}`,

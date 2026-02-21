@@ -169,13 +169,13 @@ export function applyPagination(schema: Schema) {
 
 		// Apply limit only if specified (fetch one extra to determine if there are more pages)
 		if (hasLimit) {
-			query.limit(Math.max(limit, 1) + 1);
+			query.limit(Math.max(limit ?? 0, 1) + 1);
 		}
 
 		const docs = await query.exec();
 
 		// If using 'last', reverse the results back to normal order
-		const hasExtraDoc = hasLimit && docs.length > (limit as number);
+		const hasExtraDoc = !!hasLimit && docs.length > (limit as number);
 		const resultDocs = hasExtraDoc ? docs.slice(0, limit) : docs;
 		if (last) {
 			resultDocs.reverse();

@@ -38,7 +38,7 @@ export function castError(error: mongoose.MongooseError) {
 	}
 
 	return CustomException.badRequest({
-		message: props.message,
+		message: props.message || '',
 		options: props.options,
 		debugMessage: error.message,
 	});

@@ -2,7 +2,7 @@ import { hash } from 'bun';
 import { Types } from 'mongoose';
 
 export const isNumericString = (value: string | undefined): boolean => {
-	return (value?.length ?? 0) > 0 && /^\d+$/.test(value);
+	return (value?.length ?? 0) > 0 && /^\d+$/.test(value || '');
 };
 
 export const objectFromString = (value: string): any => {

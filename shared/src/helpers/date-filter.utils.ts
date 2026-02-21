@@ -1,4 +1,4 @@
-import type { DateRangeFilter } from '@/models';
+import type { DateRangeFilter } from '../models';
 
 /**
  * Helper to build MongoDB date range filter from DateRangeFilter

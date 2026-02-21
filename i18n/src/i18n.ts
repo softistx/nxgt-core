@@ -10,7 +10,7 @@ export function translate(
 	key: LocaleKey,
 	context: TranslationContext = undefined,
 ) {
-	const language = tryGetContext()?.get('language') ?? 'en';
+	const language = tryGetContext()?.get('language' as never) ?? 'en';
 
 	let message: string = _.get(resources[language], key) ?? key;
 	try {

@@ -1,4 +1,4 @@
-import type { StringArrayFilter } from '@/models';
+import type { StringArrayFilter } from '../models';
 
 /**
  * Helper to build MongoDB filter from ArrayFilter
