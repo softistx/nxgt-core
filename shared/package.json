@@ -2,8 +2,32 @@
 	"name": "@nxgt/shared",
 	"module": "src/index.ts",
 	"type": "module",
+	"exports": {
+		".": {
+			"import": "./src/index.ts"
+		},
+		"./helpers": {
+			"import": "./src/helpers/index.ts"
+		},
+		"./models": {
+			"import": "./src/models/index.ts"
+		},
+		"./types": {
+			"import": "./src/types/index.ts"
+		},
+		"./exceptions": {
+			"import": "./src/exceptions/index.ts"
+		},
+		"./logging": {
+			"import": "./src/logging/index.ts"
+		},
+		"./caching": {
+			"import": "./src/caching/index.ts"
+		}
+	},
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "latest",
+		"@types/lodash": "^4.17.23"
 	},
 	"peerDependencies": {
 		"typescript": "^5"
