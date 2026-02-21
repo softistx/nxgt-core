@@ -1,5 +1,5 @@
-import type { LocaleKey } from '@/i18n';
-import type { ErrorProps } from '@/shared/exceptions';
+import type { LocaleKey } from '@nxgt/i18n';
+import type { ErrorProps } from '@nxgt/shared-exceptions';
 import type { StatusCode } from 'hono/utils/http-status';
 
 declare module 'mongoose' {

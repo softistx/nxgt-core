@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export type StringArrayFilter = {
-	values: string[];
-	operator: 'or' | 'and';
+	values?: string[];
+	operator?: 'or' | 'and';
 };
 
 export type DateRangeFilter = {

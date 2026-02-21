@@ -1,7 +1,7 @@
 import { type LocaleKey, translate } from '@nxgt/i18n';
 import { CustomException } from '@nxgt/shared-exceptions';
 import type { Schema } from 'mongoose';
-import { castError } from '../error.utils';
+import { castError } from '../utils/error.utils';
 
 export const errors = (schema: Schema) => {
 	schema.post(

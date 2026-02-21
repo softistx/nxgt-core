@@ -39,3 +39,18 @@ export function cast<T>(value: any) {
 export async function castAsync<T>(value: Promise<any>) {
 	return <T>await value;
 }
+
+/**
+ * Converts a value that can be of type T, null, or undefined into a non-nullable type T. If the value is null or undefined, it throws a TypeError with a message indicating the expected type and the actual value.
+ * @param value - The value to be converted to a non-nullable type.
+ * @param context - An optional string that provides context for the error message if the value is null or undefined. Defaults to 'value'.
+ */
+export function nonNullable<T>(
+	value: T | null | undefined,
+	context = 'value',
+): T {
+	if (value == null || value === undefined) {
+		throw new TypeError(`Expected non-nullable ${context}, got ${value}`);
+	}
+	return value;
+}
