@@ -1,10 +1,9 @@
 import { createReadStream } from 'node:fs';
 import type { CursorPaginationParams } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
-import { mongoose } from '@nxgt/shared-mongo';
+import { type mongo, mongoose } from '@nxgt/shared-mongo';
 import { ObjectId } from 'bson';
 import { pick } from 'lodash';
-import type { mongo } from 'mongoose';
 
 export type GridFSBucketNames =
 	| 'avatars'

@@ -19,8 +19,7 @@
 		"@nxgt/shared-exceptions": "workspace:*",
 		"@nxgt/shared-mongo": "workspace:*",
 		"lodash": "^4.17.23",
-		"minio": "^8.0.6",
-		"mongoose": "^9.2.1"
+		"minio": "^8.0.6"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",

@@ -27,6 +27,8 @@ export const MONGO_UTILS = {
 	],
 };
 
+export * from 'async-mutex';
+export * from 'mongoose';
 export * from './helpers';
 export * from './mappers';
 export * from './models';

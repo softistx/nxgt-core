@@ -4,7 +4,12 @@
 	"type": "module",
 	"exports": {
 		".": {
-			"import": "./src/index.ts"
+			"import": "./src/index.ts",
+			"types": [
+				"./src/index.ts",
+				"./src/mongoose.d.ts",
+				"./src/plugins/pagination/mongoose.d.ts"
+			]
 		}
 	},
 	"scripts": {
