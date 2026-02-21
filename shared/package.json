@@ -1,0 +1,19 @@
+{
+	"name": "@nxgt/shared",
+	"module": "src/index.ts",
+	"type": "module",
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"dependencies": {
+		"@hono/zod-validator": "^0.7.6",
+		"hono": "^4.12.1",
+		"lodash": "^4.17.23",
+		"mongoose": "^9.2.1",
+		"winston": "^3.19.0",
+		"winston-daily-rotate-file": "^5.0.0"
+	}
+}
