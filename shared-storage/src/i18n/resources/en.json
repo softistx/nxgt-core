@@ -1,0 +1,15 @@
+{
+	"errors": {
+		"write-failed": "Failed to upload file to storage.",
+		"list-failed": "Failed to list storage objects.",
+		"file-failed": "Failed to retrieve storage file.",
+		"exists-failed": "Failed to check if file exists in storage.",
+		"presign-failed": "Failed to generate presigned URL for storage file.",
+		"delete-failed": "Failed to delete file from storage.",
+		"size-failed": "Failed to get file size from storage.",
+		"stat-failed": "Failed to get file stats from storage.",
+		"unlink-failed": "Failed to unlink file from storage.",
+		"fetch-failed": "Failed to fetch file from storage.",
+		"file-not-found": "File ''{key}'' not found in storage."
+	}
+}
