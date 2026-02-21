@@ -11,38 +11,36 @@ const FILE = ts.factory.createTypeReferenceNode(
 );
 const NULL = ts.factory.createLiteralTypeNode(ts.factory.createNull());
 
-export async function generateOpenapiTS({
-	input,
-	outputFolder,
-	outputFileName,
-}: {
-	input?: string;
-	outputFolder?: string;
-	outputFileName?: string;
-} = {}) {
-	const ast = await openapiTS(
-		new URL(input ?? 'openapi/api-docs.yaml', import.meta.url),
-		{
-			transform(schemaObject, _metadata) {
-				if (schemaObject.format === 'date-time') {
-					return {
-						schema: schemaObject.nullable
-							? ts.factory.createUnionTypeNode([DATE, NULL])
-							: DATE,
-						questionToken: true,
-					};
-				}
-				if (schemaObject.format === 'binary') {
-					return {
-						schema: schemaObject.nullable
-							? ts.factory.createUnionTypeNode([FILE, NULL])
-							: FILE,
-						questionToken: true,
-					};
-				}
-			},
+export async function generateOpenapiTS(
+	input: string | URL,
+	{
+		outputFolder,
+		outputFileName,
+	}: {
+		outputFolder?: string;
+		outputFileName?: string;
+	} = {},
+) {
+	const ast = await openapiTS(input, {
+		transform(schemaObject, _metadata) {
+			if (schemaObject.format === 'date-time') {
+				return {
+					schema: schemaObject.nullable
+						? ts.factory.createUnionTypeNode([DATE, NULL])
+						: DATE,
+					questionToken: true,
+				};
+			}
+			if (schemaObject.format === 'binary') {
+				return {
+					schema: schemaObject.nullable
+						? ts.factory.createUnionTypeNode([FILE, NULL])
+						: FILE,
+					questionToken: true,
+				};
+			}
 		},
-	);
+	});
 
 	let exists = false;
 	const outputPath = outputFolder ?? './src/generated';
