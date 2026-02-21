@@ -1,0 +1,10 @@
+type: object
+properties:
+  filter:
+    type: object
+    description: The search filter object
+  sort:
+    type: array
+    items:
+      $ref: ./SortField.yaml
+    description: Array of sort fields with key and order

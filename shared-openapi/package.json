@@ -1,0 +1,25 @@
+{
+	"name": "@nxgt/shared-openapi",
+	"module": "src/index.ts",
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.4",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"@hey-api/openapi-ts": "^0.92.4",
+		"openapi-typescript": "^7.13.0",
+		"typescript": "^5"
+	},
+	"exports": {
+		".": {
+			"import": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"tsc": "tsc --noEmit",
+		"check": "biome check --write",
+		"format": "biome format --write",
+		"lint": "biome lint --write"
+	},
+	"type": "module"
+}
