@@ -1,5 +1,6 @@
 import { auditChanges } from '../audit';
 import { applyPlugins } from '../plugins';
+import { clearDatabase } from './db.utils';
 import { castError } from './error.utils';
 
 import * as helpers from './helpers';
@@ -9,6 +10,7 @@ export const MONGO_UTILS = {
 	applyPlugins,
 	castError,
 	auditChanges,
+	clearDatabase,
 	...mappers,
 	...helpers,
 	timestamps: { createdAt: 'createdDate', updatedAt: 'lastModifiedDate' },
