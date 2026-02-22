@@ -4,11 +4,11 @@ import fr from './fr.json';
 
 export const resources = {
 	en: {
-		...en,
+		storage: en,
 		...shared.en,
 	},
 	fr: {
-		...fr,
+		storage: fr,
 		...shared.fr,
 	},
 };

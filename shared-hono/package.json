@@ -1,5 +1,5 @@
 {
-	"name": "@nxgt/i18n",
+	"name": "@nxgt/shared-hono",
 	"module": "src/index.ts",
 	"type": "module",
 	"exports": {
@@ -11,10 +11,13 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@nxgt/i18n": "workspace:*",
 		"@nxgt/shared": "workspace:*",
+		"@nxgt/shared-exceptions": "workspace:*",
+		"@nxgt/shared-mongo": "workspace:*",
 		"hono": "^4.12.1",
-		"intl-messageformat": "^11.1.2",
-		"lodash": "^4.17.23"
+		"lodash": "^4.17.23",
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@types/bun": "latest",

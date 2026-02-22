@@ -1,4 +1,3 @@
-import { translate } from '@nxgt/i18n';
 import { omit, STRINGS_UTILS } from '@nxgt/shared/helpers';
 import { getLogger } from '@nxgt/shared/logging';
 import { CustomException } from '@nxgt/shared-exceptions';
@@ -10,6 +9,7 @@ import {
 	type S3Options,
 } from 'bun';
 import { env } from '../env';
+import { translate } from '../i18n';
 import { MinioService } from './minio.service';
 
 export const S3_CREDENTIALS = {

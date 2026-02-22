@@ -1,4 +1,4 @@
-import { type LocaleKey, translate } from '@nxgt/i18n';
+import type { LocaleKey } from '@nxgt/i18n';
 import { CustomException } from '@nxgt/shared-exceptions';
 import type { Schema } from 'mongoose';
 import { castError } from '../utils/error.utils';
@@ -50,9 +50,7 @@ export const errors = (schema: Schema) => {
 		if (!doc) {
 			const localeKey = `${this.model.collection.collectionName}.errors.not-found`;
 			throw CustomException.notFound({
-				message: (translate(localeKey as LocaleKey) === localeKey
-					? 'errors.not-found'
-					: localeKey) as LocaleKey,
+				message: localeKey as LocaleKey,
 			});
 		}
 		next();

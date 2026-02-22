@@ -8,17 +8,13 @@
 		}
 	},
 	"scripts": {
-		"tsc": "tsc --noEmit",
-		"check": "biome check --write",
-		"format": "biome format --write",
-		"lint": "biome lint --write"
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@hono/zod-validator": "^0.7.6",
 		"@nxgt/i18n": "workspace:*"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.4",
 		"@types/bun": "latest"
 	},
 	"peerDependencies": {

@@ -1,6 +1,6 @@
-import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared/logging';
 import type { ListStringPatch } from '@nxgt/shared/models';
+import { CustomException } from '@nxgt/shared-exceptions';
 import { isNil } from 'lodash';
 import type { Model, PipelineStage, QueryFilter, UpdateQuery } from 'mongoose';
 import mongoose from 'mongoose';

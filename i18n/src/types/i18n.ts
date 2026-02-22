@@ -1,5 +1,5 @@
 import type { FlatObject } from '@nxgt/shared/types';
-import type { resources } from './resources';
+import type { resources } from '../resources';
 
 export type LocaleKey = keyof FlatObject<typeof resources.en, string>;
 

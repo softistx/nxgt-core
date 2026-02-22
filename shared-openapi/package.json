@@ -2,7 +2,6 @@
 	"name": "@nxgt/shared-openapi",
 	"module": "src/index.ts",
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.4",
 		"@types/bun": "latest"
 	},
 	"peerDependencies": {
@@ -16,10 +15,7 @@
 		}
 	},
 	"scripts": {
-		"tsc": "tsc --noEmit",
-		"check": "biome check --write",
-		"format": "biome format --write",
-		"lint": "biome lint --write"
+		"typecheck": "tsc --noEmit"
 	},
 	"type": "module"
 }

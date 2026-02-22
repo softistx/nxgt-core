@@ -8,10 +8,7 @@
 		}
 	},
 	"scripts": {
-		"tsc": "tsc --noEmit",
-		"check": "biome check --write",
-		"format": "biome format --write",
-		"lint": "biome lint --write"
+		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@nxgt/i18n": "workspace:*",
@@ -22,7 +19,6 @@
 		"minio": "^8.0.6"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.4",
 		"@types/bun": "latest",
 		"@types/lodash": "^4.17.23"
 	},
