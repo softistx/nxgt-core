@@ -10,7 +10,7 @@ export function secured(
 		const logger = ctx.get('logger') || getLogger();
 
 		logger.info('Secured middleware: checking authorities');
-		const user = ctx.get('user');
+		const user = ctx.get('principal');
 
 		if (!user) {
 			logger.error(`Unauthenticated access attempt`);
