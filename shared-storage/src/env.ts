@@ -4,7 +4,7 @@ import { z } from 'zod';
 // Define schema
 const envSchema = z.object({
 	// S3
-	S3_ENDPOINT: z.string().default('http://localhost:9000'),
+	S3_ENDPOINT: z.string().default('http://host.docker.internal:9000'),
 	S3_USER: z.string().default('minio'),
 	S3_PASSWORD: z.string().default('minio123'),
 	S3_BUCKET: z.string().default('uploads'),
