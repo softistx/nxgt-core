@@ -6,6 +6,8 @@ export const PrincipalSchema = z.object({
 	email: z.email(),
 	authorities: z.array(z.string()),
 	birthDate: z.coerce.date().nullish(),
+	firstName: z.string().nullish(),
+	lastName: z.string().nullish(),
 });
 
 export type Principal = z.infer<typeof PrincipalSchema>;

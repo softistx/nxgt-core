@@ -5,6 +5,9 @@
 	"exports": {
 		".": {
 			"import": "./src/index.ts"
+		},
+		"./openapi-fetch": {
+			"import": "./src/openapi-fetch.ts"
 		}
 	},
 	"scripts": {
@@ -17,6 +20,7 @@
 		"@nxgt/shared-mongo": "workspace:*",
 		"hono": "^4.12.1",
 		"lodash": "^4.17.23",
+		"openapi-fetch": "^0.17.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
