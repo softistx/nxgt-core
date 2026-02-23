@@ -19,7 +19,7 @@ describe('StorageService', () => {
 	describe('write', async () => {
 		test('Should write a file to S3', async () => {
 			await service.write(filename, image);
-			expect(await service.exists(filename)).toBe(true);
+			expect(await service.exists(filename)).toBeTrue();
 			expect((await service.stat(filename)).size).toBeGreaterThan(0);
 		});
 
@@ -38,7 +38,7 @@ describe('StorageService', () => {
 	describe('delete', () => {
 		test('Should delete a file from S3', async () => {
 			await service.write(filename, image);
-			expect(await service.exists(filename)).toBe(true);
+			expect(await service.exists(filename)).toBeTrue();
 			await service.delete(filename);
 			expect(await service.exists(filename)).toBe(false);
 		});

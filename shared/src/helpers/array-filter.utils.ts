@@ -10,9 +10,7 @@ export function buildArrayFilter(arrayFilter: StringArrayFilter | undefined) {
 		return undefined;
 	}
 
-	// Use $all for 'and' operator (all values must match)
-	// Use $in for 'or' operator (any value must match)
-	const operator = arrayFilter.operator === 'and' ? '$all' : '$in';
-
-	return { [operator]: arrayFilter.values };
+	return arrayFilter.operator === 'and'
+		? { $all: arrayFilter.values }
+		: arrayFilter.values;
 }

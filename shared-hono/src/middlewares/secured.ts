@@ -33,8 +33,7 @@ export function secured(
 			}
 
 			if (
-				user.authorities?.filter((authority) => authorities.includes(authority))
-					.length === authorities.length
+				user.authorities?.every((authority) => authorities.includes(authority))
 			) {
 				await next();
 				return;

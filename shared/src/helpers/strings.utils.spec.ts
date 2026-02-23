@@ -11,9 +11,9 @@ import {
 
 describe('isNumericString', () => {
 	it('should return true for valid numeric strings', () => {
-		expect(isNumericString('123')).toBe(true);
-		expect(isNumericString('0')).toBe(true);
-		expect(isNumericString('999')).toBe(true);
+		expect(isNumericString('123')).toBeTrue();
+		expect(isNumericString('0')).toBeTrue();
+		expect(isNumericString('999')).toBeTrue();
 	});
 
 	it('should return false for non-numeric strings', () => {
