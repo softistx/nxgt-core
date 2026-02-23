@@ -78,8 +78,8 @@ export class CustomException<T extends string = LocaleKey> extends Error {
 	}
 }
 
-export type ErrorProps<T extends string = LocaleKey> = {
+export interface ErrorProps<T extends string = LocaleKey> {
 	message: T;
 	options?: object;
 	debugMessage?: string;
-};
+}
