@@ -20,4 +20,4 @@ export const USER_HEADERS = {
 	LAST_NAME: 'X-User-Lastname',
 	BIRTH_DATE: 'X-User-Birthdate',
 	AUTHORITIES: 'X-User-Authorities',
-};
+} as const;

@@ -1,0 +1,39 @@
+import { tryGetContext } from 'hono/context-storage';
+import type { Middleware } from 'openapi-fetch';
+import { USER_HEADERS } from '../models';
+
+export function openfetchServiceUser(): Middleware {
+	const ctx = tryGetContext();
+	return {
+		async onRequest({ request }) {
+			if (ctx?.get(USER_HEADERS.ID)) {
+				request.headers.set(USER_HEADERS.ID, ctx.get(USER_HEADERS.ID) || '');
+				request.headers.set(
+					USER_HEADERS.USERNAME,
+					ctx.get(USER_HEADERS.USERNAME) || '',
+				);
+				request.headers.set(
+					USER_HEADERS.EMAIL,
+					ctx.get(USER_HEADERS.EMAIL) || '',
+				);
+				request.headers.set(
+					USER_HEADERS.FIRST_NAME,
+					ctx.get(USER_HEADERS.FIRST_NAME) || '',
+				);
+				request.headers.set(
+					USER_HEADERS.LAST_NAME,
+					ctx.get(USER_HEADERS.LAST_NAME) || '',
+				);
+				request.headers.set(
+					USER_HEADERS.BIRTH_DATE,
+					ctx.get(USER_HEADERS.BIRTH_DATE) || '',
+				);
+				request.headers.set(
+					USER_HEADERS.AUTHORITIES,
+					ctx.get(USER_HEADERS.AUTHORITIES)?.join(',') || '',
+				);
+			}
+			return request;
+		},
+	};
+}
