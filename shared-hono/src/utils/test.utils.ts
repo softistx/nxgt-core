@@ -1,6 +1,6 @@
+import { type Principal, USER_HEADERS } from '@nxgt/shared/models';
 import { mongoose } from '@nxgt/shared-mongo';
 import type { Middleware } from 'openapi-fetch';
-import { type Principal, USER_HEADERS } from '../models';
 
 export function mockUser(
 	values: Omit<Principal, 'authorities' | 'id'> & {

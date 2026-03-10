@@ -1,5 +1,5 @@
+import { type Principal, USER_HEADERS } from '@nxgt/shared/models';
 import { createMiddleware } from 'hono/factory';
-import { type Principal, USER_HEADERS } from '../models';
 
 export const currentUser = () =>
 	createMiddleware(async (ctx, next) => {
@@ -34,3 +34,5 @@ export const currentUser = () =>
 
 		return next();
 	});
+
+export { USER_HEADERS, type Principal };

@@ -27,6 +27,7 @@
 	},
 	"dependencies": {
 		"@hono/zod-validator": "^0.7.6",
+		"bullmq": "^5.70.4",
 		"hono": "^4.12.1",
 		"lodash": "^4.17.23",
 		"mongoose": "^9.2.1",

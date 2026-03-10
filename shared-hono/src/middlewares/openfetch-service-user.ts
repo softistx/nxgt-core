@@ -1,6 +1,6 @@
+import { USER_HEADERS } from '@nxgt/shared/models';
 import { tryGetContext } from 'hono/context-storage';
 import type { Middleware } from 'openapi-fetch';
-import { USER_HEADERS } from '../models';
 
 export function openfetchServiceUser(): Middleware {
 	const ctx = tryGetContext();
