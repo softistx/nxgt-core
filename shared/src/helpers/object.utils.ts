@@ -1,3 +1,6 @@
+import camelCaseKeys from 'camelcase-keys';
+import snakeCaseKeys from 'snakecase-keys';
+
 export function pick<Data extends object, Key extends keyof Data>(
 	data: Data,
 	keys: Key | Key[],
@@ -54,3 +57,17 @@ export function nonNullable<T>(
 	}
 	return value;
 }
+
+export const toCamelCase = <T>(
+	obj: any,
+	{ deep }: { deep: boolean } = { deep: true },
+): T => {
+	return camelCaseKeys(obj, { deep }) as T;
+};
+
+export const toSnakeCase = <T>(
+	obj: any,
+	{ deep }: { deep: boolean } = { deep: true },
+): T => {
+	return snakeCaseKeys(obj, { deep }) as T;
+};
