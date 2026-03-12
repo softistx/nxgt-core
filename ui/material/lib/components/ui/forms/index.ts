@@ -7,7 +7,6 @@ export * from './date-range-form-field';
 export * from './files-form-field';
 export * from './form-field';
 export * from './image-form-field';
-export * from './location-form-field';
 export * from './number-form-field';
 export * from './otp-form-field';
 export * from './radio-group-form-field';

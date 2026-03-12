@@ -4,7 +4,6 @@ import { CheckboxGroup } from '../checkbox-group';
 import { DateField } from '../date-field';
 import { DateRangeField } from '../date-range-field';
 import { ImageField } from '../image-field';
-import { LocationField } from '../location-field';
 import { OtpField } from '../otp-field';
 import { RadioGroup } from '../radio-group';
 import { RichTextEditor } from '../rich-text-editor/rich-text-editor';
@@ -64,9 +63,6 @@ export function RenderField(config: FieldConfig) {
 
 		case 'time':
 			return <TimeField {...(props as any)} />;
-
-		case 'location':
-			return <LocationField {...(props as any)} />;
 
 		case 'image':
 			return <ImageField {...(props as any)} />;

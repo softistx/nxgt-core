@@ -4,7 +4,6 @@ import type { CheckboxGroupProps } from '../checkbox-group';
 import type { DateFieldProps } from '../date-field';
 import type { DateRangeFieldProps } from '../date-range-field';
 import type { ImageFieldProps } from '../image-field';
-import type { LocationFieldProps } from '../location-field';
 import type { OtpFieldProps } from '../otp-field';
 import type { RadioGroupProps } from '../radio-group';
 import type { RichTextEditorProps } from '../rich-text-editor/rich-text-editor';
@@ -57,7 +56,6 @@ export type FieldConfig =
 	| ({ type: 'date-range' } & DateRangeFieldProps)
 	| ({ type: 'slider' } & SliderProps)
 	| ({ type: 'time' } & TimeFieldProps)
-	| ({ type: 'location' } & LocationFieldProps)
 	| ({ type: 'image' } & ImageFieldProps)
 	| ({ type: 'upload' } & UploadFieldProps)
 	| ({ type: 'otp' } & OtpFieldProps)

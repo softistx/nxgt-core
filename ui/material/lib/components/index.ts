@@ -40,8 +40,6 @@ export * from './ui/image-field';
 export * from './ui/input';
 export * from './ui/label';
 export * from './ui/list-tile';
-export * from './ui/location-field';
-export * from './ui/map';
 export * from './ui/menubar';
 export * from './ui/navigation-rail';
 export * from './ui/otp-field';

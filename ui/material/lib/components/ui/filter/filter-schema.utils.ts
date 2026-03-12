@@ -214,7 +214,7 @@ export function mapFilterFieldToFieldConfig(
 				type: 'date',
 				...baseConfig,
 				value: value instanceof Date ? value : undefined,
-				onValueChange: (date) => onChange(date || null),
+				onValueChange: (date: any) => onChange(date || null),
 			};
 
 		case 'date-range': {
@@ -227,7 +227,7 @@ export function mapFilterFieldToFieldConfig(
 				type: 'date-range',
 				...baseConfig,
 				value: dateRange,
-				onValueChange: (range) => {
+				onValueChange: (range: any) => {
 					if (range) {
 						const r = range as { from?: Date; to?: Date };
 						onChange({ start: r.from, end: r.to });
@@ -244,7 +244,7 @@ export function mapFilterFieldToFieldConfig(
 				...baseConfig,
 				step: field.step,
 				value: value ? [Number(value)] : [0],
-				onValueChange: (value) => onChange(value[0] ?? 0),
+				onValueChange: (value: any) => onChange(value[0] ?? 0),
 			};
 
 		default:
