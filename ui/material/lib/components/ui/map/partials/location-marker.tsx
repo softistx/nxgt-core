@@ -1,8 +1,10 @@
+'use client';
+
 import { MapPin } from 'lucide-react';
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
-import { useGeolocation } from '../../../../hooks';
 import { IconButton } from '../../..';
+import { useGeolocation } from '../../../../hooks';
 import { Marker, type MarkerProps } from './marker';
 
 export type LocationMarkerProps = {

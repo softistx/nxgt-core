@@ -1,3 +1,5 @@
+'use client';
+
 import type { LatLng } from 'leaflet';
 import { MapPin } from 'lucide-react';
 import { type ReactNode, useCallback, useState } from 'react';

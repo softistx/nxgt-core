@@ -1,3 +1,5 @@
+'use client';
+
 import {
 	Marker as BaseMaker,
 	type MarkerProps as BaseMarkerProps,

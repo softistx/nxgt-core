@@ -1,3 +1,5 @@
+'use client';
+
 import { Activity } from 'react';
 import {
 	MapContainer,
@@ -5,7 +7,7 @@ import {
 	TileLayer,
 	ZoomControl,
 } from 'react-leaflet';
-import { useGeolocation } from '../../../hooks';
+import { useGeolocation, useMounted } from '../../../hooks';
 import { cn } from '../../../lib/utils';
 import { MinimapControl } from './partials';
 
@@ -20,7 +22,10 @@ export function MapComponent({
 	scrollWheelZoom = false,
 	...props
 }: MapProps) {
+	const mounted = useMounted();
 	const { coords } = useGeolocation();
+
+	if (!mounted) return null;
 
 	return (
 		<MapContainer

@@ -1,3 +1,5 @@
+'use client';
+
 import type { LatLngExpression } from 'leaflet';
 import { MapIcon } from 'lucide-react';
 import { type PropsWithChildren, useState } from 'react';

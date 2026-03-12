@@ -1,9 +1,11 @@
+'use client';
+
 import { Minus, Plus } from 'lucide-react';
 import { type ComponentProps, useCallback, useEffect } from 'react';
 import { useMap } from 'react-leaflet';
+import { IconButton } from '../../..';
 import { useGeolocation } from '../../../../hooks';
 import { cn } from '../../../../lib/utils';
-import { IconButton } from '../../..';
 import { POSITION_CLASSES } from '../consts';
 
 export type MapActionsProps = {

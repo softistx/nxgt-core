@@ -1,3 +1,5 @@
+'use client';
+
 import { type Control, Controller, type Path } from 'react-hook-form';
 import { LocationField, type LocationFieldProps } from '../location-field';
 

@@ -1,3 +1,5 @@
+'use client';
+
 import { useEventHandlers, useLeafletContext } from '@react-leaflet/core';
 import type { LeafletMouseEvent, Map as MapType } from 'leaflet';
 import { useCallback, useMemo, useState } from 'react';
