@@ -1,0 +1,49 @@
+import type { Meta, StoryObj } from '@storybook/react';
+import { Atom } from 'lucide-react';
+import { useState } from 'react';
+import { SelectChipField } from './select-chip-field';
+import { frameworks } from './stories-consts';
+
+const meta = {
+	title: 'Inputs/SelectChipField',
+	component: SelectChipField,
+	parameters: {
+		layout: 'centered',
+	},
+	tags: ['autodocs'],
+	argTypes: {},
+	args: {},
+} satisfies Meta<typeof SelectChipField>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Simple: Story = {
+	args: {
+		mode: 'single',
+		label: 'Select framework',
+		value: [],
+		options: frameworks.map((item) => ({ ...item, icon: <Atom /> })),
+	},
+	render: function Component(props) {
+		const [value, setValue] = useState<string[]>([]);
+		return (
+			<SelectChipField {...props} value={value} onValueChange={setValue} />
+		);
+	},
+};
+
+export const Multiple: Story = {
+	args: {
+		...Simple.args,
+		error: true,
+		helperText: 'Please, provide only supported frameworks',
+		mode: 'multiple',
+	},
+	render: function Component(props) {
+		const [value, setValue] = useState<string[]>([]);
+		return (
+			<SelectChipField {...props} value={value} onValueChange={setValue} />
+		);
+	},
+};

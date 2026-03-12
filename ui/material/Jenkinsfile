@@ -1,0 +1,27 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build & Test') {
+            agent {
+                docker {
+                    image 'oven/bun:1-alpine' 
+                    args '-v $HOME/.bun:/root/.bun'
+                }
+            }
+            steps {
+                sh 'bun i --frozen-lockfile'
+                sh 'bun test'
+                sh 'bun tsc'
+                sh 'bun biome check'
+                sh 'bun run build'
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
