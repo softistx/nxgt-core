@@ -1,1 +1,1 @@
-import './hono';
+import './hono.d.ts';
