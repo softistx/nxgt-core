@@ -1,5 +1,5 @@
-import type { FlatObject } from '@nxgt/shared/types';
 import type { resources } from '../resources';
+import type { FlatObject } from './path';
 
 export type LocaleKey = keyof FlatObject<typeof resources.en, string>;
 
@@ -16,5 +16,3 @@ export type TranslationContext =
 				| Record<string, any>;
 	  }
 	| undefined;
-
-export type { FlatObject };
