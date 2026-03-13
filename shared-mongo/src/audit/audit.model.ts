@@ -1,4 +1,4 @@
-import { logger } from '@nxgt/shared';
+import { logger } from '@nxgt/shared-logging';
 import { redis } from 'bun';
 import type { HydratedDocument, Model } from 'mongoose';
 import { model, Schema } from 'mongoose';

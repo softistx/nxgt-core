@@ -1,5 +1,4 @@
 import { cast } from '@nxgt/shared/helpers';
-import { logger } from '@nxgt/shared/logging';
 import { tryGetContext } from 'hono/context-storage';
 import { IntlMessageFormat } from 'intl-messageformat';
 import _ from 'lodash';
@@ -31,7 +30,7 @@ export function createTranslator<K extends string = LocaleKey>(
 		try {
 			message = cast(new IntlMessageFormat(message, language).format(context));
 		} catch (e) {
-			logger.error(e);
+			console.error(e);
 		}
 
 		return message;

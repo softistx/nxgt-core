@@ -16,6 +16,7 @@
 	"dependencies": {
 		"@nxgt/i18n": "workspace:*",
 		"@nxgt/shared": "workspace:*",
+		"@nxgt/shared-logging": "workspace:*",
 		"@nxgt/shared-exceptions": "workspace:*",
 		"@nxgt/shared-mongo": "workspace:*",
 		"hono": "^4.12.1",

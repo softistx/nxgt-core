@@ -1,6 +1,6 @@
 import { omit, STRINGS_UTILS } from '@nxgt/shared/helpers';
-import { getLogger } from '@nxgt/shared/logging';
 import { CustomException } from '@nxgt/shared-exceptions';
+import { getLogger } from '@nxgt/shared-logging';
 import {
 	fetch,
 	S3Client,

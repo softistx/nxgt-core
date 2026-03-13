@@ -1,5 +1,5 @@
 {
-	"name": "@nxgt/shared-storage",
+	"name": "@nxgt/shared-logging",
 	"module": "src/index.ts",
 	"type": "module",
 	"exports": {
@@ -11,13 +11,10 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@nxgt/i18n": "workspace:*",
-		"@nxgt/shared": "workspace:*",
-		"@nxgt/shared-logging": "workspace:*",
-		"@nxgt/shared-exceptions": "workspace:*",
-		"@nxgt/shared-mongo": "workspace:*",
+		"hono": "^4.12.1",
 		"lodash": "^4.17.23",
-		"minio": "^8.0.6"
+		"winston": "^3.19.0",
+		"winston-daily-rotate-file": "^5.0.0"
 	},
 	"devDependencies": {
 		"@types/bun": "latest",

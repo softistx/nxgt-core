@@ -1,6 +1,5 @@
 import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { logger } from '../logging';
 import {
 	checkEntityForCaching,
 	checkListForCaching,
@@ -60,7 +59,7 @@ export const cache = ({
 				}
 			}
 		} catch (error) {
-			logger.error(error);
+			console.error(error);
 		}
 	});
 };

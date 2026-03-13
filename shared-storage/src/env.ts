@@ -1,4 +1,4 @@
-import { logger } from '@nxgt/shared/logging';
+import { logger } from '@nxgt/shared-logging';
 import { z } from 'zod';
 
 // Define schema

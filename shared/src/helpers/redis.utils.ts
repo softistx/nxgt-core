@@ -1,5 +1,4 @@
 import { redis } from 'bun';
-import { logger } from '../logging';
 
 const USERS = 'users';
 
@@ -17,7 +16,7 @@ export function publishTo<T>(channel: string) {
 		try {
 			await redis.publish(channel, JSON.stringify(value ?? {}));
 		} catch (error) {
-			logger.error(error);
+			console.error(error);
 		}
 		return value;
 	};

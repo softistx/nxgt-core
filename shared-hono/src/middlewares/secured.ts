@@ -1,5 +1,5 @@
-import { getLogger } from '@nxgt/shared/logging';
 import { CustomException } from '@nxgt/shared-exceptions';
+import { getLogger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
 
 export function secured(

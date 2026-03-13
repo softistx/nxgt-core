@@ -1,6 +1,6 @@
 import type { LocaleKey } from '@nxgt/i18n';
-import { logger } from '@nxgt/shared';
 import { CustomException } from '@nxgt/shared-exceptions';
+import { logger } from '@nxgt/shared-logging';
 import type { ErrorHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { env } from '../env';

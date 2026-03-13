@@ -1,4 +1,4 @@
-import { getLogger } from '@nxgt/shared/logging';
+import { getLogger } from '@nxgt/shared-logging';
 import { Archive } from 'bun';
 import {
 	Client,
