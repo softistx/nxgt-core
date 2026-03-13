@@ -1,4 +1,3 @@
-import { cast } from '@nxgt/shared/helpers';
 import { tryGetContext } from 'hono/context-storage';
 import { IntlMessageFormat } from 'intl-messageformat';
 import _ from 'lodash';
@@ -8,9 +7,19 @@ import type { Language, LocaleKey, TranslationContext } from './types';
 
 export function getLanguage() {
 	if (typeof localStorage === 'undefined') {
-		return (
-			tryGetContext()?.get(LANGUAGE_KEY) === 'fr' ? 'fr' : FALLBACK_LANGUAGE
-		) as Language;
+		try {
+			return (
+				tryGetContext()?.get(LANGUAGE_KEY as never) === 'fr'
+					? 'fr'
+					: FALLBACK_LANGUAGE
+			) as Language;
+		} catch (e) {
+			console.warn(
+				`Failed to get language from context, falling back to ${FALLBACK_LANGUAGE}`,
+				e,
+			);
+			return FALLBACK_LANGUAGE as Language;
+		}
 	}
 	return (
 		localStorage.getItem(LANGUAGE_KEY) === 'fr' ? 'fr' : FALLBACK_LANGUAGE
@@ -25,10 +34,10 @@ export function createTranslator<K extends string = LocaleKey>(
 		key: K,
 		context: TranslationContext = undefined,
 		language: Language = localeProvider(),
-	) => {
+	): string => {
 		let message: string = _.get(resources[language], key) ?? key;
 		try {
-			message = cast(new IntlMessageFormat(message, language).format(context));
+			message = new IntlMessageFormat(message, language).format(context);
 		} catch (e) {
 			console.error(e);
 		}
