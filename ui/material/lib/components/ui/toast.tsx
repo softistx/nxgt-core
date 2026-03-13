@@ -25,7 +25,10 @@ export type ToastMethodProps = Omit<ToastProps, 'id'> & {
 };
 
 export function toast({ options = {}, ...props }: ToastMethodProps) {
-	return sonnerToast.custom((id) => <Toast id={id} {...props} />, options);
+	return sonnerToast.custom((id) => <Toast id={id} {...props} />, {
+		...options,
+		id: options.id ?? props.title?.toString() ?? Math.random().toString(),
+	});
 }
 
 export function Toast({
