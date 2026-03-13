@@ -237,7 +237,7 @@ export function Button({
 				className,
 			)}
 			type={type}
-			disabled={disabled}
+			disabled={disabled || loading}
 			onClick={
 				loading
 					? (e) => {
