@@ -1,25 +1,17 @@
-import { tryGetContext } from 'hono/context-storage';
 import { IntlMessageFormat } from 'intl-messageformat';
 import _ from 'lodash';
 import { FALLBACK_LANGUAGE, LANGUAGE_KEY } from './consts';
 import { resources } from './resources';
-import type { Language, LocaleKey, TranslationContext } from './types';
+import type {
+	Language,
+	LanguageProvider,
+	LocaleKey,
+	TranslationContext,
+} from './types';
 
 export function getLanguage() {
 	if (typeof localStorage === 'undefined') {
-		try {
-			return (
-				tryGetContext()?.get(LANGUAGE_KEY as never) === 'fr'
-					? 'fr'
-					: FALLBACK_LANGUAGE
-			) as Language;
-		} catch (e) {
-			console.warn(
-				`Failed to get language from context, falling back to ${FALLBACK_LANGUAGE}`,
-				e,
-			);
-			return FALLBACK_LANGUAGE as Language;
-		}
+		return FALLBACK_LANGUAGE;
 	}
 	return (
 		localStorage.getItem(LANGUAGE_KEY) === 'fr' ? 'fr' : FALLBACK_LANGUAGE
@@ -28,13 +20,17 @@ export function getLanguage() {
 
 export function createTranslator<K extends string = LocaleKey>(
 	resources: Record<string, any> = {},
-	localeProvider: () => Language = getLanguage,
+	localeProvider: LanguageProvider = getLanguage,
 ) {
 	return (
 		key: K,
 		context: TranslationContext = undefined,
-		language: Language = localeProvider(),
+		provideLanguage: LanguageProvider = localeProvider,
 	): string => {
+		const language =
+			typeof provideLanguage === 'function'
+				? provideLanguage()
+				: provideLanguage;
 		let message: string = _.get(resources[language], key) ?? key;
 		try {
 			message = new IntlMessageFormat(message, language).format(context);

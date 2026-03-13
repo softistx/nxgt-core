@@ -16,3 +16,5 @@ export type TranslationContext =
 				| Record<string, any>;
 	  }
 	| undefined;
+
+export type LanguageProvider = () => Language | Language;
