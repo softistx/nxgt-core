@@ -32,6 +32,23 @@ export function openfetchServiceUser(): Middleware {
 					USER_HEADERS.AUTHORITIES,
 					ctx.get(USER_HEADERS.AUTHORITIES)?.join(',') || '',
 				);
+				request.headers.set(
+					USER_HEADERS.REALM,
+					ctx.get(USER_HEADERS.REALM) || '',
+				);
+				request.headers.set(
+					USER_HEADERS.CLIENT,
+					ctx.get(USER_HEADERS.CLIENT) || '',
+				);
+				request.headers.set(
+					USER_HEADERS.ROLES,
+					ctx.get(USER_HEADERS.ROLES)?.join(',') || '',
+				);
+				request.headers.set(
+					USER_HEADERS.SCOPES,
+					ctx.get(USER_HEADERS.SCOPES)?.join(',') || '',
+				);
+				request.headers.set('X-Service', 'gateway');
 			}
 			return request;
 		},

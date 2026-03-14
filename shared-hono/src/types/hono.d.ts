@@ -10,5 +10,9 @@ declare module 'hono' {
 		'X-User-Lastname'?: string | null;
 		'X-User-Birthdate'?: string | null;
 		'X-User-Authorities'?: string[] | null;
+		'X-Roles'?: string[] | null;
+		'X-Realm'?: string | null;
+		'X-Scopes'?: string[] | null;
+		'X-Client-Id'?: string | null;
 	}
 }

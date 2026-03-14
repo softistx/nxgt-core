@@ -1,13 +1,17 @@
 import z from 'zod';
 
 export const PrincipalSchema = z.object({
-	id: z.string(),
-	username: z.string(),
-	email: z.email(),
-	authorities: z.array(z.string()),
+	id: z.string().nullish(),
+	username: z.string().nullish(),
+	email: z.email().nullish(),
+	authorities: z.array(z.string()).nullish(),
 	birthDate: z.coerce.date().nullish(),
 	firstName: z.string().nullish(),
 	lastName: z.string().nullish(),
+	realm: z.string().nullish(),
+	clientId: z.string().nullish(),
+	scopes: z.array(z.string()).nullish(),
+	roles: z.array(z.string()).nullish(),
 });
 
 export type Principal = z.infer<typeof PrincipalSchema>;
@@ -20,4 +24,8 @@ export const USER_HEADERS = {
 	LAST_NAME: 'X-User-Lastname',
 	BIRTH_DATE: 'X-User-Birthdate',
 	AUTHORITIES: 'X-User-Authorities',
+	ROLES: 'X-Roles',
+	REALM: 'X-Realm',
+	SCOPES: 'X-Scopes',
+	CLIENT: 'X-Client-Id',
 } as const;
