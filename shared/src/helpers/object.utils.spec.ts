@@ -1,6 +1,54 @@
 import { describe, expect, it } from 'bun:test';
 import { isEqual } from 'lodash';
-import { toCamelCase, toSnakeCase } from './object.utils';
+import { assign, cleanObject, toCamelCase, toSnakeCase } from './object.utils';
+
+describe('cleanObject', () => {
+	it('Should remove undefined properties', () => {
+		const obj = { a: 1, b: undefined, c: 3 };
+		const cleaned = cleanObject(obj);
+		expect(cleaned).toEqual({ a: 1, c: 3 });
+	});
+	it('Should remove null properties when cleanNulls is true', () => {
+		const obj = { a: 1, b: null, c: 3 };
+		const cleaned = cleanObject(obj, true);
+		expect(cleaned).toEqual({ a: 1, c: 3 });
+	});
+	it('Should not remove null properties when cleanNulls is false', () => {
+		const obj = { a: 1, b: null, c: 3 };
+		const cleaned = cleanObject(obj);
+		expect(cleaned).toEqual({ a: 1, b: null, c: 3 });
+	});
+});
+
+describe('assign', () => {
+	it('Should assign properties from sources to target', () => {
+		const target: {
+			a?: number | null;
+			b?: number | null;
+			c?: number | null;
+			d?: number | null;
+		} = {
+			a: 1,
+		};
+		const source1 = { b: 2, c: undefined };
+		const source2 = { c: 3, d: null };
+		assign(target, source1, source2);
+		expect(target).toEqual({ a: 1, b: 2, c: 3, d: null });
+	});
+	it('Should not modify the original target object', () => {
+		const target: {
+			a?: number | null;
+			b?: number | null;
+			c?: number | null;
+			d?: number | null;
+		} = {
+			a: 1,
+		};
+		const source = { b: 2 };
+		assign(target, source);
+		expect(target).toEqual({ a: 1, b: 2 });
+	});
+});
 
 describe('toCamelCase', () => {
 	it('should convert snake_case keys to camelCase', () => {

@@ -58,6 +58,34 @@ export function nonNullable<T>(
 	return value;
 }
 
+/**
+ * Removes properties with undefined values from an object. If the cleanNulls parameter is set to true, it also removes properties with null values.
+ * @param obj - The object to be cleaned.
+ * @param cleanNulls - A boolean indicating whether to also remove properties with null values. Defaults to false.
+ * @returns A new object with the specified properties removed.
+ */
+export function cleanObject<T extends object>(
+	obj: T,
+	cleanNulls: boolean = false,
+): Partial<T> {
+	return Object.fromEntries(
+		Object.entries(obj).filter(([_, value]) =>
+			cleanNulls ? value != null && value !== undefined : value !== undefined,
+		),
+	) as Partial<T>;
+}
+
+/**
+ * Assigns properties from one or more source objects to a target object, while removing any properties with undefined values from the sources. The original target object is not modified; instead, a new object is returned with the combined properties.
+ * @param target - The target object to which properties will be assigned.
+ * @param sources - One or more source objects from which properties will be copied. Properties with undefined values in the source objects will be ignored.
+ */
+export function assign<T extends object>(target: T, ...sources: Partial<T>[]) {
+	for (const source of sources) {
+		Object.assign(target, cleanObject(source));
+	}
+}
+
 export const toCamelCase = <T>(
 	obj: any,
 	{ deep }: { deep: boolean } = { deep: true },

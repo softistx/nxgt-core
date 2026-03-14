@@ -4,6 +4,7 @@ export * from './audit';
 export * from './date.utils';
 export * from './date-filter.utils';
 export * from './functions.utils';
+export * from './handlebars.utils';
 export * from './jwt.utils';
 export * from './multipart-data.utils';
 export * from './object.utils';
