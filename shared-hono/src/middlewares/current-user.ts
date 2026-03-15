@@ -1,9 +1,14 @@
 import { type Principal, USER_HEADERS } from '@nxgt/shared/models';
+import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
 
 export const currentUser = () =>
 	createMiddleware(async (ctx, next) => {
-		if (!ctx.req.header(USER_HEADERS.ID)) {
+		logger.warn(ctx.req.header(USER_HEADERS.CLIENT));
+		if (
+			!ctx.req.header(USER_HEADERS.ID) ||
+			!ctx.req.header(USER_HEADERS.CLIENT)
+		) {
 			return next();
 		}
 
