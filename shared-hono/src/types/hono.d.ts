@@ -1,4 +1,4 @@
-import type { Principal } from '../models';
+import type { Principal } from '@nxgt/shared/models';
 
 declare module 'hono' {
 	interface ContextVariableMap {

@@ -18,10 +18,13 @@ export function mockUser(
 export function mockAuthMiddleware(user: Principal): Middleware {
 	return {
 		async onRequest({ request }) {
-			request.headers.set(USER_HEADERS.ID, user.id);
-			request.headers.set(USER_HEADERS.USERNAME, user.username);
-			request.headers.set(USER_HEADERS.EMAIL, user.email);
-			request.headers.set(USER_HEADERS.AUTHORITIES, user.authorities.join(','));
+			request.headers.set(USER_HEADERS.ID, user.id || '');
+			request.headers.set(USER_HEADERS.USERNAME, user.username || '');
+			request.headers.set(USER_HEADERS.EMAIL, user.email || '');
+			request.headers.set(
+				USER_HEADERS.AUTHORITIES,
+				user.authorities?.join(',') || '',
+			);
 			request.headers.set(
 				USER_HEADERS.BIRTH_DATE,
 				user.birthDate?.toISOString() ?? '',

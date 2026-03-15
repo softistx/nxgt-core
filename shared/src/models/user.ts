@@ -2,6 +2,7 @@ import z from 'zod';
 
 export const PrincipalSchema = z.object({
 	id: z.string().nullish(),
+	name: z.string().optional(),
 	username: z.string().nullish(),
 	email: z.email().nullish(),
 	authorities: z.array(z.string()).nullish(),
@@ -20,6 +21,7 @@ export const USER_HEADERS = {
 	ID: 'X-User-Id',
 	USERNAME: 'X-User-Name',
 	EMAIL: 'X-User-Email',
+	NAME: 'X-Name',
 	FIRST_NAME: 'X-User-Firstname',
 	LAST_NAME: 'X-User-Lastname',
 	BIRTH_DATE: 'X-User-Birthdate',

@@ -23,7 +23,7 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '../../../..';
-import { EMOJI_I18N_KEYS } from './consts';
+import type { EMOJI_I18N_KEYS } from './consts';
 
 const RECENT_EMOGIS_KEY = 'recent-emojis';
 
@@ -45,7 +45,6 @@ const icons = {
 export const EmojiList = ({
 	emojis,
 	onSelect,
-	labels = EMOJI_I18N_KEYS.en,
 }: {
 	labels?: (typeof EMOJI_I18N_KEYS)['en'];
 	emojis: EmojiItem[];
@@ -96,8 +95,8 @@ export const EmojiList = ({
 				<TabsList>
 					{Object.keys(groups)
 						.map((group) => ({
-							group: group as keyof typeof labels,
-							icon: icons[group as keyof typeof labels],
+							group: group as keyof typeof icons,
+							icon: icons[group as keyof typeof icons],
 						}))
 						.map((item) => (
 							<TabsTrigger
