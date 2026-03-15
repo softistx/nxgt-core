@@ -50,4 +50,4 @@ export const currentUser = () =>
 		return next();
 	});
 
-export { USER_HEADERS, type Principal };
+export { type Principal, USER_HEADERS };
