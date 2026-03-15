@@ -23,6 +23,8 @@ export const currentUser = () =>
 			scopes: ctx.req.header(USER_HEADERS.SCOPES)?.split(',') || [],
 		};
 
+		user.name = user.username || user.clientId || undefined;
+
 		ctx.set(USER_HEADERS.ID, user.id);
 		ctx.set(USER_HEADERS.USERNAME, user.username);
 		ctx.set(USER_HEADERS.EMAIL, user.email);
