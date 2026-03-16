@@ -20,3 +20,4 @@ export * from './scope.utils';
 export * from './server.utils';
 export * from './sort.utils';
 export * from './strings.utils';
+export * from './url.utils';
