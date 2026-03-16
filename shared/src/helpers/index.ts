@@ -14,6 +14,7 @@ export * from './promise.utils';
 export * from './redis.utils';
 export * from './regex.utils';
 export * from './request.utils';
+export * from './scope.utils';
 export * from './server.utils';
 export * from './sort.utils';
 export * from './strings.utils';
