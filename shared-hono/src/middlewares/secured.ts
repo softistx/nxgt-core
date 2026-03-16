@@ -41,16 +41,19 @@ export function secured(authorities: string[][] = []) {
 			return;
 		}
 
-		// For confidential clients, strip non-SCOPE_* entries from each required group.
-		// A group that becomes empty after filtering is vacuously satisfied.
+		// For confidential clients, only SCOPE_* authorities are considered —
+		// role/permission entries are ignored. If the client lacks the required
+		// scope authority it is denied.
 		const isClient = !!user.clientId && !user.username;
 		const userAuthorities = user.authorities ?? [];
+		const effectiveUserAuthorities = isClient
+			? userAuthorities.filter(isScopeAuthority)
+			: userAuthorities;
 
 		const granted = authorities.every((group) => {
-			const effectiveGroup = isClient ? group.filter(isScopeAuthority) : group;
-			if (effectiveGroup.length === 0) return true;
-			return effectiveGroup.some((authority) =>
-				userAuthorities.includes(authority),
+			if (group.length === 0) return true;
+			return group.some((authority) =>
+				effectiveUserAuthorities.includes(authority),
 			);
 		});
 
