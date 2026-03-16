@@ -38,4 +38,4 @@ export const parseFunction = (fn: Function): ParsedFunction => {
 };
 
 export const expr = <T = any>(body: string, ...args: string[]) =>
-	new Function(...args, body) as T;
+	new Function(...args, `"use strict"; ${body}`) as T;
