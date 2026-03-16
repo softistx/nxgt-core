@@ -26,6 +26,7 @@
 		"@hono/zod-validator": "^0.7.6",
 		"bullmq": "^5.70.4",
 		"camelcase-keys": "^10.0.2",
+		"croner": "^10.0.1",
 		"handlebars": "^4.7.8",
 		"hono": "^4.12.1",
 		"lodash": "^4.17.23",

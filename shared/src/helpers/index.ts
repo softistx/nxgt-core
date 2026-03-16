@@ -1,6 +1,7 @@
 export * from '../../../shared-exceptions/src/validation-utils';
 export * from './array-filter.utils';
 export * from './audit';
+export * from './cron.utils';
 export * from './date.utils';
 export * from './date-filter.utils';
 export * from './functions.utils';
