@@ -1,6 +1,6 @@
+import { isScopeAuthority } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { getLogger } from '@nxgt/shared-logging';
-import { isScopeAuthority } from '@nxgt/shared/helpers';
 import { createMiddleware } from 'hono/factory';
 
 /**
