@@ -11,6 +11,7 @@ export * from './multipart-data.utils';
 export * from './object.utils';
 export * from './pagination.utils';
 export * from './password.utils';
+export * from './pkce.utils';
 export * from './promise.utils';
 export * from './redis.utils';
 export * from './regex.utils';
