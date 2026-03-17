@@ -4,11 +4,11 @@ import { createMiddleware } from 'hono/factory';
 
 export const currentUser = () =>
 	createMiddleware(async (ctx, next) => {
-		logger.warn(ctx.req.header(USER_HEADERS.CLIENT));
 		if (
 			!ctx.req.header(USER_HEADERS.ID) ||
 			!ctx.req.header(USER_HEADERS.CLIENT)
 		) {
+			logger.info('No user information found in headers');
 			return next();
 		}
 
@@ -29,6 +29,10 @@ export const currentUser = () =>
 		};
 
 		user.name = user.username || user.clientId || undefined;
+
+		logger.info(
+			`Resolving principal : name[${user.name}] email[${user.email}] id[${user.id}] client[${user.clientId}] realm[${user.realm}]`,
+		);
 
 		ctx.set(USER_HEADERS.ID, user.id);
 		ctx.set(USER_HEADERS.USERNAME, user.username);
