@@ -5,10 +5,10 @@ import { createMiddleware } from 'hono/factory';
 export const currentUser = () =>
 	createMiddleware(async (ctx, next) => {
 		if (
-			!ctx.req.header(USER_HEADERS.ID) ||
+			!ctx.req.header(USER_HEADERS.ID) &&
 			!ctx.req.header(USER_HEADERS.CLIENT)
 		) {
-			logger.info('No user information found in headers');
+			logger.warn('No user information found in headers');
 			return next();
 		}
 
