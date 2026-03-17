@@ -10,7 +10,7 @@ export type PkceMethod = (typeof PKCE_METHODS)[number];
 /**
  * Encode a Uint8Array as a base64url string (no padding, url-safe chars).
  */
-function base64urlEncode(bytes: Uint8Array): string {
+export function base64urlEncode(bytes: Uint8Array): string {
 	const base64 = btoa(String.fromCharCode(...bytes));
 	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }

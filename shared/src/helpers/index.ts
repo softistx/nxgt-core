@@ -1,4 +1,3 @@
-export * from '../../../shared-exceptions/src/validation-utils';
 export * from './array-filter.utils';
 export * from './audit';
 export * from './cron.utils';
@@ -8,6 +7,7 @@ export * from './functions.utils';
 export * from './handlebars.utils';
 export * from './jwt.utils';
 export * from './multipart-data.utils';
+export * from './oauth-state.utils';
 export * from './object.utils';
 export * from './pagination.utils';
 export * from './password.utils';
