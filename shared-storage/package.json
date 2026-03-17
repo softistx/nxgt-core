@@ -16,12 +16,12 @@
 		"@nxgt/shared-logging": "workspace:*",
 		"@nxgt/shared-exceptions": "workspace:*",
 		"@nxgt/shared-mongo": "workspace:*",
-		"lodash": "^4.17.23",
+		"lodash": "catalog:",
 		"minio": "^8.0.6"
 	},
 	"devDependencies": {
-		"@types/bun": "latest",
-		"@types/lodash": "^4.17.23"
+		"@types/bun": "catalog:",
+		"@types/lodash": "catalog:"
 	},
 	"peerDependencies": {
 		"typescript": "^5"

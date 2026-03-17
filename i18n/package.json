@@ -11,13 +11,13 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"hono": "^4.12.1",
-		"intl-messageformat": "^11.1.2",
-		"lodash": "^4.17.23"
+		"hono": "catalog:",
+		"intl-messageformat": "catalog:",
+		"lodash": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "latest",
-		"@types/lodash": "^4.17.23"
+		"@types/bun": "catalog:",
+		"@types/lodash": "catalog:"
 	},
 	"peerDependencies": {
 		"typescript": "^5"

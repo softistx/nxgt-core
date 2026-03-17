@@ -2,7 +2,7 @@
 	"name": "@nxgt/shared-openapi",
 	"module": "src/index.ts",
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "catalog:"
 	},
 	"peerDependencies": {
 		"@hey-api/openapi-ts": "^0.92.4",

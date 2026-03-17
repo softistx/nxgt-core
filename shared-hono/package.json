@@ -19,14 +19,14 @@
 		"@nxgt/shared-logging": "workspace:*",
 		"@nxgt/shared-exceptions": "workspace:*",
 		"@nxgt/shared-mongo": "workspace:*",
-		"hono": "^4.12.1",
-		"lodash": "^4.17.23",
-		"openapi-fetch": "^0.17.0",
-		"zod": "^4.3.6"
+		"hono": "catalog:",
+		"lodash": "catalog:",
+		"openapi-fetch": "catalog:",
+		"zod": "catalog:"
 	},
 	"devDependencies": {
-		"@types/bun": "latest",
-		"@types/lodash": "^4.17.23"
+		"@types/bun": "catalog:",
+		"@types/lodash": "catalog:"
 	},
 	"peerDependencies": {
 		"typescript": "^5"

@@ -11,11 +11,11 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@hono/zod-validator": "^0.7.6",
+		"@hono/zod-validator": "catalog:",
 		"@nxgt/i18n": "workspace:*"
 	},
 	"devDependencies": {
-		"@types/bun": "latest"
+		"@types/bun": "catalog:"
 	},
 	"peerDependencies": {
 		"typescript": "^5"

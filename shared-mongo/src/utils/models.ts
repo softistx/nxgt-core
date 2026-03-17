@@ -1,3 +1,3 @@
-import type { Document, PopulatedDoc, Schema } from 'mongoose';
+import type { Document, ObjectId, PopulatedDoc } from 'mongoose';
 
-export type Populated<T> = PopulatedDoc<Document<Schema.Types.ObjectId> & T>;
+export type Populated<T> = PopulatedDoc<Document<ObjectId> & T>;
