@@ -9,7 +9,6 @@ export const PrincipalSchema = z.object({
 	birthDate: z.coerce.date().nullish(),
 	firstName: z.string().nullish(),
 	lastName: z.string().nullish(),
-	realm: z.string().nullish(),
 	clientId: z.string().nullish(),
 	scopes: z.array(z.string()).nullish(),
 	roles: z.array(z.string()).nullish(),
@@ -27,7 +26,6 @@ export const USER_HEADERS = {
 	BIRTH_DATE: 'X-User-Birthdate',
 	AUTHORITIES: 'X-User-Authorities',
 	ROLES: 'X-Roles',
-	REALM: 'X-Realm',
 	SCOPES: 'X-Scopes',
 	CLIENT: 'X-Client-Id',
 } as const;

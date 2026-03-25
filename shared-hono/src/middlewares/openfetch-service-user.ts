@@ -33,10 +33,6 @@ export function openfetchServiceUser(): Middleware {
 					ctx.get(USER_HEADERS.AUTHORITIES)?.join(',') || '',
 				);
 				request.headers.set(
-					USER_HEADERS.REALM,
-					ctx.get(USER_HEADERS.REALM) || '',
-				);
-				request.headers.set(
 					USER_HEADERS.CLIENT,
 					ctx.get(USER_HEADERS.CLIENT) || '',
 				);

@@ -22,7 +22,6 @@ export const currentUser = () =>
 				? new Date(ctx.req.header(USER_HEADERS.BIRTH_DATE) || '')
 				: null,
 			authorities: ctx.req.header(USER_HEADERS.AUTHORITIES)?.split(',') || [],
-			realm: ctx.req.header(USER_HEADERS.REALM) || null,
 			clientId: ctx.req.header(USER_HEADERS.CLIENT) || null,
 			roles: ctx.req.header(USER_HEADERS.ROLES)?.split(',') || [],
 			scopes: ctx.req.header(USER_HEADERS.SCOPES)?.split(',') || [],
@@ -31,7 +30,7 @@ export const currentUser = () =>
 		user.name = user.username || user.clientId || undefined;
 
 		logger.info(
-			`Resolving principal : name[${user.name}] email[${user.email}] id[${user.id}] client[${user.clientId}] realm[${user.realm}]`,
+			`Resolving principal : name[${user.name}] email[${user.email}] id[${user.id}] client[${user.clientId}]`,
 		);
 
 		ctx.set(USER_HEADERS.ID, user.id);
@@ -46,7 +45,6 @@ export const currentUser = () =>
 		);
 		ctx.set(USER_HEADERS.AUTHORITIES, user.authorities);
 		ctx.set(USER_HEADERS.CLIENT, ctx.req.header(USER_HEADERS.CLIENT) || null);
-		ctx.set(USER_HEADERS.REALM, ctx.req.header(USER_HEADERS.REALM) || null);
 		ctx.set(
 			USER_HEADERS.ROLES,
 			ctx.req.header(USER_HEADERS.ROLES)?.split(',') || [],
