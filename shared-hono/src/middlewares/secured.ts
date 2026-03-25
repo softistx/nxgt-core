@@ -32,13 +32,16 @@ export function secured(authorities: string[][] = []) {
 			});
 		}
 
+		if (user.roles?.includes('ADMIN')) {
+			return next();
+		}
+
 		logger.info(
 			`User authenticated: ${user.name ?? user.username ?? user.clientId}`,
 		);
 
 		if (!authorities.length) {
-			await next();
-			return;
+			return next();
 		}
 
 		// For confidential clients, only SCOPE_* authorities are considered —
