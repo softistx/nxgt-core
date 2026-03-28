@@ -1,6 +1,8 @@
 import { USER_HEADERS } from '@nxgt/shared/models';
 import type { PolicyClaims, Rules } from '@nxgt/shared/policy';
 import { evaluateRest } from '@nxgt/shared/policy';
+import { CustomException } from '@nxgt/shared-exceptions';
+import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
 
 /**
@@ -114,7 +116,13 @@ export function policyGuard(rules: Rules) {
 		});
 
 		if (result.decision === 'DENY') {
-			return ctx.json({ message: result.reason }, 403);
+			logger.error(
+				`Policy DENY: ${ctx.req.method} ${ctx.req.path}, user: ${claims.username || 'anonymous'}, reason: ${result.reason}`,
+			);
+			throw CustomException.forbidden({
+				message: 'errors.forbidden',
+				debugMessage: result.reason,
+			});
 		}
 
 		return next();

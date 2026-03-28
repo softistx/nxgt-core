@@ -57,9 +57,14 @@ export function evaluateRest(
 	const method = input.method.toUpperCase();
 	const restRules = rules.rest ?? {};
 
+	const path =
+		rules.global?.basePath && !input.path.startsWith(rules.global.basePath)
+			? rules.global.basePath + input.path
+			: input.path;
+
 	for (const [pattern, methodMap] of Object.entries(restRules)) {
 		const matchFn = match(pattern, { decode: decodeURIComponent });
-		const result = matchFn(input.path);
+		const result = matchFn(path);
 
 		if (result === false) continue;
 
@@ -78,7 +83,7 @@ export function evaluateRest(
 		if (!checkAuthorities(rule, input.claims)) {
 			return {
 				decision: 'DENY',
-				reason: `Insufficient authorities for ${method} ${input.path}`,
+				reason: `Insufficient authorities for ${method} ${path}`,
 			};
 		}
 
@@ -101,6 +106,6 @@ export function evaluateRest(
 
 	return {
 		decision: 'NOT_APPLICABLE',
-		reason: `No rule matched ${method} ${input.path}`,
+		reason: `No rule matched ${method} ${path}`,
 	};
 }
