@@ -17,6 +17,9 @@
 		},
 		"./caching": {
 			"import": "./src/caching/index.ts"
+		},
+		"./policy": {
+			"import": "./src/policy/index.ts"
 		}
 	},
 	"scripts": {
@@ -32,6 +35,7 @@
 		"lodash": "catalog:",
 		"mongoose": "catalog:",
 		"nodemailer": "catalog:",
+		"path-to-regexp": "^8.4.0",
 		"snakecase-keys": "^9.0.2",
 		"zod": "catalog:"
 	},
