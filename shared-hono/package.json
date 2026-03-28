@@ -16,10 +16,13 @@
 	"dependencies": {
 		"@nxgt/i18n": "workspace:*",
 		"@nxgt/shared": "workspace:*",
-		"@nxgt/shared-logging": "workspace:*",
 		"@nxgt/shared-exceptions": "workspace:*",
+		"@nxgt/shared-logging": "workspace:*",
 		"@nxgt/shared-mongo": "workspace:*",
+		"@upstash/redis": "^1.37.0",
 		"hono": "catalog:",
+		"hono-rate-limiter": "^0.5.3",
+		"ioredis": "^5.10.1",
 		"lodash": "catalog:",
 		"openapi-fetch": "catalog:",
 		"zod": "catalog:"
