@@ -28,4 +28,5 @@ export const USER_HEADERS = {
 	ROLES: 'X-Roles',
 	SCOPES: 'X-Scopes',
 	CLIENT: 'X-Client-Id',
+	CLAIMS: 'X-Claims',
 } as const;

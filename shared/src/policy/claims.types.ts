@@ -6,20 +6,16 @@
  * in generated codegen output.
  */
 export interface PolicyClaims {
-	/** Subject — the username (user token) or clientId (client_credentials). */
 	sub: string;
-	/** Human-readable identifier for the resource owner. */
 	username?: string;
-	/** Client identifier the token was issued to. */
-	clientId: string;
-	/** Granted authorities (roles, permissions, scopes as flat strings). */
+	clientId?: string;
 	authorities?: string[];
-	/** Role names assigned to the principal. */
 	roles?: string[];
-	/** Permission names granted to the principal. */
 	permissions?: string[];
-	/** Space-separated OAuth scopes. */
 	scope?: string;
-	/** Allow arbitrary extra claims for custom expression use. */
+	uid?: string;
+	iss?: string;
+	exp?: number;
+	user?: any;
 	[key: string]: unknown;
 }

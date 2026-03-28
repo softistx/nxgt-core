@@ -34,33 +34,10 @@ import { createMiddleware } from 'hono/factory';
  */
 export function policyGuard(rules: Rules) {
 	return createMiddleware(async (ctx, next) => {
-		// ------------------------------------------------------------------
-		// 1. Clone the raw request BEFORE reading the body so that downstream
-		//    handlers (proxy etc.) can still stream it.
-		// ------------------------------------------------------------------
 		const clonedRaw = ctx.req.raw.clone();
 
-		// ------------------------------------------------------------------
-		// 2. Build PolicyClaims from context variables set by the upstream
-		//    auth middleware.
-		// ------------------------------------------------------------------
-		const authorities = ctx.get(USER_HEADERS.AUTHORITIES) ?? [];
-		const roles = ctx.get(USER_HEADERS.ROLES) ?? [];
-		const scopes = ctx.get(USER_HEADERS.SCOPES) ?? [];
+		const claims: PolicyClaims = ctx.get(USER_HEADERS.CLAIMS) ?? ({} as any);
 
-		const claims: PolicyClaims = {
-			sub: ctx.get(USER_HEADERS.USERNAME) ?? ctx.get(USER_HEADERS.CLIENT) ?? '',
-			username: ctx.get(USER_HEADERS.USERNAME) ?? undefined,
-			clientId: ctx.get(USER_HEADERS.CLIENT) ?? '',
-			authorities,
-			roles,
-			scope: scopes.join(' '),
-		};
-
-		// ------------------------------------------------------------------
-		// 3. Parse body eagerly for JSON requests so expressions can access
-		//    req.body. Falls back to undefined for non-JSON content types.
-		// ------------------------------------------------------------------
 		let body: unknown;
 		const contentType = ctx.req.header('content-type') ?? '';
 		if (contentType.includes('application/json')) {
@@ -71,15 +48,8 @@ export function policyGuard(rules: Rules) {
 			}
 		}
 
-		// ------------------------------------------------------------------
-		// 4. Re-attach the cloned raw request so the downstream proxy can
-		//    still read the original body stream.
-		// ------------------------------------------------------------------
 		ctx.req.raw = clonedRaw;
 
-		// ------------------------------------------------------------------
-		// 5. Parse cookies into a plain record for expression access.
-		// ------------------------------------------------------------------
 		const cookies: Record<string, string> = {};
 		const cookieHeader = ctx.req.header('cookie');
 		if (cookieHeader) {
@@ -92,16 +62,10 @@ export function policyGuard(rules: Rules) {
 			}
 		}
 
-		// ------------------------------------------------------------------
-		// 6. Build query params record.
-		// ------------------------------------------------------------------
 		const query: Record<string, string> = Object.fromEntries(
 			new URL(ctx.req.url).searchParams,
 		);
 
-		// ------------------------------------------------------------------
-		// 7. Evaluate.
-		// ------------------------------------------------------------------
 		const result = evaluateRest(rules, {
 			type: 'rest',
 			method: ctx.req.method,
@@ -124,6 +88,9 @@ export function policyGuard(rules: Rules) {
 				debugMessage: result.reason,
 			});
 		}
+		logger.info(
+			`Policy ${result.decision}: ${ctx.req.method} ${ctx.req.path}, user: ${claims.username || 'anonymous'}, reason: ${result.reason}`,
+		);
 
 		return next();
 	});

@@ -14,5 +14,6 @@ declare module 'hono' {
 		'X-Realm'?: string | null;
 		'X-Scopes'?: string[] | null;
 		'X-Client-Id'?: string | null;
+		'X-Claims'?: Record<string, any> | null;
 	}
 }
