@@ -81,6 +81,20 @@ export function evaluateRest(
 
 		const req = { ...(input.req ?? {}), params: mergedParams };
 
+		if (
+			result.params.domain &&
+			rule.authorities?.some((group) =>
+				group.some((auth) => auth.includes('$domain')),
+			)
+		) {
+			rule.authorities = rule.authorities?.map((group) =>
+				group
+					.join(',')
+					.replaceAll('$domain', result.params.domain?.toString() ?? '')
+					.split(','),
+			);
+		}
+
 		// Authority check
 		if (!checkAuthorities(rule, input.claims)) {
 			return {
