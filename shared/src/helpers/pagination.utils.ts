@@ -26,23 +26,21 @@ export interface CursorPaginationParams {
 }
 
 export function extractPaginationParams(req: HonoRequest) {
+	const { page, size, paginated } = req.query();
 	return {
-		page: parseInt(req.query('page') ?? '0', 10),
-		size: parseInt(req.query('size') ?? '20', 10),
-		paginated: Boolean(req.query('paginated') ?? 'true'),
+		page: parseInt(page ?? '0', 10),
+		size: parseInt(size ?? '20', 10),
+		paginated: Boolean(paginated ?? 'true'),
 	};
 }
 
 export function extractCursorPaginationParams(req: HonoRequest) {
+	const { first, last, before, after } = req.query();
 	return {
-		first: req.query('first')
-			? parseInt(req.query('first') as string, 10)
-			: undefined,
-		last: req.query('last')
-			? parseInt(req.query('last') as string, 10)
-			: undefined,
-		before: req.query('before'),
-		after: req.query('after'),
+		first: first ? parseInt(first, 10) : undefined,
+		last: last ? parseInt(last, 10) : undefined,
+		before,
+		after,
 	};
 }
 
