@@ -1,7 +1,7 @@
 /**
  * Sort order enum matching OpenAPI SortOrder schema
  */
-export enum SortOrder {
+export enum SortDirection {
 	ASC = 'asc',
 	DESC = 'desc',
 }
@@ -11,7 +11,7 @@ export enum SortOrder {
  */
 export interface SortField {
 	key: string;
-	order: SortOrder | 'asc' | 'desc';
+	order: SortDirection | 'asc' | 'desc';
 }
 
 /**

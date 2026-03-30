@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 export type StringArrayFilter = {
-	values?: string[];
-	operator?: 'or' | 'and';
+	values?: string[] | null;
+	operator?: 'or' | 'and' | null;
 };
 
 export type DateRangeFilter = {
-	from?: Date;
-	to?: Date;
+	from?: Date | null;
+	to?: Date | null;
 };
 
 export const DateRangeFilterSchema = z
