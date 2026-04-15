@@ -1,4 +1,3 @@
-import type { LocaleKey } from '@nxgt/i18n';
 import { CustomException } from '@nxgt/shared-exceptions';
 import type { Schema } from 'mongoose';
 import { castError } from '../utils/error.utils';
@@ -33,26 +32,4 @@ export const errors = (schema: Schema) => {
 			}
 		},
 	);
-	schema.pre(
-		[
-			'deleteOne',
-			'findOneAndDelete',
-			'updateOne',
-			'findOneAndUpdate',
-			'replaceOne',
-			'findOneAndReplace',
-		],
-		async function () {
-			await this.model.findOne(this.getQuery()).exec();
-		},
-	);
-	schema.post('findOne', async function (doc, next) {
-		if (!doc) {
-			const localeKey = `${this.model.collection.collectionName}.errors.not-found`;
-			throw CustomException.notFound({
-				message: localeKey as LocaleKey,
-			});
-		}
-		next();
-	});
 };
