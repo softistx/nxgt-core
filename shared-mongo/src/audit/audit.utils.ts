@@ -116,7 +116,12 @@ export function runWithChangesListening<T>(
 			auditChanges(changeStream, omit(options, 'models'));
 		});
 		try {
-			return await bloc();
+			return mongoose.connection.transaction(
+				async () => {
+					return await bloc();
+				},
+				{ readPreference: 'primary' },
+			);
 		} finally {
 			await delay(1);
 			for (const changeStream of changeStreams) {
