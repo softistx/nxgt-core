@@ -24,7 +24,7 @@ export abstract class BaseService<
 
 	protected abstract mutex: Mutex;
 
-	constructor(readonly principal: Principal | null) {}
+	constructor(readonly principal?: Principal | null) {}
 
 	protected get changesOptions() {
 		return {
