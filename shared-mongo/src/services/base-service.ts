@@ -53,10 +53,11 @@ export abstract class BaseService<
 	// ─── Writes ───────────────────────────────────────────────────────────────
 
 	async create(input: CInput): Promise<D> {
-		const data = await this.buildCreateData(input);
-
 		const entity = await runWithChangesListening(async () => {
 			await this.beforeCreate(input);
+
+			const data = await this.buildCreateData(input);
+
 			return this.model.create({
 				...data,
 				createdBy: this.principal?.name,
@@ -95,10 +96,10 @@ export abstract class BaseService<
 	 *        b. `model.deleteMany`  — parent documents deleted (inside transaction)
 	 */
 	async deleteMany(ids: string[]): Promise<void> {
-		await this.beforeDeleteMany(ids);
-		await integrityRegistry.validateDeletion(this.model.name, ids);
-
 		await runWithChangesListening(async () => {
+			await this.beforeDeleteMany(ids);
+			await integrityRegistry.validateDeletion(this.model.name, ids);
+
 			await integrityRegistry.runCascades(this.model.name, ids);
 			return this.model.deleteMany({ _id: { $in: ids } }).exec();
 		}, this.changesOptions);
