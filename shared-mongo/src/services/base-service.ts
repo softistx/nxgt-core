@@ -1,3 +1,4 @@
+import type { LocaleKey } from '@nxgt/i18n';
 import type { Principal } from '@nxgt/shared';
 import { cleanObject } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
@@ -106,6 +107,12 @@ export abstract class BaseService<
 	}
 
 	async delete(id: string): Promise<void> {
+		await this.model.ensureExists(
+			{ _id: id },
+			{
+				message: `${this.model.collection.name}.errors.not-found` as LocaleKey,
+			},
+		);
 		await this.deleteMany([id]);
 	}
 
