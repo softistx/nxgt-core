@@ -1,6 +1,9 @@
 import { readdir } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
+import { createLogger } from '@nxgt/shared-logging';
 import type { MigrationDefinition } from './migration.types';
+
+export const logger = createLogger({ name: 'migrations' });
 
 // ─── Filename validation ──────────────────────────────────────────────────────
 
@@ -12,7 +15,7 @@ import type { MigrationDefinition } from './migration.types';
  *   - `20260421120000-add-user-indexes.ts`
  *   - `20260421130000-migrate-contact-format.ts`
  */
-const MIGRATION_FILE_PATTERN = /^\d{14}-[a-z0-9]+(?:-[a-z0-9]+)*\.ts$/;
+const MIGRATION_FILE_PATTERN = /^\d{13,14}-[a-z0-9]+(?:-[a-z0-9]+)*\.ts$/;
 
 export function isMigrationFile(filename: string): boolean {
 	return MIGRATION_FILE_PATTERN.test(filename);

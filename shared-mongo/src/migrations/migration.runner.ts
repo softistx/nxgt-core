@@ -1,4 +1,3 @@
-import { logger } from '@nxgt/shared-logging';
 import { Mutex } from 'async-mutex';
 import { MigrationModel } from './migration.model';
 import type {
@@ -10,6 +9,7 @@ import type {
 } from './migration.types';
 import {
 	loadMigrationFiles,
+	logger,
 	sortMigrationsAsc,
 	sortMigrationsDesc,
 } from './migration.utils';
@@ -135,7 +135,7 @@ export class MigrationRunner {
 		);
 
 		if (pending.length === 0) {
-			logger.info('migrations: no pending migrations');
+			logger.info('no pending migrations');
 			return;
 		}
 
@@ -163,7 +163,7 @@ export class MigrationRunner {
 		migration: MigrationDefinition,
 		batch: number,
 	): Promise<void> {
-		logger.info(`migrations: running up → ${migration.name}`);
+		logger.info(`running up → ${migration.name}`);
 		const start = Date.now();
 
 		try {
@@ -184,7 +184,7 @@ export class MigrationRunner {
 				{ upsert: true, new: true },
 			).exec();
 
-			logger.info(`migrations: ✓ ${migration.name} (${duration}ms)`);
+			logger.info(`✓ ${migration.name} (${duration}ms)`);
 		} catch (err) {
 			const duration = Date.now() - start;
 			const errorMessage = err instanceof Error ? err.message : String(err);
@@ -202,7 +202,7 @@ export class MigrationRunner {
 				{ upsert: true, new: true },
 			).exec();
 
-			logger.error(`migrations: ✗ ${migration.name} — ${errorMessage}`);
+			logger.error(`✗ ${migration.name} — ${errorMessage}`);
 			throw err;
 		}
 	}
@@ -214,7 +214,7 @@ export class MigrationRunner {
 	): Promise<void> {
 		const lastBatch = await this.fetchLastBatch();
 		if (lastBatch === null) {
-			logger.info('migrations: nothing to roll back');
+			logger.info('nothing to roll back');
 			return;
 		}
 
@@ -249,11 +249,11 @@ export class MigrationRunner {
 		migration: MigrationDefinition,
 	): Promise<void> {
 		if (!migration.down) {
-			logger.warn(`migrations: skipping down (no export) → ${migration.name}`);
+			logger.warn(`skipping down (no export) → ${migration.name}`);
 			return;
 		}
 
-		logger.info(`migrations: running down → ${migration.name}`);
+		logger.info(`running down → ${migration.name}`);
 		const start = Date.now();
 
 		try {
@@ -262,14 +262,10 @@ export class MigrationRunner {
 
 			await MigrationModel.deleteOne({ name: migration.name }).exec();
 
-			logger.info(
-				`migrations: ✓ rolled back ${migration.name} (${duration}ms)`,
-			);
+			logger.info(`✓ rolled back ${migration.name} (${duration}ms)`);
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : String(err);
-			logger.error(
-				`migrations: ✗ rollback failed ${migration.name} — ${errorMessage}`,
-			);
+			logger.error(`✗ rollback failed ${migration.name} — ${errorMessage}`);
 			throw err;
 		}
 	}
