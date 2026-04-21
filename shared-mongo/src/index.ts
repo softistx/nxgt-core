@@ -3,6 +3,7 @@ import './types';
 export * from 'async-mutex';
 export * from './audit';
 export * from './integrity';
+export * from './migrations';
 export * from './mongoose';
 export * from './plugins';
 export * from './services';
