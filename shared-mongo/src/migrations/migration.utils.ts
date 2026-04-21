@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 import { createLogger } from '@nxgt/shared-logging';
 import type { MigrationDefinition } from './migration.types';
@@ -8,14 +8,16 @@ export const logger = createLogger({ name: 'migrations' });
 // ─── Filename validation ──────────────────────────────────────────────────────
 
 /**
- * Valid kebab-case migration filename pattern:
- *   `<14-digit-timestamp>-<description>.ts`
+ * Valid migration filename pattern:
+ *   `<1-16-digit-timestamp>-<description>.ts`
+ *
+ * Description can contain alphanumeric characters, hyphens, and underscores.
  *
  * Examples:
  *   - `20260421120000-add-user-indexes.ts`
- *   - `20260421130000-migrate-contact-format.ts`
+ *   - `1-initial_setup.ts`
  */
-const MIGRATION_FILE_PATTERN = /^\d{13,14}-[a-z0-9]+(?:-[a-z0-9]+)*\.ts$/;
+const MIGRATION_FILE_PATTERN = /^\d{1,16}-[a-zA-Z0-9_-]+\.ts$/;
 
 export function isMigrationFile(filename: string): boolean {
 	return MIGRATION_FILE_PATTERN.test(filename);
@@ -32,35 +34,90 @@ export function migrationName(filename: string): string {
 /**
  * Extracts the timestamp prefix from a migration name.
  * e.g. `20260421120000-add-user-indexes` → `20260421120000`
+ * e.g. `123-abc` → `123`
  */
 export function migrationTimestamp(name: string): string {
-	return name.slice(0, 14);
+	return name.split('-')[0] || '';
 }
 
 // ─── Sorting ──────────────────────────────────────────────────────────────────
 
 /**
  * Sorts migration definitions in ascending timestamp order (oldest first).
- * This is the natural execution order for `up()`.
+ * Numerical comparison of the prefix.
  */
 export function sortMigrationsAsc(
 	migrations: MigrationDefinition[],
 ): MigrationDefinition[] {
-	return [...migrations].sort((a, b) =>
-		migrationTimestamp(a.name).localeCompare(migrationTimestamp(b.name)),
-	);
+	return [...migrations].sort((a, b) => {
+		const tsA = BigInt(migrationTimestamp(a.name));
+		const tsB = BigInt(migrationTimestamp(b.name));
+		if (tsA < tsB) return -1;
+		if (tsA > tsB) return 1;
+		return 0;
+	});
 }
 
 /**
  * Sorts migration definitions in descending timestamp order (newest first).
- * This is the natural execution order for `down()`.
  */
 export function sortMigrationsDesc(
 	migrations: MigrationDefinition[],
 ): MigrationDefinition[] {
-	return [...migrations].sort((a, b) =>
-		migrationTimestamp(b.name).localeCompare(migrationTimestamp(a.name)),
-	);
+	return [...migrations].sort((a, b) => {
+		const tsA = BigInt(migrationTimestamp(a.name));
+		const tsB = BigInt(migrationTimestamp(b.name));
+		if (tsA < tsB) return 1;
+		if (tsA > tsB) return -1;
+		return 0;
+	});
+}
+
+// ─── Generator ────────────────────────────────────────────────────────────────
+
+/**
+ * Creates a new migration file with a 14-digit timestamp prefix and a boilerplate template.
+ */
+export async function createMigrationFile(
+	migrationsDir: string,
+	description: string,
+): Promise<string> {
+	const timestamp = new Date()
+		.toISOString()
+		.replace(/[-T:Z]/g, '')
+		.slice(0, 14);
+
+	// Sanitize description: replace spaces with hyphens, keep only alphanumeric, underscores, and hyphens
+	const sanitized = description
+		.toLowerCase()
+		.replace(/\s+/g, '-')
+		.replace(/[^a-z0-9_-]/g, '');
+
+	const filename = `${timestamp}-${sanitized}.ts`;
+	const filePath = join(resolve(migrationsDir), filename);
+
+	const content = `import type { ClientSession, Connection } from 'mongoose';
+
+export async function up(db: Connection, session?: ClientSession): Promise<void> {
+	// TODO: Implement migration
+}
+
+export async function down(db: Connection, session?: ClientSession): Promise<void> {
+	// TODO: Implement rollback
+}
+`;
+
+	await writeFile(filePath, content, 'utf8');
+
+	// Attempt to format with Biome if available
+	try {
+		const { spawnSync } = require('node:child_process');
+		spawnSync('bunx', ['@biomejs/biome', 'format', '--write', filePath]);
+	} catch {
+		// Ignore if biome is not found or fails
+	}
+
+	return filePath;
 }
 
 // ─── File loader ──────────────────────────────────────────────────────────────

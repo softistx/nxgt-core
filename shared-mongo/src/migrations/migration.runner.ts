@@ -8,6 +8,7 @@ import type {
 	RunUpOptions,
 } from './migration.types';
 import {
+	createMigrationFile,
 	loadMigrationFiles,
 	logger,
 	sortMigrationsAsc,
@@ -24,25 +25,11 @@ const mutex = new Mutex();
  * - `up()`     — run all pending migrations, or a specific one by name
  * - `down()`   — rollback the last batch, or a specific migration by name
  * - `list()`   — return every known migration with its current status
+ * - `create()` — generate a new migration file
  *
  * A `Mutex` ensures that concurrent invocations within the same process are
  * serialised; for multi-process safety you should use an external lock
  * (e.g. a MongoDB distributed lock) in front of the runner.
- *
- * @example
- * ```ts
- * import mongoose from '@nxgt/shared-mongo';
- * import { MigrationRunner } from '@nxgt/shared-mongo/migrations';
- *
- * await mongoose.connect(process.env.MONGODB_URI);
- *
- * const runner = new MigrationRunner({
- *   migrationsDir: './migrations',
- *   connection: mongoose.connection,
- * });
- *
- * await runner.up();
- * ```
  */
 export class MigrationRunner {
 	private readonly migrationsDir: string;
@@ -57,47 +44,49 @@ export class MigrationRunner {
 
 	/**
 	 * Run all pending migrations in ascending timestamp order.
-	 *
-	 * When `options.name` is provided only that migration is executed,
-	 * regardless of whether it has already been applied.
 	 */
 	async up(options?: RunUpOptions): Promise<void> {
 		await mutex.runExclusive(async () => {
 			const allMigrations = await loadMigrationFiles(this.migrationsDir);
 
 			if (options?.name) {
-				await this.runSpecificUp(allMigrations, options.name);
+				await this.runSpecificUp(allMigrations, options.name, options.dryRun);
 			} else {
-				await this.runPendingUp(allMigrations);
+				await this.runPendingUp(allMigrations, options?.dryRun);
 			}
 		});
 	}
 
 	/**
 	 * Rollback the last batch of migrations in descending timestamp order.
-	 *
-	 * When `options.name` is provided only that migration is rolled back,
-	 * regardless of which batch it belongs to.
-	 *
-	 * Migrations without a `down` export are skipped with a warning.
 	 */
 	async down(options?: RunDownOptions): Promise<void> {
 		await mutex.runExclusive(async () => {
 			const allMigrations = await loadMigrationFiles(this.migrationsDir);
 
 			if (options?.name) {
-				await this.runSpecificDown(allMigrations, options.name);
+				await this.runSpecificDown(allMigrations, options.name, options.dryRun);
 			} else {
-				await this.runLastBatchDown(allMigrations);
+				await this.runLastBatchDown(allMigrations, options?.dryRun);
 			}
 		});
 	}
 
 	/**
+	 * Creates a new migration file.
+	 */
+	async create(options: { name: string }): Promise<string> {
+		const filePath = await createMigrationFile(
+			this.migrationsDir,
+			options.name,
+		);
+		logger.info(`created migration: ${filePath}`);
+		return filePath;
+	}
+
+	/**
 	 * Returns every migration file found in `migrationsDir` combined with its
 	 * persisted status from the database.
-	 *
-	 * Migrations that have never been executed are reported as `'pending'`.
 	 */
 	async list(): Promise<MigrationListEntry[]> {
 		const [allMigrations, records] = await Promise.all([
@@ -128,6 +117,7 @@ export class MigrationRunner {
 
 	private async runPendingUp(
 		allMigrations: MigrationDefinition[],
+		dryRun?: boolean,
 	): Promise<void> {
 		const executedNames = await this.fetchExecutedNames();
 		const pending = sortMigrationsAsc(allMigrations).filter(
@@ -136,6 +126,12 @@ export class MigrationRunner {
 
 		if (pending.length === 0) {
 			logger.info('no pending migrations');
+			return;
+		}
+
+		if (dryRun) {
+			logger.info(`[DRY RUN] pending migrations to run: ${pending.length}`);
+			for (const m of pending) logger.info(`[DRY RUN]   → ${m.name}`);
 			return;
 		}
 
@@ -149,10 +145,16 @@ export class MigrationRunner {
 	private async runSpecificUp(
 		allMigrations: MigrationDefinition[],
 		name: string,
+		dryRun?: boolean,
 	): Promise<void> {
 		const migration = allMigrations.find((m) => m.name === name);
 		if (!migration) {
 			throw new Error(`migrations.errors.not-found: ${name}`);
+		}
+
+		if (dryRun) {
+			logger.info(`[DRY RUN] specific migration to run: ${migration.name}`);
+			return;
 		}
 
 		const batch = await this.nextBatchNumber();
@@ -166,24 +168,29 @@ export class MigrationRunner {
 		logger.info(`running up → ${migration.name}`);
 		const start = Date.now();
 
+		const session = await this.connection.startSession();
+
 		try {
-			await migration.up(this.connection);
+			await session.withTransaction(async () => {
+				await migration.up(this.connection, session);
+
+				const duration = Date.now() - start;
+
+				await MigrationModel.findOneAndUpdate(
+					{ name: migration.name },
+					{
+						name: migration.name,
+						batch,
+						status: 'up',
+						executedAt: new Date(),
+						duration,
+						error: undefined,
+					},
+					{ upsert: true, new: true, session },
+				).exec();
+			});
+
 			const duration = Date.now() - start;
-
-			// Upsert so re-running a specific migration updates its record
-			await MigrationModel.findOneAndUpdate(
-				{ name: migration.name },
-				{
-					name: migration.name,
-					batch,
-					status: 'up',
-					executedAt: new Date(),
-					duration,
-					error: undefined,
-				},
-				{ upsert: true, new: true },
-			).exec();
-
 			logger.info(`✓ ${migration.name} (${duration}ms)`);
 		} catch (err) {
 			const duration = Date.now() - start;
@@ -204,6 +211,8 @@ export class MigrationRunner {
 
 			logger.error(`✗ ${migration.name} — ${errorMessage}`);
 			throw err;
+		} finally {
+			await session.endSession();
 		}
 	}
 
@@ -211,6 +220,7 @@ export class MigrationRunner {
 
 	private async runLastBatchDown(
 		allMigrations: MigrationDefinition[],
+		dryRun?: boolean,
 	): Promise<void> {
 		const lastBatch = await this.fetchLastBatch();
 		if (lastBatch === null) {
@@ -224,12 +234,18 @@ export class MigrationRunner {
 			.exec();
 
 		const migrationByName = new Map(allMigrations.map((m) => [m.name, m]));
+		const toRollback = lastBatchRecords
+			.map((r) => migrationByName.get(r.name))
+			.filter((m): m is MigrationDefinition => m !== undefined);
 
-		for (const record of sortMigrationsDesc(
-			lastBatchRecords
-				.map((r) => migrationByName.get(r.name))
-				.filter((m): m is MigrationDefinition => m !== undefined),
-		)) {
+		if (dryRun) {
+			logger.info(`[DRY RUN] migrations to roll back (batch ${lastBatch}):`);
+			for (const m of sortMigrationsDesc(toRollback))
+				logger.info(`[DRY RUN]   → ${m.name}`);
+			return;
+		}
+
+		for (const record of sortMigrationsDesc(toRollback)) {
 			await this.executeMigrationDown(record);
 		}
 	}
@@ -237,11 +253,20 @@ export class MigrationRunner {
 	private async runSpecificDown(
 		allMigrations: MigrationDefinition[],
 		name: string,
+		dryRun?: boolean,
 	): Promise<void> {
 		const migration = allMigrations.find((m) => m.name === name);
 		if (!migration) {
 			throw new Error(`migrations.errors.not-found: ${name}`);
 		}
+
+		if (dryRun) {
+			logger.info(
+				`[DRY RUN] specific migration to roll back: ${migration.name}`,
+			);
+			return;
+		}
+
 		await this.executeMigrationDown(migration);
 	}
 
@@ -249,24 +274,33 @@ export class MigrationRunner {
 		migration: MigrationDefinition,
 	): Promise<void> {
 		if (!migration.down) {
-			logger.warn(`skipping down (no export) → ${migration.name}`);
-			return;
+			throw new Error(
+				`migrations.errors.missing-down-export: ${migration.name}`,
+			);
 		}
 
 		logger.info(`running down → ${migration.name}`);
 		const start = Date.now();
 
+		const session = await this.connection.startSession();
+
 		try {
-			await migration.down(this.connection);
+			await session.withTransaction(async () => {
+				await migration.down?.(this.connection, session);
+
+				await MigrationModel.deleteOne({ name: migration.name })
+					.session(session)
+					.exec();
+			});
+
 			const duration = Date.now() - start;
-
-			await MigrationModel.deleteOne({ name: migration.name }).exec();
-
 			logger.info(`✓ rolled back ${migration.name} (${duration}ms)`);
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : String(err);
 			logger.error(`✗ rollback failed ${migration.name} — ${errorMessage}`);
 			throw err;
+		} finally {
+			await session.endSession();
 		}
 	}
 

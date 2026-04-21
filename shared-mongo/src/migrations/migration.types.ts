@@ -1,4 +1,4 @@
-import type { Connection } from 'mongoose';
+import type { ClientSession, Connection } from 'mongoose';
 
 // ─── Migration definition ─────────────────────────────────────────────────────
 
@@ -7,8 +7,8 @@ export interface MigrationDefinition {
 	name: string;
 	/** Absolute path to the migration file */
 	filePath: string;
-	up(db: Connection): Promise<void>;
-	down?(db: Connection): Promise<void>;
+	up(db: Connection, session?: ClientSession): Promise<void>;
+	down?(db: Connection, session?: ClientSession): Promise<void>;
 }
 
 // ─── Persisted migration record ───────────────────────────────────────────────
@@ -40,11 +40,15 @@ export interface MigrationRunnerOptions {
 export interface RunUpOptions {
 	/** When provided, only this migration is executed (by name, regardless of prior status) */
 	name?: string;
+	/** When true, only logs what would happen without executing anything */
+	dryRun?: boolean;
 }
 
 export interface RunDownOptions {
 	/** When provided, only this specific migration is rolled back */
 	name?: string;
+	/** When true, only logs what would happen without executing anything */
+	dryRun?: boolean;
 }
 
 // ─── List entry (runner output) ───────────────────────────────────────────────

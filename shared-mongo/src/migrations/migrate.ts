@@ -10,12 +10,15 @@ export interface MigrateOptions {
 	/**
 	 * MongoDB connection URI.
 	 * Defaults to `process.env.MONGODB_URI` when omitted.
+	 * Not required for 'create' operation.
 	 */
 	uri?: string;
 	/** Options passed to `MigrationRunner.up()` when `operation` is `'up'` */
-	run?: RunUpOptions;
+	up?: RunUpOptions;
 	/** Options passed to `MigrationRunner.down()` when `operation` is `'down'` */
 	down?: RunDownOptions;
+	/** Options passed to `MigrationRunner.create()` when `operation` is `'create'` */
+	create?: { name: string };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -36,27 +39,21 @@ function resolveUri(options: MigrateOptions): string {
  * Run a specific migration operation.
  *
  * Connects to MongoDB, executes, then disconnects — fully self-contained.
- *
- * @example
- * ```ts
- * import { migrate } from '@nxgt/shared-mongo';
- *
- * await migrate('up', { migrationsDir: './src/migrations' });
- *
- * // Target a specific migration
- * await migrate(
- *   'up',
- *   {
- *     migrationsDir: './src/migrations',
- *     run: { name: '20260421120000-add-user-indexes' },
- *   },
- * );
- * ```
+ * For 'create', it does not connect to the database.
  */
 export async function migrate(
-	operation: 'up' | 'down' | 'list' = 'list',
+	operation: 'up' | 'down' | 'list' | 'create' = 'list',
 	options: MigrateOptions,
 ): Promise<void> {
+	if (operation === 'create') {
+		const runner = new MigrationRunner({
+			migrationsDir: options.migrationsDir,
+			connection: null as any,
+		});
+		await runner.create(options.create ?? { name: 'unnamed-migration' });
+		return;
+	}
+
 	const uri = resolveUri(options);
 	await mongoose.connect(uri);
 	const runner = new MigrationRunner({
@@ -64,7 +61,11 @@ export async function migrate(
 		connection: mongoose.connection,
 	});
 	try {
-		await runner[operation](options[operation]);
+		if (operation === 'list') {
+			await runner.list();
+		} else {
+			await runner[operation](options[operation]);
+		}
 	} finally {
 		await mongoose.disconnect();
 	}

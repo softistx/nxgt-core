@@ -10,17 +10,19 @@
  *   up      Run all pending migrations (or a specific one with --name)
  *   down    Rollback the last batch (or a specific one with --name)
  *   list    Print all migrations with their current status
+ *   create  Generate a new migration file with boilerplate
  *
  * Options:
- *   --dir   <path>   Directory containing migration files (default: ./migrations)
- *   --name  <name>   Target a specific migration by name (for up/down)
- *   --uri   <uri>    MongoDB connection URI (overrides MONGODB_URI env var)
+ *   --dir      <path>   Directory containing migration files (default: ./migrations)
+ *   --name     <name>   Name for new migration (create) or target specific (up/down)
+ *   --uri      <uri>    MongoDB connection URI (overrides MONGODB_URI env var)
+ *   --dry-run           Show what would happen without executing (up/down)
  *
  * Examples:
+ *   bun src/migrations/cli.ts create --name add-user-indexes
  *   bun src/migrations/cli.ts up --dir ./migrations
- *   bun src/migrations/cli.ts up --dir ./migrations --name 20260421120000-add-user-indexes
+ *   bun src/migrations/cli.ts up --name 20260421120000-add-user-indexes --dry-run
  *   bun src/migrations/cli.ts down --dir ./migrations
- *   bun src/migrations/cli.ts down --dir ./migrations --name 20260421120000-add-user-indexes
  *   bun src/migrations/cli.ts list --dir ./migrations
  */
 
@@ -39,6 +41,7 @@ const { positionals, values } = parseArgs({
 		dir: { type: 'string', short: 'd', default: './migrations' },
 		name: { type: 'string', short: 'n' },
 		uri: { type: 'string', short: 'u' },
+		'dry-run': { type: 'boolean' },
 	},
 });
 
@@ -46,10 +49,11 @@ const command = positionals[2];
 const migrationsDir = resolve(values.dir);
 const targetName = values.name;
 const mongoUri = values.uri ?? Bun.env.MONGODB_URI;
+const dryRun = values['dry-run'];
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const VALID_COMMANDS = ['up', 'down', 'list'] as const;
+const VALID_COMMANDS = ['up', 'down', 'list', 'create'] as const;
 type Command = (typeof VALID_COMMANDS)[number];
 
 function isValidCommand(cmd: string | undefined): cmd is Command {
@@ -65,7 +69,15 @@ if (!isValidCommand(command)) {
 	process.exit(1);
 }
 
-if (!mongoUri) {
+if (command === 'create' && !targetName) {
+	console.error(
+		'\nmigrate: --name is required for the "create" command\n' +
+			'  example: bun cli.ts create --name my-migration\n',
+	);
+	process.exit(1);
+}
+
+if (!mongoUri && command !== 'create') {
 	console.error(
 		'\nmigrate: MONGODB_URI is required\n' +
 			'  set the MONGODB_URI environment variable or pass --uri <uri>\n',
@@ -116,6 +128,15 @@ function printList(entries: MigrationListEntry[]): void {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+	if (command === 'create') {
+		const runner = new MigrationRunner({
+			migrationsDir,
+			connection: null as any,
+		});
+		await runner.create({ name: targetName || 'unnamed-migration' });
+		return;
+	}
+
 	await mongoose.connect(mongoUri ?? '');
 
 	const runner = new MigrationRunner({
@@ -126,11 +147,11 @@ async function main(): Promise<void> {
 	try {
 		switch (command) {
 			case 'up':
-				await runner.up(targetName ? { name: targetName } : undefined);
+				await runner.up({ name: targetName, dryRun });
 				break;
 
 			case 'down':
-				await runner.down(targetName ? { name: targetName } : undefined);
+				await runner.down({ name: targetName, dryRun });
 				break;
 
 			case 'list': {
