@@ -186,7 +186,7 @@ export class MigrationRunner {
 						duration,
 						error: undefined,
 					},
-					{ upsert: true, new: true, session },
+					{ upsert: true, returnDocument: 'after', session },
 				).exec();
 			});
 
@@ -206,7 +206,7 @@ export class MigrationRunner {
 					duration,
 					error: errorMessage,
 				},
-				{ upsert: true, new: true },
+				{ upsert: true, returnDocument: 'after' },
 			).exec();
 
 			logger.error(`✗ ${migration.name} — ${errorMessage}`);
