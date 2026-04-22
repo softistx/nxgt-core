@@ -31,6 +31,7 @@ import { parseArgs } from 'node:util';
 import mongoose from 'mongoose';
 import { MigrationRunner } from './migration.runner';
 import type { MigrationListEntry } from './migration.types';
+import { logger } from './migration.utils';
 
 // ─── Arg parsing ──────────────────────────────────────────────────────────────
 
@@ -61,8 +62,8 @@ function isValidCommand(cmd: string | undefined): cmd is Command {
 }
 
 if (!isValidCommand(command)) {
-	console.error(
-		`\nmigrate: unknown command "${command ?? ''}"\n` +
+	logger.error(
+		`\nunknown command "${command ?? ''}"\n` +
 			`  valid commands: ${VALID_COMMANDS.join(', ')}\n` +
 			`  run with --help to see usage\n`,
 	);
@@ -70,16 +71,16 @@ if (!isValidCommand(command)) {
 }
 
 if (command === 'create' && !targetName) {
-	console.error(
-		'\nmigrate: --name is required for the "create" command\n' +
+	logger.error(
+		'\n--name is required for the "create" command\n' +
 			'  example: bun cli.ts create --name my-migration\n',
 	);
 	process.exit(1);
 }
 
 if (!mongoUri && command !== 'create') {
-	console.error(
-		'\nmigrate: MONGODB_URI is required\n' +
+	logger.error(
+		'\nMONGODB_URI is required\n' +
 			'  set the MONGODB_URI environment variable or pass --uri <uri>\n',
 	);
 	process.exit(1);
@@ -95,7 +96,7 @@ const STATUS_LABEL: Record<MigrationListEntry['status'], string> = {
 
 function printList(entries: MigrationListEntry[]): void {
 	if (entries.length === 0) {
-		console.log('\nmigrate: no migration files found\n');
+		logger.info('\nno migration files found\n');
 		return;
 	}
 
@@ -103,11 +104,11 @@ function printList(entries: MigrationListEntry[]): void {
 
 	const nameWidth = Math.max(...entries.map((e) => e.name.length));
 
-	console.log('');
-	console.log(
+	logger.info('');
+	logger.info(
 		`  ${col('status ', 9)}  ${col('batch', 7)}  ${col('name', nameWidth)}  executed-at`,
 	);
-	console.log(
+	logger.info(
 		`  ${'─'.repeat(9)}  ${'─'.repeat(7)}  ${'─'.repeat(nameWidth)}  ${'─'.repeat(24)}`,
 	);
 
@@ -117,12 +118,12 @@ function printList(entries: MigrationListEntry[]): void {
 			entry.batch != null ? String(entry.batch).padEnd(7) : '─'.padEnd(7);
 		const executedAt = entry.executedAt ? entry.executedAt.toISOString() : '─';
 
-		console.log(
+		logger.info(
 			`  ${status}  ${batch}  ${col(entry.name, nameWidth)}  ${executedAt}`,
 		);
 	}
 
-	console.log('');
+	logger.info('');
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -166,6 +167,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-	console.error('\nmigrate: fatal error\n', err);
+	logger.error('\nfatal error\n', err);
 	process.exit(1);
 });
