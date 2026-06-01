@@ -2,6 +2,7 @@ import { isScopeAuthority } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { getLogger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
+import type { MiddlewareHandler } from 'hono/types';
 
 /**
  * Route guard middleware following Apollo Federation requireScopes semantics.
@@ -18,7 +19,7 @@ import { createMiddleware } from 'hono/factory';
  * For confidential-client principals (clientId present, no username) only
  * SCOPE_* authorities are considered — role/permission entries are ignored.
  */
-export function secured(authorities: string[][] = []) {
+export function secured(authorities: string[][] = []): MiddlewareHandler {
 	return createMiddleware(async (ctx, next) => {
 		const logger = ctx.get('logger') || getLogger();
 

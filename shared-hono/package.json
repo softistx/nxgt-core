@@ -20,9 +20,9 @@
 		"@nxgt/shared-logging": "workspace:*",
 		"@nxgt/shared-mongo": "workspace:*",
 		"@upstash/redis": "^1.38.0",
-		"hono": "^4.12.19",
+		"hono": "^4.12.23",
 		"hono-rate-limiter": "^0.5.3",
-		"ioredis": "^5.10.1",
+		"ioredis": "^5.11.0",
 		"lodash": "^4.18.1",
 		"openapi-fetch": "^0.17.0",
 		"zod": "^4.4.3"

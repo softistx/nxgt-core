@@ -4,6 +4,7 @@ import { evaluateRest } from '@nxgt/shared/policy';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
+import type { MiddlewareHandler } from 'hono/types';
 
 /**
  * Hono middleware that evaluates every incoming REST request against a
@@ -32,7 +33,7 @@ import { createMiddleware } from 'hono/factory';
  * app.use('/api/*', bearerAuth(), policyGuard(rules));
  * ```
  */
-export function policyGuard(rules: Rules) {
+export function policyGuard(rules: Rules): MiddlewareHandler {
 	return createMiddleware(async (ctx, next) => {
 		const clonedRaw = ctx.req.raw.clone();
 

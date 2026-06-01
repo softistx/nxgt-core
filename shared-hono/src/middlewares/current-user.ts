@@ -1,8 +1,9 @@
 import { type Principal, USER_HEADERS } from '@nxgt/shared/models';
 import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
+import type { MiddlewareHandler } from 'hono/types';
 
-export const currentUser = () =>
+export const currentUser = (): MiddlewareHandler =>
 	createMiddleware(async (ctx, next) => {
 		if (
 			!ctx.req.header(USER_HEADERS.ID) &&
