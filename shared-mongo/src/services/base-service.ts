@@ -99,9 +99,9 @@ export abstract class BaseService<
 	async deleteMany(ids: string[]): Promise<void> {
 		await runWithChangesListening(async () => {
 			await this.beforeDeleteMany(ids);
-			await integrityRegistry.validateDeletion(this.model.name, ids);
+			await integrityRegistry.validateDeletion(this.model.modelName, ids);
 
-			await integrityRegistry.runCascades(this.model.name, ids);
+			await integrityRegistry.runCascades(this.model.modelName, ids);
 			return this.model.deleteMany({ _id: { $in: ids } }).exec();
 		}, this.changesOptions);
 	}

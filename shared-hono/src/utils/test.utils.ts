@@ -11,6 +11,7 @@ export function mockUser(
 	return {
 		id: new mongoose.mongo.ObjectId().toHexString(),
 		authorities: [...(values.roles ?? []), ...(values.permissions ?? [])],
+		name: values.username || undefined,
 		...values,
 	};
 }

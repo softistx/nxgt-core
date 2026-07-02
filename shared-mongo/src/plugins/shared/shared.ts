@@ -39,6 +39,9 @@ export function applySharedOperations(schema: Schema) {
 			}
 			return doc;
 		} catch (error: any) {
+			if (error instanceof CustomException) {
+				throw error;
+			}
 			throw CustomException.from({
 				code: arguments?.[1]?.code ?? 400,
 				message: arguments?.[1]?.message ?? error?.message,
@@ -48,6 +51,12 @@ export function applySharedOperations(schema: Schema) {
 	});
 
 	if (schema.options.versionKey) {
+		schema.pre('save', function () {
+			if (this.isModified()) {
+				this.increment();
+			}
+		});
+
 		schema.pre(['findOneAndUpdate'], async function () {
 			const update = this.getUpdate() as any;
 			if (!update) {
