@@ -5,6 +5,8 @@ import { type mongo, mongoose } from '@nxgt/shared-mongo';
 import { ObjectId } from 'bson';
 import { pick } from 'lodash';
 
+const MAX_SIZE = 100;
+
 export type GridFSBucketNames =
 	| 'avatars'
 	| 'uploads'
@@ -94,27 +96,21 @@ export class GridFSService {
 		}
 
 		// Determine limit and sort order
-		const hasLimit = !!(first || last);
-		const limit = hasLimit ? ((first ?? last) as number) : undefined;
-		const querySort: { _id: 1 | -1 } = last ? { _id: -1 } : { _id: 1 };
+		const limit = Math.min(first ?? last ?? MAX_SIZE, MAX_SIZE);
+		const querySort: { _id: 1 | -1 } = { _id: last || before ? -1 : 1 };
 
 		// Build query
 		const bucket = this.bucket(options);
 		const query = bucket.find(cursorFilter).sort(querySort);
 
 		// Apply limit only if specified (fetch one extra to determine if there are more pages)
-		if (hasLimit) {
-			query.limit(Math.max(limit || 0, 1) + 1);
-		}
+		query.limit(Math.max(limit || 0, 1) + 1);
 
 		const docs = await query.toArray();
 
 		// If using 'last', reverse the results back to normal order
-		const hasExtraDoc = hasLimit && docs.length > (limit as number);
+		const hasExtraDoc = docs.length > (limit as number);
 		const resultDocs = hasExtraDoc ? docs.slice(0, limit) : docs;
-		if (last) {
-			resultDocs.reverse();
-		}
 
 		// Get total count
 		const totalElements = await bucket.find(filter ?? {}).count();
@@ -127,24 +123,12 @@ export class GridFSService {
 				? resultDocs?.[resultDocs.length - 1]?._id.toString()
 				: null;
 
-		let hasNextPage = false;
-		let hasPreviousPage = false;
-
-		if (first) {
-			hasNextPage = hasExtraDoc;
-			hasPreviousPage = !!after;
-		} else if (last) {
-			hasNextPage = !!before;
-			hasPreviousPage = hasExtraDoc;
-		}
-
 		return {
 			data: resultDocs,
 			metadata: {
 				startCursor,
 				endCursor,
-				hasNextPage,
-				hasPreviousPage,
+				hasNextPage: hasExtraDoc,
 				totalElements,
 			},
 		};

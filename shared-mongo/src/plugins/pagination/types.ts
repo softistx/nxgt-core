@@ -1,8 +1,8 @@
 import type { PopulateOptions } from 'mongoose';
 
 export class PaginationOptions {
-	sort?: object;
 	filter?: object;
+	sort?: object;
 	page?: number;
 	size?: number;
 }
@@ -19,7 +19,6 @@ export interface PageInfo {
 	nbOfElements: number;
 	totalElements: number;
 	hasNextPage: boolean;
-	hasPreviousPage: boolean;
 }
 
 export interface IPaginatedType<T> {
@@ -35,7 +34,6 @@ export type PaginateOptions = PaginationOptions & {
 
 export class CursorPaginationOptions {
 	filter?: object;
-	sort?: object;
 	first?: number;
 	last?: number;
 	after?: string;
@@ -46,7 +44,6 @@ export interface CursorPageInfo {
 	startCursor: string | null;
 	endCursor: string | null;
 	hasNextPage: boolean;
-	hasPreviousPage: boolean;
 	totalElements: number;
 }
 

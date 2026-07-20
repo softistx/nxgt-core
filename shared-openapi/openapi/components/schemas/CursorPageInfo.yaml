@@ -9,11 +9,8 @@ properties:
   hasNextPage:
     type: boolean
     description: Indicates whether there are more items after the current page.
-  hasPreviousPage:
-    type: boolean
-    description: Indicates whether there are items before the current page.
   totalElements:
     type: integer
     description: The total number of elements across all pages.
-required: [ hasNextPage, hasPreviousPage, totalElements ]
+required: [ hasNextPage, totalElements ]
 description: Cursor-based pagination information.

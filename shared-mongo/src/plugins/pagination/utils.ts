@@ -6,6 +6,8 @@ import type {
 	PaginateOptions,
 } from './types';
 
+const MAX_SIZE = 100;
+
 export function applyPagination(schema: Schema) {
 	schema.static('paginate', async function () {
 		const options = <PaginateOptions>arguments?.[0] ?? {};
@@ -19,43 +21,12 @@ export function applyPagination(schema: Schema) {
 		const count = await ((this as any)[`countDocuments${deleted}`]?.(filter) ??
 			this.countDocuments(filter));
 
-		const paginated = (options.page ?? 0) > 0 || (options.size ?? 0) > 0;
-		const size = !paginated
-			? count
-			: (options.size ?? 0) > 0
-				? options.size
-				: 20;
-		const page = (options.page ?? 0) > 0 && paginated ? (options.page ?? 0) : 1;
+		const size = Math.min(Math.min(1, options.size ?? 20), MAX_SIZE);
+		const page = Math.max(options.page ?? 1, 1);
 
 		const totalPages = Math.floor((count - 1) / size) + 1;
 		const hasPreviousPage = page > 1;
 		const hasNextPage = page < totalPages;
-
-		if (!paginated) {
-			const docs = await (
-				(this as any)[`find${deleted}`]?.(
-					filter,
-					arguments?.[1],
-					arguments?.[2],
-				) ?? this.find(filter, arguments?.[1], arguments?.[2])
-			)
-				.populate(populate)
-				.sort(sort)
-				.exec();
-
-			return {
-				data: docs,
-				metadata: {
-					page,
-					size,
-					totalElements: count,
-					totalPages,
-					nbOfElements: docs.length,
-					hasPreviousPage,
-					hasNextPage,
-				},
-			};
-		}
 
 		const skip = (page - 1) * size;
 
@@ -91,13 +62,8 @@ export function applyPagination(schema: Schema) {
 		const options = <NestedPaginationOptions>arguments?.[1] ?? {};
 		const count = docs.length;
 
-		const paginated = (options.page ?? 0) > 0 || (options.size ?? 0) > 0;
-		const size = !paginated
-			? count
-			: (options.size ?? 0) > 0
-				? options.size
-				: 20;
-		const page = (options.page ?? 0) > 0 && paginated ? (options.page ?? 0) : 1;
+		const size = Math.min(Math.min(1, options.size ?? 20), MAX_SIZE);
+		const page = Math.max(options.page ?? 1, 1);
 
 		const totalPages = Math.floor((count - 1) / size) + 1;
 		const hasPreviousPage = page > 1;
@@ -124,7 +90,6 @@ export function applyPagination(schema: Schema) {
 		const filter = options.filter ?? {};
 		const populate = options.populate ?? [];
 		const deleted = options.deleted ?? '';
-		const baseSort = options.sort ?? {};
 
 		const after = options.after;
 		const before = options.before;
@@ -141,7 +106,7 @@ export function applyPagination(schema: Schema) {
 		}
 
 		// Build cursor filter
-		const cursorFilter: QueryFilter<any> = { ...filter };
+		const cursorFilter: QueryFilter<any> = filter;
 
 		if (after) {
 			cursorFilter._id = { $gt: after };
@@ -152,9 +117,8 @@ export function applyPagination(schema: Schema) {
 		}
 
 		// Determine limit and sort order
-		const hasLimit = first || last;
-		const limit = hasLimit ? ((first ?? last) as number) : undefined;
-		const querySort = last ? { ...baseSort, _id: -1 } : { ...baseSort, _id: 1 };
+		const limit = Math.min(first ?? last ?? MAX_SIZE, MAX_SIZE);
+		const querySort = { _id: last || before ? -1 : 1 };
 
 		// Build query
 		const query = (
@@ -168,14 +132,12 @@ export function applyPagination(schema: Schema) {
 			.sort(querySort);
 
 		// Apply limit only if specified (fetch one extra to determine if there are more pages)
-		if (hasLimit) {
-			query.limit(Math.max(limit ?? 0, 1) + 1);
-		}
+		query.limit(Math.max(limit ?? 0, 1) + 1);
 
 		const docs = await query.exec();
 
 		// If using 'last', reverse the results back to normal order
-		const hasExtraDoc = !!hasLimit && docs.length > (limit as number);
+		const hasExtraDoc = docs.length > limit;
 		const resultDocs = hasExtraDoc ? docs.slice(0, limit) : docs;
 		if (last) {
 			resultDocs.reverse();
@@ -194,24 +156,12 @@ export function applyPagination(schema: Schema) {
 				? resultDocs[resultDocs.length - 1]._id.toString()
 				: null;
 
-		let hasNextPage = false;
-		let hasPreviousPage = false;
-
-		if (first) {
-			hasNextPage = hasExtraDoc;
-			hasPreviousPage = !!after;
-		} else if (last) {
-			hasNextPage = !!before;
-			hasPreviousPage = hasExtraDoc;
-		}
-
 		return {
 			data: resultDocs,
 			metadata: {
 				startCursor,
 				endCursor,
-				hasNextPage,
-				hasPreviousPage,
+				hasNextPage: hasExtraDoc,
 				totalElements,
 			},
 		};
