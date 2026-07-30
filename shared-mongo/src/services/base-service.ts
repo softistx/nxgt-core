@@ -10,7 +10,7 @@ import type { HydratedDocument, Model, QueryFilter } from '../mongoose';
 type InferDocType<D extends HydratedDocument<any>> =
 	D extends HydratedDocument<infer T> ? T : D;
 
-export abstract class BaseService<
+export abstract class MongoCrudService<
 	D extends HydratedDocument<any>,
 	CInput = any,
 	UInput = any,
