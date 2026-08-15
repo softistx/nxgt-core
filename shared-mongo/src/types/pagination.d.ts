@@ -1,3 +1,4 @@
+import 'mongoose';
 import type {
 	CursorPaginateOptions,
 	ICursorPaginatedType,
@@ -9,17 +10,18 @@ import type {
 declare module 'mongoose' {
 	export interface Model<
 		TRawDocType,
-		TQueryHelpers,
-		TInstanceMethods,
-		TVirtuals,
+		TQueryHelpers = object,
+		TInstanceMethods = object,
+		TVirtuals = object,
 		THydratedDocumentType = HydratedDocument<
 			TRawDocType,
 			TVirtuals & TInstanceMethods,
-			TQueryHelpers
+			TQueryHelpers,
+			TVirtuals
 		>,
-		_TSchema = any,
+		TSchema = any,
+		TLeanResultType = TRawDocType,
 	> extends NodeJS.EventEmitter,
-			AcceptsDiscriminator,
 			IndexManager,
 			SessionStarter {
 		paginate<_ResultDoc = THydratedDocumentType>(

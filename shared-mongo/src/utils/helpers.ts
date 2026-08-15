@@ -6,8 +6,8 @@ import type { Model, PipelineStage, QueryFilter, UpdateQuery } from 'mongoose';
 import mongoose from 'mongoose';
 
 export async function safeCreateView<T, R>(
-	model: Model<T>,
-	viewModel: Model<R>,
+	model: Model<T, any, any, any, any, any, any>,
+	viewModel: Model<R, any, any, any, any, any, any>,
 	pipeline: PipelineStage[] = [],
 ) {
 	try {
@@ -54,9 +54,9 @@ export async function safeCreateView<T, R>(
  * @returns An update query object for MongoDB.
  */
 export async function buildListStringPatch<T, S>(
-	_source: Model<S>,
+	_source: Model<S, any, any, any, any, any, any>,
 	path: keyof S,
-	model: Model<T>,
+	model: Model<T, any, any, any, any, any, any>,
 	value?: ListStringPatch,
 	filter: QueryFilter<T> = {},
 ): Promise<UpdateQuery<S>> {
@@ -68,7 +68,7 @@ export async function buildListStringPatch<T, S>(
 						...filter,
 					})
 					.exec()
-			).map((item) => item._id)
+			).map((item: { _id: unknown }) => item._id)
 		: [];
 	const remove = value?.remove?.length
 		? (
@@ -78,7 +78,7 @@ export async function buildListStringPatch<T, S>(
 						...filter,
 					})
 					.exec()
-			).map((item) => item._id)
+			).map((item: { _id: unknown }) => item._id)
 		: [];
 	const replace = value?.replace?.length
 		? (
@@ -88,7 +88,7 @@ export async function buildListStringPatch<T, S>(
 						...filter,
 					})
 					.exec()
-			).map((item) => item._id)
+			).map((item: { _id: unknown }) => item._id)
 		: [];
 	return {
 		...(value?.add?.length && {

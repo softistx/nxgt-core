@@ -1,17 +1,18 @@
 declare module 'mongoose' {
 	export interface Model<
 		TRawDocType,
-		TQueryHelpers = unknown,
-		TInstanceMethods = unknown,
-		TVirtuals = unknown,
+		TQueryHelpers = object,
+		TInstanceMethods = object,
+		TVirtuals = object,
 		THydratedDocumentType = HydratedDocument<
 			TRawDocType,
 			TVirtuals & TInstanceMethods,
-			TQueryHelpers
+			TQueryHelpers,
+			TVirtuals
 		>,
-		_TSchema = any,
+		TSchema = any,
+		TLeanResultType = TRawDocType,
 	> extends NodeJS.EventEmitter,
-			AcceptsDiscriminator,
 			IndexManager,
 			SessionStarter {
 		/** Schema the model uses. */
