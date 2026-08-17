@@ -9,6 +9,10 @@ import {
 	type ItemBucketMetadata,
 	type RemoveOptions,
 } from 'minio';
+
+// Not re-exported from the `minio` package root (only from its internal
+// type module), so mirrored here from its actual shape.
+type PreSignRequestParams = Record<string, string>;
 import { S3_CREDENTIALS, type S3ClientWriteBody } from './storage.service';
 
 export type MinioPutBody = Parameters<Client['putObject']>[2];
@@ -156,6 +160,32 @@ export class MinioService {
 			`Listing objects (V2) in bucket ${this.bucket} with prefix ${prefix} and recursive ${recursive}`,
 		);
 		return this.minio.listObjectsV2(this.bucket, prefix, recursive, startAfter);
+	}
+
+	/**
+	 * Presigned GET URL supporting response-header overrides (e.g.
+	 * `response-content-disposition`) — Bun's native `S3Client.presign()`
+	 * (used by `StorageService.presing()`) has no equivalent, so callers that
+	 * need per-request Content-Disposition/Content-Type overrides (attachment
+	 * vs inline downloads) must go through this instead.
+	 */
+	async presignedGetObject(
+		key: string,
+		expiresIn = 7 * 24 * 60 * 60,
+		respHeaders: PreSignRequestParams = {},
+	) {
+		this.logger.info(`Presigning GET for object ${key} in bucket ${this.bucket}`);
+		return this.minio.presignedGetObject(
+			this.bucket,
+			key,
+			expiresIn,
+			respHeaders,
+		);
+	}
+
+	async presignedPutObject(key: string, expiresIn = 7 * 24 * 60 * 60) {
+		this.logger.info(`Presigning PUT for object ${key} in bucket ${this.bucket}`);
+		return this.minio.presignedPutObject(this.bucket, key, expiresIn);
 	}
 
 	async bucketExists(bucket?: string) {
