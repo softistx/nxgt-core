@@ -13,6 +13,7 @@ import {
 // Not re-exported from the `minio` package root (only from its internal
 // type module), so mirrored here from its actual shape.
 type PreSignRequestParams = Record<string, string>;
+
 import { S3_CREDENTIALS, type S3ClientWriteBody } from './storage.service';
 
 export type MinioPutBody = Parameters<Client['putObject']>[2];
@@ -174,7 +175,9 @@ export class MinioService {
 		expiresIn = 7 * 24 * 60 * 60,
 		respHeaders: PreSignRequestParams = {},
 	) {
-		this.logger.info(`Presigning GET for object ${key} in bucket ${this.bucket}`);
+		this.logger.info(
+			`Presigning GET for object ${key} in bucket ${this.bucket}`,
+		);
 		return this.minio.presignedGetObject(
 			this.bucket,
 			key,
@@ -184,7 +187,9 @@ export class MinioService {
 	}
 
 	async presignedPutObject(key: string, expiresIn = 7 * 24 * 60 * 60) {
-		this.logger.info(`Presigning PUT for object ${key} in bucket ${this.bucket}`);
+		this.logger.info(
+			`Presigning PUT for object ${key} in bucket ${this.bucket}`,
+		);
 		return this.minio.presignedPutObject(this.bucket, key, expiresIn);
 	}
 
