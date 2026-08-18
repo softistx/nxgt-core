@@ -153,4 +153,64 @@ describe('applyGraphqlPolicy', () => {
 		expect(result.errors).toBeUndefined();
 		expect(result.data).toEqual({ me: { username: 'alice' } });
 	});
+
+	it('exposes `source` in expression scope for ownership checks', async () => {
+		const rules: Rules = {
+			graphql: {
+				User: {
+					email: {
+						expression: { value: 'source.id === claims.sub' },
+					},
+				},
+			},
+		};
+		const policy = compilePolicy(rules);
+		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+			getClaims: () => ({ sub: 'someone-else' }),
+		});
+
+		const denied = await graphql({
+			schema,
+			source: '{ me { email } }',
+			contextValue: {},
+		});
+		expect(denied.data?.me).toEqual({ email: null });
+		expect(denied.errors).toHaveLength(1);
+
+		const schemaForOwner = applyGraphqlPolicy(buildSchema(), policy, {
+			getClaims: () => ({ sub: '1' }),
+		});
+		const allowed = await graphql({
+			schema: schemaForOwner,
+			source: '{ me { email } }',
+			contextValue: {},
+		});
+		expect(allowed.errors).toBeUndefined();
+		expect(allowed.data).toEqual({ me: { email: 'alice@example.com' } });
+	});
+
+	it('exposes `info` (GraphQLResolveInfo) in expression scope', async () => {
+		const rules: Rules = {
+			graphql: {
+				User: {
+					email: {
+						expression: { value: "info.fieldName === 'email'" },
+					},
+				},
+			},
+		};
+		const policy = compilePolicy(rules);
+		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+			getClaims: () => ({ sub: 'user-1' }),
+		});
+
+		const result = await graphql({
+			schema,
+			source: '{ me { email } }',
+			contextValue: {},
+		});
+
+		expect(result.errors).toBeUndefined();
+		expect(result.data).toEqual({ me: { email: 'alice@example.com' } });
+	});
 });

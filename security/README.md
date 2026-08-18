@@ -61,6 +61,8 @@ const schema = applyGraphqlPolicy(rawSchema, policy, {
 
 For every `typeName.fieldName` covered by a rule — root fields under `Query`/`Mutation`/`Subscription`, or a field on any other declared type (e.g. `User.email`) — the resolver is replaced with a wrapper that runs the same authorities + expression check as `evaluateGraphql`, delegating to the original resolver (or `defaultFieldResolver`, if none was set) on ALLOW, and throwing a `GraphQLError` (`extensions.code: 'FORBIDDEN'`) on DENY. Fields with no rule entry are left completely untouched — the original schema is never mutated, `applyGraphqlPolicy` returns a new one via `@graphql-tools/utils`'s `mapSchema`.
 
+GraphQL expressions see `claims`, `args`, `source` (the resolver's parent/source value — e.g. `source.id === claims.sub` for an ownership check on `User.email`), and `info` (the full `GraphQLResolveInfo`) in scope.
+
 `mapSchema` operates on a standard `graphql-js` `GraphQLSchema` object, so this works regardless of which server framework built or serves it (Yoga, Apollo, Mercurius, a hand-rolled `makeExecutableSchema` call, ...) — no GraphQL server library is a dependency of this package.
 
 ## Development

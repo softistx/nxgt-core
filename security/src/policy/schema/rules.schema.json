@@ -115,7 +115,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -199,7 +199,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -283,7 +283,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -367,7 +367,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -451,7 +451,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -535,7 +535,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -619,7 +619,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -703,7 +703,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -787,7 +787,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -871,7 +871,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -970,7 +970,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -1061,7 +1061,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -1152,7 +1152,7 @@
 								"properties": {
 									"value": {
 										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 									},
 									"message": {
 										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
@@ -1244,7 +1244,7 @@
 							"properties": {
 								"value": {
 									"type": "string",
-									"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims`, `args`, `source` (the resolver's parent/source value — useful for ownership checks like `source.id === claims.sub`), and `info` (the GraphQLResolveInfo). Example: \"args.input.username.toLowerCase() !== 'admin'\"."
 								},
 								"message": {
 									"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",

@@ -44,14 +44,15 @@ export interface CompiledPolicy {
 // ---------------------------------------------------------------------------
 
 const REST_SCOPE = ['claims', 'req'] as const;
-const GRAPHQL_SCOPE = ['claims', 'args'] as const;
+const GRAPHQL_SCOPE = ['claims', 'args', 'source', 'info'] as const;
 
 /**
  * Compiles `expression.value` strings into Functions, memoized per
  * `compilePolicy()` call. The cache key includes the scope-key shape (not
  * just the expression text) so identical expression text used under REST's
- * `['claims','req']` scope and GraphQL's `['claims','args']` scope never
- * collides and binds the wrong positional argument to the wrong parameter.
+ * `['claims','req']` scope and GraphQL's `['claims','args','source','info']`
+ * scope never collides and binds the wrong positional argument to the wrong
+ * parameter.
  */
 function createExpressionCompiler() {
 	const cache = new Map<string, (...args: unknown[]) => unknown>();

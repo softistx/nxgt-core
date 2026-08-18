@@ -26,6 +26,21 @@ export interface GraphqlEvaluateInput {
 	 * Matches the YAML example: `args.input.username.toLowerCase() !== 'admin'`
 	 */
 	args?: Record<string, unknown>;
+	/**
+	 * The resolver's parent/source value — made available in expression
+	 * scope as `source`. Lets rules express ownership checks on nested
+	 * fields, e.g. `source.id === claims.sub` on `User.email`. Typed
+	 * `unknown` rather than a concrete GraphQL type so this evaluator has no
+	 * dependency on the `graphql` package — `applyGraphqlPolicy` (which does)
+	 * passes the resolver's real `source` argument through here.
+	 */
+	source?: unknown;
+	/**
+	 * The resolver's `GraphQLResolveInfo` — made available in expression
+	 * scope as `info` (fieldName, path, parentType, returnType, schema, ...).
+	 * Typed `unknown` for the same reason as `source`.
+	 */
+	info?: unknown;
 }
 
 // Re-export so consumers only need to import from one evaluator file
@@ -43,7 +58,8 @@ export type { EvaluateResult };
  *
  * Evaluation order (both must pass for ALLOW):
  *   1. Authority groups checked (AND outer / OR inner) — DENY on failure
- *   2. Expression evaluated with `{ claims, args }` in scope — DENY on failure
+ *   2. Expression evaluated with `{ claims, args, source, info }` in scope —
+ *      DENY on failure
  *
  * Returns NOT_APPLICABLE when the operation type or field has no rule entry.
  */
@@ -74,6 +90,8 @@ export function evaluateGraphql(
 			entry.compiledExpression,
 			input.claims,
 			input.args ?? {},
+			input.source,
+			input.info,
 		);
 		if (!exprResult.passed) {
 			return { decision: 'DENY', reason: exprResult.message };

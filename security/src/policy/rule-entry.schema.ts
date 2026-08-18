@@ -52,7 +52,7 @@ export const zRuleEntry = z.object({
 	 *
 	 * Available scope variables differ by evaluator type:
 	 *   REST    — `claims`, `req` (body, params, query, headers, cookies)
-	 *   GraphQL — `claims`, `args`
+	 *   GraphQL — `claims`, `args`, `source`, `info`
 	 */
 	expression: z
 		.object({
@@ -62,9 +62,11 @@ export const zRuleEntry = z.object({
 					'JavaScript expression source evaluated at request time; must ' +
 						'return a truthy value for the rule to allow the request. ' +
 						'REST rules see `claims` and `req` (body, params, query, ' +
-						'headers, cookies) in scope; GraphQL rules see `claims` and ' +
-						'`args`. Example: "args.input.username.toLowerCase() !== ' +
-						"'admin'\".",
+						'headers, cookies) in scope; GraphQL rules see `claims`, ' +
+						"`args`, `source` (the resolver's parent/source value — " +
+						'useful for ownership checks like `source.id === claims.sub`), ' +
+						'and `info` (the GraphQLResolveInfo). Example: ' +
+						'"args.input.username.toLowerCase() !== \'admin\'".',
 				),
 			message: z
 				.string()

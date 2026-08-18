@@ -55,6 +55,8 @@ export function applyGraphqlPolicy(
 						field: fieldName,
 						claims,
 						args,
+						source,
+						info,
 					});
 
 					if (result.decision === 'DENY') {
