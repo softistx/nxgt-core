@@ -3,5 +3,6 @@ export * from './compile';
 export * from './evaluation.utils';
 export * from './graphql/evaluator';
 export * from './graphql/schema';
-export * from './rest.evaluator';
+export * from './rest/evaluator';
+export * from './rest/schema';
 export * from './rules.schema';

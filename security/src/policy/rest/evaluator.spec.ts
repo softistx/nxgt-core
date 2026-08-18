@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
-import { compilePolicy } from './compile';
-import { evaluateRest } from './rest.evaluator';
-import type { Rules } from './rules.schema';
+import { compilePolicy } from '../compile';
+import type { Rules } from '../rules.schema';
+import { evaluateRest } from './evaluator';
 
 describe('evaluateRest — $domain authority templating', () => {
 	it("does not leak one request's domain substitution into the next", () => {

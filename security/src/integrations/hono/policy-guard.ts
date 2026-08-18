@@ -1,10 +1,10 @@
-import type { CompiledPolicy, PolicyClaims } from '@nxgt/security/policy';
-import { evaluateRest } from '@nxgt/security/policy';
 import { USER_HEADERS } from '@nxgt/shared/models';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
 import type { MiddlewareHandler } from 'hono/types';
+import type { CompiledPolicy, PolicyClaims } from '../../policy';
+import { evaluateRest } from '../../policy';
 
 /**
  * Hono middleware that evaluates every incoming REST request against a
@@ -27,7 +27,7 @@ import type { MiddlewareHandler } from 'hono/types';
  * ```ts
  * import rawRules from './rules.yaml';
  * import { RulesSchema, compilePolicy } from '@nxgt/security/policy';
- * import { policyGuard } from '@nxgt/shared-hono';
+ * import { policyGuard } from '@nxgt/security/integrations/hono';
  *
  * const policy = compilePolicy(RulesSchema.parse(rawRules));
  * app.use('/api/*', bearerAuth(), policyGuard(policy));

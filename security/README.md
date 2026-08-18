@@ -2,6 +2,8 @@
 
 Home for cross-cutting security features shared across services. Each feature lives in its own subfolder under `src/` with its own barrel and its own package subpath export — new features should be added the same way rather than dropped into the package root.
 
+Framework-specific glue code (e.g. wiring the policy engine into a Hono app) lives under `src/integrations/<framework>/` instead of inside the feature itself, so the core engine (`policy`) stays framework-agnostic and dependency-light — only consumers who actually import an integration subpath pull in that framework and any monorepo-shared packages it needs (`@nxgt/shared`, `@nxgt/shared-exceptions`, `@nxgt/shared-logging`, `hono`, ...).
+
 ## Features
 
 ### `policy` (`@nxgt/security/policy`)
@@ -29,7 +31,7 @@ const result = evaluateRest(policy, {
 // result.decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE'
 ```
 
-Most services won't call this directly — `@nxgt/shared-hono`'s `policyGuard(policy)` Hono middleware wraps `evaluateRest` for you; see `packages/shared-hono/src/middlewares/policy-guard.ts`.
+Most Hono services won't call this directly — `@nxgt/security/integrations/hono`'s `policyGuard(policy)` middleware wraps `evaluateRest` for you; see the `integrations/hono` section below.
 
 **Rules document shape:** REST rules are keyed by path pattern first, then by HTTP method (`rest./users/:id.GET`, not `rest.GET./users/:id`) — mirroring the OpenAPI `paths` object. Path patterns are arbitrary and can't be enumerated, so that level stays an open dictionary; but each path's methods are still explicit object properties (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE`, `QUERY`), which is what lets editors autocomplete method names. GraphQL rules are keyed by type name first, then field name: `Query`, `Mutation`, and `Subscription` are explicit properties (autocompleted), but any other GraphQL object type is also accepted (e.g. `User`, `Employee`) so rules can target fields on nested/returned types, not just root operation fields. See `src/policy/rules.schema.ts`, or open any of the real rules files (`apps/gateway/security/auth.yaml`, `apps/oauth/oauth-api/rules.yaml`, `apps/storex/storex-api/rules.yaml`) in an editor with the YAML language server extension — each carries a `$schema` pragma pointing at `src/policy/schema/rules.schema.json`, so field docs and autocompletion show up while editing.
 
@@ -68,6 +70,23 @@ GraphQL expressions see `claims`, `args`, `source` (the resolver's parent/source
 **Non-null fields — partial-results safety:** per the GraphQL spec, a resolver error on a non-null field (`String!`, `ID!`, ...) can't just null that field — it propagates to the nearest nullable ancestor, which can wipe out unrelated sibling data (or the whole response) on a single DENY. `applyGraphqlPolicy` defaults to `strict: true`: it throws `NonNullRuleFieldError` at wrap time (schema/server startup, not per-request) for any rule-covered field whose type is non-null, so this surfaces immediately rather than as a confusing null response in production. Fix it by marking the field nullable in the schema, or pass `strict: false` to `applyGraphqlPolicy` to acknowledge the cascade and proceed anyway.
 
 `mapSchema` operates on a standard `graphql-js` `GraphQLSchema` object, so this works regardless of which server framework built or serves it (Yoga, Apollo, Mercurius, a hand-rolled `makeExecutableSchema` call, ...) — no GraphQL server library is a dependency of this package.
+
+## Integrations
+
+### `integrations/hono` (`@nxgt/security/integrations/hono`)
+
+`policyGuard(policy)` — a Hono middleware wrapping `evaluateRest`. Moved here from `@nxgt/shared-hono` so REST policy enforcement lives next to the engine it wraps, in the package whose whole purpose is being the home for security features.
+
+```ts
+import rawRules from './rules.yaml';
+import { RulesSchema, compilePolicy } from '@nxgt/security/policy';
+import { policyGuard } from '@nxgt/security/integrations/hono';
+
+const policy = compilePolicy(RulesSchema.parse(rawRules));
+app.use('/api/*', bearerAuth(), policyGuard(policy));
+```
+
+Must run after the token-resolution middleware (`bearerAuth`/`currentUser`/...) that populates the `USER_HEADERS` context variables it reads claims from. On DENY it throws a 403 `CustomException`; on ALLOW/NOT_APPLICABLE it calls `next()`. This subpath (unlike the base `policy` subpath) depends on `@nxgt/shared`, `@nxgt/shared-exceptions`, `@nxgt/shared-logging`, and `hono` — consumers that never import `@nxgt/security/integrations/hono` never pull those in.
 
 ## Development
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { compilePolicy } from './compile';
 import { evaluateGraphql } from './graphql/evaluator';
-import { evaluateRest } from './rest.evaluator';
+import { evaluateRest } from './rest/evaluator';
 import type { Rules } from './rules.schema';
 
 describe('compilePolicy — expression cache is scope-aware', () => {
