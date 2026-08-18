@@ -69,6 +69,8 @@ const schema = applyGraphqlPolicy(rawSchema, policy, {
 // Serve `schema` instead of `rawSchema`.
 ```
 
+`applyGraphqlPolicy`'s `policy` argument also accepts a raw/unvalidated rules document directly (e.g. a static YAML import) instead of a pre-compiled `CompiledPolicy` — it's compiled internally, once, at the point `applyGraphqlPolicy(...)` is called (not per request), via the same `ensureCompiledPolicy` helper `policyGuard` uses. `loadRulesFromEnv` is still the way to go in production so the rules file can change without a rebuild; pass a raw document directly only when that's not a concern (tests, scripts, a fixed in-repo rules file).
+
 For every `typeName.fieldName` covered by a rule — root fields under `Query`/`Mutation`/`Subscription`, or a field on any other declared type (e.g. `User.email`) — the resolver is replaced with a wrapper that runs the same authorities + expression check as `evaluateGraphql`, delegating to the original resolver (or `defaultFieldResolver`, if none was set) on ALLOW, and throwing a `GraphQLError` (`extensions.code: 'FORBIDDEN'`) on DENY. Fields with no rule entry are left completely untouched — the original schema is never mutated, `applyGraphqlPolicy` returns a new one via `@graphql-tools/utils`'s `mapSchema`.
 
 GraphQL expressions see `claims`, `args`, `source` (the resolver's parent/source value — e.g. `source.id === claims.sub` for an ownership check on `User.email`), and `info` (the full `GraphQLResolveInfo`) in scope.
@@ -90,6 +92,8 @@ import { policyGuard } from '@nxgt/security/integrations/hono';
 const policy = await loadRulesFromEnv({ envVar: 'RULES_FILE', fallbackPath: 'rules.yaml' });
 app.use('/api/*', bearerAuth(), policyGuard(policy));
 ```
+
+Like `applyGraphqlPolicy`, `policyGuard`'s argument also accepts a raw/unvalidated rules document directly — `policyGuard(rawRules)` works, compiling it once at setup instead of per request. Use `loadRulesFromEnv` in production so the rules file can change without a rebuild.
 
 Must run after the token-resolution middleware (`bearerAuth`/`currentUser`/...) that populates the `USER_HEADERS` context variables it reads claims from. On DENY it throws a 403 `CustomException`; on ALLOW/NOT_APPLICABLE it calls `next()`. This subpath (unlike the base `policy` subpath) depends on `@nxgt/shared`, `@nxgt/shared-exceptions`, `@nxgt/shared-logging`, and `hono` — consumers that never import `@nxgt/security/integrations/hono` never pull those in.
 

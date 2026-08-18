@@ -3,12 +3,12 @@ import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
 import type { MiddlewareHandler } from 'hono/types';
-import type { CompiledPolicy, PolicyClaims } from '../../policy';
-import { evaluateRest } from '../../policy';
+import type { PolicyClaims } from '../../policy';
+import { ensureCompiledPolicy, evaluateRest } from '../../policy';
 
 /**
  * Hono middleware that evaluates every incoming REST request against a
- * pre-validated `Rules` document loaded from a `rules.yaml` file.
+ * `rules.yaml` document.
  *
  * Must be placed **after** the token-resolution middleware (e.g. `bearerAuth`
  * or `currentUser`) so that the USER_HEADERS context variables are populated.
@@ -23,17 +23,21 @@ import { evaluateRest } from '../../policy';
  *   expression evaluator as `req.body`. The raw request is cloned first so
  *   that downstream handlers (e.g. a reverse proxy) can still read the stream.
  *
+ * `policy` accepts either an already-compiled `CompiledPolicy` (e.g. from
+ * `loadRulesFromEnv`/`parseRules`) or a raw/unvalidated rules document —
+ * compiled internally via `ensureCompiledPolicy`, once, when `policyGuard(...)`
+ * is called, not per request.
+ *
  * @example
  * ```ts
  * import rawRules from './rules.yaml';
- * import { RulesSchema, compilePolicy } from '@nxgt/security/policy';
  * import { policyGuard } from '@nxgt/security/integrations/hono';
  *
- * const policy = compilePolicy(RulesSchema.parse(rawRules));
- * app.use('/api/*', bearerAuth(), policyGuard(policy));
+ * app.use('/api/*', bearerAuth(), policyGuard(rawRules));
  * ```
  */
-export function policyGuard(policy: CompiledPolicy): MiddlewareHandler {
+export function policyGuard(policy: unknown): MiddlewareHandler {
+	const compiledPolicy = ensureCompiledPolicy(policy);
 	return createMiddleware(async (ctx, next) => {
 		const clonedRaw = ctx.req.raw.clone();
 
@@ -67,7 +71,7 @@ export function policyGuard(policy: CompiledPolicy): MiddlewareHandler {
 			new URL(ctx.req.url).searchParams,
 		);
 
-		const result = evaluateRest(policy, {
+		const result = evaluateRest(compiledPolicy, {
 			type: 'rest',
 			method: ctx.req.method,
 			path: ctx.req.path,

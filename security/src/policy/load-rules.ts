@@ -13,6 +13,29 @@ export function parseRules(raw: unknown): CompiledPolicy {
 }
 
 /**
+ * Accepts either an already-compiled `CompiledPolicy` or a raw/unvalidated
+ * rules document, and returns a `CompiledPolicy` either way — validating and
+ * compiling it via `parseRules` if it wasn't compiled already.
+ *
+ * Lets entry points like `policyGuard`/`applyGraphqlPolicy` accept whatever a
+ * caller happens to have on hand (a static YAML import, `RulesSchema.parse`'s
+ * output, or a pre-compiled policy from `loadRulesFromEnv`) instead of
+ * forcing every caller to know about `compilePolicy`. Compilation still only
+ * ever runs once — at the point where the caller invokes `policyGuard(...)`/
+ * `applyGraphqlPolicy(...)`, not per request.
+ */
+export function ensureCompiledPolicy(policy: unknown): CompiledPolicy {
+	if (isCompiledPolicy(policy)) return policy;
+	return parseRules(policy);
+}
+
+function isCompiledPolicy(value: unknown): value is CompiledPolicy {
+	return (
+		typeof value === 'object' && value !== null && 'restRoutesByMethod' in value
+	);
+}
+
+/**
  * Reads a rules YAML (or JSON — YAML is a superset) file from disk,
  * validates it, and precompiles it. Call once at startup; the file is read
  * fresh each call, so restarting the process (not rebuilding it) is enough

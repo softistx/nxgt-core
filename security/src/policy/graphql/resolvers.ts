@@ -2,7 +2,7 @@ import { MapperKind, mapSchema } from '@graphql-tools/utils';
 import type { GraphQLSchema } from 'graphql';
 import { defaultFieldResolver, GraphQLError, isNonNullType } from 'graphql';
 import type { PolicyClaims } from '../claims.types';
-import type { CompiledPolicy } from '../compile';
+import { ensureCompiledPolicy } from '../load-rules';
 import { evaluateGraphql } from './evaluator';
 
 export interface ApplyGraphqlPolicyOptions {
@@ -57,17 +57,22 @@ export class NonNullRuleFieldError extends Error {
  * for any rule-covered field whose GraphQL type is non-null — see
  * `ApplyGraphqlPolicyOptions.strict`.
  *
- * Call once at server startup, after building the executable schema and
- * after `compilePolicy(...)`, and serve the returned schema instead of the
- * original.
+ * `policy` accepts either an already-compiled `CompiledPolicy` (e.g. from
+ * `loadRulesFromEnv`/`parseRules`) or a raw/unvalidated rules document —
+ * compiled internally via `ensureCompiledPolicy`, once, when
+ * `applyGraphqlPolicy(...)` is called, not per request.
+ *
+ * Call once at server startup, after building the executable schema, and
+ * serve the returned schema instead of the original.
  */
 export function applyGraphqlPolicy(
 	schema: GraphQLSchema,
-	policy: CompiledPolicy,
+	policy: unknown,
 	options: ApplyGraphqlPolicyOptions,
 ): GraphQLSchema {
-	if (!policy.graphql) return schema;
-	const graphqlPolicy = policy.graphql;
+	const compiledPolicy = ensureCompiledPolicy(policy);
+	if (!compiledPolicy.graphql) return schema;
+	const graphqlPolicy = compiledPolicy.graphql;
 
 	return mapSchema(schema, {
 		[MapperKind.OBJECT_FIELD]: (fieldConfig, fieldName, typeName) => {
@@ -83,7 +88,7 @@ export function applyGraphqlPolicy(
 				...fieldConfig,
 				resolve: (source, args, context, info) => {
 					const claims = options.getClaims(context);
-					const result = evaluateGraphql(policy, {
+					const result = evaluateGraphql(compiledPolicy, {
 						type: 'graphql',
 						operationType: typeName,
 						field: fieldName,

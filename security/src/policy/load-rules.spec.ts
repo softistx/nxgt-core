@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadRulesFromEnv, loadRulesFromFile, parseRules } from './load-rules';
+import {
+	ensureCompiledPolicy,
+	loadRulesFromEnv,
+	loadRulesFromFile,
+	parseRules,
+} from './load-rules';
 import { evaluateRest } from './rest/evaluator';
 
 describe('parseRules', () => {
@@ -110,5 +115,33 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 		await expect(
 			loadRulesFromEnv({ envVar: 'TEST_RULES_FILE_UNSET' }),
 		).rejects.toThrow(/environment variable/);
+	});
+});
+
+describe('ensureCompiledPolicy', () => {
+	it('passes an already-compiled CompiledPolicy through unchanged', () => {
+		const policy = parseRules({
+			rest: { '/widgets': { GET: { authorities: [['ADMIN']] } } },
+		});
+		expect(ensureCompiledPolicy(policy)).toBe(policy);
+	});
+
+	it('validates and compiles a raw/unvalidated rules document', () => {
+		const policy = ensureCompiledPolicy({
+			rest: { '/widgets': { GET: { authorities: [['ADMIN']] } } },
+		});
+		const result = evaluateRest(policy, {
+			type: 'rest',
+			method: 'GET',
+			path: '/widgets',
+			claims: { sub: 'user-1', authorities: ['ADMIN'] },
+		});
+		expect(result.decision).toBe('ALLOW');
+	});
+
+	it('throws a Zod error for an invalid raw document', () => {
+		expect(() =>
+			ensureCompiledPolicy({ rest: { '/widgets': { GTE: {} } } }),
+		).toThrow();
 	});
 });
