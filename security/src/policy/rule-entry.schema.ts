@@ -67,7 +67,25 @@ export const zRuleEntry = z.object({
 						'useful for ownership checks like `source.id === claims.sub`), ' +
 						'and `info` (the GraphQLResolveInfo). Example: ' +
 						'"args.input.username.toLowerCase() !== \'admin\'".',
-				),
+				)
+				.meta({
+					// Not exhaustive, and not enforced — these just seed editor
+					// autocompletion (vscode-yaml suggests `examples` as value
+					// choices for a string field) with realistic starting points,
+					// since the field itself is arbitrary JS and can't offer real
+					// member-level completion (e.g. typing `claims.` and seeing
+					// `roles`/`scope`) through a JSON Schema alone.
+					examples: [
+						// REST
+						"req.body.username.toLowerCase() !== 'admin'",
+						"req.method === 'GET' || claims.roles?.includes('ADMIN')",
+						'req.params.id === claims.sub',
+						// GraphQL
+						"args.input.username.toLowerCase() !== 'admin'",
+						'source.id === claims.sub',
+						"info.fieldName !== 'ssn' || claims.roles?.includes('ADMIN')",
+					],
+				}),
 			message: z
 				.string()
 				.optional()
