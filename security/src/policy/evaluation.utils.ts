@@ -3,7 +3,7 @@ import type { RuleEntry } from './rules.schema';
 
 /** Compile a JS expression body into a callable Function — kept local so this
  * package has no dependency on `@nxgt/shared` just for a one-line helper. */
-const compileFunction = <T = (...args: unknown[]) => unknown>(
+export const compileFunction = <T = (...args: unknown[]) => unknown>(
 	body: string,
 	...args: string[]
 ) => new Function(...args, `"use strict"; ${body}`) as T;
@@ -15,13 +15,17 @@ const compileFunction = <T = (...args: unknown[]) => unknown>(
 /**
  * Evaluate the authority groups from a rule entry against the caller's claims.
  *
+ * The effective authority set is the union of `claims.authorities`,
+ * `claims.roles`, and the individual space-separated tokens in `claims.scope`
+ * — any of the three can satisfy an authority requirement.
+ *
  * Returns `true` when:
  *   - `rule.authorities` is null / undefined / empty  → auth-only, always pass
  *   - Every group (AND) contains at least one authority (OR) present in the
  *     caller's effective authority set
  */
 export function checkAuthorities(
-	rule: RuleEntry,
+	rule: Pick<RuleEntry, 'authorities'>,
 	claims: PolicyClaims,
 ): boolean {
 	const groups = rule.authorities;
@@ -29,7 +33,11 @@ export function checkAuthorities(
 	// null / undefined / empty outer array → no authority constraint
 	if (!groups || groups.length === 0) return true;
 
-	const effective = new Set(claims.authorities || []);
+	const effective = new Set<string>([
+		...(claims.authorities ?? []),
+		...(claims.roles ?? []),
+		...(claims.scope ? claims.scope.split(' ').filter(Boolean) : []),
+	]);
 
 	return groups.every((group) => {
 		// empty inner group counts as satisfied
@@ -76,6 +84,28 @@ export function evalExpression(
 		return {
 			passed: false,
 			message: `${failMessage} — ${err instanceof Error ? err.message : String(err)}`,
+		};
+	}
+}
+
+/**
+ * Invoke an already-compiled expression Function (see `compilePolicy`)
+ * against positional scope values, with the same falsy/throw → DENY
+ * semantics as `evalExpression`. Kept separate from `evalExpression` since
+ * the compiled path never re-parses the expression source.
+ */
+export function runCompiledExpression(
+	compiled: { fn: (...args: unknown[]) => unknown; message: string },
+	...args: unknown[]
+): ExpressionResult {
+	try {
+		const result = compiled.fn(...args);
+		if (!result) return { passed: false, message: compiled.message };
+		return { passed: true, message: '' };
+	} catch (err) {
+		return {
+			passed: false,
+			message: `${compiled.message} — ${err instanceof Error ? err.message : String(err)}`,
 		};
 	}
 }

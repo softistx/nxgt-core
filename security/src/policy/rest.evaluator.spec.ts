@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'bun:test';
+import { compilePolicy } from './compile';
 import { evaluateRest } from './rest.evaluator';
 import type { Rules } from './rules.schema';
 
 describe('evaluateRest — $domain authority templating', () => {
 	it("does not leak one request's domain substitution into the next", () => {
-		// Single shared `rules` document, exactly as a service loads it once at
-		// startup via `RulesSchema.parse(...)` and reuses for every request.
+		// Single shared, precompiled policy, exactly as a service loads it once
+		// at startup via `compilePolicy(RulesSchema.parse(...))` and reuses for
+		// every request.
 		const rules: Rules = {
 			rest: {
 				'/orgs/:domain/widgets': {
@@ -15,6 +17,7 @@ describe('evaluateRest — $domain authority templating', () => {
 				},
 			},
 		};
+		const policy = compilePolicy(rules);
 
 		const claimsForAcme = { sub: 'user-1', authorities: ['SCOPE_oauth:acme'] };
 		const claimsForOther = {
@@ -22,7 +25,7 @@ describe('evaluateRest — $domain authority templating', () => {
 			authorities: ['SCOPE_oauth:other'],
 		};
 
-		const first = evaluateRest(rules, {
+		const first = evaluateRest(policy, {
 			type: 'rest',
 			method: 'GET',
 			path: '/orgs/acme/widgets',
@@ -33,7 +36,7 @@ describe('evaluateRest — $domain authority templating', () => {
 		// A second request for a DIFFERENT domain, with claims that only satisfy
 		// that second domain, must be evaluated independently — the first
 		// request must not have permanently baked "acme" into the shared rule.
-		const second = evaluateRest(rules, {
+		const second = evaluateRest(policy, {
 			type: 'rest',
 			method: 'GET',
 			path: '/orgs/other/widgets',
@@ -43,7 +46,7 @@ describe('evaluateRest — $domain authority templating', () => {
 
 		// And a request for "other" with claims that only satisfy "acme" must
 		// still be denied — proving the substitution is truly per-request.
-		const thirdDeniedForWrongDomain = evaluateRest(rules, {
+		const thirdDeniedForWrongDomain = evaluateRest(policy, {
 			type: 'rest',
 			method: 'GET',
 			path: '/orgs/other/widgets',

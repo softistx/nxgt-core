@@ -1,7 +1,7 @@
 import type { PolicyClaims } from './claims.types';
-import { checkAuthorities, evalExpression } from './evaluation.utils';
+import type { CompiledPolicy } from './compile';
+import { checkAuthorities, runCompiledExpression } from './evaluation.utils';
 import type { EvaluateResult } from './rest.evaluator';
-import type { Rules } from './rules.schema';
 
 // ---------------------------------------------------------------------------
 // Input type
@@ -36,9 +36,10 @@ export type { EvaluateResult };
 // ---------------------------------------------------------------------------
 
 /**
- * Evaluate a GraphQL field resolution against the loaded rules document.
+ * Evaluate a GraphQL field resolution against a policy precompiled by
+ * `compilePolicy`.
  *
- * Lookup: `rules.graphql[operationType][field]`
+ * Lookup: `policy.graphql[operationType][field]`
  *
  * Evaluation order (both must pass for ALLOW):
  *   1. Authority groups checked (AND outer / OR inner) — DENY on failure
@@ -47,12 +48,12 @@ export type { EvaluateResult };
  * Returns NOT_APPLICABLE when the operation type or field has no rule entry.
  */
 export function evaluateGraphql(
-	rules: Rules,
+	policy: CompiledPolicy,
 	input: GraphqlEvaluateInput,
 ): EvaluateResult {
-	const rule = rules.graphql?.[input.operationType]?.[input.field];
+	const entry = policy.graphql?.[input.operationType]?.[input.field];
 
-	if (!rule) {
+	if (!entry) {
 		return {
 			decision: 'NOT_APPLICABLE',
 			reason: `No rule matched ${input.operationType}.${input.field}`,
@@ -60,7 +61,7 @@ export function evaluateGraphql(
 	}
 
 	// Authority check
-	if (!checkAuthorities(rule, input.claims)) {
+	if (!checkAuthorities(entry.rule, input.claims)) {
 		return {
 			decision: 'DENY',
 			reason: `Insufficient authorities for ${input.operationType}.${input.field}`,
@@ -68,11 +69,12 @@ export function evaluateGraphql(
 	}
 
 	// Expression check
-	if (rule.expression) {
-		const exprResult = evalExpression(rule.expression, {
-			claims: input.claims,
-			args: input.args ?? {},
-		});
+	if (entry.compiledExpression) {
+		const exprResult = runCompiledExpression(
+			entry.compiledExpression,
+			input.claims,
+			input.args ?? {},
+		);
 		if (!exprResult.passed) {
 			return { decision: 'DENY', reason: exprResult.message };
 		}

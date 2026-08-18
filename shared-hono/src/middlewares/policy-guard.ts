@@ -1,4 +1,4 @@
-import type { PolicyClaims, Rules } from '@nxgt/security/policy';
+import type { CompiledPolicy, PolicyClaims } from '@nxgt/security/policy';
 import { evaluateRest } from '@nxgt/security/policy';
 import { USER_HEADERS } from '@nxgt/shared/models';
 import { CustomException } from '@nxgt/shared-exceptions';
@@ -26,14 +26,14 @@ import type { MiddlewareHandler } from 'hono/types';
  * @example
  * ```ts
  * import rawRules from './rules.yaml';
- * import { RulesSchema } from '@nxgt/security/policy';
+ * import { RulesSchema, compilePolicy } from '@nxgt/security/policy';
  * import { policyGuard } from '@nxgt/shared-hono';
  *
- * const rules = RulesSchema.parse(rawRules);
- * app.use('/api/*', bearerAuth(), policyGuard(rules));
+ * const policy = compilePolicy(RulesSchema.parse(rawRules));
+ * app.use('/api/*', bearerAuth(), policyGuard(policy));
  * ```
  */
-export function policyGuard(rules: Rules): MiddlewareHandler {
+export function policyGuard(policy: CompiledPolicy): MiddlewareHandler {
 	return createMiddleware(async (ctx, next) => {
 		const clonedRaw = ctx.req.raw.clone();
 
@@ -67,7 +67,7 @@ export function policyGuard(rules: Rules): MiddlewareHandler {
 			new URL(ctx.req.url).searchParams,
 		);
 
-		const result = evaluateRest(rules, {
+		const result = evaluateRest(policy, {
 			type: 'rest',
 			method: ctx.req.method,
 			path: ctx.req.path,

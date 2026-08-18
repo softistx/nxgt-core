@@ -1,7 +1,6 @@
-import { match } from 'path-to-regexp';
 import type { PolicyClaims } from './claims.types';
-import { checkAuthorities, evalExpression } from './evaluation.utils';
-import type { Rules } from './rules.schema';
+import type { CompiledPolicy } from './compile';
+import { checkAuthorities, runCompiledExpression } from './evaluation.utils';
 
 // ---------------------------------------------------------------------------
 // Input / output types
@@ -39,10 +38,10 @@ export interface EvaluateResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Evaluate a REST request against the loaded rules document.
+ * Evaluate a REST request against a policy precompiled by `compilePolicy`.
  *
  * Matching strategy (first match wins, evaluated in rules document order):
- *   1. Path pattern matched with path-to-regexp v8 `match()` (:param style)
+ *   1. Path pattern matched via the precompiled path-to-regexp matcher
  *   2. HTTP method looked up in the matched path's method map
  *   3. Authority groups checked (AND outer / OR inner) — DENY on failure
  *   4. Expression evaluated with `{ claims, req }` in scope — DENY on failure
@@ -51,27 +50,17 @@ export interface EvaluateResult {
  * Returns NOT_APPLICABLE when no path+method entry matches.
  */
 export function evaluateRest(
-	rules: Rules,
+	policy: CompiledPolicy,
 	input: RestEvaluateInput,
 ): EvaluateResult {
 	const method = input.method.toUpperCase();
-	const restRules = rules.rest ?? {};
 
-	const entries = Object.entries(restRules).filter(
-		([, methodMap]) => method in methodMap,
-	);
-
-	for (const [basePattern, methodMap] of entries) {
-		const pattern = rules.global?.basePath
-			? `${rules.global.basePath}${basePattern}`
-			: basePattern;
-		const matchFn = match(pattern, { decode: decodeURIComponent });
-		const result = matchFn(input.path);
-
+	for (const route of policy.restRoutes) {
+		const result = route.matcher(input.path);
 		if (result === false) continue;
 
-		const rule = methodMap[method];
-		if (!rule) continue;
+		const entry = route.methods.get(method);
+		if (!entry) continue;
 
 		// Merge path captures with caller-supplied params; caller wins on collision
 		const mergedParams: Record<string, string> = {
@@ -82,21 +71,16 @@ export function evaluateRest(
 		const req = { ...(input.req ?? {}), params: mergedParams };
 
 		// Substitute `$domain` into a LOCAL copy of the authority groups — never
-		// write back onto `rule.authorities`, which lives inside the long-lived,
-		// shared `rules` document reused across every request. Mutating it in
-		// place would permanently bake the first request's domain value into
-		// the cached rule, corrupting authority checks for every subsequent
-		// request (including ones for a different domain).
-		let authorities = rule.authorities;
-		if (
-			result.params.domain &&
-			authorities?.some((group) =>
-				group.some((auth) => auth.includes('$domain')),
-			)
-		) {
-			const domainValue = result.params.domain?.toString() ?? '';
-			authorities = authorities.map((group) =>
-				group.map((auth) => auth.replaceAll('$domain', domainValue)),
+		// write back onto `entry.rule.authorities`, which lives inside the
+		// long-lived, shared compiled policy reused across every request.
+		// Mutating it in place would permanently bake the first request's
+		// domain value into the cached rule, corrupting authority checks for
+		// every subsequent request (including ones for a different domain).
+		let authorities = entry.rule.authorities;
+		if (entry.hasDomainPlaceholder && result.params.domain) {
+			const domainValue = result.params.domain.toString();
+			authorities = authorities?.map((group) =>
+				group.map((authority) => authority.replaceAll('$domain', domainValue)),
 			);
 		}
 
@@ -109,11 +93,12 @@ export function evaluateRest(
 		}
 
 		// Expression check
-		if (rule.expression) {
-			const exprResult = evalExpression(rule.expression, {
-				claims: input.claims,
+		if (entry.compiledExpression) {
+			const exprResult = runCompiledExpression(
+				entry.compiledExpression,
+				input.claims,
 				req,
-			});
+			);
 			if (!exprResult.passed) {
 				return { decision: 'DENY', reason: exprResult.message };
 			}
@@ -121,7 +106,7 @@ export function evaluateRest(
 
 		return {
 			decision: 'ALLOW',
-			reason: `Matched rule for ${method} ${pattern}`,
+			reason: `Matched rule for ${method} ${route.pattern}`,
 		};
 	}
 
