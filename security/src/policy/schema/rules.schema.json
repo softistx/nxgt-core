@@ -942,7 +942,7 @@
 					"type": "object",
 					"propertyNames": {
 						"type": "string",
-						"description": "Resolved GraphQL field name, e.g. \"createUser\"."
+						"description": "Field name on this GraphQL type, e.g. \"createUser\"."
 					},
 					"additionalProperties": {
 						"type": "object",
@@ -1033,7 +1033,7 @@
 					"type": "object",
 					"propertyNames": {
 						"type": "string",
-						"description": "Resolved GraphQL field name, e.g. \"createUser\"."
+						"description": "Field name on this GraphQL type, e.g. \"createUser\"."
 					},
 					"additionalProperties": {
 						"type": "object",
@@ -1124,7 +1124,7 @@
 					"type": "object",
 					"propertyNames": {
 						"type": "string",
-						"description": "Resolved GraphQL field name, e.g. \"createUser\"."
+						"description": "Field name on this GraphQL type, e.g. \"createUser\"."
 					},
 					"additionalProperties": {
 						"type": "object",
@@ -1212,8 +1212,98 @@
 					}
 				}
 			},
-			"additionalProperties": false,
-			"description": "GraphQL authorization rules, keyed by operation type then field name."
+			"additionalProperties": {
+				"type": "object",
+				"propertyNames": {
+					"type": "string",
+					"description": "Field name on this GraphQL type, e.g. \"createUser\"."
+				},
+				"additionalProperties": {
+					"type": "object",
+					"properties": {
+						"authorities": {
+							"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+							"anyOf": [
+								{
+									"type": "array",
+									"items": {
+										"type": "array",
+										"items": {
+											"type": "string"
+										}
+									}
+								},
+								{
+									"type": "null"
+								}
+							]
+						},
+						"expression": {
+							"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+							"type": "object",
+							"properties": {
+								"value": {
+									"type": "string",
+									"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+								},
+								"message": {
+									"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+									"type": "string"
+								}
+							},
+							"required": ["value"],
+							"additionalProperties": false
+						},
+						"cors": {
+							"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
+							"type": "object",
+							"properties": {
+								"origins": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									},
+									"description": "Allowed CORS origins."
+								},
+								"methods": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									},
+									"description": "Allowed CORS HTTP methods."
+								},
+								"allowedHeaders": {
+									"type": "array",
+									"items": {
+										"type": "string"
+									},
+									"description": "Allowed CORS request headers."
+								}
+							},
+							"required": ["origins", "methods", "allowedHeaders"],
+							"additionalProperties": false
+						},
+						"rateLimit": {
+							"description": "Per-rule rate-limit override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
+							"type": "object",
+							"properties": {
+								"windowMs": {
+									"type": "number",
+									"description": "Rate-limit window size, in milliseconds."
+								},
+								"limit": {
+									"type": "number",
+									"description": "Maximum number of requests allowed per window."
+								}
+							},
+							"required": ["windowMs", "limit"],
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"description": "GraphQL authorization rules, keyed by type name then field name. `Query`/`Mutation`/`Subscription` cover root operation fields; any other type name (e.g. \"User\") targets fields on that type wherever it appears in the schema."
 		}
 	},
 	"additionalProperties": false,

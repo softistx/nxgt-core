@@ -27,16 +27,29 @@ describe('RulesSchema — REST path map', () => {
 		).toThrow();
 	});
 
-	it("rejects a typo'd GraphQL operation type instead of silently dropping it", () => {
-		expect(() =>
-			RulesSchema.parse({
-				graphql: {
-					Qeury: {
-						widgets: { authorities: [['ADMIN']] },
-					},
+	it('accepts arbitrary GraphQL type names beyond Query/Mutation/Subscription', () => {
+		// Rules can target fields on any object type the schema returns (e.g.
+		// User, Employee), not just root operation fields — this is what lets
+		// applyGraphqlPolicy wrap resolvers anywhere in the schema, not just at
+		// the root. As a consequence, a typo'd root type name (e.g. "Qeury")
+		// can no longer be rejected at parse time: it's indistinguishable from
+		// a legitimate custom type name.
+		const rules = RulesSchema.parse({
+			graphql: {
+				User: {
+					email: { authorities: [['ADMIN', 'users:read']] },
 				},
-			}),
-		).toThrow();
+				Employee: {
+					salary: { authorities: [['ADMIN', 'payroll:read']] },
+				},
+			},
+		});
+		expect(rules.graphql?.User?.email).toEqual({
+			authorities: [['ADMIN', 'users:read']],
+		});
+		expect(rules.graphql?.Employee?.salary).toEqual({
+			authorities: [['ADMIN', 'payroll:read']],
+		});
 	});
 
 	it('accepts declarative per-rule cors and rateLimit overrides on both REST and GraphQL leaves', () => {

@@ -1,7 +1,7 @@
-import type { PolicyClaims } from './claims.types';
-import type { CompiledPolicy } from './compile';
-import { checkAuthorities, runCompiledExpression } from './evaluation.utils';
-import type { EvaluateResult } from './rest.evaluator';
+import type { PolicyClaims } from '../claims.types';
+import type { CompiledPolicy } from '../compile';
+import { checkAuthorities, runCompiledExpression } from '../evaluation.utils';
+import type { EvaluateResult } from '../rest.evaluator';
 
 // ---------------------------------------------------------------------------
 // Input type
