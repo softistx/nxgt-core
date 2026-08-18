@@ -15,12 +15,16 @@ This package supersedes `@nxgt/shared/policy`, which has been removed — update
 **Usage:**
 
 ```ts
-import { compilePolicy, RulesSchema, evaluateRest } from '@nxgt/security/policy';
-import rawRules from './rules.yaml';
+import { loadRulesFromEnv, evaluateRest } from '@nxgt/security/policy';
 
-// Parse + precompile once at startup — path matchers and expression
-// Functions are compiled here, not on every request.
-const policy = compilePolicy(RulesSchema.parse(rawRules));
+// Reads the file at RULES_FILE (or "rules.yaml", relative to the process's
+// working directory, if unset), validates it, and precompiles it — once at
+// startup. Reading from disk (rather than bundling the file into the build)
+// means ops can change the rules file and restart, without a rebuild.
+const policy = await loadRulesFromEnv({
+	envVar: 'RULES_FILE',
+	fallbackPath: 'rules.yaml',
+});
 
 const result = evaluateRest(policy, {
 	type: 'rest',
@@ -30,6 +34,8 @@ const result = evaluateRest(policy, {
 });
 // result.decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE'
 ```
+
+`loadRulesFromEnv`/`loadRulesFromFile` are convenience wrappers around `parseRules(raw)` (itself `compilePolicy(RulesSchema.parse(raw))`) — use `parseRules` directly if you already have the raw rules data in memory (e.g. a static import, or a value read some other way). See `src/policy/load-rules.ts`.
 
 Most Hono services won't call this directly — `@nxgt/security/integrations/hono`'s `policyGuard(policy)` middleware wraps `evaluateRest` for you; see the `integrations/hono` section below.
 
@@ -48,11 +54,11 @@ Run `bun run schema:gen` after changing `rules.schema.ts` to regenerate that che
 A separate subpath, layered on top of `policy`, for wrapping a real executable GraphQL schema's resolvers with the rules in `rules.graphql`. Not re-exported from `@nxgt/security/policy` — importing it pulls in `graphql` and `@graphql-tools/utils`, which REST-only consumers of the base `policy` subpath don't need.
 
 ```ts
-import { applyGraphqlPolicy, compilePolicy, RulesSchema } from '@nxgt/security/policy/graphql';
-import rawRules from './rules.yaml';
+import { loadRulesFromEnv } from '@nxgt/security/policy';
+import { applyGraphqlPolicy } from '@nxgt/security/policy/graphql';
 import { schema as rawSchema } from './schema'; // your executable GraphQLSchema
 
-const policy = compilePolicy(RulesSchema.parse(rawRules));
+const policy = await loadRulesFromEnv({ envVar: 'RULES_FILE', fallbackPath: 'rules.yaml' });
 
 const schema = applyGraphqlPolicy(rawSchema, policy, {
 	// Context shape is server-specific (Yoga, Apollo, Mercurius, ...), so the
@@ -78,11 +84,10 @@ GraphQL expressions see `claims`, `args`, `source` (the resolver's parent/source
 `policyGuard(policy)` — a Hono middleware wrapping `evaluateRest`. Moved here from `@nxgt/shared-hono` so REST policy enforcement lives next to the engine it wraps, in the package whose whole purpose is being the home for security features.
 
 ```ts
-import rawRules from './rules.yaml';
-import { RulesSchema, compilePolicy } from '@nxgt/security/policy';
+import { loadRulesFromEnv } from '@nxgt/security/policy';
 import { policyGuard } from '@nxgt/security/integrations/hono';
 
-const policy = compilePolicy(RulesSchema.parse(rawRules));
+const policy = await loadRulesFromEnv({ envVar: 'RULES_FILE', fallbackPath: 'rules.yaml' });
 app.use('/api/*', bearerAuth(), policyGuard(policy));
 ```
 

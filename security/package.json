@@ -28,6 +28,7 @@
 		"graphql": "^17.0.2",
 		"hono": "^4.13.2",
 		"path-to-regexp": "^8.4.2",
+		"yaml": "^2.9.0",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
