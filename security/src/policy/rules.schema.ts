@@ -1,6 +1,21 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
+// Reusable sub-schemas — shared between `global` and per-rule overrides
+// ---------------------------------------------------------------------------
+
+const zCorsConfig = z.object({
+	origins: z.array(z.string()).describe('Allowed CORS origins.'),
+	methods: z.array(z.string()).describe('Allowed CORS HTTP methods.'),
+	allowedHeaders: z.array(z.string()).describe('Allowed CORS request headers.'),
+});
+
+const zRateLimitConfig = z.object({
+	windowMs: z.number().describe('Rate-limit window size, in milliseconds.'),
+	limit: z.number().describe('Maximum number of requests allowed per window.'),
+});
+
+// ---------------------------------------------------------------------------
 // Shared rule entry — used by both REST and GraphQL rule maps
 // ---------------------------------------------------------------------------
 
@@ -64,62 +79,79 @@ export const zRuleEntry = z.object({
 			'Optional JavaScript expression check evaluated in addition to (and ' +
 				'after) the authorities check.',
 		),
+
+	cors: zCorsConfig
+		.optional()
+		.describe(
+			'Per-rule CORS override. Reserved for future use — not currently ' +
+				'enforced by the policy evaluators in this package.',
+		),
+
+	rateLimit: zRateLimitConfig
+		.optional()
+		.describe(
+			'Per-rule rate-limit override. Reserved for future use — not ' +
+				'currently enforced by the policy evaluators in this package.',
+		),
 });
 
 export type RuleEntry = z.infer<typeof zRuleEntry>;
 
 // ---------------------------------------------------------------------------
-// REST rules  →  HTTP method → path pattern → rule entry
+// REST rules  →  path pattern → HTTP method → rule entry
 // ---------------------------------------------------------------------------
 
 /**
- * Rule entries for one HTTP method, keyed by path pattern. Path patterns
- * can't be enumerated ahead of time (they're arbitrary, service-defined
- * routes), so this level stays an open dictionary. Matched in document
- * order — first pattern that matches wins.
- */
-const zRestPathMap = z
-	.record(
-		z
-			.string()
-			.describe('Path pattern in path-to-regexp syntax, e.g. "/users/:id".'),
-		zRuleEntry,
-	)
-	.describe(
-		'Rule entries keyed by path pattern for this HTTP method. The first ' +
-			'pattern that matches the request path (in document order) is used.',
-	);
-
-/**
- * REST rules keyed by HTTP method. Modeled as an object with explicit
- * optional properties — rather than `z.record(z.string(), ...)` —
- * specifically so JSON-Schema-aware editors can autocomplete method names
- * as direct properties of `rest` itself: an open dictionary
- * (`additionalProperties`) has no enumerable keys for the editor to
- * suggest, whereas an explicit `properties` map does.
+ * Rule entries for one path pattern, keyed by HTTP method. Modeled as an
+ * object with explicit optional properties — rather than
+ * `z.record(z.string(), ...)` — specifically so JSON-Schema-aware editors
+ * can autocomplete method names as direct properties of a path entry: an
+ * open dictionary (`additionalProperties`) has no enumerable keys for the
+ * editor to suggest, whereas an explicit `properties` map does. This
+ * mirrors the OpenAPI `paths` object convention (open dictionary of path
+ * patterns, each holding an explicit set of method properties).
  *
  * `.strict()` so a typo'd method name (e.g. "GTE") fails validation at
  * startup with a clear Zod error, instead of being silently stripped and
  * leaving that route with no rule (which `evaluateRest` would then treat
  * as NOT_APPLICABLE / open by default).
  */
-export const zRestRules = z
+const zRestMethodMap = z
 	.object({
-		GET: zRestPathMap.optional(),
-		POST: zRestPathMap.optional(),
-		PUT: zRestPathMap.optional(),
-		PATCH: zRestPathMap.optional(),
-		DELETE: zRestPathMap.optional(),
-		HEAD: zRestPathMap.optional(),
-		OPTIONS: zRestPathMap.optional(),
-		CONNECT: zRestPathMap.optional(),
-		TRACE: zRestPathMap.optional(),
+		GET: zRuleEntry.optional(),
+		POST: zRuleEntry.optional(),
+		PUT: zRuleEntry.optional(),
+		PATCH: zRuleEntry.optional(),
+		DELETE: zRuleEntry.optional(),
+		HEAD: zRuleEntry.optional(),
+		OPTIONS: zRuleEntry.optional(),
+		CONNECT: zRuleEntry.optional(),
+		TRACE: zRuleEntry.optional(),
 		/** IETF draft safe-method-with-body — GET semantics with a request body. */
-		QUERY: zRestPathMap.optional(),
+		QUERY: zRuleEntry.optional(),
 	})
 	.strict()
+	.describe('Rule entries keyed by HTTP method for this path pattern.');
+
+/**
+ * REST rules keyed by path pattern then HTTP method (mirrors OpenAPI's
+ * `paths` object). Path patterns can't be enumerated ahead of time (they're
+ * arbitrary, service-defined routes), so this level stays an open
+ * dictionary — but each path's methods are explicit properties, see
+ * `zRestMethodMap`. Matched in document order — first pattern that matches
+ * wins.
+ */
+export const zRestRules = z
+	.record(
+		z
+			.string()
+			.describe('Path pattern in path-to-regexp syntax, e.g. "/users/:id".'),
+		zRestMethodMap,
+	)
 	.describe(
-		'REST authorization rules, keyed by HTTP method then path pattern.',
+		'REST authorization rules, keyed by path pattern then HTTP method. ' +
+			'The first path pattern that matches the request path (in document ' +
+			'order) is used.',
 	);
 
 // ---------------------------------------------------------------------------
@@ -168,28 +200,19 @@ export const zGlobalConfig = z.object({
 		.describe(
 			'Prefix prepended to every REST path pattern before matching, e.g. "/api".',
 		),
-	rateLimit: z
-		.object({
-			windowMs: z.number().describe('Rate-limit window size, in milliseconds.'),
-			max: z
-				.number()
-				.describe('Maximum number of requests allowed per window.'),
-		})
+	rateLimit: zRateLimitConfig
 		.optional()
 		.describe(
-			'Reserved for future use — not currently enforced by the policy evaluators in this package.',
+			'Default rate limit applied unless a rule declares its own ' +
+				'`rateLimit` override. Reserved for future use — not currently ' +
+				'enforced by the policy evaluators in this package.',
 		),
-	cors: z
-		.object({
-			origins: z.array(z.string()).describe('Allowed CORS origins.'),
-			methods: z.array(z.string()).describe('Allowed CORS HTTP methods.'),
-			allowedHeaders: z
-				.array(z.string())
-				.describe('Allowed CORS request headers.'),
-		})
+	cors: zCorsConfig
 		.optional()
 		.describe(
-			'Reserved for future use — not currently enforced by the policy evaluators in this package.',
+			'Default CORS policy applied unless a rule declares its own `cors` ' +
+				'override. Reserved for future use — not currently enforced by ' +
+				'the policy evaluators in this package.',
 		),
 	/**
 	 * Dynamic authority providers — evaluate a JavaScript expression against

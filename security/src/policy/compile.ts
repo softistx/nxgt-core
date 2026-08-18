@@ -95,22 +95,28 @@ function compileExpression(
 export function compilePolicy(rules: Rules): CompiledPolicy {
 	const compile = createExpressionCompiler();
 
+	// Source document is keyed path → method (OpenAPI `paths`-style), but
+	// request-time dispatch wants method → routes (O(1) lookup on the
+	// incoming method, then a document-order scan of that method's
+	// patterns). Build the latter by iterating the former: the matcher for
+	// a path is computed once and shared across all methods declared on it.
 	const restRoutesByMethod = new Map<string, CompiledRestRoute[]>();
-	for (const [method, pathMap] of Object.entries(rules.rest ?? {})) {
-		const routes: CompiledRestRoute[] = Object.entries(
-			(pathMap ?? {}) as Record<string, RuleEntry>,
-		).map(([basePattern, rule]) => {
-			const pattern = rules.global?.basePath
-				? `${rules.global.basePath}${basePattern}`
-				: basePattern;
-			const matcher = match(pattern, { decode: decodeURIComponent });
+	for (const [basePattern, methodMap] of Object.entries(rules.rest ?? {})) {
+		const pattern = rules.global?.basePath
+			? `${rules.global.basePath}${basePattern}`
+			: basePattern;
+		const matcher = match(pattern, { decode: decodeURIComponent });
+
+		for (const [method, rule] of Object.entries(
+			(methodMap ?? {}) as Record<string, RuleEntry>,
+		)) {
 			const hasDomainPlaceholder = Boolean(
 				rule.authorities?.some((group) =>
 					group.some((authority) => authority.includes('$domain')),
 				),
 			);
 
-			return {
+			const route: CompiledRestRoute = {
 				pattern,
 				matcher,
 				rule,
@@ -121,9 +127,11 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 					REST_SCOPE,
 				),
 			};
-		});
 
-		restRoutesByMethod.set(method, routes);
+			const existing = restRoutesByMethod.get(method);
+			if (existing) existing.push(route);
+			else restRoutesByMethod.set(method, [route]);
+		}
 	}
 
 	const graphql = rules.graphql
