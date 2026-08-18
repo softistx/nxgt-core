@@ -1,6 +1,12 @@
-import { expr } from '../helpers/functions.utils';
 import type { PolicyClaims } from './claims.types';
 import type { RuleEntry } from './rules.schema';
+
+/** Compile a JS expression body into a callable Function — kept local so this
+ * package has no dependency on `@nxgt/shared` just for a one-line helper. */
+const compileFunction = <T = (...args: unknown[]) => unknown>(
+	body: string,
+	...args: string[]
+) => new Function(...args, `"use strict"; ${body}`) as T;
 
 // ---------------------------------------------------------------------------
 // Authority checking
@@ -59,7 +65,7 @@ export function evalExpression(
 ): ExpressionResult {
 	const failMessage = expression.message ?? 'Expression check failed';
 	try {
-		const fn = expr<(...args: unknown[]) => unknown>(
+		const fn = compileFunction(
 			`return (${expression.value});`,
 			...Object.keys(scope),
 		);

@@ -15,6 +15,7 @@
 	},
 	"dependencies": {
 		"@nxgt/i18n": "workspace:*",
+		"@nxgt/security": "workspace:*",
 		"@nxgt/shared": "workspace:*",
 		"@nxgt/shared-exceptions": "workspace:*",
 		"@nxgt/shared-logging": "workspace:*",

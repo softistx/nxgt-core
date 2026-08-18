@@ -1,6 +1,6 @@
+import type { PolicyClaims, Rules } from '@nxgt/security/policy';
+import { evaluateRest } from '@nxgt/security/policy';
 import { USER_HEADERS } from '@nxgt/shared/models';
-import type { PolicyClaims, Rules } from '@nxgt/shared/policy';
-import { evaluateRest } from '@nxgt/shared/policy';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
@@ -26,7 +26,7 @@ import type { MiddlewareHandler } from 'hono/types';
  * @example
  * ```ts
  * import rawRules from './rules.yaml';
- * import { RulesSchema } from '@nxgt/shared/policy';
+ * import { RulesSchema } from '@nxgt/security/policy';
  * import { policyGuard } from '@nxgt/shared-hono';
  *
  * const rules = RulesSchema.parse(rawRules);

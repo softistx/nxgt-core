@@ -81,22 +81,27 @@ export function evaluateRest(
 
 		const req = { ...(input.req ?? {}), params: mergedParams };
 
+		// Substitute `$domain` into a LOCAL copy of the authority groups — never
+		// write back onto `rule.authorities`, which lives inside the long-lived,
+		// shared `rules` document reused across every request. Mutating it in
+		// place would permanently bake the first request's domain value into
+		// the cached rule, corrupting authority checks for every subsequent
+		// request (including ones for a different domain).
+		let authorities = rule.authorities;
 		if (
 			result.params.domain &&
-			rule.authorities?.some((group) =>
+			authorities?.some((group) =>
 				group.some((auth) => auth.includes('$domain')),
 			)
 		) {
-			rule.authorities = rule.authorities?.map((group) =>
-				group
-					.join(',')
-					.replaceAll('$domain', result.params.domain?.toString() ?? '')
-					.split(','),
+			const domainValue = result.params.domain?.toString() ?? '';
+			authorities = authorities.map((group) =>
+				group.map((auth) => auth.replaceAll('$domain', domainValue)),
 			);
 		}
 
 		// Authority check
-		if (!checkAuthorities(rule, input.claims)) {
+		if (!checkAuthorities({ authorities }, input.claims)) {
 			return {
 				decision: 'DENY',
 				reason: `Insufficient authorities for ${method} ${input.path}`,
