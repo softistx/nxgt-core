@@ -72,15 +72,39 @@ export type RuleEntry = z.infer<typeof zRuleEntry>;
 // REST rules  →  path pattern → HTTP method → rule entry
 // ---------------------------------------------------------------------------
 
+/**
+ * Rule entries keyed by HTTP method. Modeled as an object with explicit
+ * optional properties — rather than `z.record(z.string(), zRuleEntry)` —
+ * specifically so JSON-Schema-aware editors can autocomplete method names:
+ * an open dictionary (`additionalProperties`) has no enumerable keys for
+ * the editor to suggest, whereas an explicit `properties` map does.
+ *
+ * `.strict()` so a typo'd method name (e.g. "GTE") fails validation at
+ * startup with a clear Zod error, instead of being silently stripped and
+ * leaving that route with no rule (which `evaluateRest` would then treat
+ * as NOT_APPLICABLE / open by default).
+ */
+const zRestMethodMap = z
+	.object({
+		GET: zRuleEntry.optional(),
+		POST: zRuleEntry.optional(),
+		PUT: zRuleEntry.optional(),
+		PATCH: zRuleEntry.optional(),
+		DELETE: zRuleEntry.optional(),
+		HEAD: zRuleEntry.optional(),
+		OPTIONS: zRuleEntry.optional(),
+		CONNECT: zRuleEntry.optional(),
+		TRACE: zRuleEntry.optional(),
+	})
+	.strict()
+	.describe('Rule entries keyed by HTTP method.');
+
 export const zRestRules = z
 	.record(
 		z
 			.string()
 			.describe('Path pattern in path-to-regexp syntax, e.g. "/users/:id".'),
-		z.record(
-			z.string().describe('HTTP method, e.g. "GET", "POST".'),
-			zRuleEntry,
-		),
+		zRestMethodMap,
 	)
 	.describe(
 		'REST authorization rules, keyed by path pattern then HTTP method. ' +
@@ -92,18 +116,33 @@ export const zRestRules = z
 // GraphQL rules  →  operation type → field name → rule entry
 // ---------------------------------------------------------------------------
 
+/**
+ * Rule entries for one GraphQL operation type, keyed by field name. Field
+ * names can't be enumerated ahead of time (they depend on the consuming
+ * service's own GraphQL schema), so this level stays an open dictionary.
+ */
+const zGraphqlFieldMap = z.record(
+	z.string().describe('Resolved GraphQL field name, e.g. "createUser".'),
+	zRuleEntry,
+);
+
+/**
+ * GraphQL rules keyed by operation type. Modeled as an object with explicit
+ * optional properties — rather than `z.record(z.string(), ...)` — for the
+ * same reason as `zRestMethodMap`: GraphQL only ever has these 3 root
+ * operation types, so listing them lets JSON-Schema-aware editors offer
+ * autocompletion; an open dictionary has nothing to suggest.
+ *
+ * `.strict()` so a typo'd operation type fails validation at startup with a
+ * clear Zod error instead of being silently stripped.
+ */
 export const zGraphqlRules = z
-	.record(
-		z
-			.string()
-			.describe(
-				'GraphQL operation type, e.g. "Query", "Mutation", "Subscription".',
-			),
-		z.record(
-			z.string().describe('Resolved GraphQL field name, e.g. "createUser".'),
-			zRuleEntry,
-		),
-	)
+	.object({
+		Query: zGraphqlFieldMap.optional(),
+		Mutation: zGraphqlFieldMap.optional(),
+		Subscription: zGraphqlFieldMap.optional(),
+	})
+	.strict()
 	.describe(
 		'GraphQL authorization rules, keyed by operation type then field name.',
 	);
