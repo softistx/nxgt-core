@@ -4,7 +4,7 @@ import { logger } from '@nxgt/shared-logging';
 import { createMiddleware } from 'hono/factory';
 import type { MiddlewareHandler } from 'hono/types';
 import type { PolicyClaims } from '../../policy';
-import { ensureCompiledPolicy, evaluateRest } from '../../policy';
+import { evaluateRest, parseRules } from '../../policy';
 
 /**
  * Hono middleware that evaluates every incoming REST request against a
@@ -23,10 +23,9 @@ import { ensureCompiledPolicy, evaluateRest } from '../../policy';
  *   expression evaluator as `req.body`. The raw request is cloned first so
  *   that downstream handlers (e.g. a reverse proxy) can still read the stream.
  *
- * `policy` accepts either an already-compiled `CompiledPolicy` (e.g. from
- * `loadRulesFromEnv`/`parseRules`) or a raw/unvalidated rules document —
- * compiled internally via `ensureCompiledPolicy`, once, when `policyGuard(...)`
- * is called, not per request.
+ * `rawRules` is a raw/unvalidated rules document (e.g. a static YAML import,
+ * or `loadRawRulesFromEnv`'s output) — validated and compiled internally via
+ * `parseRules`, once, when `policyGuard(...)` is called, not per request.
  *
  * @example
  * ```ts
@@ -36,8 +35,8 @@ import { ensureCompiledPolicy, evaluateRest } from '../../policy';
  * app.use('/api/*', bearerAuth(), policyGuard(rawRules));
  * ```
  */
-export function policyGuard(policy: unknown): MiddlewareHandler {
-	const compiledPolicy = ensureCompiledPolicy(policy);
+export function policyGuard(rawRules: unknown): MiddlewareHandler {
+	const compiledPolicy = parseRules(rawRules);
 	return createMiddleware(async (ctx, next) => {
 		const clonedRaw = ctx.req.raw.clone();
 

@@ -7,7 +7,6 @@ import {
 	GraphQLString,
 	graphql,
 } from 'graphql';
-import { compilePolicy } from '../compile';
 import type { Rules } from '../rules.schema';
 import { applyGraphqlPolicy, NonNullRuleFieldError } from './resolvers';
 
@@ -69,10 +68,13 @@ function buildSchemaWithNonNullEmail() {
 
 describe('applyGraphqlPolicy', () => {
 	it('allows a field with no rule entry to pass through untouched (NOT_APPLICABLE = open)', async () => {
-		const policy = compilePolicy({});
-		const schema = applyGraphqlPolicy(buildSchema(), policy, {
-			getClaims: () => ({ sub: 'user-1' }),
-		});
+		const schema = applyGraphqlPolicy(
+			buildSchema(),
+			{},
+			{
+				getClaims: () => ({ sub: 'user-1' }),
+			},
+		);
 
 		const result = await graphql({
 			schema,
@@ -92,8 +94,7 @@ describe('applyGraphqlPolicy', () => {
 				},
 			},
 		};
-		const policy = compilePolicy(rules);
-		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+		const schema = applyGraphqlPolicy(buildSchema(), rules, {
 			getClaims: () => ({ sub: 'user-1', authorities: ['ADMIN'] }),
 		});
 
@@ -115,8 +116,7 @@ describe('applyGraphqlPolicy', () => {
 				},
 			},
 		};
-		const policy = compilePolicy(rules);
-		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+		const schema = applyGraphqlPolicy(buildSchema(), rules, {
 			getClaims: () => ({ sub: 'user-1', authorities: [] }),
 		});
 
@@ -140,8 +140,7 @@ describe('applyGraphqlPolicy', () => {
 				},
 			},
 		};
-		const policy = compilePolicy(rules);
-		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+		const schema = applyGraphqlPolicy(buildSchema(), rules, {
 			getClaims: (context) => (context as { claims: any }).claims,
 		});
 
@@ -163,8 +162,7 @@ describe('applyGraphqlPolicy', () => {
 				},
 			},
 		};
-		const policy = compilePolicy(rules);
-		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+		const schema = applyGraphqlPolicy(buildSchema(), rules, {
 			getClaims: () => ({ sub: 'user-1', authorities: [] }),
 		});
 
@@ -190,8 +188,7 @@ describe('applyGraphqlPolicy', () => {
 				},
 			},
 		};
-		const policy = compilePolicy(rules);
-		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+		const schema = applyGraphqlPolicy(buildSchema(), rules, {
 			getClaims: () => ({ sub: 'someone-else' }),
 		});
 
@@ -203,7 +200,7 @@ describe('applyGraphqlPolicy', () => {
 		expect(denied.data?.me).toEqual({ email: null });
 		expect(denied.errors).toHaveLength(1);
 
-		const schemaForOwner = applyGraphqlPolicy(buildSchema(), policy, {
+		const schemaForOwner = applyGraphqlPolicy(buildSchema(), rules, {
 			getClaims: () => ({ sub: '1' }),
 		});
 		const allowed = await graphql({
@@ -225,8 +222,7 @@ describe('applyGraphqlPolicy', () => {
 				},
 			},
 		};
-		const policy = compilePolicy(rules);
-		const schema = applyGraphqlPolicy(buildSchema(), policy, {
+		const schema = applyGraphqlPolicy(buildSchema(), rules, {
 			getClaims: () => ({ sub: 'user-1' }),
 		});
 
@@ -250,28 +246,23 @@ describe('applyGraphqlPolicy', () => {
 		};
 
 		it('throws NonNullRuleFieldError at wrap time by default for a rule on a non-null field', () => {
-			const policy = compilePolicy(rules);
-
 			expect(() =>
-				applyGraphqlPolicy(buildSchemaWithNonNullEmail(), policy, {
+				applyGraphqlPolicy(buildSchemaWithNonNullEmail(), rules, {
 					getClaims: () => ({ sub: 'user-1' }),
 				}),
 			).toThrow(NonNullRuleFieldError);
 		});
 
 		it('does not throw for a rule on a nullable field', () => {
-			const policy = compilePolicy(rules);
-
 			expect(() =>
-				applyGraphqlPolicy(buildSchema(), policy, {
+				applyGraphqlPolicy(buildSchema(), rules, {
 					getClaims: () => ({ sub: 'user-1' }),
 				}),
 			).not.toThrow();
 		});
 
 		it('proceeds when strict: false explicitly acknowledges the cascade risk', async () => {
-			const policy = compilePolicy(rules);
-			const schema = applyGraphqlPolicy(buildSchemaWithNonNullEmail(), policy, {
+			const schema = applyGraphqlPolicy(buildSchemaWithNonNullEmail(), rules, {
 				getClaims: () => ({ sub: 'user-1', authorities: [] }),
 				strict: false,
 			});

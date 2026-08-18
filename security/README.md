@@ -35,7 +35,7 @@ const result = evaluateRest(policy, {
 // result.decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE'
 ```
 
-`loadRulesFromEnv`/`loadRulesFromFile` are convenience wrappers around `parseRules(raw)` (itself `compilePolicy(RulesSchema.parse(raw))`) — use `parseRules` directly if you already have the raw rules data in memory (e.g. a static import, or a value read some other way). See `src/policy/load-rules.ts`.
+`loadRulesFromEnv`/`loadRulesFromFile` are convenience wrappers around `parseRules(raw)` (itself `compilePolicy(RulesSchema.parse(raw))`) — use `parseRules` directly if you already have the raw rules data in memory (e.g. a static import, or a value read some other way). Each also has a `loadRaw*` counterpart (`loadRawRulesFromEnv`/`loadRawRulesFromFile`) that validates but doesn't compile — for callers that need the raw document itself, e.g. `policyGuard`/`applyGraphqlPolicy` (see below), which compile it internally. See `src/policy/load-rules.ts`.
 
 Most Hono services won't call this directly — `@nxgt/security/integrations/hono`'s `policyGuard(policy)` middleware wraps `evaluateRest` for you; see the `integrations/hono` section below.
 
@@ -54,13 +54,13 @@ Run `bun run schema:gen` after changing `rules.schema.ts` to regenerate that che
 A separate subpath, layered on top of `policy`, for wrapping a real executable GraphQL schema's resolvers with the rules in `rules.graphql`. Not re-exported from `@nxgt/security/policy` — importing it pulls in `graphql` and `@graphql-tools/utils`, which REST-only consumers of the base `policy` subpath don't need.
 
 ```ts
-import { loadRulesFromEnv } from '@nxgt/security/policy';
+import { loadRawRulesFromEnv } from '@nxgt/security/policy';
 import { applyGraphqlPolicy } from '@nxgt/security/policy/graphql';
 import { schema as rawSchema } from './schema'; // your executable GraphQLSchema
 
-const policy = await loadRulesFromEnv({ envVar: 'RULES_FILE', fallbackPath: 'rules.yaml' });
+const rawRules = await loadRawRulesFromEnv({ envVar: 'RULES_FILE', fallbackPath: 'rules.yaml' });
 
-const schema = applyGraphqlPolicy(rawSchema, policy, {
+const schema = applyGraphqlPolicy(rawSchema, rawRules, {
 	// Context shape is server-specific (Yoga, Apollo, Mercurius, ...), so the
 	// caller always supplies the extractor rather than a fixed convention.
 	getClaims: (context) => (context as { claims: PolicyClaims }).claims,
@@ -69,7 +69,7 @@ const schema = applyGraphqlPolicy(rawSchema, policy, {
 // Serve `schema` instead of `rawSchema`.
 ```
 
-`applyGraphqlPolicy`'s `policy` argument also accepts a raw/unvalidated rules document directly (e.g. a static YAML import) instead of a pre-compiled `CompiledPolicy` — it's compiled internally, once, at the point `applyGraphqlPolicy(...)` is called (not per request), via the same `ensureCompiledPolicy` helper `policyGuard` uses. `loadRulesFromEnv` is still the way to go in production so the rules file can change without a rebuild; pass a raw document directly only when that's not a concern (tests, scripts, a fixed in-repo rules file).
+`applyGraphqlPolicy` only accepts a raw/unvalidated rules document (never a pre-compiled `CompiledPolicy`) — it validates and compiles it internally, once, at the point `applyGraphqlPolicy(...)` is called, not per request.
 
 For every `typeName.fieldName` covered by a rule — root fields under `Query`/`Mutation`/`Subscription`, or a field on any other declared type (e.g. `User.email`) — the resolver is replaced with a wrapper that runs the same authorities + expression check as `evaluateGraphql`, delegating to the original resolver (or `defaultFieldResolver`, if none was set) on ALLOW, and throwing a `GraphQLError` (`extensions.code: 'FORBIDDEN'`) on DENY. Fields with no rule entry are left completely untouched — the original schema is never mutated, `applyGraphqlPolicy` returns a new one via `@graphql-tools/utils`'s `mapSchema`.
 
@@ -83,17 +83,17 @@ GraphQL expressions see `claims`, `args`, `source` (the resolver's parent/source
 
 ### `integrations/hono` (`@nxgt/security/integrations/hono`)
 
-`policyGuard(policy)` — a Hono middleware wrapping `evaluateRest`. Moved here from `@nxgt/shared-hono` so REST policy enforcement lives next to the engine it wraps, in the package whose whole purpose is being the home for security features.
+`policyGuard(rawRules)` — a Hono middleware wrapping `evaluateRest`. Moved here from `@nxgt/shared-hono` so REST policy enforcement lives next to the engine it wraps, in the package whose whole purpose is being the home for security features.
 
 ```ts
-import { loadRulesFromEnv } from '@nxgt/security/policy';
+import { loadRawRulesFromEnv } from '@nxgt/security/policy';
 import { policyGuard } from '@nxgt/security/integrations/hono';
 
-const policy = await loadRulesFromEnv({ envVar: 'RULES_FILE', fallbackPath: 'rules.yaml' });
-app.use('/api/*', bearerAuth(), policyGuard(policy));
+const rawRules = await loadRawRulesFromEnv({ envVar: 'RULES_FILE', fallbackPath: 'rules.yaml' });
+app.use('/api/*', bearerAuth(), policyGuard(rawRules));
 ```
 
-Like `applyGraphqlPolicy`, `policyGuard`'s argument also accepts a raw/unvalidated rules document directly — `policyGuard(rawRules)` works, compiling it once at setup instead of per request. Use `loadRulesFromEnv` in production so the rules file can change without a rebuild.
+Like `applyGraphqlPolicy`, `policyGuard` only accepts a raw/unvalidated rules document (never a pre-compiled `CompiledPolicy`) — it compiles internally, once, when `policyGuard(...)` is called, not per request. If a service also needs a `CompiledPolicy` for direct `evaluateRest`/`evaluateGraphql` calls elsewhere (e.g. a policy dry-run endpoint), load the raw document once and derive both: `const rawRules = await loadRawRulesFromEnv(...); const policy = compilePolicy(rawRules);` — see `apps/oauth/oauth-api/src/modules/policies/rules.loader.ts` for a real example.
 
 Must run after the token-resolution middleware (`bearerAuth`/`currentUser`/...) that populates the `USER_HEADERS` context variables it reads claims from. On DENY it throws a 403 `CustomException`; on ALLOW/NOT_APPLICABLE it calls `next()`. This subpath (unlike the base `policy` subpath) depends on `@nxgt/shared`, `@nxgt/shared-exceptions`, `@nxgt/shared-logging`, and `hono` — consumers that never import `@nxgt/security/integrations/hono` never pull those in.
 

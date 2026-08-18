@@ -2,7 +2,7 @@ import { MapperKind, mapSchema } from '@graphql-tools/utils';
 import type { GraphQLSchema } from 'graphql';
 import { defaultFieldResolver, GraphQLError, isNonNullType } from 'graphql';
 import type { PolicyClaims } from '../claims.types';
-import { ensureCompiledPolicy } from '../load-rules';
+import { parseRules } from '../load-rules';
 import { evaluateGraphql } from './evaluator';
 
 export interface ApplyGraphqlPolicyOptions {
@@ -57,20 +57,20 @@ export class NonNullRuleFieldError extends Error {
  * for any rule-covered field whose GraphQL type is non-null — see
  * `ApplyGraphqlPolicyOptions.strict`.
  *
- * `policy` accepts either an already-compiled `CompiledPolicy` (e.g. from
- * `loadRulesFromEnv`/`parseRules`) or a raw/unvalidated rules document —
- * compiled internally via `ensureCompiledPolicy`, once, when
- * `applyGraphqlPolicy(...)` is called, not per request.
+ * `rawRules` is a raw/unvalidated rules document (e.g. a static YAML import,
+ * or `loadRawRulesFromEnv`'s output) — validated and compiled internally via
+ * `parseRules`, once, when `applyGraphqlPolicy(...)` is called, not per
+ * request.
  *
  * Call once at server startup, after building the executable schema, and
  * serve the returned schema instead of the original.
  */
 export function applyGraphqlPolicy(
 	schema: GraphQLSchema,
-	policy: unknown,
+	rawRules: unknown,
 	options: ApplyGraphqlPolicyOptions,
 ): GraphQLSchema {
-	const compiledPolicy = ensureCompiledPolicy(policy);
+	const compiledPolicy = parseRules(rawRules);
 	if (!compiledPolicy.graphql) return schema;
 	const graphqlPolicy = compiledPolicy.graphql;
 

@@ -1,6 +1,6 @@
 import { parse as parseYaml } from 'yaml';
 import { type CompiledPolicy, compilePolicy } from './compile';
-import { RulesSchema } from './rules.schema';
+import { type Rules, RulesSchema } from './rules.schema';
 
 /**
  * Validates already-parsed rules data against `RulesSchema` and precompiles
@@ -13,37 +13,24 @@ export function parseRules(raw: unknown): CompiledPolicy {
 }
 
 /**
- * Accepts either an already-compiled `CompiledPolicy` or a raw/unvalidated
- * rules document, and returns a `CompiledPolicy` either way — validating and
- * compiling it via `parseRules` if it wasn't compiled already.
- *
- * Lets entry points like `policyGuard`/`applyGraphqlPolicy` accept whatever a
- * caller happens to have on hand (a static YAML import, `RulesSchema.parse`'s
- * output, or a pre-compiled policy from `loadRulesFromEnv`) instead of
- * forcing every caller to know about `compilePolicy`. Compilation still only
- * ever runs once — at the point where the caller invokes `policyGuard(...)`/
- * `applyGraphqlPolicy(...)`, not per request.
+ * Reads a rules YAML (or JSON — YAML is a superset) file from disk and
+ * validates it against `RulesSchema`, without compiling it. Useful when the
+ * raw document is needed as well as (or instead of) a `CompiledPolicy` — e.g.
+ * `policyGuard`/`applyGraphqlPolicy`, which only accept a raw document and
+ * compile it themselves.
  */
-export function ensureCompiledPolicy(policy: unknown): CompiledPolicy {
-	if (isCompiledPolicy(policy)) return policy;
-	return parseRules(policy);
-}
-
-function isCompiledPolicy(value: unknown): value is CompiledPolicy {
-	return (
-		typeof value === 'object' && value !== null && 'restRoutesByMethod' in value
-	);
+export async function loadRawRulesFromFile(path: string): Promise<Rules> {
+	const text = await Bun.file(path).text();
+	return RulesSchema.parse(parseYaml(text));
 }
 
 /**
- * Reads a rules YAML (or JSON — YAML is a superset) file from disk,
- * validates it, and precompiles it. Call once at startup; the file is read
- * fresh each call, so restarting the process (not rebuilding it) is enough
- * to pick up a changed rules file.
+ * `loadRawRulesFromFile`, then `compilePolicy`. Call once at startup; the
+ * file is read fresh each call, so restarting the process (not rebuilding
+ * it) is enough to pick up a changed rules file.
  */
 export async function loadRulesFromFile(path: string): Promise<CompiledPolicy> {
-	const text = await Bun.file(path).text();
-	return parseRules(parseYaml(text));
+	return compilePolicy(await loadRawRulesFromFile(path));
 }
 
 export interface LoadRulesFromEnvOptions {
@@ -56,21 +43,34 @@ export interface LoadRulesFromEnvOptions {
 	fallbackPath?: string;
 }
 
+function resolveRulesPath(options: LoadRulesFromEnvOptions): string {
+	const path = process.env[options.envVar] ?? options.fallbackPath;
+	if (!path) {
+		throw new Error(
+			`Environment variable "${options.envVar}" is not set and no ` +
+				'fallbackPath was provided.',
+		);
+	}
+	return path;
+}
+
 /**
- * `loadRulesFromFile`, with the path read from an environment variable
+ * `loadRawRulesFromFile`, with the path read from an environment variable
  * instead of a hardcoded literal — lets ops point at a different rules file
  * at deploy time (or swap it at runtime, e.g. a mounted volume) without a
  * rebuild. Throws if `envVar` isn't set and no `fallbackPath` was given.
  */
+export async function loadRawRulesFromEnv(
+	options: LoadRulesFromEnvOptions,
+): Promise<Rules> {
+	return loadRawRulesFromFile(resolveRulesPath(options));
+}
+
+/**
+ * `loadRawRulesFromEnv`, then `compilePolicy`. See `loadRawRulesFromEnv`.
+ */
 export async function loadRulesFromEnv(
 	options: LoadRulesFromEnvOptions,
 ): Promise<CompiledPolicy> {
-	const path = process.env[options.envVar] ?? options.fallbackPath;
-	if (!path) {
-		throw new Error(
-			`loadRulesFromEnv: environment variable "${options.envVar}" is not ` +
-				'set and no fallbackPath was provided.',
-		);
-	}
-	return loadRulesFromFile(path);
+	return compilePolicy(await loadRawRulesFromEnv(options));
 }

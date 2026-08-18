@@ -3,7 +3,8 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-	ensureCompiledPolicy,
+	loadRawRulesFromEnv,
+	loadRawRulesFromFile,
 	loadRulesFromEnv,
 	loadRulesFromFile,
 	parseRules,
@@ -114,34 +115,61 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 		delete process.env.TEST_RULES_FILE_UNSET;
 		await expect(
 			loadRulesFromEnv({ envVar: 'TEST_RULES_FILE_UNSET' }),
-		).rejects.toThrow(/environment variable/);
+		).rejects.toThrow(/environment variable/i);
 	});
 });
 
-describe('ensureCompiledPolicy', () => {
-	it('passes an already-compiled CompiledPolicy through unchanged', () => {
-		const policy = parseRules({
-			rest: { '/widgets': { GET: { authorities: [['ADMIN']] } } },
-		});
-		expect(ensureCompiledPolicy(policy)).toBe(policy);
+describe('loadRawRulesFromFile / loadRawRulesFromEnv', () => {
+	let dir: string;
+
+	afterEach(async () => {
+		if (dir) await rm(dir, { recursive: true, force: true });
 	});
 
-	it('validates and compiles a raw/unvalidated rules document', () => {
-		const policy = ensureCompiledPolicy({
+	it('reads and validates a YAML file from disk without compiling it', async () => {
+		dir = await mkdtemp(join(tmpdir(), 'security-rules-'));
+		const path = join(dir, 'rules.yaml');
+		await writeFile(
+			path,
+			'rest:\n  /widgets:\n    GET:\n      authorities: [["ADMIN"]]\n',
+		);
+
+		const raw = await loadRawRulesFromFile(path);
+		expect(raw).toEqual({
 			rest: { '/widgets': { GET: { authorities: [['ADMIN']] } } },
 		});
-		const result = evaluateRest(policy, {
-			type: 'rest',
-			method: 'GET',
-			path: '/widgets',
-			claims: { sub: 'user-1', authorities: ['ADMIN'] },
-		});
-		expect(result.decision).toBe('ALLOW');
 	});
 
-	it('throws a Zod error for an invalid raw document', () => {
-		expect(() =>
-			ensureCompiledPolicy({ rest: { '/widgets': { GTE: {} } } }),
-		).toThrow();
+	it('loadRawRulesFromEnv prefers the env var over the fallback path', async () => {
+		dir = await mkdtemp(join(tmpdir(), 'security-rules-'));
+		const envPath = join(dir, 'from-env.yaml');
+		const fallbackPath = join(dir, 'fallback.yaml');
+		await writeFile(
+			envPath,
+			'rest:\n  /from-env:\n    GET:\n      authorities: []\n',
+		);
+		await writeFile(
+			fallbackPath,
+			'rest:\n  /fallback:\n    GET:\n      authorities: []\n',
+		);
+
+		process.env.TEST_RULES_FILE = envPath;
+		try {
+			const raw = await loadRawRulesFromEnv({
+				envVar: 'TEST_RULES_FILE',
+				fallbackPath,
+			});
+			expect(raw.rest).toHaveProperty('/from-env');
+		} finally {
+			delete process.env.TEST_RULES_FILE;
+		}
+	});
+
+	it('throws a Zod error for an invalid raw document', async () => {
+		dir = await mkdtemp(join(tmpdir(), 'security-rules-'));
+		const path = join(dir, 'rules.yaml');
+		await writeFile(path, 'rest:\n  /widgets:\n    GTE: {}\n');
+
+		await expect(loadRawRulesFromFile(path)).rejects.toThrow();
 	});
 });
