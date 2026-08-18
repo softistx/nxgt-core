@@ -1,0 +1,194 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"type": "object",
+	"properties": {
+		"global": {
+			"description": "Global configuration applied across all rules in this document.",
+			"type": "object",
+			"properties": {
+				"basePath": {
+					"description": "Prefix prepended to every REST path pattern before matching, e.g. \"/api\".",
+					"type": "string"
+				},
+				"rateLimit": {
+					"description": "Reserved for future use — not currently enforced by the policy evaluators in this package.",
+					"type": "object",
+					"properties": {
+						"windowMs": {
+							"type": "number",
+							"description": "Rate-limit window size, in milliseconds."
+						},
+						"max": {
+							"type": "number",
+							"description": "Maximum number of requests allowed per window."
+						}
+					},
+					"required": ["windowMs", "max"],
+					"additionalProperties": false
+				},
+				"cors": {
+					"description": "Reserved for future use — not currently enforced by the policy evaluators in this package.",
+					"type": "object",
+					"properties": {
+						"origins": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "Allowed CORS origins."
+						},
+						"methods": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "Allowed CORS HTTP methods."
+						},
+						"allowedHeaders": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "Allowed CORS request headers."
+						}
+					},
+					"required": ["origins", "methods", "allowedHeaders"],
+					"additionalProperties": false
+				},
+				"providers": {
+					"description": "Reserved for future use — not currently enforced by the policy evaluators in this package. Intended to dynamically grant authorities based on claims.",
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"when": {
+								"type": "string",
+								"description": "JavaScript expression evaluated against `claims`; truthy activates this provider."
+							},
+							"authorities": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								},
+								"description": "Authorities granted to the caller when `when` evaluates truthily."
+							}
+						},
+						"required": ["when", "authorities"],
+						"additionalProperties": false
+					}
+				}
+			},
+			"additionalProperties": false
+		},
+		"rest": {
+			"type": "object",
+			"propertyNames": {
+				"type": "string",
+				"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+			},
+			"additionalProperties": {
+				"type": "object",
+				"propertyNames": {
+					"type": "string",
+					"description": "HTTP method, e.g. \"GET\", \"POST\"."
+				},
+				"additionalProperties": {
+					"type": "object",
+					"properties": {
+						"authorities": {
+							"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+							"anyOf": [
+								{
+									"type": "array",
+									"items": {
+										"type": "array",
+										"items": {
+											"type": "string"
+										}
+									}
+								},
+								{
+									"type": "null"
+								}
+							]
+						},
+						"expression": {
+							"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+							"type": "object",
+							"properties": {
+								"value": {
+									"type": "string",
+									"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+								},
+								"message": {
+									"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+									"type": "string"
+								}
+							},
+							"required": ["value"],
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"description": "REST authorization rules, keyed by path pattern then HTTP method. The first path pattern that matches the request (in document order) is used."
+		},
+		"graphql": {
+			"type": "object",
+			"propertyNames": {
+				"type": "string",
+				"description": "GraphQL operation type, e.g. \"Query\", \"Mutation\", \"Subscription\"."
+			},
+			"additionalProperties": {
+				"type": "object",
+				"propertyNames": {
+					"type": "string",
+					"description": "Resolved GraphQL field name, e.g. \"createUser\"."
+				},
+				"additionalProperties": {
+					"type": "object",
+					"properties": {
+						"authorities": {
+							"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+							"anyOf": [
+								{
+									"type": "array",
+									"items": {
+										"type": "array",
+										"items": {
+											"type": "string"
+										}
+									}
+								},
+								{
+									"type": "null"
+								}
+							]
+						},
+						"expression": {
+							"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+							"type": "object",
+							"properties": {
+								"value": {
+									"type": "string",
+									"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+								},
+								"message": {
+									"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+									"type": "string"
+								}
+							},
+							"required": ["value"],
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				}
+			},
+			"description": "GraphQL authorization rules, keyed by operation type then field name."
+		}
+	},
+	"additionalProperties": false,
+	"description": "Authorization policy document consumed by @nxgt/security/policy — defines REST and/or GraphQL access rules and global configuration."
+}
