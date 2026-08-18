@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
 	GraphQLID,
+	GraphQLNonNull,
 	GraphQLObjectType,
 	GraphQLSchema,
 	GraphQLString,
@@ -8,7 +9,7 @@ import {
 } from 'graphql';
 import { compilePolicy } from '../compile';
 import type { Rules } from '../rules.schema';
-import { applyGraphqlPolicy } from './resolvers';
+import { applyGraphqlPolicy, NonNullRuleFieldError } from './resolvers';
 
 function buildSchema() {
 	const userType = new GraphQLObjectType({
@@ -34,6 +35,31 @@ function buildSchema() {
 			widgets: {
 				type: GraphQLString,
 				resolve: () => 'public widgets',
+			},
+		},
+	});
+
+	return new GraphQLSchema({ query: queryType });
+}
+
+function buildSchemaWithNonNullEmail() {
+	const userType = new GraphQLObjectType({
+		name: 'User',
+		fields: {
+			id: { type: GraphQLID, resolve: (u) => u.id },
+			email: {
+				type: new GraphQLNonNull(GraphQLString),
+				resolve: (u) => u.email,
+			},
+		},
+	});
+
+	const queryType = new GraphQLObjectType({
+		name: 'Query',
+		fields: {
+			me: {
+				type: userType,
+				resolve: () => ({ id: '1', email: 'alice@example.com' }),
 			},
 		},
 	});
@@ -212,5 +238,56 @@ describe('applyGraphqlPolicy', () => {
 
 		expect(result.errors).toBeUndefined();
 		expect(result.data).toEqual({ me: { email: 'alice@example.com' } });
+	});
+
+	describe('non-null field safety', () => {
+		const rules: Rules = {
+			graphql: {
+				User: {
+					email: { authorities: [['ADMIN']] },
+				},
+			},
+		};
+
+		it('throws NonNullRuleFieldError at wrap time by default for a rule on a non-null field', () => {
+			const policy = compilePolicy(rules);
+
+			expect(() =>
+				applyGraphqlPolicy(buildSchemaWithNonNullEmail(), policy, {
+					getClaims: () => ({ sub: 'user-1' }),
+				}),
+			).toThrow(NonNullRuleFieldError);
+		});
+
+		it('does not throw for a rule on a nullable field', () => {
+			const policy = compilePolicy(rules);
+
+			expect(() =>
+				applyGraphqlPolicy(buildSchema(), policy, {
+					getClaims: () => ({ sub: 'user-1' }),
+				}),
+			).not.toThrow();
+		});
+
+		it('proceeds when strict: false explicitly acknowledges the cascade risk', async () => {
+			const policy = compilePolicy(rules);
+			const schema = applyGraphqlPolicy(buildSchemaWithNonNullEmail(), policy, {
+				getClaims: () => ({ sub: 'user-1', authorities: [] }),
+				strict: false,
+			});
+
+			// DENY on the non-null `email` field cascades to the nearest
+			// nullable ancestor (`me`) per the GraphQL spec — this is the
+			// documented, acknowledged trade-off of strict: false, not a bug.
+			const result = await graphql({
+				schema,
+				source: '{ me { email } }',
+				contextValue: {},
+			});
+
+			expect(result.data).toEqual({ me: null });
+			expect(result.errors).toHaveLength(1);
+			expect(result.errors?.[0]?.message).toContain('Insufficient authorities');
+		});
 	});
 });
