@@ -69,47 +69,57 @@ export const zRuleEntry = z.object({
 export type RuleEntry = z.infer<typeof zRuleEntry>;
 
 // ---------------------------------------------------------------------------
-// REST rules  →  path pattern → HTTP method → rule entry
+// REST rules  →  HTTP method → path pattern → rule entry
 // ---------------------------------------------------------------------------
 
 /**
- * Rule entries keyed by HTTP method. Modeled as an object with explicit
- * optional properties — rather than `z.record(z.string(), zRuleEntry)` —
- * specifically so JSON-Schema-aware editors can autocomplete method names:
- * an open dictionary (`additionalProperties`) has no enumerable keys for
- * the editor to suggest, whereas an explicit `properties` map does.
+ * Rule entries for one HTTP method, keyed by path pattern. Path patterns
+ * can't be enumerated ahead of time (they're arbitrary, service-defined
+ * routes), so this level stays an open dictionary. Matched in document
+ * order — first pattern that matches wins.
+ */
+const zRestPathMap = z
+	.record(
+		z
+			.string()
+			.describe('Path pattern in path-to-regexp syntax, e.g. "/users/:id".'),
+		zRuleEntry,
+	)
+	.describe(
+		'Rule entries keyed by path pattern for this HTTP method. The first ' +
+			'pattern that matches the request path (in document order) is used.',
+	);
+
+/**
+ * REST rules keyed by HTTP method. Modeled as an object with explicit
+ * optional properties — rather than `z.record(z.string(), ...)` —
+ * specifically so JSON-Schema-aware editors can autocomplete method names
+ * as direct properties of `rest` itself: an open dictionary
+ * (`additionalProperties`) has no enumerable keys for the editor to
+ * suggest, whereas an explicit `properties` map does.
  *
  * `.strict()` so a typo'd method name (e.g. "GTE") fails validation at
  * startup with a clear Zod error, instead of being silently stripped and
  * leaving that route with no rule (which `evaluateRest` would then treat
  * as NOT_APPLICABLE / open by default).
  */
-const zRestMethodMap = z
+export const zRestRules = z
 	.object({
-		GET: zRuleEntry.optional(),
-		POST: zRuleEntry.optional(),
-		PUT: zRuleEntry.optional(),
-		PATCH: zRuleEntry.optional(),
-		DELETE: zRuleEntry.optional(),
-		HEAD: zRuleEntry.optional(),
-		OPTIONS: zRuleEntry.optional(),
-		CONNECT: zRuleEntry.optional(),
-		TRACE: zRuleEntry.optional(),
+		GET: zRestPathMap.optional(),
+		POST: zRestPathMap.optional(),
+		PUT: zRestPathMap.optional(),
+		PATCH: zRestPathMap.optional(),
+		DELETE: zRestPathMap.optional(),
+		HEAD: zRestPathMap.optional(),
+		OPTIONS: zRestPathMap.optional(),
+		CONNECT: zRestPathMap.optional(),
+		TRACE: zRestPathMap.optional(),
+		/** IETF draft safe-method-with-body — GET semantics with a request body. */
+		QUERY: zRestPathMap.optional(),
 	})
 	.strict()
-	.describe('Rule entries keyed by HTTP method.');
-
-export const zRestRules = z
-	.record(
-		z
-			.string()
-			.describe('Path pattern in path-to-regexp syntax, e.g. "/users/:id".'),
-		zRestMethodMap,
-	)
 	.describe(
-		'REST authorization rules, keyed by path pattern then HTTP method. ' +
-			'The first path pattern that matches the request (in document ' +
-			'order) is used.',
+		'REST authorization rules, keyed by HTTP method then path pattern.',
 	);
 
 // ---------------------------------------------------------------------------
@@ -129,8 +139,8 @@ const zGraphqlFieldMap = z.record(
 /**
  * GraphQL rules keyed by operation type. Modeled as an object with explicit
  * optional properties — rather than `z.record(z.string(), ...)` — for the
- * same reason as `zRestMethodMap`: GraphQL only ever has these 3 root
- * operation types, so listing them lets JSON-Schema-aware editors offer
+ * same reason as `zRestRules`: GraphQL only ever has these 3 root operation
+ * types, so listing them lets JSON-Schema-aware editors offer
  * autocompletion; an open dictionary has nothing to suggest.
  *
  * `.strict()` so a typo'd operation type fails validation at startup with a

@@ -16,8 +16,8 @@ describe('compilePolicy — expression cache is scope-aware', () => {
 
 		const rules: Rules = {
 			rest: {
-				'/widgets': {
-					GET: { expression: { value: sharedExpression } },
+				GET: {
+					'/widgets': { expression: { value: sharedExpression } },
 				},
 			},
 			graphql: {

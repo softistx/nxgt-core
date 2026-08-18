@@ -82,14 +82,14 @@
 		},
 		"rest": {
 			"type": "object",
-			"propertyNames": {
-				"type": "string",
-				"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
-			},
-			"additionalProperties": {
-				"type": "object",
-				"properties": {
-					"GET": {
+			"properties": {
+				"GET": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
 						"type": "object",
 						"properties": {
 							"authorities": {
@@ -128,323 +128,434 @@
 						},
 						"additionalProperties": false
 					},
-					"POST": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					},
-					"PUT": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					},
-					"PATCH": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					},
-					"DELETE": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					},
-					"HEAD": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					},
-					"OPTIONS": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					},
-					"CONNECT": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					},
-					"TRACE": {
-						"type": "object",
-						"properties": {
-							"authorities": {
-								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
-								"anyOf": [
-									{
-										"type": "array",
-										"items": {
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									},
-									{
-										"type": "null"
-									}
-								]
-							},
-							"expression": {
-								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
-								"type": "object",
-								"properties": {
-									"value": {
-										"type": "string",
-										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
-									},
-									"message": {
-										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
-										"type": "string"
-									}
-								},
-								"required": ["value"],
-								"additionalProperties": false
-							}
-						},
-						"additionalProperties": false
-					}
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
 				},
-				"additionalProperties": false,
-				"description": "Rule entries keyed by HTTP method."
+				"POST": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"PUT": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"PATCH": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"DELETE": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"HEAD": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"OPTIONS": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"CONNECT": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"TRACE": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				},
+				"QUERY": {
+					"type": "object",
+					"propertyNames": {
+						"type": "string",
+						"description": "Path pattern in path-to-regexp syntax, e.g. \"/users/:id\"."
+					},
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"authorities": {
+								"description": "Authority groups checked against the union of claims.authorities, claims.roles, and space-separated claims.scope tokens. Outer array is AND (every group must be satisfied), inner array is OR (at least one authority in the group must match). Omit, or use an empty/null value, to require only that the caller is authenticated. Example: [[\"ADMIN\", \"users:read\"]] means ADMIN OR users:read; [[\"ADMIN\"], [\"users:read\"]] means ADMIN AND users:read.",
+								"anyOf": [
+									{
+										"type": "array",
+										"items": {
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"expression": {
+								"description": "Optional JavaScript expression check evaluated in addition to (and after) the authorities check.",
+								"type": "object",
+								"properties": {
+									"value": {
+										"type": "string",
+										"description": "JavaScript expression source evaluated at request time; must return a truthy value for the rule to allow the request. REST rules see `claims` and `req` (body, params, query, headers, cookies) in scope; GraphQL rules see `claims` and `args`. Example: \"args.input.username.toLowerCase() !== 'admin'\"."
+									},
+									"message": {
+										"description": "Custom error message surfaced when the expression returns falsy. Defaults to \"Expression check failed\".",
+										"type": "string"
+									}
+								},
+								"required": ["value"],
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"description": "Rule entries keyed by path pattern for this HTTP method. The first pattern that matches the request path (in document order) is used."
+				}
 			},
-			"description": "REST authorization rules, keyed by path pattern then HTTP method. The first path pattern that matches the request (in document order) is used."
+			"additionalProperties": false,
+			"description": "REST authorization rules, keyed by HTTP method then path pattern."
 		},
 		"graphql": {
 			"type": "object",

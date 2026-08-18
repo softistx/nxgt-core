@@ -31,7 +31,9 @@ const result = evaluateRest(policy, {
 
 Most services won't call this directly — `@nxgt/shared-hono`'s `policyGuard(policy)` Hono middleware wraps `evaluateRest` for you; see `packages/shared-hono/src/middlewares/policy-guard.ts`.
 
-**Rules document shape:** see `src/policy/rules.schema.ts`, or open any of the real rules files (`apps/gateway/security/auth.yaml`, `apps/oauth/oauth-api/rules.yaml`, `apps/storex/storex-api/rules.yaml`) in an editor with the YAML language server extension — each carries a `$schema` pragma pointing at `src/policy/schema/rules.schema.json`, so field docs and autocompletion show up while editing.
+**Rules document shape:** REST rules are keyed by HTTP method first, then by path pattern (`rest.GET./users/:id`, not `rest./users/:id.GET`) — this is what lets editors autocomplete method names as direct object keys, since the method set is a fixed, known list (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE`, `QUERY`) whereas path patterns are arbitrary and can't be enumerated. GraphQL rules are similarly keyed by operation type first (`Query`, `Mutation`, `Subscription`), then field name. See `src/policy/rules.schema.ts`, or open any of the real rules files (`apps/gateway/security/auth.yaml`, `apps/oauth/oauth-api/rules.yaml`, `apps/storex/storex-api/rules.yaml`) in an editor with the YAML language server extension — each carries a `$schema` pragma pointing at `src/policy/schema/rules.schema.json`, so field docs and autocompletion show up while editing.
+
+Within a given HTTP method's path list (or a given GraphQL operation type's field list), matching is first-match-wins in document order — more specific literal patterns must be declared before overlapping `:param` ones.
 
 Run `bun run schema:gen` after changing `rules.schema.ts` to regenerate that checked-in JSON Schema file.
 

@@ -10,8 +10,8 @@ describe('evaluateRest — $domain authority templating', () => {
 		// every request.
 		const rules: Rules = {
 			rest: {
-				'/orgs/:domain/widgets': {
-					GET: {
+				GET: {
+					'/orgs/:domain/widgets': {
 						authorities: [['SCOPE_oauth:$domain']],
 					},
 				},

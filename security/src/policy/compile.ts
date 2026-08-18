@@ -12,18 +12,14 @@ export interface CompiledExpression {
 	message: string;
 }
 
-export interface CompiledRestEntry {
-	rule: RuleEntry;
-	/** Precomputed so the per-request path never re-scans `rule.authorities`. */
-	hasDomainPlaceholder: boolean;
-	compiledExpression?: CompiledExpression;
-}
-
 export interface CompiledRestRoute {
 	/** basePath-prefixed pattern, precomputed once. */
 	pattern: string;
 	matcher: MatchFunction<Partial<Record<string, string | string[]>>>;
-	methods: Map<string, CompiledRestEntry>;
+	rule: RuleEntry;
+	/** Precomputed so the per-request path never re-scans `rule.authorities`. */
+	hasDomainPlaceholder: boolean;
+	compiledExpression?: CompiledExpression;
 }
 
 export interface CompiledGraphqlEntry {
@@ -33,8 +29,13 @@ export interface CompiledGraphqlEntry {
 
 export interface CompiledPolicy {
 	global?: Rules['global'];
-	/** Document order preserved — evaluateRest is first-match-wins. */
-	restRoutes: CompiledRestRoute[];
+	/**
+	 * Routes partitioned by HTTP method, each list in document order
+	 * (evaluateRest is first-match-wins within a method's list). Partitioning
+	 * at compile time means the request-time path only ever scans patterns
+	 * registered for the actual requested method, not every route.
+	 */
+	restRoutesByMethod: Map<string, CompiledRestRoute[]>;
 	graphql?: Record<string, Record<string, CompiledGraphqlEntry>>;
 }
 
@@ -94,55 +95,59 @@ function compileExpression(
 export function compilePolicy(rules: Rules): CompiledPolicy {
 	const compile = createExpressionCompiler();
 
-	const restRoutes: CompiledRestRoute[] = Object.entries(rules.rest ?? {}).map(
-		([basePattern, methodMap]) => {
+	const restRoutesByMethod = new Map<string, CompiledRestRoute[]>();
+	for (const [method, pathMap] of Object.entries(rules.rest ?? {})) {
+		const routes: CompiledRestRoute[] = Object.entries(
+			(pathMap ?? {}) as Record<string, RuleEntry>,
+		).map(([basePattern, rule]) => {
 			const pattern = rules.global?.basePath
 				? `${rules.global.basePath}${basePattern}`
 				: basePattern;
 			const matcher = match(pattern, { decode: decodeURIComponent });
+			const hasDomainPlaceholder = Boolean(
+				rule.authorities?.some((group) =>
+					group.some((authority) => authority.includes('$domain')),
+				),
+			);
 
-			const methods = new Map<string, CompiledRestEntry>();
-			for (const [method, rule] of Object.entries(methodMap)) {
-				const hasDomainPlaceholder = Boolean(
-					rule.authorities?.some((group) =>
-						group.some((authority) => authority.includes('$domain')),
-					),
-				);
-				methods.set(method, {
-					rule,
-					hasDomainPlaceholder,
-					compiledExpression: compileExpression(
-						rule.expression,
-						compile,
-						REST_SCOPE,
-					),
-				});
-			}
+			return {
+				pattern,
+				matcher,
+				rule,
+				hasDomainPlaceholder,
+				compiledExpression: compileExpression(
+					rule.expression,
+					compile,
+					REST_SCOPE,
+				),
+			};
+		});
 
-			return { pattern, matcher, methods };
-		},
-	);
+		restRoutesByMethod.set(method, routes);
+	}
 
 	const graphql = rules.graphql
 		? Object.fromEntries(
 				Object.entries(rules.graphql).map(([operationType, fields]) => [
 					operationType,
 					Object.fromEntries(
-						Object.entries(fields).map(([field, rule]) => [
-							field,
-							{
-								rule,
-								compiledExpression: compileExpression(
-									rule.expression,
-									compile,
-									GRAPHQL_SCOPE,
-								),
-							} satisfies CompiledGraphqlEntry,
-						]),
+						Object.entries((fields ?? {}) as Record<string, RuleEntry>).map(
+							([field, rule]) => [
+								field,
+								{
+									rule,
+									compiledExpression: compileExpression(
+										rule.expression,
+										compile,
+										GRAPHQL_SCOPE,
+									),
+								} satisfies CompiledGraphqlEntry,
+							],
+						),
 					),
 				]),
 			)
 		: undefined;
 
-	return { global: rules.global, restRoutes, graphql };
+	return { global: rules.global, restRoutesByMethod, graphql };
 }
