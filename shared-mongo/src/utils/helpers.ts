@@ -44,7 +44,69 @@ export async function safeCreateView<T, R>(
 }
 
 /**
+ * Resolves a list patch against the values a document already holds and
+ * returns the whole resulting list.
+ *
+ * Use this from `buildUpdateData`. Its sibling `buildListStringPatch` returns
+ * MongoDB update operators, which only mean anything to `findOneAndUpdate` —
+ * `MongoCrudService.update()` assigns onto a document and calls `save()`, where
+ * a key named `$addToSet` is an unknown property Mongoose drops without a
+ * word. An `add` then looked applied and changed nothing.
+ *
+ * Ids are validated against `model` exactly like the operator builder does, so
+ * an unknown id is dropped rather than stored.
+ *
+ * @param current - The list the document holds today; populated docs, raw ids or ObjectIds all work.
+ * @param model - The Mongoose model of the items in the list.
+ * @param value - The add / remove / replace patch, if the caller sent one.
+ * @param filter - Extra conditions the referenced items must satisfy.
+ * @returns The resulting list of ids, or undefined when there is nothing to change.
+ */
+export async function resolveListStringPatch<T>(
+	current: unknown,
+	model: Model<T, any, any, any, any, any, any>,
+	value?: ListStringPatch,
+	filter: QueryFilter<T> = {},
+): Promise<string[] | undefined> {
+	if (
+		!value?.replace?.length &&
+		!value?.add?.length &&
+		!value?.remove?.length
+	) {
+		return undefined;
+	}
+
+	const idsOf = async (ids?: string[]) =>
+		ids?.length
+			? (await model.find({ _id: ids, ...filter }).exec()).map(
+					(item: { _id: unknown }) => String(item._id),
+				)
+			: [];
+
+	if (value.replace?.length) {
+		return idsOf(value.replace);
+	}
+
+	// An autopopulated path holds documents rather than ids, so read through
+	// whatever shape is there instead of assuming one.
+	const held = (Array.isArray(current) ? current : []).map((item) =>
+		String((item as { _id?: unknown })?._id ?? item),
+	);
+	const removed = new Set(value.remove ?? []);
+
+	return [
+		...new Set([
+			...held.filter((id) => !removed.has(id)),
+			...(await idsOf(value.add)),
+		]),
+	];
+}
+
+/**
  * Builds a MongoDB update query for adding, removing, or replacing items in a list of strings.
+ *
+ * Only usable through `findOneAndUpdate` and friends — see
+ * `resolveListStringPatch` for the document-assignment path.
  *
  * @param _source - The Mongoose model of the source document.
  * @param path - The path of the list field to be updated.

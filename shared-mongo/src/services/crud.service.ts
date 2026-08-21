@@ -41,6 +41,15 @@ export abstract class MongoCrudService<
 		return this.model.find(filter).exec() as Promise<D[]>;
 	}
 
+	/**
+	 * Fetches one document by id.
+	 *
+	 * Overriding this to point at another model is fine — that is what the
+	 * hierarchical services do. Overriding it to reshape the result is not:
+	 * `create()` and `update()` both call it and then `save()` what comes
+	 * back, so anything but a hydrated document breaks every write on that
+	 * service. Strip or map fields at the serialization boundary instead.
+	 */
 	async findById(id: string): Promise<D> {
 		const entity = await this.model.findById(id).exec();
 		if (!entity) {
