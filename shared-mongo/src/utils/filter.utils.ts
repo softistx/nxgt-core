@@ -52,9 +52,31 @@ export function addFilterCondition(
 	}
 }
 
-export function buildRegexFilter(field: string, value: string | undefined) {
+/**
+ * Escape the characters that would otherwise be read as regex syntax
+ */
+function escapeRegex(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Helper to build a case-insensitive substring match from a search term
+ *
+ * Returns the bare condition, like every other builder here — it is
+ * `addFilterCondition` that keys it by field. Returning `{ [field]: … }` had it
+ * keyed twice, so Mongoose saw `{ username: { username: { $regex } } }` and
+ * threw a CastError on every user search.
+ *
+ * The term reaches this from a request body, so it is escaped rather than
+ * compiled as written: unescaped, a caller can hand the database a
+ * catastrophically backtracking pattern.
+ *
+ * @param value - The search term, as the caller typed it
+ * @returns MongoDB regex condition ($regex and $options), or undefined
+ */
+export function buildRegexFilter(value: string | undefined) {
 	if (value) {
-		return { [field]: { $regex: value, $options: 'i' } };
+		return { $regex: escapeRegex(value), $options: 'i' };
 	}
 	return undefined;
 }
