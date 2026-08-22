@@ -1,6 +1,10 @@
 import type { PolicyClaims } from '../claims.types';
 import type { CompiledPolicy } from '../compile';
-import { checkAuthorities, runCompiledExpression } from '../evaluation.utils';
+import {
+	checkAuthorities,
+	isAuthenticated,
+	runCompiledExpression,
+} from '../evaluation.utils';
 
 // ---------------------------------------------------------------------------
 // Input / output types
@@ -29,7 +33,7 @@ export interface RestEvaluateInput {
 }
 
 export interface EvaluateResult {
-	decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE';
+	decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE' | 'UNAUTHENTICATED';
 	reason: string;
 }
 
@@ -69,6 +73,15 @@ export function evaluateRest(
 			};
 
 			const req = { ...(input.req ?? {}), params: mergedParams };
+
+			// Authentication floor — before authorities, so a route that asks
+			// for nothing in particular still refuses anonymous callers.
+			if (!route.rule.public && !isAuthenticated(input.claims)) {
+				return {
+					decision: 'UNAUTHENTICATED',
+					reason: `${method} ${route.pattern} requires an authenticated caller`,
+				};
+			}
 
 			// Substitute `$domain` into a LOCAL copy of the authority groups — never
 			// write back onto `route.rule.authorities`, which lives inside the

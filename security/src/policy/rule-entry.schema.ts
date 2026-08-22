@@ -100,6 +100,43 @@ export const zRuleEntry = z.object({
 				'after) the authorities check.',
 		),
 
+	/**
+	 * Declares that the rule requires nothing beyond a signed-in caller.
+	 *
+	 * Purely documentary: a matched rule already requires one. It exists
+	 * because the alternatives all read wrong — `authorities: []` looks like
+	 * "no constraint" and `expression: "!!claims.sub"` buries the intent in a
+	 * string. Prefer it over both.
+	 */
+	authenticated: z
+		.boolean()
+		.nullish()
+		.describe(
+			'Declares that this route needs a signed-in caller and no ' +
+				'particular authority. Documentary — every matched rule already ' +
+				'requires one — but far clearer than an empty `authorities` list ' +
+				'or an expression on `claims.sub`. Cannot be combined with ' +
+				'`public: true`.',
+		),
+
+	/**
+	 * Opts the rule out of the authentication floor, letting anonymous
+	 * callers through to the authority and expression checks.
+	 *
+	 * For routes that carry their own credential instead of a session — a
+	 * share link whose token, password and expiry the service checks itself.
+	 * Everything else should stay authenticated.
+	 */
+	public: z
+		.boolean()
+		.nullish()
+		.describe(
+			'Lets anonymous callers reach this rule instead of being answered ' +
+				'401. Only for routes that carry their own credential (e.g. a ' +
+				'share-link token the service validates). Cannot be combined ' +
+				'with `authenticated: true`.',
+		),
+
 	cors: zCorsConfig
 		.optional()
 		.describe(

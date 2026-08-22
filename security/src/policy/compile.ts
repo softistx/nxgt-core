@@ -111,6 +111,14 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 		for (const [method, rule] of Object.entries(
 			(methodMap ?? {}) as Record<string, RuleEntry>,
 		)) {
+			if (rule.authenticated && rule.public) {
+				throw new Error(
+					`Invalid rule for ${method} ${pattern}: \`authenticated\` and ` +
+						'`public` are contradictory — a route either requires a ' +
+						'signed-in caller or admits anonymous ones.',
+				);
+			}
+
 			const hasDomainPlaceholder = Boolean(
 				rule.authorities?.some((group) =>
 					group.some((authority) => authority.includes('$domain')),

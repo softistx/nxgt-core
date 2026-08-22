@@ -14,9 +14,15 @@ import { evaluateRest, parseRules } from '../../policy';
  * or `currentUser`) so that the USER_HEADERS context variables are populated.
  *
  * Decision semantics:
- *   ALLOW          → passes through to next()
- *   DENY           → responds 403 immediately
- *   NOT_APPLICABLE → passes through (no rule = open by default)
+ *   ALLOW           → passes through to next()
+ *   UNAUTHENTICATED → responds 401 immediately
+ *   DENY            → responds 403 immediately
+ *   NOT_APPLICABLE  → passes through (no rule = open by default)
+ *
+ * The 401/403 split matters to the UIs: they re-authenticate on 401 and show
+ * a "not allowed" error on 403. A matched rule refuses anonymous callers
+ * unless it is marked `public`, so this guard — not a `secured()` further
+ * down the chain — is what answers an expired session.
  *
  * Body handling:
  *   For `application/json` requests the body is buffered and passed to the
@@ -82,6 +88,16 @@ export function policyGuard(rawRules: unknown): MiddlewareHandler {
 				headers: ctx.req.header(),
 			},
 		});
+
+		if (result.decision === 'UNAUTHENTICATED') {
+			logger.error(
+				`Policy UNAUTHENTICATED: ${ctx.req.method} ${ctx.req.path}, reason: ${result.reason}`,
+			);
+			throw CustomException.unauthorized({
+				message: 'errors.unauthenticated',
+				debugMessage: result.reason,
+			});
+		}
 
 		if (result.decision === 'DENY') {
 			logger.error(

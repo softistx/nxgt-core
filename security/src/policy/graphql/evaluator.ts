@@ -1,6 +1,10 @@
 import type { PolicyClaims } from '../claims.types';
 import type { CompiledPolicy } from '../compile';
-import { checkAuthorities, runCompiledExpression } from '../evaluation.utils';
+import {
+	checkAuthorities,
+	isAuthenticated,
+	runCompiledExpression,
+} from '../evaluation.utils';
 import type { EvaluateResult } from '../rest/evaluator';
 
 // ---------------------------------------------------------------------------
@@ -56,10 +60,16 @@ export type { EvaluateResult };
  *
  * Lookup: `policy.graphql[operationType][field]`
  *
- * Evaluation order (both must pass for ALLOW):
- *   1. Authority groups checked (AND outer / OR inner) — DENY on failure
- *   2. Expression evaluated with `{ claims, args, source, info }` in scope —
+ * Evaluation order (all must pass for ALLOW):
+ *   1. Caller authenticated? — UNAUTHENTICATED on failure, unless the rule is
+ *      marked `public`
+ *   2. Authority groups checked (AND outer / OR inner) — DENY on failure
+ *   3. Expression evaluated with `{ claims, args, source, info }` in scope —
  *      DENY on failure
+ *
+ * Step 1 mirrors the REST evaluator so the same `public`/`authenticated`
+ * markers mean the same thing in both — a primitive that silently no-ops in
+ * one of two evaluators is worse than none.
  *
  * Returns NOT_APPLICABLE when the operation type or field has no rule entry.
  */
@@ -73,6 +83,15 @@ export function evaluateGraphql(
 		return {
 			decision: 'NOT_APPLICABLE',
 			reason: `No rule matched ${input.operationType}.${input.field}`,
+		};
+	}
+
+	// Authentication floor — before authorities, so a field that asks for
+	// nothing in particular still refuses anonymous callers.
+	if (!entry.rule.public && !isAuthenticated(input.claims)) {
+		return {
+			decision: 'UNAUTHENTICATED',
+			reason: `${input.operationType}.${input.field} requires an authenticated caller`,
 		};
 	}
 

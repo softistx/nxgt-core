@@ -46,6 +46,20 @@ export function checkAuthorities(
 	});
 }
 
+/**
+ * Whether the token named a caller at all — a user (`sub`) or a confidential
+ * client (`clientId`). The Hono guard hands `{}` through when no claims were
+ * resolved, which is exactly the anonymous case.
+ *
+ * This is deliberately separate from `checkAuthorities`, which passes an empty
+ * authority list unconditionally: "asks for no particular authority" and
+ * "admits anonymous callers" are different statements, and conflating them is
+ * what made `authorities: []` mean "everyone".
+ */
+export function isAuthenticated(claims: PolicyClaims): boolean {
+	return Boolean(claims?.sub || claims?.clientId);
+}
+
 // ---------------------------------------------------------------------------
 // Expression evaluation
 // ---------------------------------------------------------------------------

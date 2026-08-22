@@ -133,6 +133,28 @@
 								"required": ["value"],
 								"additionalProperties": false
 							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 								"type": "object",
@@ -224,6 +246,28 @@
 								},
 								"required": ["value"],
 								"additionalProperties": false
+							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -317,6 +361,28 @@
 								"required": ["value"],
 								"additionalProperties": false
 							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 								"type": "object",
@@ -408,6 +474,28 @@
 								},
 								"required": ["value"],
 								"additionalProperties": false
+							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -501,6 +589,28 @@
 								"required": ["value"],
 								"additionalProperties": false
 							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 								"type": "object",
@@ -592,6 +702,28 @@
 								},
 								"required": ["value"],
 								"additionalProperties": false
+							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -685,6 +817,28 @@
 								"required": ["value"],
 								"additionalProperties": false
 							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 								"type": "object",
@@ -776,6 +930,28 @@
 								},
 								"required": ["value"],
 								"additionalProperties": false
+							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -869,6 +1045,28 @@
 								"required": ["value"],
 								"additionalProperties": false
 							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 								"type": "object",
@@ -960,6 +1158,28 @@
 								},
 								"required": ["value"],
 								"additionalProperties": false
+							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -1068,6 +1288,28 @@
 								"required": ["value"],
 								"additionalProperties": false
 							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 								"type": "object",
@@ -1166,6 +1408,28 @@
 								},
 								"required": ["value"],
 								"additionalProperties": false
+							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -1266,6 +1530,28 @@
 								"required": ["value"],
 								"additionalProperties": false
 							},
+							"authenticated": {
+								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
+							"public": {
+								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+								"anyOf": [
+									{
+										"type": "boolean"
+									},
+									{
+										"type": "null"
+									}
+								]
+							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 								"type": "object",
@@ -1365,6 +1651,28 @@
 							},
 							"required": ["value"],
 							"additionalProperties": false
+						},
+						"authenticated": {
+							"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
+							"anyOf": [
+								{
+									"type": "boolean"
+								},
+								{
+									"type": "null"
+								}
+							]
+						},
+						"public": {
+							"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
+							"anyOf": [
+								{
+									"type": "boolean"
+								},
+								{
+									"type": "null"
+								}
+							]
 						},
 						"cors": {
 							"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
