@@ -45,10 +45,12 @@ export abstract class MongoCrudService<
 	 * Fetches one document by id.
 	 *
 	 * Overriding this to point at another model is fine — that is what the
-	 * hierarchical services do. Overriding it to reshape the result is not:
-	 * `create()` and `update()` both call it and then `save()` what comes
-	 * back, so anything but a hydrated document breaks every write on that
-	 * service. Strip or map fields at the serialization boundary instead.
+	 * hierarchical services do, and `update()` reads through
+	 * `findWritableById()` precisely so a read-only view can be used here.
+	 * Overriding it to reshape the result is not: `create()` returns what
+	 * this hands back, so anything but a hydrated document breaks writes on
+	 * that service. Strip or map fields at the serialization boundary
+	 * instead.
 	 */
 	async findById(id: string): Promise<D> {
 		const entity = await this.model.findById(id).exec();
@@ -78,9 +80,30 @@ export abstract class MongoCrudService<
 		return this.findById((entity as any).id);
 	}
 
+	/**
+	 * The document `update()` mutates and saves.
+	 *
+	 * Deliberately not `findById()`: a service is free to point that at a
+	 * *view* (`HierarchicalDirectoryModel`, `HierarchicalTypologyModel`) to
+	 * get materialised `ancestors`, and Mongo refuses to save a document
+	 * loaded from one — "Namespace x.y is a view, not a collection". Writes
+	 * therefore go through `this.model`, which is the collection by
+	 * definition. For a service whose `findById` override only changes the
+	 * not-found message, this loads exactly the same document.
+	 */
+	protected async findWritableById(id: string): Promise<D> {
+		const entity = await this.model.findById(id).exec();
+		if (!entity) {
+			throw CustomException.notFound({
+				message: `${this.model.collection.name}.errors.not-found`,
+			});
+		}
+		return entity as D;
+	}
+
 	async update(id: string, input: UInput): Promise<D> {
 		return runWithChangesListening(async () => {
-			const doc = await this.findById(id);
+			const doc = await this.findWritableById(id);
 			await this.beforeUpdate(doc, input);
 			const data = await this.buildUpdateData(doc, input);
 
@@ -91,7 +114,13 @@ export abstract class MongoCrudService<
 					lastModifiedBy: this.principal?.name,
 				}),
 			);
-			return (doc as any).save();
+			await (doc as any).save();
+
+			// Read back through `findById()`, exactly as `create()` does: the
+			// document just saved came from the collection, so on a service
+			// backed by a view it would answer without the fields the view
+			// materialises.
+			return this.findById(id);
 		}, this.changesOptions);
 	}
 
