@@ -70,6 +70,13 @@ export async function safeCreateView<T, R>(
 		logger.warn(
 			`${viewName} is not a view after attempt ${attempt}/${attempts} — retrying`,
 		);
+
+		// Back off before trying again: the competing `autoCreate` is a single
+		// round trip, and retrying inside it would just lose the same race at
+		// the same point. 50ms, 100ms — short enough not to delay boot.
+		if (attempt < attempts) {
+			await new Promise((resolve) => setTimeout(resolve, attempt * 50));
+		}
 	}
 
 	logger.error(
