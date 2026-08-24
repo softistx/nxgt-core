@@ -11,7 +11,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"hono": "^4.13.2",
+		"hono": "^4.13.4",
 		"intl-messageformat": "^11.2.13",
 		"lodash": "^4.18.1"
 	},
