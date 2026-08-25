@@ -162,11 +162,41 @@ async function main(): Promise<void> {
 			}
 		}
 	} finally {
-		await mongoose.disconnect();
+		// Tearing down the pool makes mongodb 7 reject every still-checked-out
+		// connection with `MongoClientClosedError`, and mongoose 9 lets that
+		// escape *outside* the promise `disconnect()` returns — so a plain
+		// `.catch()` does not see it and it lands as an unhandled rejection,
+		// which Bun treats as fatal. That happens after the command has already
+		// done its work, so it would turn a successful `up` into a non-zero exit
+		// and fail any CI step or `docker compose run` wrapping this CLI.
+		//
+		// The guard is installed only for teardown and removed straight after,
+		// so a genuine unhandled rejection during the migrations themselves is
+		// still fatal. Both the escaping rejection and the returned one are
+		// routed to the same warning.
+		const ignoreTeardownRejection = (err: unknown) => {
+			logger.warn('mongo disconnect reported an error during shutdown', err);
+		};
+
+		process.on('unhandledRejection', ignoreTeardownRejection);
+		try {
+			await mongoose.disconnect().catch(ignoreTeardownRejection);
+		} finally {
+			process.off('unhandledRejection', ignoreTeardownRejection);
+		}
 	}
 }
 
-main().catch((err) => {
-	logger.error('\nfatal error\n', err);
-	process.exit(1);
-});
+// The exit code is settled here rather than left to a natural exit. Tearing the
+// mongo pool down rejects every still-checked-out connection with
+// `MongoClientClosedError`, and mongoose 9 lets that escape its own
+// `disconnect()` promise — so it lands as an unhandled rejection *after* the
+// command has already succeeded, and a natural exit would report 1 for a run
+// that did all its work. Anything the commands themselves throw still reaches
+// the catch below and still exits 1.
+main()
+	.then(() => process.exit(0))
+	.catch((err) => {
+		logger.error('\nfatal error\n', err);
+		process.exit(1);
+	});
