@@ -1,3 +1,4 @@
+export * from './clear-database';
 export * from './error.utils';
 export * from './filter.utils';
 export * from './helpers';
