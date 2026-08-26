@@ -71,3 +71,41 @@ export function mockAuthMiddleware(user: Principal): Middleware {
 		},
 	};
 }
+
+/**
+ * openapi-fetch middleware that turns a `POST <resource>/search` call into the
+ * `QUERY <resource>` it mirrors — same body, same response, safe method.
+ *
+ * The generated client cannot express QUERY: `openapi-typescript` has no
+ * `query` path-item key (its method list is the eight classic verbs), so the
+ * operation is invisible to the `paths` type, and `openapi-fetch`'s own
+ * `request()` is constrained to `HttpMethod`. Call the POST search operation
+ * for the types — request and response are identical either way — and let this
+ * rewrite the verb *and* drop the `/search` suffix on the wire:
+ *
+ * ```ts
+ * client.use(mockAuthMiddleware(principal));
+ * const { data, error } = await client.POST('/tags/search', {
+ *   body: {},
+ *   middleware: [asQueryMethod],
+ * });   // actually sends: QUERY /tags
+ * ```
+ *
+ * Per-request middleware runs after the ones registered with `client.use()`,
+ * so headers set by `mockAuthMiddleware` are already on the request and are
+ * carried over. The body is read to a string rather than passed as a stream:
+ * a streaming body would need `duplex: 'half'`, and these are small JSON
+ * payloads.
+ */
+export const asQueryMethod: Middleware = {
+	onRequest: async ({ request }) => {
+		const url = new URL(request.url);
+		url.pathname = url.pathname.replace(/\/search$/, '');
+		const body = await request.text();
+		return new Request(url, {
+			method: 'QUERY',
+			headers: request.headers,
+			body: body || undefined,
+		});
+	},
+};

@@ -28,8 +28,13 @@ export const cache = ({
 				if (!result) {
 					return;
 				}
+				// `QUERY` is safe and idempotent by definition, so it needs no
+				// path check the way `POST` does — a `POST` is only cacheable
+				// here because `…/search` is known to be a read in disguise.
+				// See `acceptQuery()` in `@nxgt/shared-hono`.
 				if (
 					ctx.req.method === 'GET' ||
+					ctx.req.method === 'QUERY' ||
 					(ctx.req.method === 'POST' && ctx.req.path.includes('/search'))
 				) {
 					ctx.header('Cache-Control', `public, max-age=${maxAge}`);
