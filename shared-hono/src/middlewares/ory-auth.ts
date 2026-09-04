@@ -1,6 +1,7 @@
 import { type Principal, USER_HEADERS } from '@nxgt/shared/models';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
+import type { ErrorHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import {
 	bearerOf,
@@ -55,14 +56,7 @@ export function oryAuth(ory: Ory) {
 			resolved = await ory.resolve(ctx.req.raw.headers);
 		} catch (error) {
 			if (!(error instanceof OryUnavailable)) throw error;
-			logger.error(
-				`Ory ${error.service} unavailable (${error.status}): ${JSON.stringify(error.body)}`,
-			);
-			throw CustomException.from({
-				message: 'errors.service-unavailable',
-				code: 503,
-				debugMessage: `ory: ${error.message}`,
-			});
+			throw serviceUnavailable(error);
 		}
 
 		if (!resolved) {
@@ -92,6 +86,41 @@ export function oryAuth(ory: Ory) {
 
 		return next();
 	});
+}
+
+/**
+ * The 503 an `OryUnavailable` becomes — for the middleware above and for
+ * `withOryUnavailable` below, so a Keto outage in a service's `isAllowed`
+ * answers the same thing as a Kratos outage in `resolve`.
+ */
+export function serviceUnavailable(error: OryUnavailable): CustomException {
+	logger.error(
+		`Ory ${error.service} unavailable (${error.status}): ${JSON.stringify(error.body)}`,
+	);
+	return CustomException.from({
+		message: 'errors.service-unavailable',
+		code: 503,
+		debugMessage: `ory: ${error.message}`,
+	});
+}
+
+/**
+ * Wraps the app's error handler so an `OryUnavailable` thrown anywhere
+ * below the middleware — an access layer asking Keto, a service listing
+ * tuples — is a 503 and not the generic 500. Without it the middleware's
+ * own mapping only covers `resolve`, and a Keto restart would surface as
+ * "Internal server error" from every guarded route:
+ *
+ * ```ts
+ * app.onError(withOryUnavailable(createErrorHandler(translate)));
+ * ```
+ */
+export function withOryUnavailable(handler: ErrorHandler): ErrorHandler {
+	return (error, ctx) =>
+		handler(
+			error instanceof OryUnavailable ? serviceUnavailable(error) : error,
+			ctx,
+		);
 }
 
 /**

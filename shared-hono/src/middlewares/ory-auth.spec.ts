@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { USER_HEADERS } from '@nxgt/shared/models';
 import { Hono } from 'hono';
-import { createOry } from 'stx-sdk/ory';
+import { createOry, OryUnavailable } from 'stx-sdk/ory';
 import { createErrorHandler } from './error-handler';
-import { oryAuth, toPrincipal } from './ory-auth';
+import { oryAuth, toPrincipal, withOryUnavailable } from './ory-auth';
 
 /**
  * Against a stubbed Ory — the mapping from `createOry`'s three answers
@@ -169,6 +169,29 @@ describe('oryAuth', () => {
 			identity: { email: 'mock@example.test', verified: true },
 		});
 		expect(body.claims).toMatchObject({ sub: 'mock-1' });
+	});
+});
+
+describe('withOryUnavailable', () => {
+	test('turns an OryUnavailable thrown below the middleware into a 503', async () => {
+		const hono = new Hono();
+		hono.onError(
+			withOryUnavailable(
+				createErrorHandler((key) => key, { logToConsole: false }),
+			),
+		);
+		hono.get('/keto-down', () => {
+			throw new OryUnavailable('keto', 0, new TypeError('fetch failed'));
+		});
+		hono.get('/other', () => {
+			throw new Error('unrelated');
+		});
+
+		const down = await hono.request('/keto-down');
+		expect(down.status).toBe(503);
+		expect((await down.json()).message).toBe('errors.service-unavailable');
+
+		expect((await hono.request('/other')).status).toBe(500);
 	});
 });
 
