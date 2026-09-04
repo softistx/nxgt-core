@@ -13,5 +13,6 @@
 	"address-blocked": "The access is blocked for address ``{address}``.",
 	"could-not-use-first-and-last-together": "You cannot use ''first'' and ''last'' parameters together in pagination.",
 	"invalid-cursor": "The provided cursor is invalid. Please, check and try again.",
-	"invalid-status-transition": "Cannot change status from ''{from}'' to ''{to}''."
+	"invalid-status-transition": "Cannot change status from ''{from}'' to ''{to}''.",
+	"service-unavailable": "The authentication service is unavailable. Please, try again in a moment."
 }
