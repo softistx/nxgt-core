@@ -1,4 +1,5 @@
 import { mongoose } from '../mongoose';
+import { disconnectQuietly } from './disconnect';
 import { MigrationRunner } from './migration.runner';
 import type { RunDownOptions, RunUpOptions } from './migration.types';
 
@@ -67,7 +68,7 @@ export async function migrate(
 			await runner[operation](options[operation]);
 		}
 	} finally {
-		await mongoose.disconnect();
+		await disconnectQuietly();
 	}
 }
 
@@ -102,6 +103,6 @@ export async function withMigrationRunner<T>(
 	try {
 		return await fn(runner);
 	} finally {
-		await mongoose.disconnect();
+		await disconnectQuietly();
 	}
 }
