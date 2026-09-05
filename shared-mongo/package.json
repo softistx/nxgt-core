@@ -8,7 +8,8 @@
 		}
 	},
 	"scripts": {
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"test": "NODE_ENV=test bun --env-file=.env.test test src"
 	},
 	"dependencies": {
 		"@nxgt/i18n": "workspace:*",
