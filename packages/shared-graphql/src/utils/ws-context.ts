@@ -1,16 +1,16 @@
-import type { Principal } from '@nxgt/shared';
+import type { TokenPrincipal } from '@nxgt/shared';
 import type { Context } from 'graphql-ws';
 import type { createAuthClient } from 'stx-sdk/auth';
 
 type AuthClient = ReturnType<typeof createAuthClient>;
 
 export interface ResolvedWsUser {
-	user: Principal | undefined;
+	user: TokenPrincipal | undefined;
 	token: string | undefined;
 }
 
 /**
- * Resolves the authenticated Principal for a `graphql-ws` connection - the
+ * Resolves the authenticated TokenPrincipal for a `graphql-ws` connection - the
  * WS-transport equivalent of the HTTP-path `useAuth()`/`useGenericAuth()`
  * plugins. There is no gateway hop for WS connections, so each app performs
  * the OAuth introspection call itself using its own `auth` client.
@@ -36,7 +36,7 @@ export async function resolveWsUser(
 		: { data: null };
 
 	const user = data?.active
-		? ({ ...(data as any), name: (data as any).sub } as Principal)
+		? ({ ...(data as any), name: (data as any).sub } as TokenPrincipal)
 		: undefined;
 
 	return { user, token };
