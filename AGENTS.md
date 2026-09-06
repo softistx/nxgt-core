@@ -279,39 +279,39 @@ written as `_authToken=$NPM_TOKEN` is expanded by **Bun** but not by **npm**,
 which needs `${NPM_TOKEN}` — so the same file can work for `bun publish` and
 401 for every `npm` command.
 
-### The release PR has to be opened by hand
+### The release PR opens itself — since 2026-09-06
 
 `changesets/action` versions the packages, pushes `changeset-release/develop`
-and then tries to open the "Version packages" pull request. That last step
-fails:
+and opens the "Version packages" pull request. Merging *that* publishes and
+tags. Nobody has to open it.
+
+It used to fail there:
 
 ```
 HttpError: GitHub Actions is not permitted to create or approve pull requests.
 ```
 
-There are **two** switches, both named *Settings → Actions → General →
-Workflow permissions → "Allow GitHub Actions to create and approve pull
-requests"*, and the message is the same whichever one is off:
+Two switches carry that message, both named *Settings → Actions → General →
+Workflow permissions*, and both had to be turned on — the **organisation** one
+on `softistx`, and the **repository** one on `nxgt-core`. Each needs *Read and
+write permissions* as well as the *"Allow GitHub Actions to create and approve
+pull requests"* checkbox: the action pushes the branch before it opens the PR,
+so the checkbox alone is not enough.
 
-- the **organisation** one on `softistx` — on since 2026-09-06. While it was
-  off a repository admin could not override it, and the API answered
-  `409 Write permissions for workflows are disabled by the organization`.
-- the **repository** one on `nxgt-core` — still off. Check it without leaving
-  the terminal:
+If the error comes back, read the repository's state rather than guessing which
+of the two moved:
 
-  ```bash
-  gh api /repos/softistx/nxgt-core/actions/permissions/workflow
-  # {"default_workflow_permissions":"read","can_approve_pull_request_reviews":false}
-  ```
+```bash
+gh api /repos/softistx/nxgt-core/actions/permissions/workflow
+# {"default_workflow_permissions":"write","can_approve_pull_request_reviews":true}
+```
 
-  and set it with `gh api -X PUT` on the same path, sending
-  `default_workflow_permissions=write` and `can_approve_pull_request_reviews=true`.
+Note the organisation setting does **not** propagate: `nxgt-material`,
+`nxgt-map` and `stx-sdk` are still `read`/`false`, so the day one of them starts
+releasing, its own switch has to be turned on too.
 
-Until the second one is on, the release is: merge to `develop`, let the
-workflow push the branch, then open the PR yourself from
-`changeset-release/develop` into `develop`. Everything after that — publishing,
-the tags — is automatic. CI skips the changeset check on that branch, since it
-is the branch that consumes them.
+CI skips the changeset check on `changeset-release/develop`, since that is the
+branch that consumes them.
 
 ### `bun publish`, not `changeset publish`
 
