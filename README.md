@@ -23,16 +23,19 @@ repository is the single copy.
 
 ## Consuming them
 
-Both monorepos install from GitHub Packages. The scope is configured in each
-consumer's `.npmrc`:
+They are published to the **public npm registry**, so a consumer needs nothing
+at all — no `.npmrc`, no token, no registry configuration:
 
-```
-@nxgt:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GH_TOKEN}
+```bash
+bun add @nxgt/shared-mongo
 ```
 
-The packages are private, so `GH_TOKEN` must be set — to install, not just to
-publish.
+That is deliberate. GitHub Packages demands a token even for public packages,
+which would mean a secret threaded through every CI job and every Docker build
+in both monorepos. Publishing here needs a token; reading never does.
+
+`@nxgt/material`, `@nxgt/map` and `stx-sdk` are a different story — they are
+private and consumed through `link:`, and they are not published anywhere.
 
 ## Working on a package
 

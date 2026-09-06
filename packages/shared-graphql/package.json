@@ -28,8 +28,8 @@
 		"directory": "packages/shared-graphql"
 	},
 	"publishConfig": {
-		"registry": "https://npm.pkg.github.com",
-		"access": "restricted"
+		"registry": "https://registry.npmjs.org",
+		"access": "public"
 	},
 	"scripts": {
 		"build": "bun run ../../build.ts",
@@ -75,16 +75,9 @@
 		"@types/bun": "^1.4.0",
 		"@types/graphql-upload": "^17.0.0",
 		"@types/lodash": "^4.17.25",
-		"@types/ws": "^8.18.1",
-		"stx-sdk": "link:stx-sdk"
+		"@types/ws": "^8.18.1"
 	},
 	"peerDependencies": {
-		"typescript": "^6.0.3",
-		"stx-sdk": "*"
-	},
-	"peerDependenciesMeta": {
-		"stx-sdk": {
-			"optional": true
-		}
+		"typescript": "^6.0.3"
 	}
 }
