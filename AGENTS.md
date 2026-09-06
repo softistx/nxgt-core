@@ -279,6 +279,27 @@ written as `_authToken=$NPM_TOKEN` is expanded by **Bun** but not by **npm**,
 which needs `${NPM_TOKEN}` — so the same file can work for `bun publish` and
 401 for every `npm` command.
 
+### The release PR has to be opened by hand
+
+`changesets/action` versions the packages, pushes `changeset-release/develop`
+and then tries to open the "Version packages" pull request. That last step
+fails:
+
+```
+HttpError: GitHub Actions is not permitted to create or approve pull requests.
+```
+
+The switch is **organisation-level** — *Settings → Actions → General →
+Workflow permissions → "Allow GitHub Actions to create and approve pull
+requests"* on `softistx`. A repository admin cannot override it; the API
+answers `409 Write permissions for workflows are disabled by the organization`.
+
+Until it is turned on, the release is: merge to `develop`, let the workflow
+push the branch, then open the PR yourself from `changeset-release/develop`
+into `develop`. Everything after that — publishing, the tags — is automatic.
+CI skips the changeset check on that branch, since it is the branch that
+consumes them.
+
 ### `bun publish`, not `changeset publish`
 
 `changeset version` does the versioning and the changelogs — pure bookkeeping,

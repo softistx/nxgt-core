@@ -15,7 +15,10 @@
  *
  * Output format: every published package prints `New tag: <name>@<version>`,
  * which is the line `changesets/action` parses to create GitHub releases.
- * Do not change it without checking that.
+ * Do not change it without checking that — and note that the action then runs
+ * `git push origin <that tag>`, so the tag has to *exist*. `changeset publish`
+ * creates it; announcing one without creating it fails the release after every
+ * package is already on the registry, which is the worst place to fail.
  *
  * Credentials come from `bunfig.toml`, which reads `$NPM_TOKEN` from the
  * environment. Nothing is written to `~/.npmrc`.
@@ -99,8 +102,19 @@ for (const pkg of packages) {
 	if (result.exitCode === 0) {
 		published++;
 		console.log(`  published ${pkg.name}@${pkg.version}`);
+
+		// `changesets/action` pushes this tag straight after, so create it here
+		// the way `changeset publish` would. `--force` because a re-run after a
+		// partial failure must not stop on a tag it already made.
+		const tag = `${pkg.name}@${pkg.version}`;
+		const tagged = await $`git tag --force ${tag}`.cwd(ROOT).quiet().nothrow();
+		if (tagged.exitCode !== 0) {
+			console.error(`  warning   could not tag ${tag}`);
+			console.error(`            ${tagged.stderr.toString().trim()}`);
+		}
+
 		// The line changesets/action looks for when creating GitHub releases.
-		console.log(`New tag: ${pkg.name}@${pkg.version}`);
+		console.log(`New tag: ${tag}`);
 	} else {
 		failed++;
 		console.error(`  FAILED    ${pkg.name}@${pkg.version}`);
