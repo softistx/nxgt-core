@@ -104,3 +104,12 @@ bun install
 bun run typecheck
 bun test
 ```
+
+## Install
+
+```bash
+bun add @nxgt/security
+```
+
+Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
+`^6.0.3` across every `@nxgt/*` package.

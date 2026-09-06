@@ -19,7 +19,14 @@ be "cleaned up".
 
 - **`release-a-package-change`** — load it before editing anything under
   `packages/`. A change here is not done when it compiles; it is done when it
-  is released and the consumer is bumped.
+  is released and the consumer is bumped. Also carries what a changeset has to
+  say and which documentation moves with a change.
+- **`create-a-package`** — a thirteenth `@nxgt/*` package: where it goes in the
+  layering, the scaffolding, and the four conventions that are not visible from
+  reading an existing one. Replaces `nxgt-federation`'s old
+  `create-shared-package`, which cannot be done there any more.
+- **`write-a-repo-script`** — anything automated in any of the four
+  repositories is a TypeScript file run by Bun with Bun Shell, not a `.sh`.
 
 ## Related repositories
 
