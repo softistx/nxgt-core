@@ -1,13 +1,16 @@
 import { delay } from '@nxgt/shared/helpers';
+import { createLogger } from '@nxgt/shared-logging';
 import { Mutex } from 'async-mutex';
 import { diff } from 'just-diff';
 import { omit } from 'lodash';
 import { mongoose } from '../mongoose';
 import { MONGO_UTILS } from '../utils';
-import { AuditModel } from './audit.model';
+import { type Audit, AuditModel } from './audit.model';
 import type { ChangeListeningOptions } from './audit.types';
 
 const mutex = new Mutex();
+
+const logger = createLogger({ name: 'audit' });
 
 /**
  * Processes MongoDB change streams and creates audit logs based on changes.
@@ -116,7 +119,7 @@ export function runWithChangesListening<T>(
 			auditChanges(changeStream, omit(options, 'models'));
 		});
 		try {
-			return mongoose.connection.transaction(
+			return await mongoose.connection.transaction(
 				async () => {
 					return await bloc();
 				},
@@ -131,4 +134,44 @@ export function runWithChangesListening<T>(
 	});
 }
 
-export const AUDIT_EVENT = 'AUDIT_EVENT';
+export const AUDIT_EVENT = 'event:audit';
+
+type RegisterAuditSubscriptionOptions<
+	T extends {
+		publish<D>(topic: string, data: D): void;
+	},
+> = {
+	pubsub: T;
+};
+
+/**
+ * Registers a subscription to MongoDB audit events, allowing real-time notifications of changes in the database.
+ * @param {Object} options - Configuration options for the subscription.
+ * @param {Object} options.pubsub - An object with a `publish` method to send notifications (e.g., a PubSub instance).
+ */
+export function registerAuditSubscription<
+	T extends { publish(topic: string, ...data: any): void },
+>({ pubsub }: RegisterAuditSubscriptionOptions<T>) {
+	const AUDIT_CHANGE_STREAM = AuditModel.watch([
+		{
+			$match: {
+				operationType: 'insert',
+			},
+		},
+	]);
+
+	AUDIT_CHANGE_STREAM.on('change', async (data) => {
+		try {
+			pubsub.publish(
+				AUDIT_EVENT,
+				await AuditModel.findById(data.documentKey._id),
+			);
+		} catch (error) {
+			logger.error(error);
+		}
+	});
+}
+
+export type AuditPayload = {
+	[AUDIT_EVENT]: [payload: Audit];
+};

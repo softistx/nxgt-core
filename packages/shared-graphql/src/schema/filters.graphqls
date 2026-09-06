@@ -1,0 +1,256 @@
+# ========================================
+# Reusable Filter Schemas
+# ========================================
+
+"""
+Comparison operators for string fields
+"""
+enum StringOperator {
+	"""
+	Exact match (case-sensitive)
+	"""
+	EQ
+	"""
+	Not equal
+	"""
+	NE
+	"""
+	Contains substring (case-insensitive)
+	"""
+	CONTAINS
+	"""
+	Starts with prefix (case-insensitive)
+	"""
+	STARTS_WITH
+	"""
+	Ends with suffix (case-insensitive)
+	"""
+	ENDS_WITH
+	"""
+	Matches regex pattern
+	"""
+	REGEX
+	"""
+	Value is in provided list
+	"""
+	IN
+	"""
+	Value is not in provided list
+	"""
+	NOT_IN
+}
+
+"""
+Filter for string fields
+"""
+input StringFilter {
+	"""
+	Comparison operator
+	"""
+	operator: StringOperator!
+	"""
+	Value(s) to compare against
+	"""
+	value: String
+	"""
+	Multiple values (for IN/NOT_IN operators)
+	"""
+	values: [String!]
+	"""
+	Case sensitivity for string operations (default: false)
+	"""
+	caseSensitive: Boolean
+}
+
+"""
+Comparison operators for numeric fields
+"""
+enum NumberOperator {
+	"""
+	Equal to
+	"""
+	EQ
+	"""
+	Not equal to
+	"""
+	NE
+	"""
+	Greater than
+	"""
+	GT
+	"""
+	Greater than or equal to
+	"""
+	GTE
+	"""
+	Less than
+	"""
+	LT
+	"""
+	Less than or equal to
+	"""
+	LTE
+	"""
+	Value is in provided list
+	"""
+	IN
+	"""
+	Value is not in provided list
+	"""
+	NOT_IN
+}
+
+"""
+Filter for numeric fields (Int, Float, PositiveInt, Currency)
+"""
+input NumberFilter {
+	"""
+	Comparison operator
+	"""
+	operator: NumberOperator
+	"""
+	Single value to compare against
+	"""
+	value: Float
+	"""
+	Multiple values (for IN/NOT_IN operators)
+	"""
+	values: [Float!]
+}
+
+"""
+Filter for date/datetime fields with range support
+"""
+input DateRangeFilter {
+	"""
+	Start of date range (inclusive)
+	"""
+	from: DateTime
+	"""
+	End of date range (inclusive)
+	"""
+	to: DateTime
+	"""
+	Exact date match
+	"""
+	eq: DateTime
+	"""
+	Date is before this value
+	"""
+	before: DateTime
+	"""
+	Date is after this value
+	"""
+	after: DateTime
+}
+
+"""
+Logical operators for array matching
+"""
+enum ArrayOperator {
+	"""
+	All values must match (AND logic)
+	"""
+	ALL
+	"""
+	Any value must match (OR logic)
+	"""
+	ANY
+	"""
+	None of the values should match
+	"""
+	NONE
+	"""
+	Exact array match (same values, same order)
+	"""
+	EXACT
+}
+
+"""
+Filter for array fields (tags, roles, permissions, etc.)
+"""
+input ArrayFilter {
+	"""
+	Logical operator for matching
+	"""
+	operator: ArrayOperator = ANY
+	"""
+	Values to match against
+	"""
+	values: [String!]!
+}
+
+"""
+Filter for ObjectID reference fields
+"""
+input ObjectIDFilter {
+	"""
+	Exact match
+	"""
+	eq: ObjectID
+	"""
+	Not equal
+	"""
+	ne: ObjectID
+	"""
+	Value is in provided list
+	"""
+	in: [ObjectID!]
+	"""
+	Value is not in provided list
+	"""
+	notIn: [ObjectID!]
+	"""
+	Field exists (not null)
+	"""
+	exists: Boolean
+}
+
+"""
+Filter for boolean fields
+"""
+input BooleanFilter {
+	"""
+	Exact boolean value
+	"""
+	eq: Boolean!
+}
+
+"""
+Sort direction
+"""
+enum SortDirection {
+	"""
+	Ascending order
+	"""
+	ASC
+	"""
+	Descending order
+	"""
+	DESC
+}
+
+input SortInput {
+	"""
+	Field to sort by
+	"""
+	field: String!
+	"""
+	Sort direction (default: ASC)
+	"""
+	direction: SortDirection = ASC
+}
+
+"""
+Logical operators for combining filters
+"""
+enum LogicalOperator {
+	"""
+	All conditions must match (default)
+	"""
+	AND
+	"""
+	Any condition must match
+	"""
+	OR
+}

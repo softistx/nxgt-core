@@ -1,5 +1,5 @@
 export type ListStringPatch = {
-	replace?: string[];
-	add?: string[];
-	remove?: string[];
+	replace?: string[] | null;
+	add?: string[] | null;
+	remove?: string[] | null;
 };

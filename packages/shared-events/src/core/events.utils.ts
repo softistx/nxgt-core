@@ -19,10 +19,18 @@ export function createWorker<
 	NameType extends string = string,
 >(
 	name: string,
-	processor?: string | URL | null | Processor<DataType, ResultType, NameType>,
-	opts?: WorkerOptions,
+	processor:
+		| string
+		| URL
+		| null
+		| Processor<DataType, ResultType, NameType> = null,
+	opts: WorkerOptions = { connection: { url: 'redis://localhost:6379' } },
 ) {
-	return new Worker<DataType, ResultType, NameType>(name, processor, opts);
+	return new Worker<DataType, ResultType, NameType>(name, processor, {
+		...opts,
+		removeOnComplete: opts.removeOnComplete ?? { count: 1000 },
+		removeOnFail: opts.removeOnFail ?? { count: 5000 },
+	});
 }
 
 export function createQueue<

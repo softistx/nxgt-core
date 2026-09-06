@@ -83,6 +83,55 @@ would overwrite something `tsc` emitted: that means a `.d.ts` sits next to a
 an ambient file. `shared-logging/src/logger.d.ts` was exactly that, a dead
 duplicate of `src/types/hono.d.ts`, and it was deleted.
 
+### `export * from` a dependency only works at an entry point
+
+Bun's bundler mis-compiles a star re-export of an **external** package when it
+sits in a module below the entry point. It emits a `__reExport(ns, x)` whose
+`x` is never declared, so the built file throws a `ReferenceError` the moment
+it is imported — before any of its own code runs — while `bun run build` exits
+0. It bit two packages here:
+
+| package | was | threw |
+| --- | --- | --- |
+| `@nxgt/shared-mongo` | `export * from 'mongoose'` in `src/mongoose.ts` | `mongoose2 is not defined` |
+| `@nxgt/shared-hono/mcp` | `export * from '@modelcontextprotocol/{hono,server}'` in `src/mcp/helpers.ts` | `hono is not defined` |
+
+**The rule: every `export * from '<external package>'` must live in a file
+listed in that package's `nxgt.entrypoints`.** In an entry point Bun emits a
+plain `export * from "..."` passthrough and everything works. Both were fixed by
+moving the line up into the entry, not by changing what is exported.
+
+A corollary for `@nxgt/shared-mongo`: inside this package, import mongoose's own
+types from `'mongoose'` directly. The `@nxgt/shared-mongo` import rule is for
+*consumers*; routing internal type imports through `../mongoose` is what forced
+the star re-export down below the entry in the first place.
+
+To audit the rule:
+
+```sh
+grep -rn --include='*.ts' "^export \* from '[^.]" packages/*/src/
+```
+
+Every hit must be an entry point.
+
+### A build that exits 0 is not evidence the artifact loads
+
+Neither defect above was visible to `bun run build`, `bun typecheck` or `biome`.
+Only importing the built output catches them, and the workspace never imports
+it — `@nxgt/*` resolves to `src/` here.
+
+So before releasing, install the packages the way a consumer does and load them:
+
+```sh
+for d in packages/*/; do (cd "$d" && bun pm pack --destination /tmp/probe/tarballs); done
+# a scratch package.json depending on the twelve tarballs, with `overrides`
+# pointing every @nxgt/* at its tarball so transitive ones resolve locally too
+bun install && bun run smoke.ts   # await import() of all 23 declared subpaths
+```
+
+This is also the only check that exercises `files`, `exports` and the
+`workspace:*` -> version rewrite that `bun pm pack` performs.
+
 ### `link:` dependencies cannot be published
 
 `@nxgt/shared-hono` depended on `stx-sdk` through `link:stx-sdk`, which no
@@ -93,6 +142,16 @@ dependency**, satisfied by the consuming app's own `link:stx-sdk`, plus a
 ever needs one, it takes the same shape. `peerDependenciesMeta.optional` is not
 decoration — without it `bun install` tries to fetch `stx-sdk` from npm and
 fails with a 404.
+
+### `typescript` is a peer, pinned to 6, and it is load-bearing
+
+All twelve declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+`~7.0.2`, which is not a preference difference — the ranges are mutually
+unsatisfiable, so a consumer installing the set gets a peer conflict, and if
+TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
+`ts.factory.createTypeReferenceNode(...)` at module scope, and TS 7's default
+export has no `.factory`. Every app in both monorepos builds on 6.0.3. Do not
+raise this range in one package alone.
 
 ## Releasing, and what it means for a consumer
 
@@ -141,9 +200,10 @@ Inherited from both monorepos and unchanged:
 
 ## Known state
 
-`bun test` is **115 pass / 7 fail** on a clean tree. The seven failures are in
-`shared-storage` and predate this repository — they need a live S3/MinIO, and
-their fixture path (`src/assets/images/...`) is resolved relative to the
-process's working directory, so they only pass when run from inside
-`packages/shared-storage`. The count is identical to what `sellix-monorepo`
-produced before the extraction. Treat any *eighth* failure as yours.
+`bun test` is **178 pass / 6 fail / 3 errors** on a clean tree, from the root.
+The six failures are in `shared-storage` — they need a live S3/MinIO, and their
+fixture path (`src/assets/images/...`) is resolved relative to the process's
+working directory, so they only pass when run from inside
+`packages/shared-storage`. The three errors are `MONGODB_URI is required`, and
+need a live MongoDB. Both counts are identical to what `sellix-monorepo` and
+`nxgt-federation` produce on `develop`. Treat any *seventh* failure as yours.

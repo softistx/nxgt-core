@@ -3,7 +3,8 @@ import { CustomException } from '@nxgt/shared-exceptions';
 import mongoose from 'mongoose';
 
 export function castError(error: mongoose.MongooseError) {
-	let props: { message?: LocaleKey; options?: object } = {};
+	let props: { message?: LocaleKey; options?: object; debugMessage?: string } =
+		{};
 	if (error instanceof CustomException) {
 		return error;
 	}
@@ -12,6 +13,12 @@ export function castError(error: mongoose.MongooseError) {
 			props = {
 				message: 'errors.cast-failed',
 				options: { field: error.path },
+			};
+			break;
+		case error instanceof mongoose.Error.VersionError:
+			props = {
+				message: 'errors.optimistic-lock-failed',
+				debugMessage: error.message,
 			};
 			break;
 		case error instanceof mongoose.Error.DocumentNotFoundError:

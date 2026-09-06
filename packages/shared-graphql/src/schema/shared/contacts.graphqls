@@ -1,0 +1,53 @@
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@shareable"])
+
+"""
+Contact information (can be used for places, persons, organizations, etc.)
+"""
+type Contact @shareable {
+	"""
+	The type of contact information.
+	"""
+	type: ContactType!
+
+	"""
+	Contact value (phone number, email, URL, etc.)
+	"""
+	value: String!
+
+	"""
+	Optional label for the contact
+	"""
+	label: String
+}
+
+"""
+The type of contact information.
+"""
+enum ContactType {
+	PHONE
+	EMAIL
+	FAX
+	MOBILE
+	WEBSITE
+}
+
+"""
+Input type for contact information.
+"""
+input ContactInput {
+	"""
+	The type of contact information.
+	"""
+	type: ContactType!
+
+	"""
+	Contact value (phone number, email, URL, etc.)
+	"""
+	value: String!
+
+	"""
+	Optional label for the contact
+	"""
+	label: String
+}

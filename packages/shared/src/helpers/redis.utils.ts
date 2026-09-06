@@ -1,3 +1,4 @@
+import { logger } from '@nxgt/shared-logging';
 import { redis } from 'bun';
 
 const USERS = 'users';
@@ -16,7 +17,7 @@ export function publishTo<T>(channel: string) {
 		try {
 			await redis.publish(channel, JSON.stringify(value ?? {}));
 		} catch (error) {
-			console.error(error);
+			logger.error(error);
 		}
 		return value;
 	};

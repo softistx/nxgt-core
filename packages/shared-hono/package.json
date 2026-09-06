@@ -20,6 +20,11 @@
 			"import": "./dist/openapi-fetch.js",
 			"default": "./dist/openapi-fetch.js"
 		},
+		"./mcp": {
+			"types": "./dist/mcp/index.d.ts",
+			"import": "./dist/mcp/index.js",
+			"default": "./dist/mcp/index.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"repository": {
@@ -38,10 +43,14 @@
 	"nxgt": {
 		"entrypoints": [
 			"src/index.ts",
-			"src/openapi-fetch.ts"
+			"src/openapi-fetch.ts",
+			"src/mcp/index.ts"
 		]
 	},
 	"dependencies": {
+		"@hono/zod-validator": "^0.9.0",
+		"@modelcontextprotocol/hono": "^2.0.0",
+		"@modelcontextprotocol/server": "^2.0.0",
 		"@nxgt/i18n": "workspace:*",
 		"@nxgt/shared": "workspace:*",
 		"@nxgt/shared-exceptions": "workspace:*",

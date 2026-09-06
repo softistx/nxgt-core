@@ -14,5 +14,12 @@
 	"could-not-use-first-and-last-together": "Vous ne pouvez pas utiliser les paramètres ''first'' et ''last'' ensemble dans la pagination.",
 	"invalid-cursor": "Le curseur fourni est invalide. Veuillez vérifier et réessayer.",
 	"invalid-status-transition": "Impossible de changer le statut de ''{from}'' à ''{to}''.",
-	"service-unavailable": "Le service d'authentification est indisponible. Veuillez réessayer dans un instant."
+	"service-unavailable": "Un service dont dépend cette requête ne répond pas. Rien n'a été modifié ; réessayez dans un instant.",
+	"graphql-parse-failed": "Échec de l'analyse de la requête GraphQL. Vérifiez la syntaxe de votre requête.",
+	"graphql-validation-failed": "La requête GraphQL est invalide. Veuillez vérifier l'opération et les variables.",
+	"persisted-query-not-found": "Requête persistante non trouvée. Le hash de la requête est inconnu.",
+	"persisted-query-not-supported": "Les requêtes persistantes ne sont pas prises en charge sur ce serveur.",
+	"bad-user-input": "Données saisies invalides. Veuillez vérifier vos informations et réessayer.",
+	"operation-resolution-failure": "Échec de la résolution de l'opération GraphQL.",
+	"bad-request": "La requête est invalide ou mal formée. Veuillez vérifier le format de la requête."
 }

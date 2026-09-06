@@ -1,0 +1,23 @@
+enum DeliveryChannel {
+	IN_APP
+	EMAIL
+	PUSH
+	SMS
+}
+
+enum NotificationPriority {
+	LOW
+	MEDIUM
+	HIGH
+}
+
+input CreateNotificationInput {
+	recipient: ID!
+	type: String!
+	title: String
+	message: String
+	template: String
+	metadata: JSONObject
+	priority: NotificationPriority
+	deliveryChannels: [DeliveryChannel!]
+}

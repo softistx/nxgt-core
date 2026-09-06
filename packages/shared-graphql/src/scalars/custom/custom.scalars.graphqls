@@ -1,0 +1,259 @@
+"""
+Represents an account number in a specific format.
+"""
+scalar AccountNumber
+
+"""
+Represents a BigInt scalar type, capable of handling very large integer values.
+"""
+scalar BigInt
+
+"""
+Represents a two-letter ISO 3166-1 country code.
+"""
+scalar CountryCode
+
+"""
+Represents the full name of a country.
+"""
+scalar CountryName
+
+"""
+Represents a CUID (Collision Resistant Identifier) string.
+"""
+scalar Cuid
+
+"""
+Represents a currency code based on ISO 4217.
+"""
+scalar CurrencyCode
+
+"""
+Represents a date without a time or timezone.
+"""
+scalar Date
+
+"""
+Represents a date and time string in ISO8601 format.
+"""
+scalar DateTime
+
+"""
+Represents a duration of time, typically expressed in ISO 8601 duration format.
+"""
+scalar Duration
+
+"""
+Represents a valid email address.
+"""
+scalar EmailAddress
+
+"""
+Represents a GeoJSON object used for geographic data representation.
+"""
+scalar GeoJSON
+
+"""
+Represents a globally unique identifier (GUID).
+"""
+scalar GUID
+
+"""
+Represents a color code in hexadecimal format.
+"""
+scalar HexColorCode
+
+"""
+Represents a hexadecimal string.
+"""
+scalar Hexadecimal
+
+"""
+Represents a color in HSL (Hue, Saturation, Lightness) format.
+"""
+scalar HSL
+
+"""
+Represents a color in HSLA (Hue, Saturation, Lightness, Alpha) format.
+"""
+scalar HSLA
+
+"""
+Represents an International Bank Account Number (IBAN).
+"""
+scalar IBAN
+
+"""
+Represents a valid IP address (IPv4 or IPv6).
+"""
+scalar IP
+
+"""
+Represents an IPv4 address.
+"""
+scalar IPv4
+
+"""
+Represents an IPv6 address.
+"""
+scalar IPv6
+
+"""
+Represents an ISBN (International Standard Book Number).
+"""
+scalar ISBN
+
+"""
+Represents a JSON object.
+"""
+scalar JSON
+
+"""
+Represents a JSON object, strictly requiring an object structure.
+"""
+scalar JSONObject
+
+"""
+Represents a JSON Web Token (JWT).
+"""
+scalar JWT
+
+"""
+Represents a latitude value in geographic coordinates.
+"""
+scalar Latitude
+
+"""
+Represents a locale code, such as "en-US" or "fr-FR".
+"""
+scalar Locale
+
+"""
+Represents a longitude value in geographic coordinates.
+"""
+scalar Longitude
+
+"""
+Represents a long integer value.
+"""
+scalar Long
+
+"""
+Represents a MAC address in networking.
+"""
+scalar MAC
+
+"""
+Represents a negative floating-point number.
+"""
+scalar NegativeFloat
+
+"""
+Represents a negative integer.
+"""
+scalar NegativeInt
+
+"""
+Represents a non-empty string value.
+"""
+scalar NonEmptyString
+
+"""
+Floats that will have a value of 0 or more.
+"""
+scalar NonNegativeFloat
+
+"""
+Integers that will have a value of 0 or more.
+"""
+scalar NonNegativeInt
+
+"""
+Floats that will have a value of 0 or less.
+"""
+scalar NonPositiveFloat
+
+"""
+Integers that will have a value of 0 or less.
+"""
+scalar NonPositiveInt
+
+"""
+Represents a MongoDB ObjectID string.
+"""
+scalar ObjectID
+
+"""
+Represents a phone number in international or local formats.
+"""
+scalar PhoneNumber
+
+"""
+Represents a port number in networking.
+"""
+scalar Port
+
+"""
+Represents a positive floating-point number.
+"""
+scalar PositiveFloat
+
+"""
+Represents a positive integer.
+"""
+scalar PositiveInt
+
+"""
+Represents a postal code in various formats.
+"""
+scalar PostalCode
+
+"""
+Represents a color in RGB (Red, Green, Blue) format.
+"""
+scalar RGB
+
+"""
+Represents a color in RGBA (Red, Green, Blue, Alpha) format.
+"""
+scalar RGBA
+
+"""
+Represents a session identifier.
+"""
+scalar SESSN
+
+"""
+Represents a time value without a timezone.
+"""
+scalar Time
+
+"""
+Represents a timestamp, often as a Unix epoch time.
+"""
+scalar Timestamp
+
+"""
+Represents a URL string.
+"""
+scalar URL
+
+"""
+Represents a currency value specific to the United States.
+"""
+scalar USCurrency
+
+"""
+Represents a UTC offset in timezone information.
+"""
+scalar UTCOffset
+
+"""
+Represents a universally unique identifier (UUID).
+"""
+scalar UUID
+
+"""
+Represents a Void type, typically used for operations with no return value.
+"""
+scalar Void

@@ -1,3 +1,4 @@
+import { logger } from '@nxgt/shared-logging';
 import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import {
@@ -24,7 +25,7 @@ export const cache = ({
 			await next();
 			if (ctx.res.status === 200) {
 				const res = ctx.res.clone();
-				const result = await res.json();
+				const result: any = await res.json();
 				if (!result) {
 					return;
 				}
@@ -39,7 +40,7 @@ export const cache = ({
 				) {
 					ctx.header('Cache-Control', `public, max-age=${maxAge}`);
 					if (
-						result.data &&
+						'data' in result &&
 						Array.isArray(result.data) &&
 						result.data.length > 0
 					) {
@@ -64,7 +65,7 @@ export const cache = ({
 				}
 			}
 		} catch (error) {
-			console.error(error);
+			logger.error(error);
 		}
 	});
 };

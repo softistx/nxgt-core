@@ -1,0 +1,148 @@
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@shareable"])
+
+type PageInfo @shareable {
+	endCursor: String
+	hasNextPage: Boolean!
+	startCursor: String
+}
+
+enum ErrorCode {
+	NOT_FOUND
+	BAD_REQUEST
+	FORBIDDEN
+	UNAUTHENTICATED
+	INTERNAL_SERVER_ERROR
+	VALIDATION_ERROR
+	CONFLICT
+}
+
+"""
+Represents a localized label, supporting multiple languages.
+"""
+input LabelInput {
+	"""
+	The label in English (required).
+	"""
+	en: String!
+
+	"""
+	The label in French (optional).
+	"""
+	fr: String
+}
+
+"""
+Input type for patching a list of object IDs. Allows for adding, removing,
+or replacing items in a collection of object IDs.
+"""
+input ObjectIDPatchInput {
+	"""
+	List of object IDs to add to the collection.
+	"""
+	add: [ObjectID!]
+
+	"""
+	List of object IDs to remove from the collection.
+	"""
+	remove: [ObjectID!]
+
+	"""
+	List of object IDs to replace the existing collection.
+	"""
+	replace: [ObjectID!]
+}
+
+"""
+Input type for patching a list of strings. Allows for adding, removing,
+or replacing items in a collection of strings.
+"""
+input StringListPatchInput {
+	"""
+	List of strings to add to the collection.
+	"""
+	add: [String!]
+	"""
+	List of strings to remove from the collection.
+	"""
+	remove: [String!]
+	"""
+	List of strings to replace the existing collection.
+	"""
+	replace: [String!]
+}
+
+"""
+Input type for patching an array of arbitrary JSON values.
+Allows for adding, removing, or replacing elements in the array.
+"""
+input JSONPatchInput {
+	"""
+	List of JSON elements to add to the array.
+	"""
+	add: [JSON!]
+
+	"""
+	List of JSON elements to remove from the array.
+	"""
+	remove: [JSON!]
+
+	"""
+	List of JSON elements to replace the existing array.
+	"""
+	replace: [JSON!]
+}
+
+"""
+Input type for patching files in a resource, allowing addition, removal, or replacement of files.
+"""
+input FilesPatchInput {
+	"""
+	A list of files to be added to the resource.
+	"""
+	add: [Upload!]
+
+	"""
+	A list of file IDs to be removed from the resource.
+	"""
+	remove: [ID!]
+
+	"""
+	A list of files to replace existing files in the resource.
+	"""
+	replace: [Upload!]
+}
+
+"""
+Input type for updating a file reference. This allows either uploading a new file or referencing an existing one.
+"""
+input UpdateFileInput {
+	"""
+	The new file to upload. If provided, it will replace the existing file.
+	"""
+	file: Upload
+
+	"""
+	The ID of an existing file to reference instead of uploading a new one.
+	"""
+	existing: ObjectID
+}
+
+enum MutationStatus {
+	PENDING
+	FAILED
+	COMPLETED
+}
+
+type MutationResult @shareable {
+	id: UUID!
+	status: MutationStatus!
+	extensions: JSONObject
+	error: String
+}
+
+interface MutationResponse {
+	code: String!
+	success: Boolean!
+	message: String!
+}

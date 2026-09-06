@@ -1,40 +1,11 @@
 /**
- * Sort order enum matching OpenAPI SortOrder schema
+ * Sort building lives in `@nxgt/shared`, one layer down, because it is plain
+ * object work with no Mongoose in it. Re-exported here because that is where
+ * sellix-monorepo imported it from.
+ *
+ * `SortOrder` is deliberately not re-exported: Mongoose exports a type of that
+ * name and this package re-exports Mongoose wholesale, so forwarding ours too
+ * makes the root ambiguous and `tsc` drops both. Import `SortOrder` from
+ * `@nxgt/shared`; `SortDirection` here is the same enum.
  */
-export enum SortDirection {
-	ASC = 'asc',
-	DESC = 'desc',
-}
-
-/**
- * Sort field type matching OpenAPI SortField schema
- */
-export interface SortField {
-	key: string;
-	order: SortDirection | 'asc' | 'desc';
-}
-
-/**
- * Helper to build MongoDB sort object from array of SortField
- * @param sortFields - Array of sort fields with key and order
- * @returns MongoDB sort object
- */
-export function buildSort(
-	sortFields:
-		| SortField[]
-		| { key: string; order: 'asc' | 'desc' }[]
-		| undefined,
-) {
-	if (!sortFields || sortFields.length === 0) {
-		return undefined;
-	}
-
-	const sort: Record<string, 1 | -1> = {};
-
-	for (const field of sortFields) {
-		// Convert 'asc' to 1 and 'desc' to -1 for MongoDB
-		sort[field.key] = field.order === 'asc' ? 1 : -1;
-	}
-
-	return sort;
-}
+export { buildSort, SortDirection, type SortField } from '@nxgt/shared/helpers';

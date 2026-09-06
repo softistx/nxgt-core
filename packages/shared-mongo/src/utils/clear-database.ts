@@ -1,11 +1,13 @@
-import { type Connection, mongoose } from '../mongoose';
+import type { Connection } from 'mongoose';
+import { mongoose } from '../mongoose';
 
 /**
  * Empties every non-view, non-system collection on `connection`.
  *
  * Test-suite helper, deliberately living here rather than in each app: it used
- * to exist as five identical unguarded copies, and one shell export was enough
- * to point a whole suite at the real `sellix` database and empty it. Bun gives
+ * to exist as five identical unguarded copies here and five more in
+ * `sellix-monorepo`, and one shell export was enough to point a whole suite at a
+ * real database and empty it — which is how `sellix` was lost once. Bun gives
  * the process environment precedence over `--env-file`, so `MONGODB_URI` set in
  * a shell silently beats `.env.test` — and the centralized env layout makes a
  * forgotten `--env-file=.env.test` resolve to the production URI just as

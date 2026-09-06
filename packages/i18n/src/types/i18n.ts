@@ -17,4 +17,4 @@ export type TranslationContext =
 	  }
 	| undefined;
 
-export type LanguageProvider = () => Language | Language;
+export type LanguageProvider = (() => Language) | Language;
