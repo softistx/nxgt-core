@@ -37,7 +37,10 @@ release nothing, and `changeset status` will not ask for anything.
 4. **`bun run verify:artifacts`.** Not optional, and not covered by the build —
    see below.
 5. **PR into `develop`.** CI runs all of the above plus `changeset status`.
-6. **Merge.** A "Version packages" PR opens by itself. Merging *that* publishes.
+6. **Merge.** The release workflow pushes `changeset-release/develop`, then
+   fails to open the PR — the `softistx` organisation forbids Actions from
+   creating pull requests. **Open it yourself**, from that branch into
+   `develop`. Merging *that* publishes, tags and stops.
 7. **Only then**, bump the dependency in the consumer and open its PR.
 
 ## Why step 4 exists
