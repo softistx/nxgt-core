@@ -187,6 +187,21 @@ being logged in through `npm login` stops working *inside the repo only*, while
 the same command one directory up succeeds. This repository had that file and it
 was deleted. Do not reintroduce it.
 
+### The build must run before typecheck and tests
+
+Every package's `exports` map points at `./dist/*`, so a workspace sibling only
+resolves once it has been built. On a clean checkout `bun run typecheck` reports
+around a hundred `TS2307: Cannot find module '@nxgt/…'` — not real errors, just
+an unbuilt tree. `bun test` is in the same position: some specs load a
+sibling's built output.
+
+Locally this never happens, because a stale `dist/` is always lying around. It
+appears only in CI, which is why the workflow builds first. `bun run --filter`
+builds in dependency order, so building from nothing works.
+
+If you see a wall of TS2307 on `@nxgt/*`, run `bun run build` before believing
+any of it.
+
 ### CI runs on GitHub-hosted runners, unlike the private repos
 
 `nxgt-material` and `stx-sdk` use `runs-on: self-hosted` because they are

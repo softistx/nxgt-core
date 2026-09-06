@@ -22,12 +22,18 @@ jobs:
         uses: ./.github/actions/setup
       - name: Lint code
         run: biome ci
+      # Build FIRST. Every package's `exports` points at `./dist/*`, so on a
+      # clean checkout `@nxgt/shared-logging` and friends resolve to nothing and
+      # typecheck reports ~100 phantom TS2307s. A developer's tree always has a
+      # stale `dist/` lying around, which hides this locally — it only ever
+      # shows up in CI. `bun run --filter` builds in dependency order, so
+      # building from nothing works.
+      - name: Build packages
+        run: bun run build
       - name: Type checking
         run: bun run typecheck
       - name: Run tests
         run: bun test
-      - name: Build packages
-        run: bun run build
       # The build exits 0 on packages that throw the instant they are imported —
       # it happened three times. This packs them, installs them as a consumer
       # does and imports every declared subpath.
