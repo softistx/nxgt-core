@@ -1,5 +1,20 @@
 # @nxgt/shared-mongo
 
+## 1.1.0
+
+### Minor Changes
+
+- [#12](https://github.com/softistx/nxgt-core/pull/12) [`d7e75d4`](https://github.com/softistx/nxgt-core/commit/d7e75d47e01aedb9106c946c730b0ef6c36a691d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Let a service say which principal shape it is given.
+  
+  `MongoCrudService` hard-coded `Principal`, the caller as the gateway's
+  `X-User-*` headers describe them. federation's services are handed
+  `TokenPrincipal`, the caller as the access token describes them, and read `uid`
+  and `sub` off it — fields `Principal` does not have. The two shapes were kept
+  side by side on purpose during the merge; the constructor quietly picked one.
+  
+  It now takes a fourth type parameter, `P extends Principal | TokenPrincipal`,
+  defaulting to `Principal` so nothing that compiles today changes.
+
 ## 1.0.1
 
 ### Patch Changes
