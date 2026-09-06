@@ -289,16 +289,29 @@ fails:
 HttpError: GitHub Actions is not permitted to create or approve pull requests.
 ```
 
-The switch is **organisation-level** — *Settings → Actions → General →
+There are **two** switches, both named *Settings → Actions → General →
 Workflow permissions → "Allow GitHub Actions to create and approve pull
-requests"* on `softistx`. A repository admin cannot override it; the API
-answers `409 Write permissions for workflows are disabled by the organization`.
+requests"*, and the message is the same whichever one is off:
 
-Until it is turned on, the release is: merge to `develop`, let the workflow
-push the branch, then open the PR yourself from `changeset-release/develop`
-into `develop`. Everything after that — publishing, the tags — is automatic.
-CI skips the changeset check on that branch, since it is the branch that
-consumes them.
+- the **organisation** one on `softistx` — on since 2026-09-06. While it was
+  off a repository admin could not override it, and the API answered
+  `409 Write permissions for workflows are disabled by the organization`.
+- the **repository** one on `nxgt-core` — still off. Check it without leaving
+  the terminal:
+
+  ```bash
+  gh api /repos/softistx/nxgt-core/actions/permissions/workflow
+  # {"default_workflow_permissions":"read","can_approve_pull_request_reviews":false}
+  ```
+
+  and set it with `gh api -X PUT` on the same path, sending
+  `default_workflow_permissions=write` and `can_approve_pull_request_reviews=true`.
+
+Until the second one is on, the release is: merge to `develop`, let the
+workflow push the branch, then open the PR yourself from
+`changeset-release/develop` into `develop`. Everything after that — publishing,
+the tags — is automatic. CI skips the changeset check on that branch, since it
+is the branch that consumes them.
 
 ### `bun publish`, not `changeset publish`
 

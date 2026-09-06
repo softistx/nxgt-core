@@ -38,9 +38,13 @@ release nothing, and `changeset status` will not ask for anything.
    see below.
 5. **PR into `develop`.** CI runs all of the above plus `changeset status`.
 6. **Merge.** The release workflow pushes `changeset-release/develop`, then
-   fails to open the PR — the `softistx` organisation forbids Actions from
-   creating pull requests. **Open it yourself**, from that branch into
-   `develop`. Merging *that* publishes, tags and stops.
+   fails to open the "Version packages" pull request: *GitHub Actions is not
+   permitted to create or approve pull requests*. Two switches carry that
+   message — the `softistx` organisation's (on since 2026-09-06) and the
+   repository's own, which is still off. `gh api
+   /repos/softistx/nxgt-core/actions/permissions/workflow` says which.
+   Until it is on, **open the PR yourself**, from that branch into `develop`.
+   Merging *that* publishes, tags and stops.
 7. **Only then**, bump the dependency in the consumer and open its PR.
 
 ## What a changeset has to say
