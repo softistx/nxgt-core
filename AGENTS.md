@@ -329,6 +329,23 @@ stay — which is why not one `import` in either monorepo changed.
 The repository lives in the `softistx` GitHub org; the npm scope is `@nxgt`.
 On npmjs those are unrelated, so the mismatch is not a mistake.
 
+### An asset is only shipped if it is outside `dist`
+
+`bun build` bundles code. Nothing else lands in `dist`, so a `.graphqls`, a
+YAML file or a font that only exists under `src/` is simply absent from the
+tarball — and inside this workspace nothing notices, because `@nxgt/*` resolves
+to `src/`. `@nxgt/shared-graphql` published its resolvers without the SDL they
+resolve for two releases; the first consumer to install it from the registry
+died on `Unknown type: "Void"`.
+
+Assets live in their own top-level directory, named in `files`: `graphql/` for
+`@nxgt/shared-graphql`, `openapi/` for `@nxgt/shared-openapi`.
+
+A path a consumer globs must resolve against the **package root**, not against
+a fixed depth from the calling file: the bundle is `dist/index.js`, the source
+is `src/utils/schema.utils.ts`, and no single relative path serves both. See
+`SHARED_SCHEMA_PATH`, which walks up to the nearest `package.json`.
+
 ### Siblings are depended on by range — `workspace:^`, never `workspace:*`
 
 `workspace:*` publishes as the **exact** version. That is not a cosmetic

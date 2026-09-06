@@ -76,6 +76,18 @@ All of them are in `AGENTS.md` with the detail; the short forms:
   404 on `stx-sdk` that cost a day was a required peer, not an ignored
   `optional` — `@nxgt/material` and `@nxgt/map` are on no registry, so declare
   them optional or not at all.
+- **Internal dependencies are `workspace:^`, never `workspace:*`.** The latter
+  publishes as an exact version, so a consumer resolving `^1.0.0` to a newer
+  release ends up with two copies of the sibling — and two `model()` calls on
+  one Mongoose connection throw `OverwriteModelError`. `verify-artifacts.ts`
+  refuses an exact sibling pin.
+- **Assets are not in `dist`.** `bun build` bundles code and nothing else, so a
+  `.graphqls`, a YAML file or a font must live in its own top-level directory
+  and be named in `files` — `@nxgt/shared-graphql`'s `graphql/` and
+  `@nxgt/shared-openapi`'s `openapi/`. A path exported for consumers to glob
+  must resolve against the **package root**: the bundle is `dist/index.js` and
+  the source is `src/<dir>/<file>.ts`, so no fixed relative depth serves both
+  layouts.
 - **`typescript` stays `^6.0.3` across all twelve.** Raising it in one package
   makes the set unsatisfiable and breaks `@nxgt/shared-openapi` at import.
 - **Registry config lives in `bunfig.toml`, never a `.npmrc`.** A committed
