@@ -1,0 +1,17 @@
+name: 'Setup'
+description: 'Common setup steps for CI jobs'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      run: bun i --frozen-lockfile
+      shell: bash
+      env:
+        # .npmrc reads the token for npm.pkg.github.com from here. It is needed
+        # even to install: @nxgt/* packages are private.
+        GH_TOKEN: ${{ github.token }}
+    - name: Setup Biome
+      uses: biomejs/setup-biome@v2
+      with:
+        version: latest

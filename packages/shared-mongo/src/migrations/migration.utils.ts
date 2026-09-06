@@ -1,9 +1,9 @@
 import { readdir, writeFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
-import { createLogger } from '@nxgt/shared-logging';
+import { createLogger, type Logger } from '@nxgt/shared-logging';
 import type { MigrationDefinition } from './migration.types';
 
-export const logger = createLogger({ name: 'migrations' });
+export const logger: Logger = createLogger({ name: 'migrations' });
 
 // ─── Filename validation ──────────────────────────────────────────────────────
 

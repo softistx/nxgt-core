@@ -14,6 +14,16 @@ import {
 // type module), so mirrored here from its actual shape.
 type PreSignRequestParams = Record<string, string>;
 
+// Same problem, one step further: these result shapes are only reachable
+// through minio's internal type module, so an inferred return type makes `tsc`
+// write `node_modules/minio/dist/main/internal/type` into the emitted `.d.ts`
+// and fail with TS2883 — that path does not exist for a consumer installing
+// from the registry. Naming them through the public `Client` keeps the
+// reference on minio's entry point instead of duplicating the shapes.
+type PutObjectResult = Awaited<ReturnType<Client['putObject']>>;
+type CopyObjectResult = Awaited<ReturnType<Client['copyObject']>>;
+type ListObjectsResult = ReturnType<Client['listObjects']>;
+
 import { S3_CREDENTIALS, type S3ClientWriteBody } from './storage.service';
 
 export type MinioPutBody = Parameters<Client['putObject']>[2];
@@ -78,7 +88,7 @@ export class MinioService {
 		body: MinioPutBody,
 		size?: number,
 		metadata: ItemBucketMetadata = {},
-	) {
+	): Promise<PutObjectResult> {
 		this.logger.info(`Putting object ${key} to bucket ${this.bucket}`);
 		return this.minio.putObject(this.bucket, key, body, size, metadata);
 	}
@@ -92,7 +102,7 @@ export class MinioService {
 		key: string,
 		filePath: string,
 		metadata: ItemBucketMetadata = {},
-	) {
+	): Promise<PutObjectResult> {
 		this.logger.info(
 			`Putting file ${filePath} as object ${key} to bucket ${this.bucket}`,
 		);
@@ -120,7 +130,7 @@ export class MinioService {
 	async copyObject(
 		source: Omit<ICopySourceOptions, 'Bucket'> & { Bucket?: string },
 		destination: Omit<ICopyDestinationOptions, 'Bucket'> & { Bucket?: string },
-	) {
+	): Promise<CopyObjectResult> {
 		this.logger.info(
 			`Copying object from ${source.Object} to ${destination.Object} in bucket ${this.bucket}`,
 		);
@@ -145,7 +155,7 @@ export class MinioService {
 		prefix: string = '',
 		recursive: boolean = false,
 		options?: ListObjectQueryOptions,
-	) {
+	): Promise<ListObjectsResult> {
 		this.logger.info(
 			`Listing objects in bucket ${this.bucket} with prefix ${prefix} and recursive ${recursive}`,
 		);

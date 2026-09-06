@@ -1,26 +1,63 @@
 {
 	"name": "@nxgt/shared",
-	"module": "src/index.ts",
+	"version": "1.0.0",
 	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"README.md",
+		"package.json"
+	],
 	"exports": {
 		".": {
-			"import": "./src/index.ts"
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
 		},
 		"./helpers": {
-			"import": "./src/helpers/index.ts"
+			"types": "./dist/helpers/index.d.ts",
+			"import": "./dist/helpers/index.js",
+			"default": "./dist/helpers/index.js"
 		},
 		"./models": {
-			"import": "./src/models/index.ts"
+			"types": "./dist/models/index.d.ts",
+			"import": "./dist/models/index.js",
+			"default": "./dist/models/index.js"
 		},
 		"./types": {
-			"import": "./src/types/index.ts"
+			"types": "./dist/types/index.d.ts",
+			"import": "./dist/types/index.js",
+			"default": "./dist/types/index.js"
 		},
 		"./caching": {
-			"import": "./src/caching/index.ts"
-		}
+			"types": "./dist/caching/index.d.ts",
+			"import": "./dist/caching/index.js",
+			"default": "./dist/caching/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/SteveGT96/nxgt-core.git",
+		"directory": "packages/shared"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com",
+		"access": "restricted"
 	},
 	"scripts": {
+		"build": "bun run ../../build.ts",
 		"typecheck": "tsc --noEmit"
+	},
+	"nxgt": {
+		"entrypoints": [
+			"src/index.ts",
+			"src/helpers/index.ts",
+			"src/models/index.ts",
+			"src/types/index.ts",
+			"src/caching/index.ts"
+		]
 	},
 	"dependencies": {
 		"@hono/zod-validator": "^0.9.0",

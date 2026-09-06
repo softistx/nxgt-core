@@ -1,6 +1,40 @@
 {
 	"name": "@nxgt/shared-openapi",
-	"module": "src/index.ts",
+	"version": "1.0.0",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"README.md",
+		"package.json"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/SteveGT96/nxgt-core.git",
+		"directory": "packages/shared-openapi"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com",
+		"access": "restricted"
+	},
+	"scripts": {
+		"build": "bun run ../../build.ts",
+		"typecheck": "tsc --noEmit"
+	},
+	"nxgt": {
+		"entrypoints": [
+			"src/index.ts"
+		]
+	},
 	"devDependencies": {
 		"@types/bun": "^1.4.0"
 	},
@@ -8,14 +42,5 @@
 		"@hey-api/openapi-ts": "^0.99.0",
 		"openapi-typescript": "^7.13.0",
 		"typescript": "^6.0.3"
-	},
-	"exports": {
-		".": {
-			"import": "./src/index.ts"
-		}
-	},
-	"scripts": {
-		"typecheck": "tsc --noEmit"
-	},
-	"type": "module"
+	}
 }

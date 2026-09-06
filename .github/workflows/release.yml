@@ -1,0 +1,48 @@
+name: Release
+
+# Every consumer of these packages installs a published version, so a merge to
+# develop that changes a package is only half a change until it is on the
+# registry. This workflow is the other half: it turns the changesets sitting in
+# .changeset/ into version bumps, then publishes.
+#
+# It opens a "Version Packages" pull request rather than publishing straight
+# from develop; merging that PR is what releases. That keeps the version bump
+# and the changelog reviewable, and keeps an accidental merge from publishing.
+
+on:
+  push:
+    branches: [develop]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup
+        uses: ./.github/actions/setup
+      - name: Build packages
+        run: bun run build
+      - name: Version or publish
+        uses: changesets/action@v1
+        with:
+          version: bun run changeset:version
+          publish: bun run changeset:publish
+          title: 'chore: Version packages'
+          commit: 'chore: Version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

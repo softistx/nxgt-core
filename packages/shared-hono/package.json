@@ -1,17 +1,45 @@
 {
 	"name": "@nxgt/shared-hono",
-	"module": "src/index.ts",
+	"version": "1.0.0",
 	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"README.md",
+		"package.json"
+	],
 	"exports": {
 		".": {
-			"import": "./src/index.ts"
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
 		},
 		"./openapi-fetch": {
-			"import": "./src/openapi-fetch.ts"
-		}
+			"types": "./dist/openapi-fetch.d.ts",
+			"import": "./dist/openapi-fetch.js",
+			"default": "./dist/openapi-fetch.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/SteveGT96/nxgt-core.git",
+		"directory": "packages/shared-hono"
+	},
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com",
+		"access": "restricted"
 	},
 	"scripts": {
+		"build": "bun run ../../build.ts",
 		"typecheck": "tsc --noEmit"
+	},
+	"nxgt": {
+		"entrypoints": [
+			"src/index.ts",
+			"src/openapi-fetch.ts"
+		]
 	},
 	"dependencies": {
 		"@nxgt/i18n": "workspace:*",
@@ -25,15 +53,21 @@
 		"ioredis": "^6.0.0",
 		"lodash": "^4.18.1",
 		"openapi-fetch": "^0.17.0",
-		"stx-sdk": "link:stx-sdk",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@types/bun": "^1.4.0",
 		"@types/lodash": "^4.17.25",
-		"jose": "^6.2.9"
+		"jose": "^6.2.9",
+		"stx-sdk": "link:stx-sdk"
 	},
 	"peerDependencies": {
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3",
+		"stx-sdk": "*"
+	},
+	"peerDependenciesMeta": {
+		"stx-sdk": {
+			"optional": true
+		}
 	}
 }
