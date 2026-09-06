@@ -35,6 +35,16 @@ jobs:
         uses: ./.github/actions/setup
       - name: Build packages
         run: bun run build
+      # The auth line is written here, at release time, and never committed.
+      # A committed `//registry.npmjs.org/:_authToken=${NPM_TOKEN}` expands to
+      # an EMPTY token on any machine where NPM_TOKEN is unset, and a project
+      # .npmrc beats the user one — so it silently breaks `npm login` for every
+      # developer, with a 401 that looks like a credentials problem.
+      - name: Authenticate to npm
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        shell: bash
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Version or publish
         uses: changesets/action@v1
         with:

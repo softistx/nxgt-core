@@ -165,6 +165,19 @@ dependency field** — and a dependency that exists on no registry is better lef
 undeclared than declared optional. `@nxgt/material` and `@nxgt/map` are in the
 same situation.
 
+### There is no `.npmrc` in this repository, on purpose
+
+Installing `@nxgt/*` needs no authentication, so a consumer needs none. And a
+*committed* `.npmrc` carrying `//registry.npmjs.org/:_authToken=${NPM_TOKEN}`
+is actively harmful: on any machine where `NPM_TOKEN` is unset it expands to an
+**empty** token, and a project `.npmrc` overrides the user one — so `npm login`
+silently stops working inside the repo. It shows up as a 401 that reads like
+bad credentials, while `npm whoami` from the parent directory answers fine.
+
+The release workflow writes `~/.npmrc` from the `NPM_TOKEN` secret at publish
+time. Nothing else needs it. If you add an `.npmrc` here, you are almost
+certainly reintroducing this.
+
 ### Why npmjs and not GitHub Packages
 
 Asked and settled; do not reopen it without a new fact. GitHub Packages
