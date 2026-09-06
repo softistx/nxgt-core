@@ -1,15 +1,22 @@
-# @nxgt/shared
+# @nxgt/shared-logging
 
-To install dependencies:
+The Winston logger every `@nxgt/*` package and every app in `sellix-monorepo`
+and `nxgt-federation` writes through, plus the Hono request-logging middleware.
+
+It has **no internal dependencies** — it sits at the bottom of the layering, so
+anything may log without creating a cycle.
+
+Log files rotate daily under `logs/` **relative to the process's working
+directory**. That directory must exist and be writable before the first line is
+written; a container that mounts nothing there will crash on startup, not
+degrade quietly.
+
+## Install
 
 ```bash
-bun install
+bun add @nxgt/shared-logging
 ```
 
-To run:
-
-```bash
-bun run src/index.ts
-```
-
-This project was created using `bun init` in bun v1.3.9. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
+`^6.0.3` across every `@nxgt/*` package — the set is unsatisfiable if one of
+them widens it.

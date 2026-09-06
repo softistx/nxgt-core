@@ -438,6 +438,21 @@ Inherited from both monorepos and unchanged:
 - Commit messages: `<type>: <Capitalized summary>`, types `feat`, `fix`,
   `update`, `chore`, `docs`, `typo`.
 
+Established here, and applying to all four repositories:
+
+- **A script is a TypeScript file run by Bun, using Bun Shell — not a `.sh`.**
+  `scripts/publish.ts` and `scripts/verify-artifacts.ts` are the references:
+  `$` gives you the pipes and globs that made shell worth using, and everything
+  around them is a typed language with real arrays, real errors and a stack
+  trace. Repository chores are full of data — manifests, versions, tarball
+  contents, registry answers — and bash is the wrong language for data. The
+  skill is `write-a-repo-script`.
+- **A package's `README.md` is its page on npmjs.** It is published, and it is
+  read by people who will never open this repository: say what the package is,
+  table its subpaths, and write down what will bite a consumer. Ten of the
+  twelve shipped `bun init` boilerplate until 2026-09-06, five of those under
+  the wrong package name.
+
 ## Known state
 
 `bun run test` is **199 pass, 0 fail**. Treat any failure as yours.

@@ -43,6 +43,74 @@ release nothing, and `changeset status` will not ask for anything.
    `develop`. Merging *that* publishes, tags and stops.
 7. **Only then**, bump the dependency in the consumer and open its PR.
 
+## What a changeset has to say
+
+The changeset becomes the changelog entry, and the changelog is read by the two
+people bumping a range in a monorepo six weeks from now. They have the diff
+already. What they do not have is **why the old behaviour was wrong and what
+they will see change.**
+
+Shape — a one-line summary, then the defect, then the fix:
+
+```markdown
+---
+'@nxgt/shared-mongo': minor
+---
+
+Let a service say which principal shape it is given.
+
+`MongoCrudService` hard-coded `Principal`, the caller as the gateway's
+`X-User-*` headers describe them. federation's services are handed
+`TokenPrincipal` and read `uid` and `sub` off it — fields `Principal` does not
+have. Both shapes were kept side by side on purpose; the constructor quietly
+picked one.
+
+It now takes a fourth type parameter, defaulting to `Principal` so nothing that
+compiles today changes.
+```
+
+Rules, in order of how often they are broken:
+
+- **Name the observable symptom.** "52 failing specs in nxgt-federation", "the
+  first consumer to install it died on `Unknown type: \"Void\"`". A changelog
+  entry that only describes the fix cannot be matched against the bug someone
+  is currently looking at.
+- **Say what a consumer must do,** if anything. "Nothing that compiles today
+  changes" is worth writing. So is "every subclass that reads `uid` must now
+  say `TokenPrincipal`."
+- **One changeset per change, not per package.** A changeset lists every package
+  it bumps; two changesets for one change give the changelog two half-stories.
+  Cascading bumps into dependents are added by `changeset version` — do not
+  list them yourself.
+- **Present tense, imperative summary,** matching the commit convention:
+  "Ship the shared GraphQL SDL in the package", not "Shipped" or "Fix for SDL".
+- **No issue numbers, no `@user`, no "as discussed".** The changelog outlives
+  all three.
+- **Bump honestly.** `patch` for a fix, `minor` for anything additive, `major`
+  for a removal or a changed signature. Both monorepos pin with `^`, so a
+  `major` is a manual bump in every consumer and a `minor` arrives on the next
+  `bun update` — which means an accidental behaviour change published as a
+  `patch` reaches production without anybody deciding to take it.
+
+## The documentation that ships with the change
+
+A release moves three kinds of documentation, and which ones depends on what
+the change is:
+
+| Change | Also update |
+| --- | --- |
+| any new or changed public API | the package's **`README.md`** — it is the package's page on npmjs, read by people who will never see this repository |
+| a trap that cost you more than an hour | **`AGENTS.md`**, in the same PR, in the section that owns it |
+| something that changes how a *consumer* works | the consuming repo's `AGENTS.md`, in the consumer PR |
+| a rule a future package must follow | the relevant **skill**, not just `AGENTS.md` — a skill is what gets loaded before the work, `AGENTS.md` is what gets read after the surprise |
+
+`CHANGELOG.md` is generated; never edit it by hand.
+
+The README test: someone lands on the npm page knowing nothing about this
+repository. Do they learn what the package is, which subpaths it has, and what
+will bite them? Ten of the twelve shipped `bun init` boilerplate for a while,
+five of those under the wrong package name.
+
 ## Why step 4 exists
 
 `bun run build` exiting 0 proves very little here. Inside this workspace
