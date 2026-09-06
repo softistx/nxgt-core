@@ -70,7 +70,7 @@ const edgeJwks = {
 	],
 };
 
-/** The claims `apps/ory/config/oathkeeper.yaml` is configured to sign. */
+/** The claims nxgt-ory's `config/oathkeeper.yaml` is configured to sign. */
 function edgeToken(
 	claims: Record<string, unknown>,
 	key = edgeKeys.privateKey,
