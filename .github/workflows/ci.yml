@@ -32,8 +32,32 @@ jobs:
         run: bun run build
       - name: Type checking
         run: bun run typecheck
+      # `@nxgt/shared-mongo`'s migration suite drives a real MongoDB — it asserts
+      # on transactions, so a single-node **replica set** and not a plain
+      # `mongod`. No auth: the URI below is passed in the environment, which
+      # beats `--env-file`, so `.env.test`'s composed one never applies here.
+      - name: Start MongoDB
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for _ in $(seq 30); do
+            docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 })' >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec mongo mongosh --quiet --eval \
+            'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+          for _ in $(seq 30); do
+            docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true && break
+            sleep 1
+          done
+      # Per package, not one `bun test` for the whole workspace. One process for
+      # everything made three test files fail for reasons that were not theirs:
+      # `crypto.subtle` replaced by another file's mock, a mongoose model
+      # compiled twice, and `--env-file` never applied because only the package
+      # script carries it.
       - name: Run tests
-        run: bun test
+        env:
+          MONGODB_URI: mongodb://localhost:27017/shared-mongo-test?replicaSet=rs0
+        run: bun run test
       # The build exits 0 on packages that throw the instant they are imported —
       # it happened three times. This packs them, installs them as a consumer
       # does and imports every declared subpath.

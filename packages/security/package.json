@@ -44,8 +44,9 @@
 	},
 	"scripts": {
 		"build": "bun run ../../build.ts",
-		"typecheck": "tsc --noEmit",
-		"schema:gen": "bun run src/policy/schema/generate.ts && biome check --write src/policy/schema/rules.schema.json"
+		"schema:gen": "bun run src/policy/schema/generate.ts && biome check --write src/policy/schema/rules.schema.json",
+		"test": "bun test src",
+		"typecheck": "tsc --noEmit"
 	},
 	"nxgt": {
 		"entrypoints": [

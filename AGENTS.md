@@ -199,7 +199,7 @@ was deleted. Do not reintroduce it.
 Every package's `exports` map points at `./dist/*`, so a workspace sibling only
 resolves once it has been built. On a clean checkout `bun run typecheck` reports
 around a hundred `TS2307: Cannot find module '@nxgt/…'` — not real errors, just
-an unbuilt tree. `bun test` is in the same position: some specs load a
+an unbuilt tree. `bun run test` is in the same position: some specs load a
 sibling's built output.
 
 Locally this never happens, because a stale `dist/` is always lying around. It
@@ -388,10 +388,24 @@ Inherited from both monorepos and unchanged:
 
 ## Known state
 
-`bun test` is **178 pass / 6 fail / 3 errors** on a clean tree, from the root.
-The six failures are in `shared-storage` — they need a live S3/MinIO, and their
-fixture path (`src/assets/images/...`) is resolved relative to the process's
-working directory, so they only pass when run from inside
-`packages/shared-storage`. The three errors are `MONGODB_URI is required`, and
-need a live MongoDB. Both counts are identical to what `sellix-monorepo` and
-`nxgt-federation` produce on `develop`. Treat any *seventh* failure as yours.
+`bun run test` is **199 pass, 0 fail**. Treat any failure as yours.
+
+That is `bun run --filter '*' test` — **one process per package**, not one
+`bun test` for the whole workspace. Running them together produced 6 failures
+and 3 errors, and not one of them belonged to the test that reported it:
+
+| symptom | actual cause |
+| --- | --- |
+| `crypto.subtle.generateKey is not a function` in `shared-hono` | another file's mock still installed on the global |
+| `OverwriteModelError: Cannot overwrite 'Migration'` | the model module evaluated twice in one process |
+| `MONGODB_URI is required` | `--env-file=.env.test` lives in the package's own `test` script, which the root run never invoked |
+| 6 × `shared-storage` | no S3 configured, plus a fixture path resolved against the working directory |
+
+So each package with specs carries `"test": "bun test src"`, `shared-mongo`
+keeps its `--env-file=.env.test`, the `Migration` model reuses an already
+compiled one, and the S3 suites skip themselves unless all four `S3_*`
+variables are set — infrastructure that is absent is not a failing test.
+
+CI starts a single-node MongoDB **replica set** (the migration suite asserts on
+transactions) and passes `MONGODB_URI` in the environment, which beats
+`--env-file`. There is no S3 in CI, so those suites report as skipped there.

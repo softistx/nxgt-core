@@ -8,7 +8,7 @@
 	"scripts": {
 		"build": "bun run --filter './packages/*' build",
 		"typecheck": "bun run --filter './packages/*' typecheck",
-		"test": "bun test",
+		"test": "bun run --filter '*' test",
 		"check": "biome check",
 		"format": "biome format",
 		"lint": "biome lint",

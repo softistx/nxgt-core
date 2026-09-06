@@ -1,13 +1,18 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { delay } from '@nxgt/shared';
+import { hasS3 } from '../test/has-s3';
 import { StorageService } from './storage.service';
 
-const image = Bun.file('src/assets/images/stylish-spectacles.webp');
-const filename = image.name || '';
+// Resolved from this file, not from the working directory: `bun test` runs from
+// the workspace root, where a relative path lands nowhere.
+const image = Bun.file(
+	new URL('../assets/images/stylish-spectacles.webp', import.meta.url),
+);
+const filename = 'stylish-spectacles.webp';
 
 let service: StorageService;
 
-describe('StorageService', () => {
+describe.skipIf(!hasS3)('StorageService', () => {
 	beforeAll(() => {
 		service = new StorageService();
 	});

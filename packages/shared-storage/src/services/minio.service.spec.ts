@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
+import { hasS3 } from '../test/has-s3';
 import { MinioService } from './minio.service';
 import { StorageService } from './storage.service';
 
-describe('MinioService', () => {
+describe.skipIf(!hasS3)('MinioService', () => {
 	let minio: MinioService;
 	let storage: StorageService;
 

@@ -34,6 +34,7 @@
 	},
 	"scripts": {
 		"build": "bun run ../../build.ts",
+		"test": "bun test src",
 		"typecheck": "tsc --noEmit"
 	},
 	"nxgt": {

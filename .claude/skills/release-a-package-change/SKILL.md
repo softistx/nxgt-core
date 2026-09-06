@@ -30,7 +30,10 @@ release nothing, and `changeset status` will not ask for anything.
    check CI runs, reads changesets through git and does not see an untracked
    one — it will report "no changesets were found" while the file is sitting
    right there.
-3. **`bun run typecheck && bun test && bun run build`.**
+3. **`bun run build && bun run typecheck && bun run test`** — in that order:
+   `exports` points at `dist/`, so an unbuilt tree fails the other two for
+   reasons that are not yours. `bun run test` runs one process per package;
+   never `bun test` from the root, which makes packages break each other.
 4. **`bun run verify:artifacts`.** Not optional, and not covered by the build —
    see below.
 5. **PR into `develop`.** CI runs all of the above plus `changeset status`.
