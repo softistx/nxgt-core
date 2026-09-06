@@ -132,16 +132,55 @@ bun install && bun run smoke.ts   # await import() of all 23 declared subpaths
 This is also the only check that exercises `files`, `exports` and the
 `workspace:*` -> version rewrite that `bun pm pack` performs.
 
-### `link:` dependencies cannot be published
+### `stx-sdk` is named in no manifest here, and that is the fix
 
-`@nxgt/shared-hono` depended on `stx-sdk` through `link:stx-sdk`, which no
-consumer installing from a registry can resolve. It is now an **optional peer
-dependency**, satisfied by the consuming app's own `link:stx-sdk`, plus a
-`devDependency` here so this workspace can typecheck and build. `stx-sdk`,
-`@nxgt/material` and `@nxgt/map` are on no registry; if another package here
-ever needs one, it takes the same shape. `peerDependenciesMeta.optional` is not
-decoration — without it `bun install` tries to fetch `stx-sdk` from npm and
-fails with a 404.
+`@nxgt/shared-hono` and `@nxgt/shared-graphql` import from `stx-sdk`, which is
+published to no registry. Two shapes were tried and both broke a consumer's
+`bun install` with `GET https://registry.npmjs.org/stx-sdk - 404`:
+
+- `devDependencies: {"stx-sdk": "link:stx-sdk"}` — a `link:` shipped inside a
+  tarball. A dependency's devDependencies are supposed to be ignored; a `link:`
+  one is not.
+- `peerDependencies: {"stx-sdk": "*"}` with `peerDependenciesMeta.optional`.
+  **Bun fetches the peer anyway.** This was verified against a real published
+  version whose manifest carried `optional: true` and no devDependency: the
+  install still 404'd. Treat `optional` as advisory in Bun, not as a guarantee.
+
+So neither package names `stx-sdk` at all. Nothing declares it, so nothing
+tries to install it. The types still resolve, because every consumer of these
+two packages already has its own `link:stx-sdk`; the import resolves out of the
+consumer's `node_modules`.
+
+The workspace still has to typecheck, so the `link:stx-sdk` devDependency lives
+in the **root** `package.json`, which is private and never published. Bun
+resolves it through the global link registry, so it must be linked once on any
+machine that builds this repo, and on the self-hosted runner:
+
+```sh
+cd ~/workspace/dev/stx-sdk && bun link
+```
+
+The rule generalises: **no published manifest may name a `link:`, in any
+dependency field** — and a dependency that exists on no registry is better left
+undeclared than declared optional. `@nxgt/material` and `@nxgt/map` are in the
+same situation.
+
+### Why npmjs and not GitHub Packages
+
+Asked and settled; do not reopen it without a new fact. GitHub Packages
+requires the npm scope to equal the repository owner's login, and `@nxgt` is
+unreachable there — the `nxgt` GitHub org has existed since 2017 and is not
+ours. Publishing under `@softistx` was tried, and abandoned for the reason that
+actually decides it: **GitHub Packages demands a token to install, even for a
+public package.** That is a secret in every CI job and every Docker build in
+both monorepos, forever, on the same path where `scripts/build-base.sh` already
+leaked one through `--build-arg`.
+
+npmjs public costs nothing, needs no token to read, and let the `@nxgt` scope
+stay — which is why not one `import` in either monorepo changed.
+
+The repository lives in the `softistx` GitHub org; the npm scope is `@nxgt`.
+On npmjs those are unrelated, so the mismatch is not a mistake.
 
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 

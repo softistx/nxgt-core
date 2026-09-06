@@ -5,12 +5,10 @@ runs:
   using: 'composite'
   steps:
     - name: Install dependencies
+      # No token: @nxgt/* are public on npmjs, and installing them needs no
+      # authentication. Only the release job authenticates, with NPM_TOKEN.
       run: bun i --frozen-lockfile
       shell: bash
-      env:
-        # .npmrc reads the token for npm.pkg.github.com from here. It is needed
-        # even to install: @nxgt/* packages are private.
-        GH_TOKEN: ${{ github.token }}
     - name: Setup Biome
       uses: biomejs/setup-biome@v2
       with:
