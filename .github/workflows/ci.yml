@@ -65,5 +65,12 @@ jobs:
         run: bun run verify:artifacts
       # A change to a package without a changeset is a change that never
       # reaches a consumer: the release workflow has nothing to version.
+      #
+      # Except on the release branch itself. "Version packages" is the PR that
+      # *consumes* the changesets: it rewrites every version, deletes the
+      # `.changeset/*.md` that justified them, and so trips this check on its
+      # own output. Requiring a changeset there would mean requiring one for
+      # the act of releasing.
       - name: Changeset present
+        if: github.head_ref != 'changeset-release/develop'
         run: bun run changeset:status
