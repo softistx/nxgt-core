@@ -18,7 +18,8 @@ function packageRoot() {
 	let dir = dirname(fileURLToPath(import.meta.url));
 	while (!existsSync(join(dir, 'package.json'))) {
 		const parent = dirname(dir);
-		if (parent === dir) throw new Error('@nxgt/shared-graphql: no package root');
+		if (parent === dir)
+			throw new Error('@nxgt/shared-graphql: no package root');
 		dir = parent;
 	}
 	return dir;
