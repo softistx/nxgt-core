@@ -1,11 +1,31 @@
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildSubgraphSchema as buildSubgraphSchemaBase } from '@apollo/subgraph';
 import { loadFilesSync } from '@graphql-tools/load-files';
 import { mergeTypeDefs } from '@graphql-tools/merge';
 import { pruneSchema } from '@graphql-tools/utils';
 import { printSchema } from 'graphql';
 
-export const SHARED_SCHEMA_PATH = join(__dirname, './**/*.graphqls');
+/**
+ * The `.graphqls` this package ships live in `graphql/` at its root, so that
+ * they survive `bun pm pack` — the bundle in `dist/` carries no assets. Their
+ * directory is not at a fixed depth from this file: it is `src/utils` in the
+ * workspace and `dist` in the published bundle, which Bun flattens. Walking up
+ * to the nearest `package.json` finds the package root in both.
+ */
+function packageRoot() {
+	let dir = dirname(fileURLToPath(import.meta.url));
+	while (!existsSync(join(dir, 'package.json'))) {
+		const parent = dirname(dir);
+		if (parent === dir)
+			throw new Error('@nxgt/shared-graphql: no package root');
+		dir = parent;
+	}
+	return dir;
+}
+
+export const SHARED_SCHEMA_PATH = join(packageRoot(), 'graphql/**/*.graphqls');
 
 export function loadTypeDefs(...paths: string[]) {
 	const typeDefs = mergeTypeDefs([
