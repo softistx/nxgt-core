@@ -63,9 +63,14 @@ All of them are in `AGENTS.md` with the detail; the short forms:
   `peerDependenciesMeta.optional` does **not** stop Bun installing a peer.
 - **`typescript` stays `^6.0.3` across all twelve.** Raising it in one package
   makes the set unsatisfiable and breaks `@nxgt/shared-openapi` at import.
-- **There is no `.npmrc` in this repository, deliberately.** A committed one
-  expands `${NPM_TOKEN}` to an empty string wherever the variable is unset and
-  silently defeats `npm login`.
+- **Registry config lives in `bunfig.toml`, never a `.npmrc`.** A committed
+  `.npmrc` expands `${NPM_TOKEN}` to an empty string wherever the variable is
+  unset, sends it as an `Authorization` header, and gets a 401 — defeating
+  `npm login` inside the repo only. `bunfig` omits the credential instead, and
+  public installs keep working.
+- **Publishing needs a *granular* access token.** npm rejects classic tokens for
+  publishing even when the account has no 2FA, with a message about 2FA that
+  reads like an account problem. A classic token still passes `whoami`.
 - **Deliberate duplication** — `paginate`/`paginateOffset`,
   `Principal`/`TokenPrincipal`, the two filter DSLs,
   `objectIdFromString`/`toObjectId`. Do not converge them as a side effect of
@@ -79,8 +84,11 @@ or `yarn`: the lockfile is `bun.lock`, the workspace protocol resolution that
 and `verify:artifacts` reproduces a Bun install specifically. Mixing package
 managers here produces artifacts that differ from what consumers get.
 
-`npm` is used for exactly one thing: `npm config set` / `npm login`, to put a
-publish credential in `~/.npmrc`, because that file is where Bun reads it from.
+This extends to the release itself. `changeset version` stays — it only writes
+versions and changelogs — but `changeset publish` shells out to npm, so
+`scripts/publish.ts` replaces it: dependency order, skip anything already on the
+registry, `bun publish` for the rest. `npm` is not used at all; the credential
+comes from `$NPM_TOKEN` through `bunfig.toml`.
 
 ## Trying a change without releasing
 

@@ -165,18 +165,55 @@ dependency field** — and a dependency that exists on no registry is better lef
 undeclared than declared optional. `@nxgt/material` and `@nxgt/map` are in the
 same situation.
 
-### There is no `.npmrc` in this repository, on purpose
+### Registry configuration lives in `bunfig.toml`, never in `.npmrc`
 
-Installing `@nxgt/*` needs no authentication, so a consumer needs none. And a
-*committed* `.npmrc` carrying `//registry.npmjs.org/:_authToken=${NPM_TOKEN}`
-is actively harmful: on any machine where `NPM_TOKEN` is unset it expands to an
-**empty** token, and a project `.npmrc` overrides the user one — so `npm login`
-silently stops working inside the repo. It shows up as a 401 that reads like
-bad credentials, while `npm whoami` from the parent directory answers fine.
+Bun is the package manager here, so `bunfig.toml` is where the registry and the
+publish credential are declared:
 
-The release workflow writes `~/.npmrc` from the `NPM_TOKEN` secret at publish
-time. Nothing else needs it. If you add an `.npmrc` here, you are almost
-certainly reintroducing this.
+```toml
+[install.scopes]
+"@nxgt" = { url = "https://registry.npmjs.org", token = "$NPM_TOKEN" }
+```
+
+Installing `@nxgt/*` needs no credential at all — they are public — and with
+`$NPM_TOKEN` unset Bun simply omits it and installs fine. That was measured, not
+assumed.
+
+A `.npmrc` gets the same job wrong in a way that is hard to diagnose. There,
+`//registry.npmjs.org/:_authToken=${NPM_TOKEN}` with the variable unset expands
+to an **empty** token, which is sent as an `Authorization` header and answered
+with `401 Unauthorized` — and because a project `.npmrc` overrides the user one,
+being logged in through `npm login` stops working *inside the repo only*, while
+the same command one directory up succeeds. This repository had that file and it
+was deleted. Do not reintroduce it.
+
+### Publishing needs a granular access token
+
+npm no longer accepts a classic token for publishing, whatever the account's
+2FA setting. The failure is explicit:
+
+```
+403 Forbidden — Two-factor authentication or granular access token with
+bypass 2fa enabled is required to publish packages.
+```
+
+A classic token still authenticates for *reads* (`/-/whoami` answers), which
+makes this look like a permissions problem when it is a token-type problem.
+Generate a **Granular Access Token** on npmjs with read and write on the `@nxgt`
+scope, and put it in `NPM_TOKEN` — in the environment locally, and in the
+repository's `NPM_TOKEN` secret for CI.
+
+### `bun publish`, not `changeset publish`
+
+`changeset version` does the versioning and the changelogs — pure bookkeeping,
+it touches no registry, and it stays. But `changeset publish` shells out to
+**npm**, which would publish with a different package manager than the one
+everything here is built and verified against.
+
+So `scripts/publish.ts` does it: dependency order, skips any version already on
+the registry, and `bun publish` for the rest. It prints `New tag: <name>@<v>`
+for each publish, which is the line `changesets/action` parses to create GitHub
+releases — do not change that format without checking it.
 
 ### Why npmjs and not GitHub Packages
 
