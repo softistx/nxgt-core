@@ -26,6 +26,10 @@ release nothing, and `changeset status` will not ask for anything.
    remembering that both monorepos pin with `^`, so a `major` is a manual bump
    in every consumer.
    If the change genuinely releases nothing, `bun changeset --empty` and say why.
+   **Commit the changeset file.** `changeset status --since=origin/develop`, the
+   check CI runs, reads changesets through git and does not see an untracked
+   one — it will report "no changesets were found" while the file is sitting
+   right there.
 3. **`bun run typecheck && bun test && bun run build`.**
 4. **`bun run verify:artifacts`.** Not optional, and not covered by the build —
    see below.
