@@ -116,8 +116,9 @@ try {
 	const hasStxSdk = await Bun.file(join(stxSdk, 'package.json')).exists();
 	if (!hasStxSdk) {
 		console.warn(
-			`warning: ${stxSdk} not found — the four subpaths that import stx-sdk\n` +
-				'         will fail here for a reason no consumer would hit.\n',
+			`warning: ${stxSdk} not found — the subpaths that import stx-sdk will be\n` +
+				'         skipped. Every consumer supplies it through its own\n' +
+				'         link:stx-sdk, so this is an absence here, not a defect.\n',
 		);
 	}
 
@@ -154,17 +155,26 @@ try {
 
 	const subpaths = packages.flatMap((p) => p.subpaths);
 	console.log(`Importing ${subpaths.length} declared subpaths…\n`);
+	// Without a local stx-sdk checkout — a GitHub-hosted runner, for one — the
+	// four subpaths that import it cannot load, for a reason no consumer can
+	// hit. Those are reported as skipped, not failed. Every other failure still
+	// fails, including a different error from those same subpaths.
 	const probe = subpaths
 		.map(
 			(s) =>
 				`try { const m = await import(${JSON.stringify(s)});` +
-				` console.log("  ok   ${s.padEnd(40)}" + Object.keys(m).length + " exports"); }` +
-				` catch (e) { failed++; console.log("  FAIL ${s.padEnd(40)}" + e.message.split("\\n")[0]); }`,
+				` console.log("  ok      ${s.padEnd(40)}" + Object.keys(m).length + " exports"); }` +
+				' catch (e) {' +
+				`  if (${!hasStxSdk} && /Cannot find package 'stx-sdk'/.test(e.message))` +
+				`   { skipped++; console.log("  skip    ${s.padEnd(40)}needs a local stx-sdk checkout"); }` +
+				`  else { failed++; console.log("  FAIL    ${s.padEnd(40)}" + e.message.split("\\n")[0]); } }`,
 		)
 		.join('\n');
 	await Bun.write(
 		join(workdir, 'probe.mjs'),
-		`let failed = 0;\n${probe}\nprocess.exit(failed);\n`,
+		`let failed = 0;\nlet skipped = 0;\n${probe}\n` +
+			'if (skipped > 0) console.log(`\\n${skipped} subpath(s) skipped.`);\n' +
+			'process.exit(failed);\n',
 	);
 
 	const result = await $`bun run probe.mjs`.cwd(workdir).nothrow();
@@ -175,7 +185,12 @@ try {
 		);
 		process.exit(1);
 	}
-	console.log(`\nAll ${subpaths.length} subpaths load.`);
+	console.log(
+		hasStxSdk
+			? `\nAll ${subpaths.length} subpaths load.`
+			: `\nEvery subpath that could be checked here loads (${subpaths.length} declared,\n` +
+					'those needing stx-sdk skipped).',
+	);
 } finally {
 	await rm(workdir, { recursive: true, force: true });
 }

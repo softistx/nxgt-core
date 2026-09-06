@@ -187,6 +187,18 @@ being logged in through `npm login` stops working *inside the repo only*, while
 the same command one directory up succeeds. This repository had that file and it
 was deleted. Do not reintroduce it.
 
+### CI runs on GitHub-hosted runners, unlike the private repos
+
+`nxgt-material` and `stx-sdk` use `runs-on: self-hosted` because they are
+private and minutes are metered. This repository is public, so GitHub-hosted
+minutes are free — and the estate's single self-hosted runner is a VPS that is
+not always online. CI here sat queued for an hour behind it before the switch.
+Do not copy `self-hosted` in from a sibling repo.
+
+The consequence for `verify:artifacts`: a hosted runner has no sibling
+`../stx-sdk` checkout, so the subpaths importing it are reported **skipped**
+rather than failed. A different error from those same subpaths still fails.
+
 ### Publishing needs a granular access token
 
 npm no longer accepts a classic token for publishing, whatever the account's

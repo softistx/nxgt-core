@@ -7,7 +7,11 @@ on:
 jobs:
   ci:
     name: CI
-    runs-on: self-hosted
+    # GitHub-hosted: this repository is public, so the minutes are free and
+    # unlimited. The self-hosted runner the private repos use is a single
+    # VPS that is not always online — CI here sat queued for an hour behind
+    # it before this changed.
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
