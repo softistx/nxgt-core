@@ -77,13 +77,15 @@ All of them are in `AGENTS.md` with the detail; the short forms:
   unset, sends it as an `Authorization` header, and gets a 401 — defeating
   `npm login` inside the repo only. `bunfig` omits the credential instead, and
   public installs keep working.
-- **Publishing needs a *granular* access token, scoped to `@nxgt`.** npm rejects
-  classic tokens for publishing even when the account has no 2FA, with a message
-  about 2FA that reads like an account problem — and a classic token still
-  passes `whoami`, so it looks valid. When creating the granular one, select the
-  **scope**, not packages: on a first release none exist to select, so the token
-  is issued covering nothing and publishing fails with a `404 … does not exist
-  in this registry` that reads like a missing package.
+- **Publishing needs a *granular* access token, scoped to `@nxgt`,** and no
+  read-only endpoint will tell you which kind you hold — a granular token
+  answers `/-/whoami` with the username just like a classic one. The only test
+  for "can this token publish" is a publish; `scripts/publish.ts` skips what is
+  already released, so re-running it is free. `403 … two-factor authentication`
+  means the token is classic; `404 … does not exist in this registry` means it
+  is granular but covers no packages — on a first release you must select the
+  **scope**, since no package exists to select. And check `~/.npmrc` and
+  `$NPM_TOKEN` agree, by hash, before blaming permissions.
 - **Deliberate duplication** — `paginate`/`paginateOffset`,
   `Principal`/`TokenPrincipal`, the two filter DSLs,
   `objectIdFromString`/`toObjectId`. Do not converge them as a side effect of

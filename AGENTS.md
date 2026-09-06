@@ -221,7 +221,7 @@ The consequence for `verify:artifacts`: a hosted runner has no sibling
 `../stx-sdk` checkout, so the subpaths importing it are reported **skipped**
 rather than failed. A different error from those same subpaths still fails.
 
-### Publishing needs a granular access token
+### Publishing needs a granular access token, and you cannot tell by looking
 
 npm no longer accepts a classic token for publishing, whatever the account's
 2FA setting. The failure is explicit:
@@ -231,26 +231,53 @@ npm no longer accepts a classic token for publishing, whatever the account's
 bypass 2fa enabled is required to publish packages.
 ```
 
-A classic token still authenticates for *reads* (`/-/whoami` answers), which
-makes this look like a permissions problem when it is a token-type problem.
-Generate a **Granular Access Token** on npmjs and put it in `NPM_TOKEN` — in the
-environment locally, and in the repository's `NPM_TOKEN` secret for CI.
+Generate a **Granular Access Token** on npmjs and put it in `NPM_TOKEN` — in
+the environment locally, and in the `NPM_TOKEN` secret for CI.
 
-Two ways to tell the tokens apart, since both are 40 characters starting
-`npm_` and nothing else distinguishes them:
+**There is no read-only probe that classifies a token.** An earlier version of
+this file claimed `GET /-/npm/v1/tokens` answers `200` for a classic token and
+`401` for a granular one. It does not: the granular token that published the
+twelve answers `200` there and returns its username from `/-/whoami`, exactly
+like a classic one. That table sent two diagnoses down the wrong path, and it
+is gone. Both token types are 40 characters starting `npm_`, and the only
+statement those endpoints support is a negative one:
 
-| | classic | granular |
-| --- | --- | --- |
-| `GET /-/npm/v1/tokens` | `200` | `401` |
-| `GET /-/whoami` | the username | `{}` or `401` |
+| observation | what it actually means |
+| --- | --- |
+| `401` on `/-/whoami` | the token is dead — revoked, expired, or not a token at all |
+| `200` with a username | the token authenticates. Nothing more. Not its type, not what it may write |
+
+So **the only test for "can this token publish" is a publish.** `bun publish
+--dry-run` does not authenticate, so it proves nothing here. Run
+`scripts/publish.ts`: it skips anything already on the registry, so it is safe
+to re-run, and it names the two failures that mean something:
+
+- `403 … two-factor authentication or granular access token` — the token is
+  classic. Generate a granular one.
+- `404 … does not exist in this registry` — the token is granular but has no
+  write permission on that name. Fix the scope selection, below.
 
 **When creating the granular token, select the *scope*, not packages.** Under
 *Packages and scopes* → *Read and write*, choosing "only select packages" and
 searching for `@nxgt/…` finds nothing on a first release — none are published
-yet — so the token is issued covering zero packages. It then fails with
-`404 Not Found: '@nxgt/x@1.0.0' does not exist in this registry`, which reads
-like the package is missing rather than like a permission it never had. Pick
-**All packages**, or add the `@nxgt` **scope** entry.
+yet — so the token is issued covering zero packages, and every publish 404s in
+a way that reads like a missing package. Pick **All packages**, or add the
+`@nxgt` **scope** entry.
+
+**Check which token you are actually sending.** `~/.npmrc` and `$NPM_TOKEN` can
+hold different values, one of them stale, and the publish path reads the
+environment through `bunfig.toml`. Compare them by hash before concluding
+anything about permissions — never by printing them:
+
+```sh
+printf %s "$NPM_TOKEN" | sha256sum | cut -c1-12
+```
+
+An hour went into "the token has no scope" when the truth was that the two
+files disagreed and the dead one was being read. Note also that a `.npmrc`
+written as `_authToken=$NPM_TOKEN` is expanded by **Bun** but not by **npm**,
+which needs `${NPM_TOKEN}` — so the same file can work for `bun publish` and
+401 for every `npm` command.
 
 ### `bun publish`, not `changeset publish`
 
