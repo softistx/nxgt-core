@@ -57,6 +57,3 @@ export function createMcpServerApp(
 	});
 	return app;
 }
-
-export * from '@modelcontextprotocol/hono';
-export * from '@modelcontextprotocol/server';

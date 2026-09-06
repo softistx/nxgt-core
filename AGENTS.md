@@ -86,32 +86,51 @@ duplicate of `src/types/hono.d.ts`, and it was deleted.
 ### `export * from` a dependency only works at an entry point
 
 Bun's bundler mis-compiles a star re-export of an **external** package when it
-sits in a module the entry then re-exports. `src/mongoose.ts` used to be
+sits in a module below the entry point. It emits a `__reExport(ns, x)` whose
+`x` is never declared, so the built file throws a `ReferenceError` the moment
+it is imported — before any of its own code runs — while `bun run build` exits
+0. It bit two packages here:
 
-```ts
-import mongoose from 'mongoose';
-export * from 'mongoose';   // <- the trap
-export { mongoose };
+| package | was | threw |
+| --- | --- | --- |
+| `@nxgt/shared-mongo` | `export * from 'mongoose'` in `src/mongoose.ts` | `mongoose2 is not defined` |
+| `@nxgt/shared-hono/mcp` | `export * from '@modelcontextprotocol/{hono,server}'` in `src/mcp/helpers.ts` | `hono is not defined` |
+
+**The rule: every `export * from '<external package>'` must live in a file
+listed in that package's `nxgt.entrypoints`.** In an entry point Bun emits a
+plain `export * from "..."` passthrough and everything works. Both were fixed by
+moving the line up into the entry, not by changing what is exported.
+
+A corollary for `@nxgt/shared-mongo`: inside this package, import mongoose's own
+types from `'mongoose'` directly. The `@nxgt/shared-mongo` import rule is for
+*consumers*; routing internal type imports through `../mongoose` is what forced
+the star re-export down below the entry in the first place.
+
+To audit the rule:
+
+```sh
+grep -rn --include='*.ts' "^export \* from '[^.]" packages/*/src/
 ```
 
-and `dist/index.js` came out with `__reExport(exports_mongoose, mongoose2)`
-where `mongoose2` is never declared — so the published package threw
-`ReferenceError: mongoose2 is not defined` on import, before any of its code
-ran. `bun run build` reported success; nothing but actually importing `dist/`
-catches it. It surfaced here only because `shared-graphql`'s specs load
-`shared-mongo`'s built output.
+Every hit must be an entry point.
 
-The fix is to keep the star re-export **in the entry point itself**, where Bun
-emits a plain `export * from "mongoose"` passthrough. `src/index.ts` carries
-`export * from 'mongoose'`; `src/mongoose.ts` is now only the default-import
-shim that gives the rest of the package the `mongoose` namespace object. Inside
-this package, import mongoose's own types from `'mongoose'` directly — the
-`@nxgt/shared-mongo` import rule is for *consumers*, and routing internal type
-imports through `../mongoose` is what made the trap reachable.
+### A build that exits 0 is not evidence the artifact loads
 
-After touching any `export *` of a third-party package, run
-`bun -e "await import('./packages/<pkg>/dist/index.js')"`. A build that exits 0
-is not evidence the artifact loads.
+Neither defect above was visible to `bun run build`, `bun typecheck` or `biome`.
+Only importing the built output catches them, and the workspace never imports
+it — `@nxgt/*` resolves to `src/` here.
+
+So before releasing, install the packages the way a consumer does and load them:
+
+```sh
+for d in packages/*/; do (cd "$d" && bun pm pack --destination /tmp/probe/tarballs); done
+# a scratch package.json depending on the twelve tarballs, with `overrides`
+# pointing every @nxgt/* at its tarball so transitive ones resolve locally too
+bun install && bun run smoke.ts   # await import() of all 23 declared subpaths
+```
+
+This is also the only check that exercises `files`, `exports` and the
+`workspace:*` -> version rewrite that `bun pm pack` performs.
 
 ### `link:` dependencies cannot be published
 
@@ -123,6 +142,16 @@ dependency**, satisfied by the consuming app's own `link:stx-sdk`, plus a
 ever needs one, it takes the same shape. `peerDependenciesMeta.optional` is not
 decoration — without it `bun install` tries to fetch `stx-sdk` from npm and
 fails with a 404.
+
+### `typescript` is a peer, pinned to 6, and it is load-bearing
+
+All twelve declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+`~7.0.2`, which is not a preference difference — the ranges are mutually
+unsatisfiable, so a consumer installing the set gets a peer conflict, and if
+TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
+`ts.factory.createTypeReferenceNode(...)` at module scope, and TS 7's default
+export has no `.factory`. Every app in both monorepos builds on 6.0.3. Do not
+raise this range in one package alone.
 
 ## Releasing, and what it means for a consumer
 

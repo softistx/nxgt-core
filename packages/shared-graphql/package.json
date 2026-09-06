@@ -79,7 +79,7 @@
 		"stx-sdk": "link:stx-sdk"
 	},
 	"peerDependencies": {
-		"typescript": "~7.0.2",
+		"typescript": "^6.0.3",
 		"stx-sdk": "*"
 	},
 	"peerDependenciesMeta": {
