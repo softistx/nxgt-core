@@ -313,6 +313,11 @@ releasing, its own switch has to be turned on too.
 CI skips the changeset check on `changeset-release/develop`, since that is the
 branch that consumes them.
 
+**An empty changeset will not test any of this.** `changesets/action` logs
+`All changesets are empty; not creating PR` and stops before it versions,
+pushes or opens anything — so the step that used to fail is never reached. The
+only test is a real release.
+
 ### `bun publish`, not `changeset publish`
 
 `changeset version` does the versioning and the changelogs — pure bookkeeping,
