@@ -2,7 +2,7 @@ import type {
 	GraphqlEvaluateInput,
 	RestEvaluateInput,
 	Rules,
-} from '@nxgt/shared/policy';
+} from '@nxgt/security/policy';
 import { evaluateFromRules } from './exaluation.utils';
 import type { EvaluateResponse } from './policy.types';
 

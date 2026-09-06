@@ -15,6 +15,11 @@
 			"import": "./dist/index.js",
 			"default": "./dist/index.js"
 		},
+		"./filters": {
+			"types": "./dist/filters/index.d.ts",
+			"import": "./dist/filters/index.js",
+			"default": "./dist/filters/index.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"repository": {
@@ -33,7 +38,8 @@
 	},
 	"nxgt": {
 		"entrypoints": [
-			"src/index.ts"
+			"src/index.ts",
+			"src/filters/index.ts"
 		]
 	},
 	"dependencies": {

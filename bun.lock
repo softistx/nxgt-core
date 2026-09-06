@@ -70,6 +70,8 @@
       "version": "1.0.0",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
+        "@nxgt/shared-events": "workspace:*",
+        "@nxgt/shared-logging": "workspace:*",
         "bullmq": "^6.1.1",
         "camelcase-keys": "^10.0.2",
         "croner": "^10.0.1",
@@ -133,6 +135,7 @@
         "@graphql-yoga/redis-event-target": "^3.0.3",
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/i18n": "workspace:*",
+        "@nxgt/security": "workspace:*",
         "@nxgt/shared": "workspace:*",
         "@nxgt/shared-exceptions": "workspace:*",
         "@nxgt/shared-logging": "workspace:*",
@@ -169,6 +172,9 @@
       "name": "@nxgt/shared-hono",
       "version": "1.0.0",
       "dependencies": {
+        "@hono/zod-validator": "^0.9.0",
+        "@modelcontextprotocol/hono": "^2.0.0",
+        "@modelcontextprotocol/server": "^2.0.0",
         "@nxgt/i18n": "workspace:*",
         "@nxgt/shared": "workspace:*",
         "@nxgt/shared-exceptions": "workspace:*",
@@ -675,6 +681,12 @@
     "@manypkg/get-packages": ["@manypkg/get-packages@3.1.0", "", { "dependencies": { "@manypkg/find-root": "^3.1.0", "@manypkg/tools": "^2.1.0" } }, "sha512-0TbBVyvPrP7xGYBI/cP8UP+yl/z+HtbTttAD7FMAJgn/kXOTwh5/60TsqP9ZYY710forNfyV0N8P/IE/ujGZJg=="],
 
     "@manypkg/tools": ["@manypkg/tools@2.1.2", "", { "dependencies": { "jju": "^1.4.0", "tinyglobby": "^0.2.13", "yaml": "^2.9.0" } }, "sha512-6QEf6yqFbETdwGITKq57aYoPfX/3K8XFNwsAlx0C1M7o8cb79sv1M3w+tWuWvIcSbNqrLF7OD7YpZMVVz335hQ=="],
+
+    "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.0.0", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA=="],
+
+    "@modelcontextprotocol/hono": ["@modelcontextprotocol/hono@2.0.0", "", { "peerDependencies": { "@modelcontextprotocol/server": "^2.0.0", "hono": "^4.11.4" } }, "sha512-lKCSXRusLxpX63G+6og9ewcRkqVbjB2xSxpvU/VJhxcUkpvGgpDrmcgNRQ4dTapGr8AspNFdRBdmJc500Vhl/A=="],
+
+    "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.0.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.0.0", "zod": "^4.2.0" } }, "sha512-YhHWdHfpFMQfd0prsEnxKeS3Qz3ytIGmsS0sth4KDjnacIT7hxk6hXHkJ9KysxlkvTM+WZAtQbbcUhdoP4Hvtw=="],
 
     "@mongodb-js/saslprep": ["@mongodb-js/saslprep@1.5.0", "", { "dependencies": { "sparse-bitfield": "^3.0.3" } }, "sha512-Hk1SKJCMcCos38+vqDnZzlIo4XRj9yCGzYkjB4LcqpeXRIYfia1UWTz+VrueLxoU+uSRJzgkufxoRZg8gi52YA=="],
 

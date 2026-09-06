@@ -1,4 +1,4 @@
-import type { Principal } from '@nxgt/shared';
+import type { TokenPrincipal } from '@nxgt/shared';
 import { GraphQLError } from 'graphql';
 import type { Plugin } from 'graphql-yoga';
 import {
@@ -20,7 +20,7 @@ export type OryContext = {
 };
 
 /**
- * The repo-wide Principal an Ory principal becomes.
+ * The repo-wide TokenPrincipal an Ory principal becomes.
  *
  * `sub` and `uid` are both the Ory subject — a Kratos identity id for a
  * session or a person's token, the client id for a `client_credentials`
@@ -29,7 +29,7 @@ export type OryContext = {
  * object, and an empty list is what keeps `@policy` / `useGenericAuth`'s
  * policy extraction from granting anything by accident.
  */
-export function toPrincipal(ory: OryPrincipal): Principal {
+export function toPrincipal(ory: OryPrincipal): TokenPrincipal {
 	const email = ory.identity?.email;
 	return {
 		sub: ory.subject,
@@ -71,7 +71,7 @@ export function oryUnavailableError(error: OryUnavailable): GraphQLError {
 export async function resolveOryPrincipal(
 	ory: Ory,
 	headers: Headers,
-): Promise<OryContext & { user?: Principal; token?: string }> {
+): Promise<OryContext & { user?: TokenPrincipal; token?: string }> {
 	let principal: OryPrincipal | null;
 	try {
 		principal = await ory.resolve(headers);

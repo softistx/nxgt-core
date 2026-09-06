@@ -97,7 +97,11 @@ export class GridFSService {
 
 		// Determine limit and sort order
 		const limit = Math.min(first ?? last ?? MAX_SIZE, MAX_SIZE);
-		const querySort: { _id: 1 | -1 } = { _id: last || before ? -1 : 1 };
+		// Only `last` flips the read order. sellix-monorepo flipped it for
+		// `before` too and then never reversed the result back, so a
+		// `before`-only page came out newest-first while every other page came
+		// out oldest-first.
+		const querySort: { _id: 1 | -1 } = { _id: last ? -1 : 1 };
 
 		// Build query
 		const bucket = this.bucket(options);
@@ -109,8 +113,11 @@ export class GridFSService {
 		const docs = await query.toArray();
 
 		// If using 'last', reverse the results back to normal order
-		const hasExtraDoc = docs.length > (limit as number);
+		const hasExtraDoc = docs.length > limit;
 		const resultDocs = hasExtraDoc ? docs.slice(0, limit) : docs;
+		if (last) {
+			resultDocs.reverse();
+		}
 
 		// Get total count
 		const totalElements = await bucket.find(filter ?? {}).count();

@@ -4,6 +4,8 @@ import { logger } from '@nxgt/shared-logging';
 import { isNil } from 'lodash';
 import type { Model, PipelineStage, QueryFilter, UpdateQuery } from 'mongoose';
 import mongoose from 'mongoose';
+import type { Populated } from './models';
+import { isValidObjectID } from './object-id.utils';
 
 /** Whether `name` currently exists as a *view* rather than as a collection. */
 async function isView(name: string): Promise<boolean> {
@@ -103,6 +105,47 @@ export async function safeCreateView<T, R>(
  * @param filter - Extra conditions the referenced items must satisfy.
  * @returns The resulting list of ids, or undefined when there is nothing to change.
  */
+/**
+ * Applies a list patch to a plain list of strings.
+ *
+ * Synchronous, and therefore purely syntactic: unlike
+ * {@link resolveListStringPatch} it does not ask the database whether the ids
+ * exist, so an unknown id survives here where the async one drops it. Use this
+ * when the caller has already established what the ids are.
+ */
+export function patchListString(
+	list: string[] = [],
+	patch?: ListStringPatch | null,
+) {
+	if (!patch) {
+		return list;
+	}
+	const add = patch.add ?? [];
+	const remove = patch.remove ?? [];
+	const replace = patch.replace ?? [];
+	let result = [...list, ...add];
+	result = result.filter((item) => !remove.includes(item));
+	if (replace.length) {
+		result = replace;
+	}
+	return Array.from(new Set(result));
+}
+
+/** {@link patchListString} over a path holding ObjectIds or populated docs. */
+export function patchListObjectId(
+	list: mongoose.Types.ObjectId[] | Populated<any>[] = [],
+	patch?: ListStringPatch | null,
+) {
+	const values = list.map((item) =>
+		item instanceof mongoose.Types.ObjectId
+			? item.toHexString()
+			: item._id.toHexString(),
+	);
+	return patchListString(values, patch)
+		.filter(isValidObjectID)
+		.map((id) => new mongoose.Types.ObjectId(id));
+}
+
 export async function resolveListStringPatch<T>(
 	current: unknown,
 	model: Model<T, any, any, any, any, any, any>,
@@ -117,7 +160,9 @@ export async function resolveListStringPatch<T>(
 		return undefined;
 	}
 
-	const idsOf = async (ids?: string[]) =>
+	// ListStringPatch's fields are nullable, so null reaches here as well as
+	// undefined; the length guard below answers for both.
+	const idsOf = async (ids?: string[] | null) =>
 		ids?.length
 			? (await model.find({ _id: ids, ...filter }).exec()).map(
 					(item: { _id: unknown }) => String(item._id),

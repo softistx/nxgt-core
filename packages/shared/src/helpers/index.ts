@@ -1,6 +1,7 @@
 export * from './audit';
 export * from './cron.utils';
 export * from './date.utils';
+export * from './date-filter.utils';
 export * from './functions.utils';
 export * from './handlebars.utils';
 export * from './jwt.utils';
@@ -16,5 +17,6 @@ export * from './regex.utils';
 export * from './request.utils';
 export * from './scope.utils';
 export * from './server.utils';
+export * from './sort.utils';
 export * from './strings.utils';
 export * from './url.utils';

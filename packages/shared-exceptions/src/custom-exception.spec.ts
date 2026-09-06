@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { CustomException } from './custom-exception';
 import { ErrorCode } from './error-code';
+import type { StatusCode } from './status';
 
 /**
  * Neither repository had a test for this class, and the two had forked its
@@ -56,13 +57,18 @@ describe('CustomException', () => {
 	});
 
 	describe('the two codes never disagree', () => {
-		it.each([
+		it('maps ValidationError to 400, the status federation already answered', () => {
+			expect(
+				new CustomException({ code: ErrorCode.ValidationError }).code,
+			).toBe(400);
+		});
+
+		it.each<[StatusCode, ErrorCode]>([
 			[400, ErrorCode.BadRequest],
 			[401, ErrorCode.Unauthenticated],
 			[403, ErrorCode.Forbidden],
 			[404, ErrorCode.NotFound],
 			[409, ErrorCode.Conflict],
-			[422, ErrorCode.ValidationError],
 			[500, ErrorCode.InternalServerError],
 			[503, ErrorCode.ServiceUnavailable],
 		])('maps %i both ways', (status, errorCode) => {
@@ -84,7 +90,7 @@ describe('CustomException', () => {
 	describe('factories from both sides survive', () => {
 		it.each([
 			['badRequest', 400],
-			['validationError', 422],
+			['validationError', 400],
 			['unauthenticated', 401],
 			['unauthorized', 401],
 			['forbidden', 403],

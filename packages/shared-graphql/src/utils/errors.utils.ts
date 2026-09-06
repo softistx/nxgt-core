@@ -49,12 +49,12 @@ export function createFormatError<
 			return {
 				...formattedError,
 				message:
-					exception.code === ErrorCode.ValidationError
+					exception.errorCode === ErrorCode.ValidationError
 						? exception.message
 						: translate(exception.message as K, exception.options),
 				extensions: {
 					...formattedError.extensions,
-					code: exception.code,
+					code: exception.errorCode,
 					debugMessage: exception.debugMessage,
 				},
 			};
@@ -140,14 +140,15 @@ export function createMaskError<K extends LocaleKey>(
 				original instanceof mongoose.MongooseError
 					? MONGO_UTILS.castError(original)
 					: (original as CustomException);
-			const status = HTTP_STATUS_BY_CODE[exception.code];
+			// The exception carries the status itself now.
+			const status = exception.code;
 			return new GraphQLError(
-				exception.code === ErrorCode.ValidationError
+				exception.errorCode === ErrorCode.ValidationError
 					? exception.message
 					: translate(exception.message as K, exception.options),
 				{
 					extensions: {
-						code: exception.code,
+						code: exception.errorCode,
 						...(status ? { http: { status } } : {}),
 						...(exception.debugMessage
 							? { debugMessage: exception.debugMessage }

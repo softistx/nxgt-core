@@ -1,3 +1,4 @@
+import type { GraphQLScalarType } from 'graphql';
 import {
 	AccountNumberResolver,
 	BigIntResolver,
@@ -54,7 +55,7 @@ import {
 } from 'graphql-scalars';
 import { createScalarFrom } from './utils';
 
-export const CUSTOM_SCALARS = {
+export const CUSTOM_SCALARS: Record<string, GraphQLScalarType> = {
 	AccountNumber: createScalarFrom(AccountNumberResolver, {
 		errorMessage: 'validation.errors.invalid-account-number',
 	}),

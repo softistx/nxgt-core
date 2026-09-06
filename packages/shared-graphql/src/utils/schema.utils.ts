@@ -35,6 +35,6 @@ export function buildSubgraphSchema(
 export async function generateSchema(output: string, ...paths: string[]) {
 	await Bun.write(
 		output,
-		printSchema(buildSubgraphSchema({ typeDefs: loadTypeDefs(...paths) })),
+		printSchema(buildSubgraphSchema(loadTypeDefs(...paths))),
 	);
 }

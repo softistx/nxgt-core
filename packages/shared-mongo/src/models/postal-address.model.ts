@@ -6,7 +6,7 @@ export type PostalAddress = {
 	locality?: string;
 	region?: string;
 	postalCode?: string;
-	country?: string; // ISO 3166-1 alpha-2
+	country?: string; // ISO 3166-1 alpha-2, validated at the GraphQL layer via CountryCode
 };
 
 export const PostalAddressSchema = new Schema<PostalAddress>(

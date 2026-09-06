@@ -1,7 +1,14 @@
+import { CustomException } from '@nxgt/shared-exceptions';
 import { Model, type Schema } from 'mongoose';
 
 export function applySoftDeleteOperations(schema: Schema) {
 	schema.static('softDeleteById', async function () {
+		const exists = await this.exists({
+			_id: arguments?.[0],
+			deleted: { $ne: true },
+		});
+		if (!exists)
+			throw CustomException.notFound({ message: 'errors.not-found' });
 		return this.findOneAndUpdate(
 			{
 				_id: arguments?.[0],
@@ -12,6 +19,9 @@ export function applySoftDeleteOperations(schema: Schema) {
 		);
 	});
 	schema.static('restoreById', async function () {
+		const exists = await this.exists({ _id: arguments?.[0], deleted: true });
+		if (!exists)
+			throw CustomException.notFound({ message: 'errors.not-found' });
 		return this.findOneAndUpdate(
 			{
 				_id: arguments?.[0],

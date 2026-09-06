@@ -17,6 +17,7 @@ export const MONGO_UTILS = {
 		toJSON: { virtuals: true, versionKey: true },
 		timestamps: { createdAt: 'createdDate', updatedAt: 'lastModifiedDate' },
 		versionKey: 'version',
+		optimisticConcurrency: true,
 	},
 	auditPipeline: [
 		{

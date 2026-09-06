@@ -83,6 +83,36 @@ would overwrite something `tsc` emitted: that means a `.d.ts` sits next to a
 an ambient file. `shared-logging/src/logger.d.ts` was exactly that, a dead
 duplicate of `src/types/hono.d.ts`, and it was deleted.
 
+### `export * from` a dependency only works at an entry point
+
+Bun's bundler mis-compiles a star re-export of an **external** package when it
+sits in a module the entry then re-exports. `src/mongoose.ts` used to be
+
+```ts
+import mongoose from 'mongoose';
+export * from 'mongoose';   // <- the trap
+export { mongoose };
+```
+
+and `dist/index.js` came out with `__reExport(exports_mongoose, mongoose2)`
+where `mongoose2` is never declared — so the published package threw
+`ReferenceError: mongoose2 is not defined` on import, before any of its code
+ran. `bun run build` reported success; nothing but actually importing `dist/`
+catches it. It surfaced here only because `shared-graphql`'s specs load
+`shared-mongo`'s built output.
+
+The fix is to keep the star re-export **in the entry point itself**, where Bun
+emits a plain `export * from "mongoose"` passthrough. `src/index.ts` carries
+`export * from 'mongoose'`; `src/mongoose.ts` is now only the default-import
+shim that gives the rest of the package the `mongoose` namespace object. Inside
+this package, import mongoose's own types from `'mongoose'` directly — the
+`@nxgt/shared-mongo` import rule is for *consumers*, and routing internal type
+imports through `../mongoose` is what made the trap reachable.
+
+After touching any `export *` of a third-party package, run
+`bun -e "await import('./packages/<pkg>/dist/index.js')"`. A build that exits 0
+is not evidence the artifact loads.
+
 ### `link:` dependencies cannot be published
 
 `@nxgt/shared-hono` depended on `stx-sdk` through `link:stx-sdk`, which no
@@ -141,9 +171,10 @@ Inherited from both monorepos and unchanged:
 
 ## Known state
 
-`bun test` is **115 pass / 7 fail** on a clean tree. The seven failures are in
-`shared-storage` and predate this repository — they need a live S3/MinIO, and
-their fixture path (`src/assets/images/...`) is resolved relative to the
-process's working directory, so they only pass when run from inside
-`packages/shared-storage`. The count is identical to what `sellix-monorepo`
-produced before the extraction. Treat any *eighth* failure as yours.
+`bun test` is **178 pass / 6 fail / 3 errors** on a clean tree, from the root.
+The six failures are in `shared-storage` — they need a live S3/MinIO, and their
+fixture path (`src/assets/images/...`) is resolved relative to the process's
+working directory, so they only pass when run from inside
+`packages/shared-storage`. The three errors are `MONGODB_URI is required`, and
+need a live MongoDB. Both counts are identical to what `sellix-monorepo` and
+`nxgt-federation` produce on `develop`. Treat any *seventh* failure as yours.

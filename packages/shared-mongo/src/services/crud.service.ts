@@ -3,9 +3,9 @@ import type { Principal } from '@nxgt/shared';
 import { cleanObject } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
 import type { Mutex } from 'async-mutex';
+import type { HydratedDocument, Model, QueryFilter } from 'mongoose';
 import { runWithChangesListening } from '../audit';
 import { integrityRegistry } from '../integrity';
-import type { HydratedDocument, Model, QueryFilter } from '../mongoose';
 
 type InferDocType<D extends HydratedDocument<any>> =
 	D extends HydratedDocument<infer T> ? T : D;

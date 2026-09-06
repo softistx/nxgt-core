@@ -38,16 +38,27 @@ const STATUS_BY_ERROR_CODE: Record<ErrorCode, StatusCode> = {
 	[ErrorCode.Forbidden]: 403,
 	[ErrorCode.NotFound]: 404,
 	[ErrorCode.Conflict]: 409,
-	[ErrorCode.ValidationError]: 422,
+	// 400, not 422: this is the status nxgt-federation's GraphQL error layer
+	// already answered for a validation failure, and changing it would change
+	// what its clients see.
+	[ErrorCode.ValidationError]: 400,
 	[ErrorCode.InternalServerError]: 500,
 	[ErrorCode.ServiceUnavailable]: 503,
 };
 
-const ERROR_CODE_BY_STATUS = new Map<number, ErrorCode>(
-	(Object.entries(STATUS_BY_ERROR_CODE) as [ErrorCode, StatusCode][]).map(
-		([errorCode, status]) => [status, errorCode],
-	),
-);
+/**
+ * The reverse direction, written out rather than derived: two symbolic codes
+ * answer 400, and only `BadRequest` is the right one to infer from it.
+ */
+const ERROR_CODE_BY_STATUS = new Map<number, ErrorCode>([
+	[400, ErrorCode.BadRequest],
+	[401, ErrorCode.Unauthenticated],
+	[403, ErrorCode.Forbidden],
+	[404, ErrorCode.NotFound],
+	[409, ErrorCode.Conflict],
+	[500, ErrorCode.InternalServerError],
+	[503, ErrorCode.ServiceUnavailable],
+]);
 
 /** Resolve either form of `code` into the pair the exception carries. */
 function resolveCode(code: StatusCode | ErrorCode | string): {

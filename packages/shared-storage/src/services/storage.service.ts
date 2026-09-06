@@ -34,7 +34,11 @@ export class StorageService {
 			bucket: this.bucket,
 		});
 		this.minio = new MinioService(bucket);
-		this.minio.ensureBucketExists(bucket);
+		// Unawaited on purpose — the constructor cannot block — but an
+		// unhandled rejection here would take the process down.
+		this.minio.ensureBucketExists(bucket).catch((error) => {
+			this.logger.error(error);
+		});
 	}
 
 	async write(key: string, body: S3ClientWriteBody, options: S3Options = {}) {
