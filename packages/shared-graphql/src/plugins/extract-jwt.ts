@@ -1,5 +1,5 @@
 import type { ApolloServerPlugin } from '@apollo/server';
-import type { Principal } from '@nxgt/shared';
+import type { TokenPrincipal } from '@nxgt/shared';
 import { logger } from '@nxgt/shared-logging';
 
 export const extractJwtPlugin = {
@@ -13,5 +13,5 @@ export const extractJwtPlugin = {
 		};
 	},
 } satisfies ApolloServerPlugin<{
-	jwt?: { payload: Principal };
+	jwt?: { payload: TokenPrincipal };
 }>;
