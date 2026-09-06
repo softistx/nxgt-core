@@ -132,38 +132,45 @@ bun install && bun run smoke.ts   # await import() of all 23 declared subpaths
 This is also the only check that exercises `files`, `exports` and the
 `workspace:*` -> version rewrite that `bun pm pack` performs.
 
-### `stx-sdk` is named in no manifest here, and that is the fix
+### `stx-sdk` is a declared peer, and what the 404 really was
 
-`@nxgt/shared-hono` and `@nxgt/shared-graphql` import from `stx-sdk`, which is
-published to no registry. Two shapes were tried and both broke a consumer's
-`bun install` with `GET https://registry.npmjs.org/stx-sdk - 404`:
+`@nxgt/shared-hono` and `@nxgt/shared-graphql` import `stx-sdk/auth` and
+`stx-sdk/ory`. For a while this repo named `stx-sdk` in no manifest at all,
+because a published version had broken every consumer's `bun install` with
+`GET https://registry.npmjs.org/stx-sdk - 404`, and the conclusion drawn was
+that Bun installs a peer even when it is marked optional. **That conclusion was
+wrong**, and it is worth knowing why, because it cost a real declaration.
 
-- `devDependencies: {"stx-sdk": "link:stx-sdk"}` — a `link:` shipped inside a
-  tarball. A dependency's devDependencies are supposed to be ignored; a `link:`
-  one is not.
-- `peerDependencies: {"stx-sdk": "*"}` with `peerDependenciesMeta.optional`.
-  **Bun fetches the peer anyway.** This was verified against a real published
-  version whose manifest carried `optional: true` and no devDependency: the
-  install still 404'd. Treat `optional` as advisory in Bun, not as a guarantee.
+Measured on Bun 1.4.0, by packing three throwaway packages and installing each
+in an empty directory:
 
-So neither package names `stx-sdk` at all. Nothing declares it, so nothing
-tries to install it. The types still resolve, because every consumer of these
-two packages already has its own `link:stx-sdk`; the import resolves out of the
-consumer's `node_modules`.
+| what the published manifest declares | consumer's `bun install` |
+| --- | --- |
+| optional peer on a package that is on no registry (`*`, `>=1.0.0`, `^1.0.0` — the range is irrelevant) | **exit 0** |
+| **required** peer on a package that is on no registry | **exit 1**, `404` |
+| `link:` in `devDependencies` | **exit 0** |
 
-The workspace still has to typecheck, so the `link:stx-sdk` devDependency lives
-in the **root** `package.json`, which is private and never published. Bun
-resolves it through the global link registry, so it must be linked once on any
-machine that builds this repo, and on the self-hosted runner:
+The manifest that actually broke consumers declared
+`peerDependencies: {"stx-sdk": "*"}` and **no `peerDependenciesMeta` at all** —
+a required peer. `optional` was never in it. So Bun behaves exactly as
+documented, and the ordinary rules hold:
 
-```sh
-cd ~/workspace/dev/stx-sdk && bun link
-```
+- A dependency's `devDependencies` are never installed by a consumer, `link:`
+  included. It is untidy in a public manifest, not harmful.
+- An optional peer is safe to declare whatever the range.
+- **A required peer that resolves nowhere fails the install.** That is the only
+  shape to avoid, and it is the one that was shipped.
 
-The rule generalises: **no published manifest may name a `link:`, in any
-dependency field** — and a dependency that exists on no registry is better left
-undeclared than declared optional. `@nxgt/material` and `@nxgt/map` are in the
-same situation.
+`stx-sdk` is now published to the public npm registry under its own name, so it
+is declared honestly: a peer of both packages, and a root devDependency so the
+workspace typechecks. Nothing needs a checkout next door any more — which is
+what kept CI red, since a GitHub-hosted runner has no `../stx-sdk` and
+`tsc --emitDeclarationOnly` cannot emit past a missing module.
+
+`@nxgt/material` and `@nxgt/map` are still on no registry and will stay there —
+`@nxgt/material` for licence reasons, since it vendors Font Awesome Pro assets.
+Anything here that comes to need them must declare them **optional**, or not at
+all. Never as a required peer.
 
 ### Registry configuration lives in `bunfig.toml`, never in `.npmrc`
 
@@ -297,8 +304,10 @@ CI enforces two things a green build does not:
   workflow has nothing to version. Use `bun changeset --empty` when that is
   genuinely intended, and say why.
 - **`bun run verify:artifacts`** — packs the twelve, installs them the way a
-  consumer does, imports every subpath each package declares, and rejects any
-  published manifest naming a `link:`. It reads the subpath list from each
+  consumer does, imports every subpath each package declares, and rejects a
+  manifest that would break an install — a `link:` or `file:` in a field a
+  consumer resolves, or a **required** peer that is on no registry. It reads
+  the subpath list from each
   `exports` map, so a new entry point is covered as soon as it is declared.
   `changeset:publish` runs it too, so a broken artifact cannot be published.
 

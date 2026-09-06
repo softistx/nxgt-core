@@ -8,8 +8,8 @@ It deliberately holds no guidance of its own.
 **[AGENTS.md](./AGENTS.md) is the single source of truth.** Everything that
 applies to any coding agent working here lives there — the layering and the
 no-cycles rule, why declarations are the hard part of the build, the traps that
-have already cost time (star re-exports below an entry point, `link:` in a
-published manifest, the pinned `typescript` peer, the absent `.npmrc`), how
+have already cost time (star re-exports below an entry point, requiring a peer
+that is on no registry, the pinned `typescript` peer, the absent `.npmrc`), how
 releasing works, and the table of duplications that are deliberate and must not
 be "cleaned up".
 
@@ -29,9 +29,11 @@ public npm registry, with no token and no registry configuration. Their
 from `@nxgt/shared-mongo`, never from `mongoose`), which this split did not
 change. Keep the three in step by hand.
 
-`@nxgt/material`, `@nxgt/map` and `stx-sdk` are **not** published anywhere and
-are consumed through `link:`. `@nxgt/material` in particular stays private for
-licence reasons — it vendors Font Awesome Pro assets.
+`stx-sdk` is published to the public npm registry and is a required peer of
+`@nxgt/shared-hono` and `@nxgt/shared-graphql`. `@nxgt/material` and
+`@nxgt/map` are **not** published anywhere and are consumed through `link:`;
+`@nxgt/material` in particular stays private for licence reasons — it vendors
+Font Awesome Pro assets.
 
 ## Keeping it that way
 

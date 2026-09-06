@@ -18,6 +18,8 @@
  * The install uses `overrides` so the packages resolve to each other's
  * tarballs rather than to whatever is on the registry — otherwise this would
  * silently verify the *published* versions instead of the working tree.
+ * Everything else, `stx-sdk` included, resolves from the registry the way a
+ * consumer's install does.
  */
 
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -51,30 +53,66 @@ async function readPackages(): Promise<Pkg[]> {
 }
 
 /**
- * A published manifest must never name a `link:`, in any dependency field.
- * One shipped inside a tarball once and broke every consumer's install with a
- * 404 on a package that is on no registry.
+ * What a published manifest may not contain, measured on Bun 1.4.0 rather than
+ * assumed:
+ *
+ *   - a `link:` or `file:` in a field a consumer installs. `devDependencies`
+ *     are exempt: a consumer never installs a dependency's dev dependencies,
+ *     so a `link:` there is untidy, not harmful.
+ *   - a **required** peer that is on no registry. This is the shape that once
+ *     broke every consumer's install with a 404 on `stx-sdk`. An *optional*
+ *     peer is safe whatever its range; a required one is not.
  */
-async function assertNoLinkDependencies(tarballs: string[]): Promise<string[]> {
+async function manifestProblems(tarballs: string[]): Promise<string[]> {
 	const problems: string[] = [];
+	const own = new Set<string>();
+	const manifests: Record<string, unknown>[] = [];
+
 	for (const tgz of tarballs) {
 		const raw = await $`tar -xzOf ${tgz} package/package.json`.quiet().text();
 		const manifest = JSON.parse(raw);
+		manifests.push(manifest);
+		own.add(manifest.name);
+	}
+
+	for (const manifest of manifests) {
+		const name = manifest.name as string;
+
 		for (const field of [
 			'dependencies',
-			'devDependencies',
 			'peerDependencies',
 			'optionalDependencies',
 		]) {
 			for (const [dep, range] of Object.entries<string>(
-				manifest[field] ?? {},
+				(manifest[field] as Record<string, string>) ?? {},
 			)) {
-				if (String(range).includes('link:')) {
-					problems.push(`${manifest.name}: ${field}.${dep} = ${range}`);
+				if (/^(link|file):/.test(String(range))) {
+					problems.push(`${name}: ${field}.${dep} = ${range}`);
 				}
 			}
 		}
+
+		const meta =
+			(manifest.peerDependenciesMeta as Record<
+				string,
+				{ optional?: boolean }
+			>) ?? {};
+		for (const peer of Object.keys(
+			(manifest.peerDependencies as Record<string, string>) ?? {},
+		)) {
+			if (meta[peer]?.optional || own.has(peer)) continue;
+			const res = await fetch(
+				`https://registry.npmjs.org/${peer.replace('/', '%2F')}`,
+				{ method: 'HEAD' },
+			).catch(() => null);
+			if (!res?.ok) {
+				problems.push(
+					`${name}: peerDependencies.${peer} is required but is on no registry`,
+				);
+			}
+		}
 	}
+
 	return problems;
 }
 
@@ -95,33 +133,19 @@ try {
 		overrides[pkg.name] = `file:${file}`;
 	}
 
-	const linked = await assertNoLinkDependencies(tarballs);
-	if (linked.length > 0) {
-		console.error('\nA published manifest names a `link:` dependency:\n');
-		for (const problem of linked) console.error(`  ${problem}`);
+	const problems = await manifestProblems(tarballs);
+	if (problems.length > 0) {
+		console.error('\nA published manifest would break a consumer:\n');
+		for (const problem of problems) console.error(`  ${problem}`);
 		console.error(
-			'\nNo consumer can resolve that. Move it to the root package.json,\n' +
-				'or drop the declaration entirely. See AGENTS.md.',
+			'\nA `link:` or `file:` no consumer can resolve, or a required peer that\n' +
+				'is on no registry. See AGENTS.md.',
 		);
 		process.exit(1);
 	}
 
-	// `@nxgt/shared-hono` and `@nxgt/shared-graphql` import `stx-sdk`, which is
-	// published to no registry and is deliberately named in no manifest here
-	// (Bun installs a peer even when it is declared optional, which broke every
-	// consumer's install with a 404). Every real consumer supplies it through
-	// its own `link:stx-sdk`, so the probe supplies it too — otherwise it would
-	// report a failure that no consumer will ever see.
-	const stxSdk = join(ROOT, '..', 'stx-sdk');
-	const hasStxSdk = await Bun.file(join(stxSdk, 'package.json')).exists();
-	if (!hasStxSdk) {
-		console.warn(
-			`warning: ${stxSdk} not found — the subpaths that import stx-sdk will be\n` +
-				'         skipped. Every consumer supplies it through its own\n' +
-				'         link:stx-sdk, so this is an absence here, not a defect.\n',
-		);
-	}
-
+	// `stx-sdk` is a required peer of two packages and resolves from the public
+	// registry like anything else — no checkout next door, no special case.
 	await Bun.write(
 		join(workdir, 'package.json'),
 		`${JSON.stringify(
@@ -130,9 +154,7 @@ try {
 				private: true,
 				version: '0.0.0',
 				type: 'module',
-				dependencies: hasStxSdk
-					? { ...overrides, 'stx-sdk': `file:${stxSdk}` }
-					: overrides,
+				dependencies: overrides,
 				overrides,
 				resolutions: overrides,
 			},
@@ -146,35 +168,25 @@ try {
 	if (install.exitCode !== 0) {
 		console.error(`\n${install.stderr.toString().trim()}`);
 		console.error(
-			'\nThe install failed. A dependency that exists on no registry is the\n' +
-				'usual cause — note that `peerDependenciesMeta.optional` does NOT\n' +
-				'stop Bun fetching a peer.',
+			'\nThe install failed. A required peer on a package that is on no\n' +
+				'registry is the usual cause — an optional one never fails an install.',
 		);
 		process.exit(1);
 	}
 
 	const subpaths = packages.flatMap((p) => p.subpaths);
 	console.log(`Importing ${subpaths.length} declared subpaths…\n`);
-	// Without a local stx-sdk checkout — a GitHub-hosted runner, for one — the
-	// four subpaths that import it cannot load, for a reason no consumer can
-	// hit. Those are reported as skipped, not failed. Every other failure still
-	// fails, including a different error from those same subpaths.
 	const probe = subpaths
 		.map(
 			(s) =>
 				`try { const m = await import(${JSON.stringify(s)});` +
 				` console.log("  ok      ${s.padEnd(40)}" + Object.keys(m).length + " exports"); }` +
-				' catch (e) {' +
-				`  if (${!hasStxSdk} && /Cannot find package 'stx-sdk'/.test(e.message))` +
-				`   { skipped++; console.log("  skip    ${s.padEnd(40)}needs a local stx-sdk checkout"); }` +
-				`  else { failed++; console.log("  FAIL    ${s.padEnd(40)}" + e.message.split("\\n")[0]); } }`,
+				` catch (e) { failed++; console.log("  FAIL    ${s.padEnd(40)}" + e.message.split("\\n")[0]); }`,
 		)
 		.join('\n');
 	await Bun.write(
 		join(workdir, 'probe.mjs'),
-		`let failed = 0;\nlet skipped = 0;\n${probe}\n` +
-			'if (skipped > 0) console.log(`\\n${skipped} subpath(s) skipped.`);\n' +
-			'process.exit(failed);\n',
+		`let failed = 0;\n${probe}\nprocess.exit(failed);\n`,
 	);
 
 	const result = await $`bun run probe.mjs`.cwd(workdir).nothrow();
@@ -185,12 +197,7 @@ try {
 		);
 		process.exit(1);
 	}
-	console.log(
-		hasStxSdk
-			? `\nAll ${subpaths.length} subpaths load.`
-			: `\nEvery subpath that could be checked here loads (${subpaths.length} declared,\n` +
-					'those needing stx-sdk skipped).',
-	);
+	console.log(`\nAll ${subpaths.length} subpaths load.`);
 } finally {
 	await rm(workdir, { recursive: true, force: true });
 }

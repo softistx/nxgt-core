@@ -46,8 +46,10 @@ shipped past a green build:
 | `@nxgt/shared-openapi` | `ts.factory` undefined | wrong TypeScript major resolved by a peer conflict |
 
 `bun run verify:artifacts` packs the twelve, installs them the way a consumer
-does, imports **every subpath each package declares**, and refuses any published
-manifest that names a `link:`. It derives the subpath list from each `exports`
+does, imports **every subpath each package declares**, and refuses a manifest
+that would break an install: a `link:` or `file:` in a field a consumer
+resolves, or a **required** peer that is on no registry. It derives the subpath
+list from each `exports`
 map, so a new entry point is covered the moment it is declared — do not maintain
 a list by hand.
 
@@ -57,10 +59,13 @@ All of them are in `AGENTS.md` with the detail; the short forms:
 
 - **`export * from '<external package>'` must sit in a declared entry point.**
   Audit with `grep -rn "^export \* from '[^.]" packages/*/src/`.
-- **No published manifest may name a `link:`**, in any dependency field —
-  `devDependencies` included, which is not intuitive. A dependency that is on no
-  registry is better left *undeclared* than declared optional:
-  `peerDependenciesMeta.optional` does **not** stop Bun installing a peer.
+- **Never require a peer that is on no registry.** Measured on Bun 1.4.0: an
+  *optional* peer never fails a consumer's install whatever its range, a
+  *required* one that resolves nowhere fails it with a 404, and a `link:` in
+  `devDependencies` is harmless because a consumer never installs those. The
+  404 on `stx-sdk` that cost a day was a required peer, not an ignored
+  `optional` — `@nxgt/material` and `@nxgt/map` are on no registry, so declare
+  them optional or not at all.
 - **`typescript` stays `^6.0.3` across all twelve.** Raising it in one package
   makes the set unsatisfiable and breaks `@nxgt/shared-openapi` at import.
 - **Registry config lives in `bunfig.toml`, never a `.npmrc`.** A committed
