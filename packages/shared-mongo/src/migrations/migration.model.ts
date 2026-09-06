@@ -1,5 +1,5 @@
 import type { HydratedDocument, Model } from 'mongoose';
-import { model, Schema } from 'mongoose';
+import { model, models, Schema } from 'mongoose';
 import type { MigrationRecord, MigrationStatus } from './migration.types';
 
 export type MigrationDocument = HydratedDocument<MigrationRecord>;
@@ -41,7 +41,10 @@ const migrationSchema = new Schema<MigrationDocument, MigrationModel>(
 	},
 );
 
-export const MigrationModel = model<MigrationDocument, MigrationModel>(
-	'Migration',
-	migrationSchema,
-);
+// Compiled once per mongoose instance. This module is evaluated more than once
+// in a single process — a test run that loads several files does it — and
+// `model()` throws `OverwriteModelError` the second time, at import, before any
+// test body runs.
+export const MigrationModel =
+	(models.Migration as MigrationModel | undefined) ??
+	model<MigrationDocument, MigrationModel>('Migration', migrationSchema);

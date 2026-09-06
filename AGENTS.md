@@ -132,38 +132,164 @@ bun install && bun run smoke.ts   # await import() of all 23 declared subpaths
 This is also the only check that exercises `files`, `exports` and the
 `workspace:*` -> version rewrite that `bun pm pack` performs.
 
-### `stx-sdk` is named in no manifest here, and that is the fix
+### `stx-sdk` is a declared peer, and what the 404 really was
 
-`@nxgt/shared-hono` and `@nxgt/shared-graphql` import from `stx-sdk`, which is
-published to no registry. Two shapes were tried and both broke a consumer's
-`bun install` with `GET https://registry.npmjs.org/stx-sdk - 404`:
+`@nxgt/shared-hono` and `@nxgt/shared-graphql` import `stx-sdk/auth` and
+`stx-sdk/ory`. For a while this repo named `stx-sdk` in no manifest at all,
+because a published version had broken every consumer's `bun install` with
+`GET https://registry.npmjs.org/stx-sdk - 404`, and the conclusion drawn was
+that Bun installs a peer even when it is marked optional. **That conclusion was
+wrong**, and it is worth knowing why, because it cost a real declaration.
 
-- `devDependencies: {"stx-sdk": "link:stx-sdk"}` — a `link:` shipped inside a
-  tarball. A dependency's devDependencies are supposed to be ignored; a `link:`
-  one is not.
-- `peerDependencies: {"stx-sdk": "*"}` with `peerDependenciesMeta.optional`.
-  **Bun fetches the peer anyway.** This was verified against a real published
-  version whose manifest carried `optional: true` and no devDependency: the
-  install still 404'd. Treat `optional` as advisory in Bun, not as a guarantee.
+Measured on Bun 1.4.0, by packing three throwaway packages and installing each
+in an empty directory:
 
-So neither package names `stx-sdk` at all. Nothing declares it, so nothing
-tries to install it. The types still resolve, because every consumer of these
-two packages already has its own `link:stx-sdk`; the import resolves out of the
-consumer's `node_modules`.
+| what the published manifest declares | consumer's `bun install` |
+| --- | --- |
+| optional peer on a package that is on no registry (`*`, `>=1.0.0`, `^1.0.0` — the range is irrelevant) | **exit 0** |
+| **required** peer on a package that is on no registry | **exit 1**, `404` |
+| `link:` in `devDependencies` | **exit 0** |
 
-The workspace still has to typecheck, so the `link:stx-sdk` devDependency lives
-in the **root** `package.json`, which is private and never published. Bun
-resolves it through the global link registry, so it must be linked once on any
-machine that builds this repo, and on the self-hosted runner:
+The manifest that actually broke consumers declared
+`peerDependencies: {"stx-sdk": "*"}` and **no `peerDependenciesMeta` at all** —
+a required peer. `optional` was never in it. So Bun behaves exactly as
+documented, and the ordinary rules hold:
 
-```sh
-cd ~/workspace/dev/stx-sdk && bun link
+- A dependency's `devDependencies` are never installed by a consumer, `link:`
+  included. It is untidy in a public manifest, not harmful.
+- An optional peer is safe to declare whatever the range.
+- **A required peer that resolves nowhere fails the install.** That is the only
+  shape to avoid, and it is the one that was shipped.
+
+`stx-sdk` is now published to the public npm registry under its own name, so it
+is declared honestly: a peer of both packages, and a root devDependency so the
+workspace typechecks. Nothing needs a checkout next door any more — which is
+what kept CI red, since a GitHub-hosted runner has no `../stx-sdk` and
+`tsc --emitDeclarationOnly` cannot emit past a missing module.
+
+`@nxgt/material` and `@nxgt/map` are still on no registry and will stay there —
+`@nxgt/material` for licence reasons, since it vendors Font Awesome Pro assets.
+Anything here that comes to need them must declare them **optional**, or not at
+all. Never as a required peer.
+
+### Registry configuration lives in `bunfig.toml`, never in `.npmrc`
+
+Bun is the package manager here, so `bunfig.toml` is where the registry and the
+publish credential are declared:
+
+```toml
+[install.scopes]
+"@nxgt" = { url = "https://registry.npmjs.org", token = "$NPM_TOKEN" }
 ```
 
-The rule generalises: **no published manifest may name a `link:`, in any
-dependency field** — and a dependency that exists on no registry is better left
-undeclared than declared optional. `@nxgt/material` and `@nxgt/map` are in the
-same situation.
+Installing `@nxgt/*` needs no credential at all — they are public — and with
+`$NPM_TOKEN` unset Bun simply omits it and installs fine. That was measured, not
+assumed.
+
+A `.npmrc` gets the same job wrong in a way that is hard to diagnose. There,
+`//registry.npmjs.org/:_authToken=${NPM_TOKEN}` with the variable unset expands
+to an **empty** token, which is sent as an `Authorization` header and answered
+with `401 Unauthorized` — and because a project `.npmrc` overrides the user one,
+being logged in through `npm login` stops working *inside the repo only*, while
+the same command one directory up succeeds. This repository had that file and it
+was deleted. Do not reintroduce it.
+
+### The build must run before typecheck and tests
+
+Every package's `exports` map points at `./dist/*`, so a workspace sibling only
+resolves once it has been built. On a clean checkout `bun run typecheck` reports
+around a hundred `TS2307: Cannot find module '@nxgt/…'` — not real errors, just
+an unbuilt tree. `bun run test` is in the same position: some specs load a
+sibling's built output.
+
+Locally this never happens, because a stale `dist/` is always lying around. It
+appears only in CI, which is why the workflow builds first. `bun run --filter`
+builds in dependency order, so building from nothing works.
+
+If you see a wall of TS2307 on `@nxgt/*`, run `bun run build` before believing
+any of it.
+
+### CI runs on GitHub-hosted runners, unlike the private repos
+
+`nxgt-material` and `stx-sdk` use `runs-on: self-hosted` because they are
+private and minutes are metered. This repository is public, so GitHub-hosted
+minutes are free — and the estate's single self-hosted runner is a VPS that is
+not always online. CI here sat queued for an hour behind it before the switch.
+Do not copy `self-hosted` in from a sibling repo.
+
+The consequence for `verify:artifacts`: a hosted runner has no sibling
+`../stx-sdk` checkout, so the subpaths importing it are reported **skipped**
+rather than failed. A different error from those same subpaths still fails.
+
+### Publishing needs a granular access token, and you cannot tell by looking
+
+npm no longer accepts a classic token for publishing, whatever the account's
+2FA setting. The failure is explicit:
+
+```
+403 Forbidden — Two-factor authentication or granular access token with
+bypass 2fa enabled is required to publish packages.
+```
+
+Generate a **Granular Access Token** on npmjs and put it in `NPM_TOKEN` — in
+the environment locally, and in the `NPM_TOKEN` secret for CI.
+
+**There is no read-only probe that classifies a token.** An earlier version of
+this file claimed `GET /-/npm/v1/tokens` answers `200` for a classic token and
+`401` for a granular one. It does not: the granular token that published the
+twelve answers `200` there and returns its username from `/-/whoami`, exactly
+like a classic one. That table sent two diagnoses down the wrong path, and it
+is gone. Both token types are 40 characters starting `npm_`, and the only
+statement those endpoints support is a negative one:
+
+| observation | what it actually means |
+| --- | --- |
+| `401` on `/-/whoami` | the token is dead — revoked, expired, or not a token at all |
+| `200` with a username | the token authenticates. Nothing more. Not its type, not what it may write |
+
+So **the only test for "can this token publish" is a publish.** `bun publish
+--dry-run` does not authenticate, so it proves nothing here. Run
+`scripts/publish.ts`: it skips anything already on the registry, so it is safe
+to re-run, and it names the two failures that mean something:
+
+- `403 … two-factor authentication or granular access token` — the token is
+  classic. Generate a granular one.
+- `404 … does not exist in this registry` — the token is granular but has no
+  write permission on that name. Fix the scope selection, below.
+
+**When creating the granular token, select the *scope*, not packages.** Under
+*Packages and scopes* → *Read and write*, choosing "only select packages" and
+searching for `@nxgt/…` finds nothing on a first release — none are published
+yet — so the token is issued covering zero packages, and every publish 404s in
+a way that reads like a missing package. Pick **All packages**, or add the
+`@nxgt` **scope** entry.
+
+**Check which token you are actually sending.** `~/.npmrc` and `$NPM_TOKEN` can
+hold different values, one of them stale, and the publish path reads the
+environment through `bunfig.toml`. Compare them by hash before concluding
+anything about permissions — never by printing them:
+
+```sh
+printf %s "$NPM_TOKEN" | sha256sum | cut -c1-12
+```
+
+An hour went into "the token has no scope" when the truth was that the two
+files disagreed and the dead one was being read. Note also that a `.npmrc`
+written as `_authToken=$NPM_TOKEN` is expanded by **Bun** but not by **npm**,
+which needs `${NPM_TOKEN}` — so the same file can work for `bun publish` and
+401 for every `npm` command.
+
+### `bun publish`, not `changeset publish`
+
+`changeset version` does the versioning and the changelogs — pure bookkeeping,
+it touches no registry, and it stays. But `changeset publish` shells out to
+**npm**, which would publish with a different package manager than the one
+everything here is built and verified against.
+
+So `scripts/publish.ts` does it: dependency order, skips any version already on
+the registry, and `bun publish` for the rest. It prints `New tag: <name>@<v>`
+for each publish, which is the line `changesets/action` parses to create GitHub
+releases — do not change that format without checking it.
 
 ### Why npmjs and not GitHub Packages
 
@@ -195,7 +321,30 @@ raise this range in one package alone.
 ## Releasing, and what it means for a consumer
 
 Changesets, independent versions. `bun changeset` describes a change; merging to
-`develop` opens a "Version Packages" PR; merging that PR publishes.
+`develop` opens a "Version packages" PR; merging that PR publishes to the public
+npm registry.
+
+CI enforces two things a green build does not:
+
+- **`bun run changeset:status`** — a change under `packages/` without a
+  changeset is a change that never reaches a consumer, because the release
+  workflow has nothing to version. Use `bun changeset --empty` when that is
+  genuinely intended, and say why.
+- **`bun run verify:artifacts`** — packs the twelve, installs them the way a
+  consumer does, imports every subpath each package declares, and rejects a
+  manifest that would break an install — a `link:` or `file:` in a field a
+  consumer resolves, or a **required** peer that is on no registry. It reads
+  the subpath list from each
+  `exports` map, so a new entry point is covered as soon as it is declared.
+  `changeset:publish` runs it too, so a broken artifact cannot be published.
+
+Publishing goes through **`bun publish`**, never `npm publish` — Bun is the
+package manager for this repo, and `bun pm pack` is what rewrites `workspace:*`
+into a real version. `npm` is only ever used to write a credential into
+`~/.npmrc`, which is where Bun reads it from.
+
+The full sequence, and the reasoning behind each step, is the
+`release-a-package-change` skill.
 
 **A fix in a package is a release before it is a consumer PR.** This is the
 constraint the split introduced, and it is the same one `nxgt-ory` introduced
@@ -239,10 +388,24 @@ Inherited from both monorepos and unchanged:
 
 ## Known state
 
-`bun test` is **178 pass / 6 fail / 3 errors** on a clean tree, from the root.
-The six failures are in `shared-storage` — they need a live S3/MinIO, and their
-fixture path (`src/assets/images/...`) is resolved relative to the process's
-working directory, so they only pass when run from inside
-`packages/shared-storage`. The three errors are `MONGODB_URI is required`, and
-need a live MongoDB. Both counts are identical to what `sellix-monorepo` and
-`nxgt-federation` produce on `develop`. Treat any *seventh* failure as yours.
+`bun run test` is **199 pass, 0 fail**. Treat any failure as yours.
+
+That is `bun run --filter '*' test` — **one process per package**, not one
+`bun test` for the whole workspace. Running them together produced 6 failures
+and 3 errors, and not one of them belonged to the test that reported it:
+
+| symptom | actual cause |
+| --- | --- |
+| `crypto.subtle.generateKey is not a function` in `shared-hono` | another file's mock still installed on the global |
+| `OverwriteModelError: Cannot overwrite 'Migration'` | the model module evaluated twice in one process |
+| `MONGODB_URI is required` | `--env-file=.env.test` lives in the package's own `test` script, which the root run never invoked |
+| 6 × `shared-storage` | no S3 configured, plus a fixture path resolved against the working directory |
+
+So each package with specs carries `"test": "bun test src"`, `shared-mongo`
+keeps its `--env-file=.env.test`, the `Migration` model reuses an already
+compiled one, and the S3 suites skip themselves unless all four `S3_*`
+variables are set — infrastructure that is absent is not a failing test.
+
+CI starts a single-node MongoDB **replica set** (the migration suite asserts on
+transactions) and passes `MONGODB_URI` in the environment, which beats
+`--env-file`. There is no S3 in CI, so those suites report as skipped there.
