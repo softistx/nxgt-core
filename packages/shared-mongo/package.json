@@ -44,10 +44,10 @@
 		]
 	},
 	"dependencies": {
-		"@nxgt/i18n": "workspace:*",
-		"@nxgt/shared": "workspace:*",
-		"@nxgt/shared-logging": "workspace:*",
-		"@nxgt/shared-exceptions": "workspace:*",
+		"@nxgt/i18n": "workspace:^",
+		"@nxgt/shared": "workspace:^",
+		"@nxgt/shared-logging": "workspace:^",
+		"@nxgt/shared-exceptions": "workspace:^",
 		"async-mutex": "^0.5.0",
 		"i18next": "^26.3.6",
 		"just-diff": "^6.0.2",

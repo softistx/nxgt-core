@@ -62,6 +62,12 @@ async function readPackages(): Promise<Pkg[]> {
  *   - a **required** peer that is on no registry. This is the shape that once
  *     broke every consumer's install with a 404 on `stx-sdk`. An *optional*
  *     peer is safe whatever its range; a required one is not.
+ *   - an **exact pin on a sibling package**. `workspace:*` publishes as the
+ *     exact version, so `@nxgt/shared-hono@1.0.2` demanded
+ *     `@nxgt/shared-mongo@1.0.0` while the consumer's own `^1.0.0` resolved to
+ *     1.1.0 — two copies in one tree, each registering the `Audit` Mongoose
+ *     model, and `OverwriteModelError` on the second. `workspace:^` publishes
+ *     as a caret range, which dedupes.
  */
 async function manifestProblems(tarballs: string[]): Promise<string[]> {
 	const problems: string[] = [];
@@ -88,6 +94,12 @@ async function manifestProblems(tarballs: string[]): Promise<string[]> {
 			)) {
 				if (/^(link|file):/.test(String(range))) {
 					problems.push(`${name}: ${field}.${dep} = ${range}`);
+				}
+				if (own.has(dep) && /^\d/.test(String(range))) {
+					problems.push(
+						`${name}: ${field}.${dep} = ${range} pins a sibling exactly; ` +
+							'use `workspace:^` so the consumer gets one copy',
+					);
 				}
 			}
 		}
@@ -138,8 +150,8 @@ try {
 		console.error('\nA published manifest would break a consumer:\n');
 		for (const problem of problems) console.error(`  ${problem}`);
 		console.error(
-			'\nA `link:` or `file:` no consumer can resolve, or a required peer that\n' +
-				'is on no registry. See AGENTS.md.',
+			'\nA `link:` or `file:` no consumer can resolve, a required peer that is\n' +
+				'on no registry, or an exact pin on a sibling. See AGENTS.md.',
 		);
 		process.exit(1);
 	}
