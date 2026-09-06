@@ -37,14 +37,14 @@ release nothing, and `changeset status` will not ask for anything.
 4. **`bun run verify:artifacts`.** Not optional, and not covered by the build —
    see below.
 5. **PR into `develop`.** CI runs all of the above plus `changeset status`.
-6. **Merge.** The release workflow pushes `changeset-release/develop`, then
-   fails to open the "Version packages" pull request: *GitHub Actions is not
-   permitted to create or approve pull requests*. Two switches carry that
-   message — the `softistx` organisation's (on since 2026-09-06) and the
-   repository's own, which is still off. `gh api
-   /repos/softistx/nxgt-core/actions/permissions/workflow` says which.
-   Until it is on, **open the PR yourself**, from that branch into `develop`.
-   Merging *that* publishes, tags and stops.
+6. **Merge.** The release workflow versions the packages, pushes
+   `changeset-release/develop` and opens the "Version packages" pull request
+   itself. Merging *that* publishes, tags and stops. If it fails with *GitHub
+   Actions is not permitted to create or approve pull requests*, a workflow
+   permission has been turned back off — `gh api
+   /repos/softistx/nxgt-core/actions/permissions/workflow` should answer
+   `write` and `true`. Open the PR by hand meanwhile; nothing else about the
+   release changes.
 7. **Only then**, bump the dependency in the consumer and open its PR.
 
 ## What a changeset has to say
