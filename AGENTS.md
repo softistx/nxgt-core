@@ -447,6 +447,14 @@ Established here, and applying to all four repositories:
   trace. Repository chores are full of data — manifests, versions, tarball
   contents, registry answers — and bash is the wrong language for data. The
   skill is `write-a-repo-script`.
+- **A published schema is a promise, and the runtime has to keep it.**
+  `@nxgt/shared-openapi` shipped a `sort` on the generic `SearchRequest`, plus
+  `SortField` / `SortOrder` / `SortDirection`, for a paginator that has never
+  read `sort` — `cursorPaginate` orders by `_id`, because the cursor *is* the
+  `_id`. Twenty-three sellix endpoints documented sorting and discarded it, and
+  no build, lint or test could see it: the parameter type-checked, validated,
+  and went nowhere. When you add a field to a shared schema, follow it to the
+  code that consumes it in the same change, or do not add it.
 - **A package's `README.md` is its page on npmjs.** It is published, and it is
   read by people who will never open this repository: say what the package is,
   table its subpaths, and write down what will bite a consumer. Ten of the

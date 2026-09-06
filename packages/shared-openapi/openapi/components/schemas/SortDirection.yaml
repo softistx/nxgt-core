@@ -1,3 +1,0 @@
-type: string
-enum: [ASC, DESC]
-description: Sort direction for ordering results (ASC, DESC)
