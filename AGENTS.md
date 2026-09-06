@@ -226,9 +226,24 @@ bypass 2fa enabled is required to publish packages.
 
 A classic token still authenticates for *reads* (`/-/whoami` answers), which
 makes this look like a permissions problem when it is a token-type problem.
-Generate a **Granular Access Token** on npmjs with read and write on the `@nxgt`
-scope, and put it in `NPM_TOKEN` — in the environment locally, and in the
-repository's `NPM_TOKEN` secret for CI.
+Generate a **Granular Access Token** on npmjs and put it in `NPM_TOKEN` — in the
+environment locally, and in the repository's `NPM_TOKEN` secret for CI.
+
+Two ways to tell the tokens apart, since both are 40 characters starting
+`npm_` and nothing else distinguishes them:
+
+| | classic | granular |
+| --- | --- | --- |
+| `GET /-/npm/v1/tokens` | `200` | `401` |
+| `GET /-/whoami` | the username | `{}` or `401` |
+
+**When creating the granular token, select the *scope*, not packages.** Under
+*Packages and scopes* → *Read and write*, choosing "only select packages" and
+searching for `@nxgt/…` finds nothing on a first release — none are published
+yet — so the token is issued covering zero packages. It then fails with
+`404 Not Found: '@nxgt/x@1.0.0' does not exist in this registry`, which reads
+like the package is missing rather than like a permission it never had. Pick
+**All packages**, or add the `@nxgt` **scope** entry.
 
 ### `bun publish`, not `changeset publish`
 
