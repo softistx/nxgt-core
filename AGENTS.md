@@ -329,6 +329,20 @@ stay — which is why not one `import` in either monorepo changed.
 The repository lives in the `softistx` GitHub org; the npm scope is `@nxgt`.
 On npmjs those are unrelated, so the mismatch is not a mistake.
 
+### Siblings are depended on by range — `workspace:^`, never `workspace:*`
+
+`workspace:*` publishes as the **exact** version. That is not a cosmetic
+difference: `@nxgt/shared-hono@1.0.2` went out demanding
+`@nxgt/shared-mongo@1.0.0`, while the consuming app's own `^1.0.0` resolved to
+`1.1.0`. Bun's isolated linker is right to install both — and both register the
+`Audit` and `Migration` Mongoose models, so the second one throws
+`OverwriteModelError`. It cost 52 failing specs in nxgt-federation, and
+sellix-monorepo had been carrying two copies of `@nxgt/shared-mongo` since its
+first install without anyone noticing.
+
+`workspace:^` publishes as `^1.0.0`, which dedupes. `verify-artifacts.ts` fails
+the build on an exact sibling pin, so a new package cannot reintroduce it.
+
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
 All twelve declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on

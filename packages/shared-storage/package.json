@@ -38,11 +38,11 @@
 		]
 	},
 	"dependencies": {
-		"@nxgt/i18n": "workspace:*",
-		"@nxgt/shared": "workspace:*",
-		"@nxgt/shared-exceptions": "workspace:*",
-		"@nxgt/shared-logging": "workspace:*",
-		"@nxgt/shared-mongo": "workspace:*",
+		"@nxgt/i18n": "workspace:^",
+		"@nxgt/shared": "workspace:^",
+		"@nxgt/shared-exceptions": "workspace:^",
+		"@nxgt/shared-logging": "workspace:^",
+		"@nxgt/shared-mongo": "workspace:^",
 		"bson": "^7.3.2",
 		"lodash": "^4.18.1",
 		"minio": "^8.0.7",
