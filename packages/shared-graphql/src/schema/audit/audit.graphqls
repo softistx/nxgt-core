@@ -1,0 +1,23 @@
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@shareable"])
+
+enum CommitType {
+	INITIAL
+	UPDATE
+	TERMINAL
+}
+
+enum ChangeOperationType {
+	add
+	replace
+	remove
+	move
+	copy
+	test
+}
+
+type CommitChange @shareable {
+	op: ChangeOperationType!
+	path: [String!]!
+	value: Any
+}

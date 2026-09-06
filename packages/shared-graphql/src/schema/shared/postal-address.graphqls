@@ -1,0 +1,24 @@
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@shareable"])
+
+"""
+A postal address (value object — embed directly, no separate collection).
+"""
+type PostalAddress @shareable {
+	street: String
+	locality: String
+	region: String
+	postalCode: String
+	"""
+	ISO 3166-1 alpha-2 country code.
+	"""
+	country: CountryCode
+}
+
+input PostalAddressInput {
+	street: String
+	locality: String
+	region: String
+	postalCode: String
+	country: CountryCode
+}

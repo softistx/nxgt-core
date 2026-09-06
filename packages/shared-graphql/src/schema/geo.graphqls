@@ -1,0 +1,30 @@
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@shareable"])
+
+enum Point {
+	Point
+}
+
+enum Polygon {
+	Polygon
+}
+
+type GeoPoint @shareable {
+	type: Point!
+	coordinates: [Float!]!
+}
+
+type GeoPolygon @shareable {
+	type: Polygon!
+	coordinates: [[[Float!]!]!]!
+}
+
+input GeoPointInput {
+	type: Point!
+	coordinates: [Float!]!
+}
+
+input GeoPolygonInput {
+	type: Polygon!
+	coordinates: [[[Float!]!]!]!
+}

@@ -1,0 +1,4 @@
+"""
+Generic scalar to represent any type
+"""
+scalar Any

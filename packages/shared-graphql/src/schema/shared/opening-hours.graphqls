@@ -1,0 +1,52 @@
+extend schema
+	@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@shareable"])
+
+"""
+Opening hours for a specific day (can be used for places, services, etc.)
+"""
+type OpeningHour @shareable {
+	"""
+	Day of the week (0=Sunday, 1=Monday, ..., 6=Saturday)
+	"""
+	dayOfWeek: Int!
+
+	"""
+	Opening time in HH:mm format
+	"""
+	openTime: String
+
+	"""
+	Closing time in HH:mm format
+	"""
+	closeTime: String
+
+	"""
+	Whether the place is closed on this day
+	"""
+	isClosed: Boolean
+}
+
+"""
+Input type for opening hours.
+"""
+input OpeningHourInput {
+	"""
+	Day of the week (0=Sunday, 1=Monday, ..., 6=Saturday)
+	"""
+	dayOfWeek: Int!
+
+	"""
+	Opening time in HH:mm format
+	"""
+	openTime: String
+
+	"""
+	Closing time in HH:mm format
+	"""
+	closeTime: String
+
+	"""
+	Whether the place is closed on this day
+	"""
+	isClosed: Boolean
+}

@@ -1,6 +1,7 @@
+import { tryGetContext } from 'hono/context-storage';
 import { IntlMessageFormat } from 'intl-messageformat';
 import _ from 'lodash';
-import { FALLBACK_LANGUAGE, LANGUAGE_KEY } from './consts';
+import { FALLBACK_LANGUAGE, LANGUAGE_KEY, SUPPORTED_LANGUAGES } from './consts';
 import { resources } from './resources';
 import type {
 	Language,
@@ -9,13 +10,33 @@ import type {
 	TranslationContext,
 } from './types';
 
-export function getLanguage() {
-	if (typeof localStorage === 'undefined') {
-		return FALLBACK_LANGUAGE;
+/**
+ * Where the language comes from when the caller does not say.
+ *
+ * The two repositories had forked exactly this: sellix-monorepo read
+ * `localStorage`, nxgt-federation read the Hono request context, and neither
+ * could run where the other did — federation's fell back to `'en'` outside a
+ * request, sellix's knew nothing about one. Asking both, most specific first,
+ * serves either without a caller changing anything.
+ *
+ * `createTranslator` still takes a provider, so a caller that wants one source
+ * and not the other passes it.
+ */
+export function getLanguage(): Language {
+	const fromRequest: unknown = tryGetContext()?.get(LANGUAGE_KEY as never);
+	if (
+		typeof fromRequest === 'string' &&
+		SUPPORTED_LANGUAGES.includes(fromRequest as Language)
+	) {
+		return fromRequest as Language;
 	}
-	return (
-		localStorage.getItem(LANGUAGE_KEY) === 'fr' ? 'fr' : FALLBACK_LANGUAGE
-	) as Language;
+	if (typeof localStorage !== 'undefined') {
+		const stored = localStorage.getItem(LANGUAGE_KEY);
+		if (SUPPORTED_LANGUAGES.includes(stored as Language)) {
+			return stored as Language;
+		}
+	}
+	return FALLBACK_LANGUAGE;
 }
 
 export function createTranslator<K extends string = LocaleKey>(

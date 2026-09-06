@@ -14,5 +14,12 @@
 	"could-not-use-first-and-last-together": "You cannot use ''first'' and ''last'' parameters together in pagination.",
 	"invalid-cursor": "The provided cursor is invalid. Please, check and try again.",
 	"invalid-status-transition": "Cannot change status from ''{from}'' to ''{to}''.",
-	"service-unavailable": "The authentication service is unavailable. Please, try again in a moment."
+	"service-unavailable": "A service this request depends on is not answering. Nothing was changed; please try again in a moment.",
+	"graphql-parse-failed": "Failed to parse the GraphQL query. Check your query syntax.",
+	"graphql-validation-failed": "The GraphQL query is invalid. Please check the operation and variables.",
+	"persisted-query-not-found": "Persisted query not found. The query hash is unknown.",
+	"persisted-query-not-supported": "Persisted queries are not supported on this server.",
+	"bad-user-input": "Invalid input provided. Please check your data and try again.",
+	"operation-resolution-failure": "Failed to resolve the GraphQL operation.",
+	"bad-request": "The request is invalid or malformed. Please verify the request format."
 }
