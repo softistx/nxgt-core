@@ -1,5 +1,5 @@
 import type { LocaleKey } from '@nxgt/i18n';
-import type { Principal } from '@nxgt/shared';
+import type { Principal, TokenPrincipal } from '@nxgt/shared';
 import { cleanObject } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
 import type { Mutex } from 'async-mutex';
@@ -10,10 +10,22 @@ import { integrityRegistry } from '../integrity';
 type InferDocType<D extends HydratedDocument<any>> =
 	D extends HydratedDocument<infer T> ? T : D;
 
+/**
+ * Who the caller is, as far as this class is concerned. It only ever reads
+ * `name`, which both principal shapes carry.
+ *
+ * `Principal` and `TokenPrincipal` describe the same caller from two sources —
+ * the gateway's `X-User-*` headers and the access token — and they disagree on
+ * the identifier: `id` on one, `uid`/`sub` on the other. A subclass that reads
+ * more than `name` says which one it means through `P`.
+ */
+export type CrudPrincipal = Principal | TokenPrincipal;
+
 export abstract class MongoCrudService<
 	D extends HydratedDocument<any>,
 	CInput = any,
 	UInput = any,
+	P extends CrudPrincipal = Principal,
 > {
 	protected abstract model: Model<D>;
 
@@ -25,7 +37,7 @@ export abstract class MongoCrudService<
 
 	protected abstract mutex: Mutex;
 
-	constructor(readonly principal?: Principal | null) {}
+	constructor(readonly principal?: P | null) {}
 
 	protected get changesOptions() {
 		return {
