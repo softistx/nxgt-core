@@ -11,6 +11,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # `changeset status --since=origin/develop` needs the base branch.
+          fetch-depth: 0
       - name: Setup
         uses: ./.github/actions/setup
       - name: Lint code
@@ -21,3 +24,12 @@ jobs:
         run: bun test
       - name: Build packages
         run: bun run build
+      # The build exits 0 on packages that throw the instant they are imported —
+      # it happened three times. This packs them, installs them as a consumer
+      # does and imports every declared subpath.
+      - name: Verify the built artifacts load
+        run: bun run verify:artifacts
+      # A change to a package without a changeset is a change that never
+      # reaches a consumer: the release workflow has nothing to version.
+      - name: Changeset present
+        run: bun run changeset:status

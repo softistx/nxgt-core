@@ -208,7 +208,28 @@ raise this range in one package alone.
 ## Releasing, and what it means for a consumer
 
 Changesets, independent versions. `bun changeset` describes a change; merging to
-`develop` opens a "Version Packages" PR; merging that PR publishes.
+`develop` opens a "Version packages" PR; merging that PR publishes to the public
+npm registry.
+
+CI enforces two things a green build does not:
+
+- **`bun run changeset:status`** — a change under `packages/` without a
+  changeset is a change that never reaches a consumer, because the release
+  workflow has nothing to version. Use `bun changeset --empty` when that is
+  genuinely intended, and say why.
+- **`bun run verify:artifacts`** — packs the twelve, installs them the way a
+  consumer does, imports every subpath each package declares, and rejects any
+  published manifest naming a `link:`. It reads the subpath list from each
+  `exports` map, so a new entry point is covered as soon as it is declared.
+  `changeset:publish` runs it too, so a broken artifact cannot be published.
+
+Publishing goes through **`bun publish`**, never `npm publish` — Bun is the
+package manager for this repo, and `bun pm pack` is what rewrites `workspace:*`
+into a real version. `npm` is only ever used to write a credential into
+`~/.npmrc`, which is where Bun reads it from.
+
+The full sequence, and the reasoning behind each step, is the
+`release-a-package-change` skill.
 
 **A fix in a package is a release before it is a consumer PR.** This is the
 constraint the split introduced, and it is the same one `nxgt-ory` introduced
