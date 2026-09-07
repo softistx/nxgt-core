@@ -24,6 +24,7 @@ included — consumes them by enabling the plugin in its own committed
 | --- | --- |
 | `nxgt-workflow` | `large-feature-branch-workflow`, `write-a-repo-script` |
 | `nxgt-package` | `create-a-package`, `release-a-package-change` |
+| `nxgt-ory-app` | `create-ory-native-rest-api`, `create-ory-native-graphql-api`, `create-ory-native-ui`, `admin-screen-pattern` |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
 frontmatter, which is what decides when it fires, and `claude plugin details
