@@ -49,7 +49,7 @@ this skill works with it or without it.
 | Concern | storex-api | Ory-native |
 | --- | --- | --- |
 | Authentication middleware | `remoteAuth()` (oauth-api introspection) | `oryAuth(ory)` from `@nxgt/shared-hono` — same context contract (`principal`, `X-Claims`) plus `ory` and `accessToken` |
-| Coarse "signed in" | `rules.yaml` + `policyGuard` | **`requireAuthenticated()` on `/api/*`** — there is NO `rules.yaml`. An Ory principal has `authorities: []`, so a rules file had one boolean to express and one middleware expresses it, on a prefix a rule cannot forget to name |
+| Coarse "signed in" | `rules.yaml` + `policyGuard` | **`requireAuthenticated()` on `/api/*`** — no `rules.yaml` by default. An Ory principal has `authorities: []`, so a rules file had one boolean to express and one middleware expresses it, on a prefix a rule cannot forget to name |
 | Per-object decision, declared | nothing — a comment | **`ketoCheck()` on each route naming one object** |
 | Per-object decision, enforced | `<m>.access.ts` over a membership table | `<m>.access.ts` over **Keto**, taking the per-request checker — same file shape |
 | Ownership | a field / a table row | a **tuple** written by the service at creation |
@@ -159,10 +159,19 @@ Four rules, each of which has already gone wrong somewhere:
   folded into the Mongo filter before the read, not a check; creation has no
   object yet.
 
-**Do not add a `rules.yaml`.** It said `authenticated: true` and nothing else,
-which `requireAuthenticated()` says on a prefix — and mounting it there closed
-a real hole: a path the file did not name was `NOT_APPLICABLE`, which means
-open. In bookmarks-api that path was `GET /bookmarks/:id/share`.
+**By default, no `rules.yaml`.** It said `authenticated: true` and nothing
+else, which `requireAuthenticated()` says on a prefix — and mounting it there
+closed a real hole: a path the file did not name was `NOT_APPLICABLE`, which
+means open. In bookmarks-api that path was `GET /bookmarks/:id/share`.
+
+Since `@nxgt/security` 2.0.0 a rules file can say more than that boolean: a
+REST rule carries a `keto` list in the same `[[A, B], [C]]` grammar, rungs and
+all, so the ladder above is expressible declaratively. It is an **alternative**
+to `ketoCheck()`, chosen once per app — never half-mixed. The `NOT_APPLICABLE`
+hazard is unchanged, so a file only ever goes on a prefix, beside (not instead
+of) `requireAuthenticated()`. bookmarks-api carries both on purpose, as a
+bench: its route specs pass only while the two say the same thing. It is the
+only app that should.
 
 ### nxgt-ory's `config/keto.namespaces.ts` — your namespace
 ```ts
@@ -316,7 +325,7 @@ viewer gets **403** on an edit and loses `view` after unshare.
 - [ ] One `createOry()`; `ketoWrite` imported by `src/ory/tuples.ts` only, and guarded by `noRestrictedImports`
 - [ ] `src/ory/tuples.ts` is a `createTuples({ … })` call, not hand-written calls
 - [ ] The share-by-email lookup is `identities.findByEmail`, not a bare `kratosAdmin.GET`
-- [ ] No `rules.yaml` anywhere; `requireAuthenticated()` on `/api/*` answers 401
+- [ ] No `rules.yaml` (the default); `requireAuthenticated()` on `/api/*` answers 401
 - [ ] `oryChecks(ory)` after `oryAuthentication()` and before `servicesProvider()`
 - [ ] `ketoCheck()` on every route naming one object — `view` then `edit` — and **none** on `/search`, `QUERY /` or `POST /`
 - [ ] Every `view` check carries the same `message:` key the access layer uses
