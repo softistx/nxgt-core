@@ -37,6 +37,12 @@ function named(policy: CompiledPolicy, method: string, path: string): boolean {
  * The 401/403 split is the same one every app in the parc makes, for the same
  * reason: a UI re-authenticates on 401 and shows a refusal on 403.
  *
+ * `isRouted: false` on an ALLOW means the edge answers it ITSELF — `/health`
+ * is the intended case — so the status is 200 rather than 0. That matters for
+ * the record more than for the answer: in mirror mode nothing is applied, and
+ * a decision recorded as "would forward" beside an upstream 404 reads as
+ * agreement when the two in fact disagree completely.
+ *
  * `isNamed: false` overrides both with **404**, and that is measured rather
  * than chosen: Ory Oathkeeper answers 404 for a request no access rule
  * matches, and it is right to. Inviting an anonymous caller to authenticate
@@ -45,9 +51,13 @@ function named(policy: CompiledPolicy, method: string, path: string): boolean {
  * A refusal from a rule that DID match keeps 401/403: there the caller already
  * knows the app is there, having reached it.
  */
-export function statusOf(result: EvaluateResult, isNamed = true): number {
+export function statusOf(
+	result: EvaluateResult,
+	isNamed = true,
+	isRouted = true,
+): number {
 	if (result.decision === 'ALLOW' || result.decision === 'NOT_APPLICABLE') {
-		return 0;
+		return isRouted ? 0 : 200;
 	}
 	if (!isNamed) return 404;
 	if (result.decision === 'UNAUTHENTICATED') return 401;
@@ -126,7 +136,11 @@ export async function decide(
 			subject: isAuthenticated(claims) ? (claims.sub ?? null) : null,
 			decision: result.decision,
 			reason: result.reason,
-			status: statusOf(result, named(policy, request.method, url.pathname)),
+			status: statusOf(
+				result,
+				named(policy, request.method, url.pathname),
+				routed !== null,
+			),
 		},
 	};
 }
