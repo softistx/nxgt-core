@@ -24,8 +24,9 @@ short-circuits and maps denials for both evaluators, over the one
 using `applyGraphqlPolicy` need no code change.
 
 **Breaking, and a fix:** `applyGraphqlPolicy` branched on `DENY` alone, so a
-field under a rule `evaluateRest` answers 401 for let an anonymous caller
-straight to its resolver — the same rule, two answers depending on transport.
+field under a rule that `evaluateRest` answers 401 for let an anonymous caller
+straight through to its resolver — one rule, two answers depending on the
+transport.
 It now throws `UNAUTHENTICATED` for a caller the floor turned away, and carries
 a Keto rung's code and message onto the `GraphQLError`.
 
