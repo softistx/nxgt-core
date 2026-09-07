@@ -19,15 +19,38 @@ export interface Decided {
 }
 
 /**
+ * Whether any rule in the document names this method and path at all.
+ *
+ * The distinction the status depends on: a rule that matched and refused is a
+ * refusal, and says 401 or 403; a request no rule names is the edge saying
+ * there is nothing here, and says 404.
+ */
+function named(policy: CompiledPolicy, method: string, path: string): boolean {
+	const routes = policy.restRoutesByMethod.get(method.toUpperCase()) ?? [];
+	return routes.some((route) => route.matcher(path) !== false);
+}
+
+/**
  * The status a decision answers.
  *
  * `0` means "forward" — the edge has nothing to say and the upstream answers.
  * The 401/403 split is the same one every app in the parc makes, for the same
  * reason: a UI re-authenticates on 401 and shows a refusal on 403.
+ *
+ * `isNamed: false` overrides both with **404**, and that is measured rather
+ * than chosen: Ory Oathkeeper answers 404 for a request no access rule
+ * matches, and it is right to. Inviting an anonymous caller to authenticate
+ * for a path that routes nowhere costs them a round trip to learn that
+ * nothing is there — and answering 403 to a named caller says the path exists.
+ * A refusal from a rule that DID match keeps 401/403: there the caller already
+ * knows the app is there, having reached it.
  */
-export function statusOf(result: EvaluateResult): number {
+export function statusOf(result: EvaluateResult, isNamed = true): number {
+	if (result.decision === 'ALLOW' || result.decision === 'NOT_APPLICABLE') {
+		return 0;
+	}
+	if (!isNamed) return 404;
 	if (result.decision === 'UNAUTHENTICATED') return 401;
-	if (result.decision !== 'DENY') return 0;
 	return result.denial === 'NOT_FOUND' ? 404 : 403;
 }
 
@@ -103,7 +126,7 @@ export async function decide(
 			subject: isAuthenticated(claims) ? (claims.sub ?? null) : null,
 			decision: result.decision,
 			reason: result.reason,
-			status: statusOf(result),
+			status: statusOf(result, named(policy, request.method, url.pathname)),
 		},
 	};
 }

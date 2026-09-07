@@ -149,8 +149,17 @@ accepts.
 | Keto unreachable | 500 | **503** |
 | Keto says no | 403 | 403 |
 | anonymous on a closed path | 401 | 401 |
+| a request no rule names | 404 | 404 |
 | upstream unreachable | 502 | 502 |
 | edge's own failure, `mirror` | — | logged, forwarded |
+
+A refusal splits on whether a rule matched at all. One that did says 401 or
+403 — the caller reached the app, so nothing is revealed by telling them
+whether they may have it. One that did **not** says **404**, and that is
+measured rather than chosen: Oathkeeper answers 404 for a request no access
+rule matches, and it is right to. Inviting an anonymous caller to authenticate
+for a path that routes nowhere costs them a round trip to learn nothing is
+there, and a 403 would say the path exists.
 
 Bodies are the parc's `{ status, message, debugMessage, timestamp }`, **not
 translated**: the edge has no locale contract with the caller and no
