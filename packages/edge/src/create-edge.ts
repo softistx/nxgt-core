@@ -130,7 +130,7 @@ export function createEdge(config: EdgeConfig): Edge {
 
 		record(decided.decision);
 
-		if (decided.decision.status !== 0) {
+		if (decided.decision.status >= 400) {
 			return refusal(decided.decision);
 		}
 
@@ -237,11 +237,19 @@ function edgeHealth(path: string): Response {
 /**
  * Whether the two edges said the same thing.
  *
- * It is a coarse comparison and worth being honest about: from outside, a 403
- * the mirrored edge produced and a 403 the APP produced look identical, so an
- * app's own refusal reads as agreement. The real comparison is the
- * differential harness, which drives a known corpus against a recorded
- * fixture; this verdict is for watching the network path on live traffic.
+ * When the edge would answer a status of its own — a refusal, or `/health` —
+ * the comparison is exact, because both numbers are then edge decisions.
+ *
+ * When the edge would FORWARD it is a judgement, and worth being honest about:
+ * from outside, a 403 the mirrored edge produced and a 403 the app produced
+ * look identical. The refusals an edge is capable of making are the ones worth
+ * flagging, so those read as disagreement and anything else — the app's own
+ * 404 for a missing bookmark, its 422, its 500 — reads as agreement, because
+ * the edge let it through and something behind it answered.
+ *
+ * The real comparison is the differential harness, which drives a known corpus
+ * against a recorded fixture. This verdict is for watching the network path on
+ * live traffic.
  */
 function verdictOf(
 	decision: EdgeDecision | null,
@@ -249,12 +257,11 @@ function verdictOf(
 ): 'agree' | 'differ' | 'error' {
 	if (!decision) return 'error';
 
-	const weRefuse = decision.status >= 400;
-	const theyRefuse = [401, 403, 503].includes(upstreamStatus);
+	if (decision.status !== 0) {
+		return decision.status === upstreamStatus ? 'agree' : 'differ';
+	}
 
-	if (weRefuse !== theyRefuse) return 'differ';
-	if (weRefuse) return decision.status === upstreamStatus ? 'agree' : 'differ';
-	return 'agree';
+	return [401, 403, 503].includes(upstreamStatus) ? 'differ' : 'agree';
 }
 
 function log(entry: EdgeDecision | MirrorRecord): void {
