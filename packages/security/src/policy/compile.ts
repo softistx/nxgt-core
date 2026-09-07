@@ -1,5 +1,6 @@
 import { type MatchFunction, match } from 'path-to-regexp';
 import { compileFunction } from './evaluation.utils';
+import type { GraphqlRuleEntry } from './graphql/schema';
 import type { RestRuleEntry } from './rest/schema';
 import type { RuleEntry, Rules } from './rules.schema';
 
@@ -30,7 +31,7 @@ export interface CompiledRestRoute {
 }
 
 export interface CompiledGraphqlEntry {
-	rule: RuleEntry;
+	rule: GraphqlRuleEntry;
 	compiledExpression?: CompiledExpression;
 }
 
@@ -129,6 +130,7 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 			// A Keto term asks what THIS caller may do to an object; a public
 			// rule has no caller to ask about. Refused here, next to the
 			// `authenticated` + `public` contradiction, for the same reason.
+			// The GraphQL side is checked in its own loop below.
 			//
 			// Nothing else needs checking at this point: the schema already
 			// refuses `[]` ("admits nobody"), `[[]]` (a conjunction over no
@@ -182,8 +184,25 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 				Object.entries(rules.graphql).map(([operationType, fields]) => [
 					operationType,
 					Object.fromEntries(
-						Object.entries((fields ?? {}) as Record<string, RuleEntry>).map(
-							([field, rule]) => [
+						Object.entries(
+							(fields ?? {}) as Record<string, GraphqlRuleEntry>,
+						).map(([field, rule]) => {
+							if (rule.authenticated && rule.public) {
+								throw new Error(
+									`Invalid rule for ${operationType}.${field}: \`authenticated\` ` +
+										'and `public` are contradictory — a field either requires ' +
+										'a signed-in caller or admits anonymous ones.',
+								);
+							}
+							if (rule.public && rule.keto?.length) {
+								throw new Error(
+									`Invalid rule for ${operationType}.${field}: \`public\` and ` +
+										'`keto` are contradictory — a Keto term asks what the ' +
+										'caller may do to an object, and a public rule admits ' +
+										'callers there is nothing to ask about.',
+								);
+							}
+							return [
 								field,
 								{
 									rule,
@@ -193,8 +212,8 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 										GRAPHQL_SCOPE,
 									),
 								} satisfies CompiledGraphqlEntry,
-							],
-						),
+							];
+						}),
 					),
 				]),
 			)

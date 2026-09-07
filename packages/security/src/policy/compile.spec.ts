@@ -37,7 +37,7 @@ describe('compilePolicy — expression cache is scope-aware', () => {
 		});
 		expect(restResult.decision).toBe('ALLOW');
 
-		const graphqlResult = evaluateGraphql(policy, {
+		const graphqlResult = await evaluateGraphql(policy, {
 			type: 'graphql',
 			operationType: 'Query',
 			field: 'widgets',
@@ -46,7 +46,7 @@ describe('compilePolicy — expression cache is scope-aware', () => {
 		});
 		expect(graphqlResult.decision).toBe('ALLOW');
 
-		const graphqlDenied = evaluateGraphql(policy, {
+		const graphqlDenied = await evaluateGraphql(policy, {
 			type: 'graphql',
 			operationType: 'Query',
 			field: 'widgets',
@@ -58,7 +58,7 @@ describe('compilePolicy — expression cache is scope-aware', () => {
 });
 
 describe('compilePolicy — a public rule cannot ask Keto anything', () => {
-	it('refuses `public` and `keto` on the same rule', () => {
+	it('refuses `public` and `keto` on the same rule', async () => {
 		// A Keto term asks what THIS caller may do to an object; `public` admits
 		// callers there is nothing to ask about.
 		expect(() =>

@@ -245,7 +245,7 @@ describe('applyGraphqlPolicy', () => {
 			},
 		};
 
-		it('throws NonNullRuleFieldError at wrap time by default for a rule on a non-null field', () => {
+		it('throws NonNullRuleFieldError at wrap time by default for a rule on a non-null field', async () => {
 			expect(() =>
 				applyGraphqlPolicy(buildSchemaWithNonNullEmail(), rules, {
 					getClaims: () => ({ sub: 'user-1' }),
@@ -253,7 +253,7 @@ describe('applyGraphqlPolicy', () => {
 			).toThrow(NonNullRuleFieldError);
 		});
 
-		it('does not throw for a rule on a nullable field', () => {
+		it('does not throw for a rule on a nullable field', async () => {
 			expect(() =>
 				applyGraphqlPolicy(buildSchema(), rules, {
 					getClaims: () => ({ sub: 'user-1' }),
@@ -280,5 +280,82 @@ describe('applyGraphqlPolicy', () => {
 			expect(result.errors).toHaveLength(1);
 			expect(result.errors?.[0]?.message).toContain('Insufficient authorities');
 		});
+	});
+});
+
+describe('applyGraphqlPolicy — the decisions it used to drop', () => {
+	/**
+	 * Before this, the wrapper branched on DENY alone. A field under a rule
+	 * that `evaluateRest` answers 401 for let an anonymous caller straight to
+	 * its resolver — the same rule, the same document, two different answers
+	 * depending on the transport. With a `keto` rung it would also have meant
+	 * asking Keto about nobody.
+	 */
+	it('refuses an anonymous caller instead of resolving the field', async () => {
+		const schema = applyGraphqlPolicy(
+			buildSchema(),
+			{ graphql: { Query: { me: { authenticated: true } } } } as Rules,
+			{ getClaims: () => ({}) as any },
+		);
+
+		const result = await graphql({ schema, source: '{ me { id } }' });
+
+		expect(result.data?.me).toBeNull();
+		expect(result.errors?.[0]?.message).toBe('errors.unauthenticated');
+		expect(result.errors?.[0]?.extensions?.code).toBe('UNAUTHENTICATED');
+	});
+
+	it('carries a Keto rung’s denial and message onto the error', async () => {
+		// `User.email` is the field-on-a-returned-type case: it names its object
+		// through `source.id`, which is exactly why the GraphQL grammar has a
+		// `source.` root and REST does not.
+		const asked: string[] = [];
+		const schema = applyGraphqlPolicy(
+			buildSchema(),
+			{
+				graphql: {
+					User: {
+						email: {
+							keto: [
+								{
+									permissions: [
+										[
+											{
+												namespace: 'User',
+												permit: 'read-email',
+												id: 'source.id',
+											},
+										],
+									],
+									onDeny: 'NOT_FOUND',
+									message: 'users.errors.not-found',
+								},
+							],
+						},
+					},
+				},
+			} as Rules,
+			{
+				getClaims: () => ({ sub: 'idn-7' }),
+				permissions: () => ({
+					subject: 'idn-7',
+					evaluatePermissions: async (requirement, objectsOf) => {
+						for (const group of requirement) {
+							for (const term of group) asked.push(...objectsOf(term));
+						}
+						return false;
+					},
+				}),
+			},
+		);
+
+		const result = await graphql({ schema, source: '{ me { id email } }' });
+
+		// The id came off the parent object, not off an argument.
+		expect(asked).toEqual(['1']);
+		expect((result.data?.me as any)?.email).toBeNull();
+		expect((result.data?.me as any)?.id).toBe('1');
+		expect(result.errors?.[0]?.message).toBe('users.errors.not-found');
+		expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND');
 	});
 });

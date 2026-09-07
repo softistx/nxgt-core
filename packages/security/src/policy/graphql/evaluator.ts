@@ -5,7 +5,9 @@ import {
 	isAuthenticated,
 	runCompiledExpression,
 } from '../evaluation.utils';
+import { evaluateKetoRungs, type KetoDeps } from '../keto-rungs';
 import type { EvaluateResult } from '../rest/evaluator';
+import { objectsOfGraphqlTerm } from './permission-paths';
 
 // ---------------------------------------------------------------------------
 // Input type
@@ -50,6 +52,12 @@ export interface GraphqlEvaluateInput {
 // Re-export so consumers only need to import from one evaluator file
 export type { EvaluateResult };
 
+/**
+ * What a field's `keto` rungs need to be answerable. The same shape the REST
+ * evaluator takes, and walked by the same code — see `../keto-rungs.ts`.
+ */
+export type GraphqlEvaluateDeps = KetoDeps;
+
 // ---------------------------------------------------------------------------
 // Evaluator
 // ---------------------------------------------------------------------------
@@ -66,6 +74,11 @@ export type { EvaluateResult };
  *   2. Authority groups checked (AND outer / OR inner) — DENY on failure
  *   3. Expression evaluated with `{ claims, args, source, info }` in scope —
  *      DENY on failure
+ *   4. Keto rungs, in order, each with its own denial — DENY on failure
+ *
+ * The Keto rungs come last on purpose: the three checks above them are local
+ * and synchronous, and there is no reason to cross the network for a question
+ * that is already answerable here.
  *
  * Step 1 mirrors the REST evaluator so the same `public`/`authenticated`
  * markers mean the same thing in both — a primitive that silently no-ops in
@@ -73,10 +86,11 @@ export type { EvaluateResult };
  *
  * Returns NOT_APPLICABLE when the operation type or field has no rule entry.
  */
-export function evaluateGraphql(
+export async function evaluateGraphql(
 	policy: CompiledPolicy,
 	input: GraphqlEvaluateInput,
-): EvaluateResult {
+	deps: GraphqlEvaluateDeps = {},
+): Promise<EvaluateResult> {
 	const entry = policy.graphql?.[input.operationType]?.[input.field];
 
 	if (!entry) {
@@ -116,6 +130,17 @@ export function evaluateGraphql(
 			return { decision: 'DENY', reason: exprResult.message };
 		}
 	}
+
+	// Keto rungs, in document order, each with its own denial — the
+	// 404-then-403 ladder the `@check` directive writes by being repeatable.
+	const refusal = await evaluateKetoRungs(
+		entry.rule.keto,
+		deps,
+		(term) => objectsOfGraphqlTerm(term, input),
+		`${input.operationType}.${input.field}`,
+		`${input.operationType}.${input.field}`,
+	);
+	if (refusal) return refusal;
 
 	return {
 		decision: 'ALLOW',

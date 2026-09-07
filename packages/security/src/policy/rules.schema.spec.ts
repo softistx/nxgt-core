@@ -168,9 +168,11 @@ describe('RulesSchema — Keto terms', () => {
 		).toThrow();
 	});
 
-	it('rejects a `keto` term on a GraphQL rule, which no evaluator honours', () => {
-		// The field is declared on the REST rule entry only. Were it on the
-		// shared one, this would parse, autocomplete, and then be ignored.
+	it('rejects a REST id path on a GraphQL rule', () => {
+		// `keto` exists on both sides now, but the id grammars do not overlap:
+		// REST reads `param.`/`query.`/`json.`, GraphQL reads `args.`/`source.`.
+		// Declared once on the shared entry, either spelling would be accepted
+		// on either side and then resolve nothing at request time.
 		expect(() =>
 			RulesSchema.parse({
 				graphql: {
@@ -188,5 +190,49 @@ describe('RulesSchema — Keto terms', () => {
 				},
 			}),
 		).toThrow();
+	});
+
+	it('rejects a GraphQL id path on a REST rule', () => {
+		expect(() =>
+			RulesSchema.parse({
+				rest: {
+					'/notes/:id': {
+						GET: {
+							keto: [
+								{
+									permissions: [
+										[{ namespace: 'Note', permit: 'view', id: 'args.id' }],
+									],
+								},
+							],
+						},
+					},
+				},
+			}),
+		).toThrow();
+	});
+
+	it('accepts a GraphQL rung, defaulting `id` to args.id', () => {
+		const rules = RulesSchema.parse({
+			graphql: {
+				Mutation: {
+					updateNote: {
+						keto: [
+							{
+								permissions: [[{ namespace: 'Note', permit: 'view' }]],
+								message: 'notes.errors.not-found',
+							},
+							{
+								permissions: [[{ namespace: 'Note', permit: 'edit' }]],
+								onDeny: 'FORBIDDEN',
+							},
+						],
+					},
+				},
+			},
+		});
+		const rungs = rules.graphql?.Mutation?.updateNote?.keto ?? [];
+		expect(rungs.map((r) => r.onDeny)).toEqual(['NOT_FOUND', 'FORBIDDEN']);
+		expect(rungs[0]?.permissions[0]?.[0]?.id).toBe('args.id');
 	});
 });
