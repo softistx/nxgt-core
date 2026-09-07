@@ -104,6 +104,25 @@ function compileExpression(
 export function compilePolicy(rules: Rules): CompiledPolicy {
 	const compile = createExpressionCompiler();
 
+	// `unmatched: deny` is REST-only, and silence would be the wrong way to
+	// say so. `applyGraphqlPolicy` leaves a field with no rule entry
+	// completely untouched — its resolver is never wrapped, so no evaluator
+	// ever runs for it and no default could apply. Making it apply would mean
+	// wrapping EVERY field of every type, `Note.title` included, and a
+	// GraphQL document would have to enumerate the whole schema to boot. The
+	// floor on that side is `@authenticated` on the fields themselves.
+	if (rules.global?.unmatched === 'deny' && rules.graphql) {
+		throw new Error(
+			'Invalid rules document: `global.unmatched: deny` is REST-only, but ' +
+				'this document also declares a `graphql:` block. Nothing would ' +
+				'close on that side — `applyGraphqlPolicy` never wraps a field no ' +
+				'rule names, so no default can reach it, and denying by default ' +
+				'would mean naming every field of every type. Use `@authenticated` ' +
+				'as the GraphQL floor and split the document, or drop the ' +
+				'`graphql:` block if nothing serves it.',
+		);
+	}
+
 	// Source document is keyed path → method (OpenAPI `paths`-style), but
 	// request-time dispatch wants method → routes (O(1) lookup on the
 	// incoming method, then a document-order scan of that method's

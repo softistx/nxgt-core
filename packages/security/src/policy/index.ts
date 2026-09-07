@@ -5,6 +5,7 @@ export * from './graphql/evaluator';
 export * from './graphql/schema';
 export * from './load-rules';
 export * from './permissions.types';
+export * from './rest/coverage';
 export * from './rest/evaluator';
 export * from './rest/permission-paths';
 export * from './rest/schema';

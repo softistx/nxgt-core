@@ -101,7 +101,25 @@ Two things the schema refuses outright, both at parse time with a message that n
 
 Everything else is identical, and shared in code: `evaluateKetoRungs` in `src/policy/keto-rungs.ts` walks the rungs, short-circuits and maps the denials for both evaluators. Two copies of that would be two chances for `[[A, B], [C]]` to come to mean different things on the two sides.
 
-**A path no rule names is still open.** `NOT_APPLICABLE` means open, and adding `keto` terms does not change that — a file that decides per object *looks* more complete than it is. Mount the guard on a prefix (`app.use('/api/*', …)`), never per route, and keep whatever answers the authentication floor.
+**A path no rule names is open, unless the document closes it.** `NOT_APPLICABLE` means open, and adding `keto` terms does not change that — a file that decides per object *looks* more complete than it is. Mount the guard on a prefix (`app.use('/api/*', …)`), never per route, and keep whatever answers the authentication floor.
+
+`global.unmatched: deny` closes it: an unnamed path is refused where it would have passed, 401 for an anonymous caller and 403 otherwise — the same ladder a matched rule applies, so nothing new reaches the UIs. The decision is taken in `evaluateRest`, not in each guard, so `policyGuard`, a gateway's per-service guards and a dry-run `POST /evaluate` all inherit it and cannot disagree.
+
+It is worth turning on only when the file is exhaustive, and `unnamedOperations` is how you know that rather than feel it:
+
+```ts
+import { loadRawRulesFromFile, parseRules, unnamedOperations } from '@nxgt/security/policy';
+import { app } from '@/index';
+
+const policy = parseRules(await loadRawRulesFromFile('rules.yaml'));
+expect(unnamedOperations(policy, app.routes, { mountedOn: '/api' })).toEqual([]);
+```
+
+Feed it **the app's own route table** where there is one: it is the mounted surface, which is what the guard will actually be asked about. An OpenAPI document is the fallback (`openapiOperations(doc.paths, { prefix: '/api' })`) and it is strictly weaker — storex-api mounts three routes it does not document, and an OpenAPI-only check reports them as no concern at all.
+
+It asks the compiled matchers directly — the question is "does any rule name this operation", not "would it allow this caller" — so there are no claims to invent, no Keto evaluator to stub and no expression to run. It collapses the duplicates a route table carries, skips wildcard mounts (`app.use('/api/*', …)` is the guard itself) and anything outside `mountedOn`, and catches the case a reader's eye skips: a **method** the file forgot on a path it does name. Put it in the app's own suite, get it to zero, then set the flag, and it stays at zero.
+
+**`unmatched` is REST-only, and compiling refuses to pretend otherwise.** `applyGraphqlPolicy` leaves a field with no rule entry completely untouched: its resolver is never wrapped, so no evaluator runs for it and no default can reach it. Making one apply would mean wrapping *every* field of every type — `Note.title` included — and a GraphQL document would have to enumerate the whole schema before it could boot. The floor on that side is `@authenticated` on the fields themselves. `compilePolicy` therefore **throws** when a document carries both `global.unmatched: deny` and a `graphql:` block, rather than closing half of it in silence.
 
 Run `bun run schema:gen` after changing `rules.schema.ts` to regenerate that checked-in JSON Schema file (`schema/rules.schema.json`).
 

@@ -10,6 +10,12 @@
 					"description": "Prefix prepended to every REST path pattern before matching, e.g. \"/api\".",
 					"type": "string"
 				},
+				"unmatched": {
+					"default": "allow",
+					"description": "What a REST request no rule matches is answered. \"allow\" (the default, and the behaviour of every document written before this field existed) lets it through — the rules file adds protections to the paths it names and says nothing about the others. \"deny\" makes the file the EXHAUSTIVE statement of what this service exposes: an unnamed path is refused, 401 for an anonymous caller and 403 otherwise, exactly as a matched rule would refuse them. Turn it on only once every published operation has an entry — the point is that forgetting one then fails loudly instead of silently leaving it open. REST ONLY: see the note in the package README on why GraphQL has no equivalent.",
+					"type": "string",
+					"enum": ["allow", "deny"]
+				},
 				"rateLimit": {
 					"description": "Default rate limit applied unless a rule declares its own `rateLimit` override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
 					"type": "object",
@@ -78,6 +84,7 @@
 					}
 				}
 			},
+			"required": ["unmatched"],
 			"additionalProperties": false
 		},
 		"rest": {
