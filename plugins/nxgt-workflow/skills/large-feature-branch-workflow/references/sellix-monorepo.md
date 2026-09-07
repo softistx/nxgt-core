@@ -24,12 +24,13 @@ no longer exists.
    so codegen stays in sync within the slice.
 3. **A dedicated sync slice** for propagation downstream. This repo has an
    extra hop: `apps/oauth/oauth-admin` (and less consistently
-   `apps/oauth/oauth`) consume the sibling repository `stx-sdk` through
-   `link:stx-sdk` / `bun link`, not as a workspace package. If a change touches
-   an OpenAPI contract stx-sdk mirrors, that repo's `openapi/*.yaml` must be
-   resynced and `bun run codegen && bun run build` run there — its `postbuild`
-   re-runs `bun link` — before any client app sees it. The
-   `ui-microservices-sync` skill has the full checklist.
+   `apps/oauth/oauth`) consume the sibling repository `stx-sdk` as a **published
+   dependency**, not as a workspace package. If a change touches an OpenAPI
+   contract stx-sdk mirrors, that repo's `openapi/*.yaml` must be resynced,
+   `bun run codegen && bun run build` run there, a version **released**, and the
+   range bumped here before any client app sees it. That release is a real step:
+   this used to be `link:stx-sdk`, where a local build was the whole propagation.
+   The `ui-microservices-sync` skill has the full checklist.
 4. **Shared-package changes are upstream**, in nxgt-core. See the main skill.
 5. **Docs and skills last.**
 
@@ -40,9 +41,11 @@ that made the contract change.
 
 ## The base image
 
-If a slice changes anything a `link:` package exposes, the builder base has to
-be rebuilt before an app image will see it: `bun run docker:base`. It resolves
-each linked repository's revision and rebuilds only when one moved.
+Nothing a slice does to `stx-sdk`, `@nxgt/material` or `@nxgt/map` requires
+rebuilding it any more. The base used to clone and `bun link` all three, so a
+slice that changed one needed `bun run docker:base` before an app image saw it;
+they come from npmjs now, and the base is `oven/bun` plus the Redocly CLI. It
+also needs no `GH_TOKEN`.
 
 ## Deep review — the access surface here
 
