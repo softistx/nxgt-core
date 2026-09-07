@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { Hono } from 'hono';
 import { createOry, type OryPrincipal } from 'stx-sdk/ory';
 import { createErrorHandler } from './error-handler';
-import { ketoCheck, requireAuthenticated, useOry } from './keto-check';
+import { ketoCheck, oryChecks, requireAuthenticated } from './keto-check';
 import { withOryUnavailable } from './ory-auth';
 
 /**
@@ -64,7 +64,7 @@ function app(
 		ctx.set('ory', principal(subject));
 		return next();
 	});
-	hono.use('*', useOry(ory));
+	hono.use('*', oryChecks(ory));
 	mount(hono);
 
 	return { hono, batches };

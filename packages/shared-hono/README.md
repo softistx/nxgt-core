@@ -24,7 +24,7 @@ npmjs, so an install resolves it without any extra configuration.
 
 ```ts
 app.use('*', oryAuth(ory));
-app.use('*', useOry(ory));          // the per-request Keto answer cache
+app.use('*', oryChecks(ory));          // the per-request Keto answer cache
 app.use('/api/*', requireAuthenticated());   // 401 for nobody
 
 app.get('/:id',
@@ -65,7 +65,7 @@ ketoCheck([[{ namespace: 'Bookmark', permit: 'view', id: 'param.id' }]],
           { message: 'bookmarks.errors.not-found' });
 ```
 
-`useOry(ory)` puts a per-request loader on the context that **batches**
+`oryChecks(ory)` puts a per-request loader on the context that **batches**
 distinct questions into one `POST /relation-tuples/batch/check` and
 **memoises** identical ones, so a route guarded by `ketoCheck(view)` and a
 service that then asks the same question pay for one round trip between them.
