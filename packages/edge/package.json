@@ -1,6 +1,6 @@
 {
 	"name": "@nxgt/edge",
-	"version": "0.1.2",
+	"version": "0.2.0",
 	"license": "UNLICENSED",
 	"type": "module",
 	"main": "./dist/index.js",
@@ -42,7 +42,6 @@
 		"@nxgt/security": "workspace:^",
 		"@nxgt/shared": "workspace:^",
 		"@nxgt/shared-logging": "workspace:^",
-		"yaml": "^2.9.0",
 		"zod": "^4.4.3"
 	},
 	"peerDependencies": {

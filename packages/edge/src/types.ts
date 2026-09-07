@@ -16,8 +16,8 @@ export interface EdgeIdentity {
 	 * never a copy of the caller's own credential.
 	 *
 	 * A function, and lazy on purpose: in `mirror` mode nothing is minted,
-	 * because the request must reach the edge being mirrored carrying the
-	 * credential IT needs to authenticate.
+	 * because the request is forwarded untouched and must reach the upstream
+	 * carrying the credential IT authenticates.
 	 */
 	assert(): Promise<string>;
 
@@ -58,10 +58,11 @@ export interface Authenticator {
 /**
  * The authority behind an authenticator could not answer.
  *
- * The core maps it to **503**, never 401 and never 403. Ory Oathkeeper's
- * `cookie_session` returns 403 when Kratos is down, which is the measured
- * defect this replaces: at the edge, "I could not ask" and "the answer was no"
- * must not be the same status.
+ * The core maps it to **503**, never 401 and never 403 — *unavailable is
+ * never anonymous and never denied*, the rule every API in the parc already
+ * keeps. At an edge it matters more than anywhere else: this is the one place
+ * that sees all the traffic, and "I could not ask" answered as "the answer was
+ * no" gives a caller no reason to retry and a UI no way to tell the two apart.
  */
 export class AuthorityUnavailable extends Error {
 	constructor(

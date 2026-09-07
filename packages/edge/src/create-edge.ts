@@ -17,8 +17,8 @@ import {
 } from './types';
 
 /**
- * What a mirror-mode request produced: the decision the edge would have made,
- * beside the answer the edge it mirrors actually gave.
+ * What a mirror-mode request produced: the decision this edge WOULD have made,
+ * beside the answer the upstream it shadows actually gave.
  */
 export interface MirrorRecord extends EdgeDecision {
 	upstreamStatus: number;
@@ -42,9 +42,14 @@ export interface EdgeConfig {
 	 */
 	authenticators: readonly Authenticator[];
 	/**
-	 * Where EVERY request goes in `mirror` mode — the edge being compared
-	 * against, which still answers. Required in that mode and refused in
-	 * `enforce`, so switching over is one variable and cannot be half done.
+	 * Where EVERY request goes in `mirror` mode — the thing that still
+	 * answers while this edge only watches. Required in that mode and refused
+	 * in `enforce`, so going live is one variable and cannot be half done.
+	 *
+	 * Any URL: another edge, an older deployment of this one, the app itself.
+	 * It is how a change is validated on real traffic before it decides
+	 * anything — a new authenticator, a reworked rules document, a newly
+	 * fronted app.
 	 */
 	mirrorUpstream?: string;
 	/** For `${VAR}` in the routing table. Defaults to `process.env`. */
@@ -76,16 +81,16 @@ export interface Edge {
 export function createEdge(config: EdgeConfig): Edge {
 	if (config.mode === 'mirror' && !config.mirrorUpstream) {
 		throw new Error(
-			'`mirror` mode needs a `mirrorUpstream` — the edge it is compared ' +
-				'against, which is still the one answering. Without it the edge ' +
-				'would be enforcing while claiming not to.',
+			'`mirror` mode needs a `mirrorUpstream` — whatever is still answering ' +
+				'while this edge only watches. Without it the edge would be ' +
+				'enforcing while claiming not to.',
 		);
 	}
 	if (config.mode === 'enforce' && config.mirrorUpstream) {
 		throw new Error(
 			'`enforce` mode must not have a `mirrorUpstream`. Leaving it set is ' +
-				'how a switchover ends up sending every request through the edge it ' +
-				'was supposed to replace.',
+				'how an edge that is supposed to be deciding keeps forwarding every ' +
+				'request to the thing it was shadowing.',
 		);
 	}
 
@@ -116,9 +121,9 @@ export function createEdge(config: EdgeConfig): Edge {
 			decided = await decide(policy, config.authenticators, request, routed);
 		} catch (error) {
 			if (!(error instanceof AuthorityUnavailable)) throw error;
-			// The reason this edge exists. Oathkeeper answers 403 here, which
-			// a caller cannot tell from a real refusal and a UI reads as "you
-			// may not", when the truth is "nobody could ask".
+			// The reason this edge exists. 403 here is indistinguishable from
+			// a real refusal: a UI reads it as "you may not" when the truth is
+			// "nobody could ask", and the caller has no reason to retry.
 			record(unavailableDecision(error, request, routed));
 			return errorResponse(
 				503,
@@ -136,8 +141,8 @@ export function createEdge(config: EdgeConfig): Edge {
 
 		if (!routed) {
 			// Allowed by the rules document but routable nowhere. `/health` is
-			// the intended case, and the edge answers it itself rather than
-			// leaving it a 404 the way Oathkeeper does.
+			// the intended case: the edge answers for ITSELF here, and a
+			// fronted app's own `/health` stays on its own address.
 			return edgeHealth(url.pathname);
 		}
 
@@ -153,7 +158,9 @@ export function createEdge(config: EdgeConfig): Edge {
 	 *
 	 * Nothing here can refuse and nothing here can throw: an edge under
 	 * evaluation must not be able to break what already works, so its own
-	 * failure is a log line and a passed-through request.
+	 * failure is a log line and a passed-through request. That property is
+	 * the whole value of the mode — it makes trying a change on real traffic
+	 * free.
 	 */
 	async function mirror(
 		request: Request,
@@ -180,9 +187,10 @@ export function createEdge(config: EdgeConfig): Edge {
 					: null;
 		}
 
-		// Every request goes to the mirrored edge, routed or not, with its
-		// own credential intact — that edge has to authenticate it too, and it
-		// cannot do that with an assertion of ours.
+		// Every request goes upstream, routed or not, with its own credential
+		// intact — whatever is answering has to authenticate it too, and it
+		// cannot do that with an assertion of ours. This is also why
+		// `EdgeIdentity.assert()` is lazy: in this mode nothing is minted.
 		const response = await forward(
 			request,
 			{

@@ -30,9 +30,8 @@ export function assertEdgePolicy(
  * Inside one app, an unnamed path being open is defensible: the guard is
  * mounted on a prefix, the authentication floor still applies, and the route
  * itself decides. At an edge none of that is true — an unnamed path is a path
- * forwarded to an upstream with no decision made about it at all. Oathkeeper
- * refuses what no rule names, and a replacement that quietly did the opposite
- * would publish everything the document forgot to mention.
+ * forwarded to an upstream with no decision made about it at all, so an open
+ * default publishes everything the document forgot to mention.
  */
 function assertClosedByDefault(policy: CompiledPolicy): void {
 	if (policy.global?.unmatched !== 'deny') {
@@ -107,9 +106,9 @@ function assertOnlyNamesApps(policy: CompiledPolicy): void {
 /**
  * Every routable app must be named by at least one rule.
  *
- * Routing and policy are two documents on purpose — it is what removes
- * Oathkeeper's `/health` and `QUERY` traps — but two documents can disagree,
- * and under `unmatched: deny` the disagreement is silent and total: an app
+ * Routing and policy are two documents on purpose (see `routes.schema.ts`),
+ * but two documents can disagree, and under `unmatched: deny` the
+ * disagreement is silent and total: an app
  * that is routable and unnamed has every request to it refused, with a reason
  * that says only "no rule matched".
  */

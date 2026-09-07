@@ -161,8 +161,9 @@ describe('createEdge — enforce', () => {
 
 		const response = await e.fetch(get('/api/bookmarks'));
 
-		// The whole reason this exists. Oathkeeper answers 403 here, which a
-		// caller cannot tell from a real refusal.
+		// The whole reason this exists. 403 here is indistinguishable from a
+		// real refusal, and 401 invites a caller to re-present a credential
+		// nothing can currently check.
 		expect(response.status).toBe(503);
 		expect(await response.json()).toMatchObject({
 			message: 'errors.service-unavailable',
@@ -191,7 +192,7 @@ describe('createEdge — enforce', () => {
 		//
 		// 404 rather than 403 because no rule matched at all: the edge is
 		// saying there is nothing here, not that this caller may not have it.
-		// Measured against Oathkeeper, which answers the same and is right to.
+		// 403 would confirm the path exists to someone probing for it.
 		const response = await e.fetch(
 			new Request('https://edge.test/api/bookmarks/b1', { method: 'DELETE' }),
 		);
@@ -233,9 +234,9 @@ describe('createEdge — enforce', () => {
 
 		const response = await e.fetch(get('/health'));
 
-		// Oathkeeper has no rule for it by design, so `GET :4455/health` is a
-		// 404 — and a host-agnostic rule for it would apply to every fronted
-		// app at once.
+		// The edge answers for ITSELF here, and routes nowhere: every fronted
+		// app serves `/health` on that exact path, so a rule that forwarded it
+		// would have to pick one of them arbitrarily.
 		expect(response.status).toBe(200);
 		expect(sink.seen).toHaveLength(0);
 	});
@@ -262,7 +263,7 @@ describe('createEdge — mirror', () => {
 	const mirror = (overrides: Partial<EdgeConfig> = {}) =>
 		edge({
 			mode: 'mirror',
-			mirrorUpstream: 'http://oathkeeper:4455',
+			mirrorUpstream: 'http://shadowed.test',
 			...overrides,
 		});
 
@@ -271,7 +272,7 @@ describe('createEdge — mirror', () => {
 
 		await e.fetch(get('/api/bookmarks', { authorization: 'Bearer theirs' }));
 
-		expect(sink.seen[0]?.url).toBe('http://oathkeeper:4455/api/bookmarks');
+		expect(sink.seen[0]?.url).toBe('http://shadowed.test/api/bookmarks');
 		// Nothing minted: the edge being mirrored has to authenticate this
 		// request itself, and it cannot do that with an assertion of ours.
 		expect(sink.seen[0]?.headers.get('authorization')).toBe('Bearer theirs');
@@ -316,7 +317,7 @@ describe('createEdge — mirror', () => {
 		const response = await e.fetch(get('/nowhere'));
 
 		expect(response.status).toBe(200);
-		expect(sink.seen[0]?.url).toBe('http://oathkeeper:4455/nowhere');
+		expect(sink.seen[0]?.url).toBe('http://shadowed.test/nowhere');
 	});
 
 	test('records what it would ANSWER, not just that it would not refuse', async () => {
@@ -381,7 +382,7 @@ describe('createEdge — configuration', () => {
 				routes: ROUTES,
 				rules: RULES,
 				authenticators: [],
-				mirrorUpstream: 'http://oathkeeper:4455',
+				mirrorUpstream: 'http://shadowed.test',
 			}),
 		).toThrow(/must not have a `mirrorUpstream`/);
 	});
