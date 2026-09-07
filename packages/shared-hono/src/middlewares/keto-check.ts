@@ -27,6 +27,11 @@ import {
  * Mount it once, next to `oryAuth(ory)`. Nothing else in the app then needs to
  * know a Keto URL exists.
  */
+export type KetoChecker = (
+	permission: Permission,
+	subject: Subject,
+) => Promise<boolean>;
+
 export function useOry(ory: Ory) {
 	return createMiddleware(async (ctx, next) => {
 		const loader = new DataLoader<

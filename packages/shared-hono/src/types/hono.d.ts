@@ -1,5 +1,6 @@
 import type { Principal } from '@nxgt/shared/models';
-import type { OryPrincipal, Permission, Subject } from 'stx-sdk/ory';
+import type { OryPrincipal } from 'stx-sdk/ory';
+import type { KetoChecker } from '../middlewares/keto-check';
 
 declare module 'hono' {
 	interface ContextVariableMap {
@@ -16,7 +17,7 @@ declare module 'hono' {
 		 * `ketoCheck()` and the app's own access layer share, so asking the
 		 * same question twice costs one round trip.
 		 */
-		ketoChecks?: (permission: Permission, subject: Subject) => Promise<boolean>;
+		ketoChecks?: KetoChecker;
 		'X-User-Id'?: string | null;
 		'X-User-Name'?: string | null;
 		'X-User-Email'?: string | null;
