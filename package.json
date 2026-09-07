@@ -7,7 +7,8 @@
 	],
 	"scripts": {
 		"build": "bun run --filter './packages/*' build",
-		"typecheck": "bun run --filter './packages/*' typecheck",
+		"typecheck": "bun run typecheck:scripts && bun run --filter './packages/*' typecheck",
+		"typecheck:scripts": "tsc --noEmit -p scripts/tsconfig.json",
 		"test": "bun run --filter '*' test",
 		"check": "biome check",
 		"format": "biome format",
@@ -22,7 +23,7 @@
 		"@biomejs/biome": "^2.5.9",
 		"@changesets/changelog-github": "^1.0.1",
 		"@changesets/cli": "^3.0.1",
-		"@types/bun": "latest",
+		"@types/bun": "^1.4.0",
 		"stx-sdk": "^1.1.0",
 		"typescript": "~6.0.3"
 	},
