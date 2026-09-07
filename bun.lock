@@ -15,7 +15,7 @@
     },
     "packages/datasource-rest": {
       "name": "@nxgt/datasource-rest",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "@nxgt/shared": "workspace:*",
         "@nxgt/shared-exceptions": "workspace:*",
@@ -32,7 +32,7 @@
     },
     "packages/i18n": {
       "name": "@nxgt/i18n",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "hono": "^4.13.4",
         "intl-messageformat": "^11.2.13",
@@ -48,7 +48,7 @@
     },
     "packages/security": {
       "name": "@nxgt/security",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "@graphql-tools/utils": "^12.0.0",
         "@nxgt/shared": "workspace:*",
@@ -69,11 +69,11 @@
     },
     "packages/shared": {
       "name": "@nxgt/shared",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
-        "@nxgt/shared-events": "workspace:*",
-        "@nxgt/shared-logging": "workspace:*",
+        "@nxgt/shared-events": "workspace:^",
+        "@nxgt/shared-logging": "workspace:^",
         "bullmq": "^6.1.1",
         "camelcase-keys": "^10.0.2",
         "croner": "^10.0.1",
@@ -96,7 +96,7 @@
     },
     "packages/shared-events": {
       "name": "@nxgt/shared-events",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "bullmq": "^6.1.1",
         "bunqueue": "^2.8.59",
@@ -110,10 +110,10 @@
     },
     "packages/shared-exceptions": {
       "name": "@nxgt/shared-exceptions",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
-        "@nxgt/i18n": "workspace:*",
+        "@nxgt/i18n": "workspace:^",
       },
       "devDependencies": {
         "@types/bun": "^1.4.0",
@@ -124,7 +124,7 @@
     },
     "packages/shared-graphql": {
       "name": "@nxgt/shared-graphql",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "dependencies": {
         "@apollo/server": "^5.5.1",
         "@apollo/subgraph": "^2.14.3",
@@ -168,17 +168,18 @@
     },
     "packages/shared-hono": {
       "name": "@nxgt/shared-hono",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@modelcontextprotocol/hono": "^2.0.0",
         "@modelcontextprotocol/server": "^2.0.0",
-        "@nxgt/i18n": "workspace:*",
-        "@nxgt/shared": "workspace:*",
-        "@nxgt/shared-exceptions": "workspace:*",
-        "@nxgt/shared-logging": "workspace:*",
-        "@nxgt/shared-mongo": "workspace:*",
+        "@nxgt/i18n": "workspace:^",
+        "@nxgt/shared": "workspace:^",
+        "@nxgt/shared-exceptions": "workspace:^",
+        "@nxgt/shared-logging": "workspace:^",
+        "@nxgt/shared-mongo": "workspace:^",
         "@upstash/redis": "^1.38.2",
+        "dataloader": "^2.2.3",
         "hono": "^4.13.4",
         "hono-rate-limiter": "^0.5.3",
         "ioredis": "^6.0.0",
@@ -198,7 +199,7 @@
     },
     "packages/shared-logging": {
       "name": "@nxgt/shared-logging",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "dependencies": {
         "hono": "^4.13.4",
         "lodash": "^4.18.1",
@@ -215,12 +216,12 @@
     },
     "packages/shared-mongo": {
       "name": "@nxgt/shared-mongo",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "dependencies": {
-        "@nxgt/i18n": "workspace:*",
-        "@nxgt/shared": "workspace:*",
-        "@nxgt/shared-exceptions": "workspace:*",
-        "@nxgt/shared-logging": "workspace:*",
+        "@nxgt/i18n": "workspace:^",
+        "@nxgt/shared": "workspace:^",
+        "@nxgt/shared-exceptions": "workspace:^",
+        "@nxgt/shared-logging": "workspace:^",
         "async-mutex": "^0.5.0",
         "i18next": "^26.3.6",
         "just-diff": "^6.0.2",
@@ -241,7 +242,7 @@
     },
     "packages/shared-openapi": {
       "name": "@nxgt/shared-openapi",
-      "version": "1.2.1",
+      "version": "2.0.0",
       "devDependencies": {
         "@types/bun": "^1.4.0",
       },
@@ -253,7 +254,7 @@
     },
     "packages/shared-storage": {
       "name": "@nxgt/shared-storage",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "dependencies": {
         "@nxgt/i18n": "workspace:*",
         "@nxgt/shared": "workspace:*",

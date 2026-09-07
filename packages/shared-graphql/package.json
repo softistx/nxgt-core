@@ -81,7 +81,7 @@
 		"@types/ws": "^8.18.1"
 	},
 	"peerDependencies": {
-		"stx-sdk": ">=1.0.0",
+		"stx-sdk": ">=1.1.0",
 		"typescript": "^6.0.3"
 	}
 }

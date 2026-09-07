@@ -17,6 +17,49 @@ is the contract that keeps `code` numeric in `@nxgt/shared-exceptions`.
 `stx-sdk` is a peer, because the OAuth types come from it. It is public on
 npmjs, so an install resolves it without any extra configuration.
 
+## Ory-native routes: `requireAuthenticated` and `ketoCheck`
+
+`oryAuth(ory)` authenticates and stops there — an anonymous caller reaches
+`next()`, because authenticating is not deciding. Two middlewares decide:
+
+```ts
+app.use('*', oryAuth(ory));
+app.use('*', useOry(ory));          // the per-request Keto answer cache
+app.use('/api/*', requireAuthenticated());   // 401 for nobody
+
+app.get('/:id',
+  ketoCheck([[{ namespace: 'Bookmark', permit: 'view', id: 'param.id' }]]),
+  handler);
+
+app.patch('/:id',
+  ketoCheck([[{ namespace: 'Bookmark', permit: 'view', id: 'param.id' }]]),
+  ketoCheck([[{ namespace: 'Bookmark', permit: 'edit', id: 'param.id' }]],
+            { onDeny: 'FORBIDDEN' }),
+  handler);
+```
+
+`requireAuthenticated()` is everything a rules file used to say about an
+Ory-native API — `authenticated: true`, and nothing else, because an Ory
+principal carries no authorities.
+
+`ketoCheck` takes the same `[[ ]]` grammar as the `@check` directive in
+`@nxgt/shared-graphql`, and the same evaluator from `stx-sdk/ory`: **outer list
+OR, inner list AND**, short-circuit in both directions. `id` is a path —
+`param.<name>`, `query.<name>` or `json.<path>` — and a value that turns out to
+be a list requires the permit on every element.
+
+**Two of them, in that order, is the 404/403 ladder.** A stranger fails `view`
+and gets 404, so ids cannot be probed; a viewer passes it, fails `edit`, and
+gets 403.
+
+`useOry(ory)` puts a per-request loader on the context that **batches**
+distinct questions into one `POST /relation-tuples/batch/check` and
+**memoises** identical ones, so a route guarded by `ketoCheck(view)` and a
+service that then asks the same question pay for one round trip between them.
+
+A Keto outage is never a denial: `OryUnavailable` reaches
+`withOryUnavailable(...)` and answers 503.
+
 ## Install
 
 ```bash

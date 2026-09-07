@@ -59,6 +59,7 @@
 		"@nxgt/shared-logging": "workspace:^",
 		"@nxgt/shared-mongo": "workspace:^",
 		"@upstash/redis": "^1.38.2",
+		"dataloader": "^2.2.3",
 		"hono": "^4.13.4",
 		"hono-rate-limiter": "^0.5.3",
 		"ioredis": "^6.0.0",
@@ -72,7 +73,7 @@
 		"jose": "^6.2.9"
 	},
 	"peerDependencies": {
-		"stx-sdk": ">=1.0.0",
+		"stx-sdk": ">=1.1.0",
 		"typescript": "^6.0.3"
 	}
 }
