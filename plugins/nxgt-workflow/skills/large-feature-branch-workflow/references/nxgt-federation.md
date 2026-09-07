@@ -1,5 +1,31 @@
 # `large-feature-branch-workflow` in nxgt-federation
 
+## The structure is different here — read this before drawing the slices
+
+**This repository has no integration branch.** Every PR targets `develop`,
+whatever its size: a large effort is the same slices in the same dependency
+order, each on its own `feat/<slug>-<slice>` branch off `develop` and each PR'd
+straight into `develop`, merged before the next is cut. `AGENTS.md`'s *Git
+Branching Workflow* is the authority, and it overrides rules 1, 3 and 4 of the
+main skill.
+
+That was not always true — thirty older merges went into a `feature/<slug>`
+integration branch, and `project-management`, `self-learning-api` and
+`content-hub-api` were all built that way. The repository has since moved to
+flat, and the last forty merges are all direct to `develop`. Older skill text
+and older review documents still describe the integration-branch shape; they
+are history, not instructions.
+
+**The cost of merging early lands on you instead**: each slice has to leave
+`develop` *shippable*, not merely green. A new capability lands dark until the
+slice that wires it up. There is no integration branch to absorb a half-state,
+so "green" and "deployable" are the same bar on every single PR.
+
+The deep review still happens — after the last slice merges, on a
+`review/<slug>-deep-audit` branch off `develop` — but it is necessarily
+post-merge here, so a finding becomes a follow-up PR rather than one more
+slice.
+
 ## Green
 
 `bun run build`, `bun run typecheck`, `bun run check`, and the app's specs —
@@ -47,9 +73,12 @@ reach: a field that lost its `@authenticated` or `@check`, a resolver reaching
 data without `require<M>Access`, or a subgraph exposing something the supergraph
 was not meant to compose.
 
-## Example
+## Example — historical shape
 
-A new `project-management` module (projects/boards/sprints/tasks):
+`project-management` was built before the move to flat branching, so the tree
+below shows an integration branch this repository no longer uses. The **slice
+decomposition** is the part still worth copying; the base of each PR is not.
+Today every one of these would target `develop`.
 
 ```
 develop
