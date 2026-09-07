@@ -52,6 +52,19 @@ be a list requires the permit on every element.
 and gets 404, so ids cannot be probed; a viewer passes it, fails `edit`, and
 gets 403.
 
+**Word the refusal like the layer beneath it.** `message` sets the i18n key a
+denial carries; without it the shared `errors.not-found` /
+`errors.insufficient-permissions` are used. These routes are guarded twice — by
+`ketoCheck`, and by the `<m>.access.ts` their service calls — and if the two
+word one 404 differently, the wording alone tells the caller which refused: a
+generic message means "you may not", a domain one means "it is gone". That is
+the distinction 404 exists to hide.
+
+```ts
+ketoCheck([[{ namespace: 'Bookmark', permit: 'view', id: 'param.id' }]],
+          { message: 'bookmarks.errors.not-found' });
+```
+
 `useOry(ory)` puts a per-request loader on the context that **batches**
 distinct questions into one `POST /relation-tuples/batch/check` and
 **memoises** identical ones, so a route guarded by `ketoCheck(view)` and a

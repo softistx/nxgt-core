@@ -70,4 +70,17 @@ after, which makes `totalCount` and the cursors lie.
 directive @check(
 	permissions: [[CheckPermission!]!]!
 	onDeny: CheckDenial! = NOT_FOUND
+
+	"""
+	The i18n key the denial carries, e.g. "notes.errors.not-found". Defaults to
+	`errors.not-found` / `errors.insufficient-permissions`, the shared keys.
+
+	Set it whenever the API's own service layer answers the same refusal with a
+	domain message. Two layers guard these fields — the directive, and the
+	`require<M>Access` the service calls — and if they word the same 404
+	differently, the wording tells a caller WHICH one refused: a generic message
+	means "you may not", a domain one means "it is gone". That is precisely the
+	distinction NOT_FOUND exists to hide.
+	"""
+	message: String
 ) repeatable on FIELD_DEFINITION

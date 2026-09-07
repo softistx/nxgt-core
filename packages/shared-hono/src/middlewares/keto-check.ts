@@ -74,6 +74,18 @@ export type KetoCheckOptions = {
 	 * an object the caller can already see.
 	 */
 	onDeny?: 'NOT_FOUND' | 'FORBIDDEN';
+
+	/**
+	 * The i18n key the denial carries, e.g. `bookmarks.errors.not-found`.
+	 * Defaults to `errors.not-found` / `errors.insufficient-permissions`.
+	 *
+	 * Set it whenever the module's own `<m>.access.ts` answers the same refusal
+	 * with a domain message. Two layers guard these routes, and if they word
+	 * one 404 differently, the wording tells the caller WHICH refused — a
+	 * generic message means "you may not", a domain one means "it is gone".
+	 * That is the distinction NOT_FOUND exists to hide.
+	 */
+	message?: string;
 };
 
 /**
@@ -140,9 +152,11 @@ export function ketoCheck(
 		if (!allowed) {
 			throw options.onDeny === 'FORBIDDEN'
 				? CustomException.forbidden({
-						message: 'errors.insufficient-permissions',
+						message: options.message ?? 'errors.insufficient-permissions',
 					})
-				: CustomException.notFound({ message: 'errors.not-found' });
+				: CustomException.notFound({
+						message: options.message ?? 'errors.not-found',
+					});
 		}
 
 		return next();

@@ -92,14 +92,14 @@ export function applyKetoChecks(schema: GraphQLSchema): GraphQLSchema {
 
 					// In declaration order, each with its own denial: `view` first
 					// answers 404 for a stranger, `edit` next answers 403 for a viewer.
-					for (const { permissions, onDeny } of checks) {
+					for (const { permissions, onDeny, message } of checks) {
 						const allowed = await evaluateRequirement(
 							permissions,
 							(term) => objectsOf(term, source, args, where),
 							check,
 							subject,
 						);
-						if (!allowed) throw denial(onDeny);
+						if (!allowed) throw denial(onDeny, message);
 					}
 
 					return resolve(source, args, context, info);
@@ -128,10 +128,18 @@ function objectsOf(
 	return ids;
 }
 
-function denial(onDeny: CheckArgs['onDeny']) {
+/**
+ * `message` is the field's own i18n key when it gave one. It exists so the
+ * directive and the service layer can answer a refusal with the SAME words:
+ * two different messages behind one 404 tell the caller which layer spoke, and
+ * that is the difference NOT_FOUND is there to hide.
+ */
+function denial(onDeny: CheckArgs['onDeny'], message?: string) {
 	return onDeny === 'FORBIDDEN'
-		? CustomException.forbidden({ message: 'errors.insufficient-permissions' })
-		: CustomException.notFound({ message: 'errors.not-found' });
+		? CustomException.forbidden({
+				message: message ?? 'errors.insufficient-permissions',
+			})
+		: CustomException.notFound({ message: message ?? 'errors.not-found' });
 }
 
 /**

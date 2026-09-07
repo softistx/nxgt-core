@@ -34,6 +34,17 @@ type Query {
 
 	many(ids: [ID!]!): Note
 		@check(permissions: [[{ namespace: "Note", permit: "edit", id: "args.ids" }]])
+
+	worded(id: ID!): Note
+		@check(
+			permissions: [[{ namespace: "Note", permit: "view" }]]
+			message: "notes.errors.not-found"
+		)
+		@check(
+			permissions: [[{ namespace: "Note", permit: "edit" }]]
+			onDeny: FORBIDDEN
+			message: "notes.errors.read-only"
+		)
 }
 `;
 
@@ -44,6 +55,7 @@ const RESOLVERS = {
 		editable: (_s: unknown, args: { id: string }) => ({ id: args.id }),
 		either: (_s: unknown, args: { id: string }) => ({ id: args.id }),
 		many: (_s: unknown, args: { ids: string[] }) => ({ id: args.ids[0] }),
+		worded: (_s: unknown, args: { id: string }) => ({ id: args.id }),
 	},
 };
 
@@ -87,6 +99,10 @@ const errorCodeOf = (result: Awaited<ReturnType<typeof graphql>>) =>
 	(result.errors?.[0]?.originalError as { errorCode?: string } | undefined)
 		?.errorCode;
 
+/** The i18n key, before `createMaskError(translate)` turns it into a sentence. */
+const messageKeyOf = (result: Awaited<ReturnType<typeof graphql>>) =>
+	result.errors?.[0]?.originalError?.message;
+
 describe('@check', () => {
 	it('runs the resolver when the permission holds', async () => {
 		const { context } = signedIn(['Note:n1#view@idn-7']);
@@ -119,6 +135,36 @@ describe('@check', () => {
 		expect(
 			(await run('{ editable(id: "n1") { id } }', owner.context)).errors,
 		).toBeUndefined();
+	});
+
+	/**
+	 * The two layers guarding one field have to word a refusal identically. If
+	 * the directive says "Could not find the requested resource." where the
+	 * service says "Note not found.", the wording alone tells the caller which
+	 * one spoke — which is the difference NOT_FOUND exists to hide.
+	 */
+	it('carries the message the field names, on both rungs of the ladder', async () => {
+		const stranger = signedIn([]);
+		const hidden = await run('{ worded(id: "n1") { id } }', stranger.context);
+		expect(errorCodeOf(hidden)).toBe(ErrorCode.NotFound);
+		expect(messageKeyOf(hidden)).toBe('notes.errors.not-found');
+
+		const viewer = signedIn(['Note:n1#view@idn-7']);
+		const refused = await run('{ worded(id: "n1") { id } }', viewer.context);
+		expect(errorCodeOf(refused)).toBe(ErrorCode.Forbidden);
+		expect(messageKeyOf(refused)).toBe('notes.errors.read-only');
+	});
+
+	it('falls back to the shared errors.* keys when the field says nothing', async () => {
+		const stranger = signedIn([]);
+		expect(
+			messageKeyOf(await run('{ note(id: "n1") { id } }', stranger.context)),
+		).toBe('errors.not-found');
+
+		const viewer = signedIn(['Note:n1#view@idn-7']);
+		expect(
+			messageKeyOf(await run('{ editable(id: "n1") { id } }', viewer.context)),
+		).toBe('errors.insufficient-permissions');
 	});
 
 	it('refuses an anonymous caller before asking Keto anything', async () => {
