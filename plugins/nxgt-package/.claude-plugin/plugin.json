@@ -1,0 +1,6 @@
+{
+	"name": "nxgt-package",
+	"description": "Creating and releasing an @nxgt/* package in nxgt-core, and consuming the release downstream.",
+	"version": "1.0.0",
+	"author": { "name": "softistx" }
+}
