@@ -8,7 +8,7 @@
         "@biomejs/biome": "^2.5.9",
         "@changesets/changelog-github": "^1.0.1",
         "@changesets/cli": "^3.0.1",
-        "@types/bun": "latest",
+        "@types/bun": "^1.4.0",
         "stx-sdk": "^1.1.0",
         "typescript": "~6.0.3",
       },
@@ -124,7 +124,7 @@
     },
     "packages/shared-graphql": {
       "name": "@nxgt/shared-graphql",
-      "version": "1.2.3",
+      "version": "1.4.0",
       "dependencies": {
         "@apollo/server": "^5.5.1",
         "@apollo/subgraph": "^2.14.3",
@@ -168,7 +168,7 @@
     },
     "packages/shared-hono": {
       "name": "@nxgt/shared-hono",
-      "version": "1.0.4",
+      "version": "2.0.0",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@modelcontextprotocol/hono": "^2.0.0",
