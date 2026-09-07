@@ -1,0 +1,8 @@
+{
+	"name": "nxgt-ory-app",
+	"description": "Building an application against the Ory stack \u2014 REST, GraphQL or SSR UI \u2014 with Kratos sessions, Keto permissions and the 404-then-403 ladder, plus the console screen pattern those UIs are made of.",
+	"version": "1.0.0",
+	"author": {
+		"name": "softistx"
+	}
+}

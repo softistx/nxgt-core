@@ -12,6 +12,10 @@
 		{
 			"name": "nxgt-package",
 			"source": "./plugins/nxgt-package"
+		},
+		{
+			"name": "nxgt-ory-app",
+			"source": "./plugins/nxgt-ory-app"
 		}
 	]
 }
