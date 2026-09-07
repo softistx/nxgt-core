@@ -11,12 +11,11 @@ export interface ForwardContext {
 /**
  * Send the request on, and hand the answer back unchanged.
  *
- * The method, the path, the query and the body all travel verbatim. That is
- * worth stating because Oathkeeper does not: its `cookie_session`
- * authenticator has to be pinned to `force_method: GET` so that a `QUERY`
- * request does not reach Kratos as `QUERY /sessions/whoami` and report every
- * caller's credentials as invalid. Here the authenticator makes its own call
- * with its own method, so there is nothing to pin and no trap to fall into.
+ * The method, the path, the query and the body all travel verbatim, and the
+ * method in particular is worth stating: an authenticator makes its own call
+ * with its OWN method, never the caller's. A proxy that forwards the incoming
+ * method to its identity provider asks `QUERY /sessions/whoami`, is answered
+ * 405, and reports every caller's credentials as invalid.
  */
 export async function forward(
 	request: Request,
@@ -80,8 +79,8 @@ export async function forward(
  * The edge deliberately does not translate. It has no locale contract with the
  * caller and no message catalogue, and inventing one would mean an edge
  * refusal and an app refusal reading differently for the same reason. The key
- * is sent as the message so a client can map it; Oathkeeper's own 401 is not
- * translated either, so this is not a regression.
+ * is sent as the message so a client can map it: the caller's own layer knows
+ * the locale, and this one does not.
  */
 export function errorResponse(
 	status: number,

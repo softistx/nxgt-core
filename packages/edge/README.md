@@ -2,16 +2,15 @@
 
 An authenticating reverse proxy that decides with the parc's own rules engine.
 
-It is a replacement for Ory Oathkeeper, and it exists for one measured defect:
-**with Kratos down, Oathkeeper answers 403**. That is indistinguishable from a
-real refusal, and it breaks the rule every API in the parc already keeps —
-*unavailable is never anonymous and never denied*. `stx-sdk/ory` throws
-`OryUnavailable` rather than returning `false`, so here the same outage is a
-**503**.
+It authenticates a request once, asks whether the caller may reach the app at
+all, and forwards it with a signed assertion the app verifies locally. It reads
+the same `rules.yaml` a fronted API runs on its own routes — so there is one
+policy language in the parc, not two.
 
-Along the way it removes the second rules engine. Oathkeeper's `access-rules`
-document is a different language from `@nxgt/security`'s `rules.yaml`, and the
-two are kept in agreement by hand. This edge reads a `rules.yaml`.
+It keeps one rule above all others: **unavailable is never anonymous and never
+denied**. An identity provider that cannot answer is a **503**, never a 401 and
+never a 403. That is the whole reason this exists, and there is a section at
+the end saying what it cost to learn.
 
 ## What it is not
 
@@ -55,19 +54,19 @@ decision the edge is not allowed to base on a body anyway.
 
 ## Two documents, not one
 
-Oathkeeper puts routing and policy in the same rule, and that conflation is
-where two of its traps come from: a rule's `methods` list doubles as routing,
-so `QUERY` is unroutable rather than merely unauthorised; and a host-agnostic
-`match.url` makes `/health` a rule that exists for every fronted app or for
-none.
+Routing and policy are separate documents, and the separation is load-bearing.
+Put them in one rule and a route's method list doubles as routing, so a method
+nobody thought of — `QUERY` — becomes *unroutable* rather than merely
+unauthorised. Match without the host and `/health` becomes a rule that exists
+for every fronted app at once or for none, since they all serve that path.
 
-Here `routes.yaml` says **where**:
+`routes.yaml` says **where**:
 
 ```yaml
 apps:
   - name: bookmarks
     match: { prefix: "/api" }           # matched on segment boundaries
-    upstream: "${BOOKMARKS_API_URL}"    # expanded — Oathkeeper does not
+    upstream: "${BOOKMARKS_API_URL}"    # expanded: one document, every env
   - name: notes
     match: { host: "notes.${HOST}", path: "/graphql" }
     upstream: "${NOTES_API_URL}"
@@ -106,22 +105,29 @@ reason that says only "no rule matched".
 
 ## Modes
 
-**`mirror`** — decide, record, and forward the request **unchanged** to the
-edge being replaced, which still answers. Nothing is minted (the mirrored edge
-needs the caller's own credential), nothing is refused, and the edge's own
-failure is a log line and a passed-through request. An edge under evaluation
-must not be able to break what already works.
+**`mirror`** — decide, record, and forward the request **unchanged** to
+whatever is still answering. Nothing is minted (that upstream authenticates the
+caller itself and cannot do it with an assertion of ours), nothing is refused,
+and the edge's own failure is a log line and a passed-through request.
+
+That last property is the point: **a change cannot break what already works
+while you are measuring it.** `mirrorUpstream` is any URL — an older deployment
+of this edge, another proxy, the app itself — so this is how you try a new
+authenticator, a reworked rules document or a newly fronted app against real
+traffic before it decides anything.
 
 **`enforce`** — decide and act: refuse, or forward with a signed assertion.
 
-Switching is one variable. A mirror record carries the status the edge *would*
-have answered beside the one the mirrored edge actually gave, and a verdict:
-when the edge would answer a status of its own the comparison is exact; when it
-would forward, only the refusals an edge is capable of making (401, 403, 503)
-read as disagreement, because from outside a 403 the mirrored edge produced and
-a 403 the *app* produced look identical. It is for watching the network path on
-live traffic, not for proving equivalence — that is the differential harness's
-job, against a recorded corpus.
+Going live is one variable, and it cannot be half done: `mirror` without an
+upstream and `enforce` with one are both refused at construction.
+
+A mirror record carries the status the edge *would* have answered beside the
+one the upstream actually gave, and a verdict. When the edge would answer a
+status of its own the comparison is exact; when it would forward, only the
+refusals an edge is capable of making (401, 403, 503) read as disagreement,
+because from outside a 403 the upstream produced and a 403 the *app* produced
+look identical. So it watches the network path on live traffic — it does not
+prove equivalence. A recorded corpus does that.
 
 ## Headers
 
@@ -135,10 +141,10 @@ so it cannot fall behind. This is not hypothetical: `currentUser()` in sellix's
 **Set outbound**: `Authorization: Bearer <assertion>` (replacing the caller's
 own), `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `Host`.
 
-**Passed through**: everything else, `Cookie` included. Deliberate and
-temporary — Oathkeeper forwards it, and a second rail that changes what crosses
-is not a comparison. Stripping it is a separate hardening once the edge is
-enforcing.
+**Passed through**: everything else, `Cookie` included, deliberately. A fronted
+app stays correct on its own address, and one that reads the session cookie
+there must keep working behind the edge. Stripping it is a hardening of its
+own, checked app by app.
 
 **On the way back**: `Set-Cookie` via `getSetCookie()`, never
 `get('set-cookie')`, which folds several cookies into one string no browser
@@ -146,28 +152,27 @@ accepts.
 
 ## Statuses
 
-| | Oathkeeper | here |
-| --- | --- | --- |
-| Kratos / Hydra unreachable | **403** | **503** |
-| Keto unreachable | 500 | **503** |
-| Keto says no | 403 | 403 |
-| anonymous on a closed path | 401 | 401 |
-| a request no rule names | 404 | 404 |
-| upstream unreachable | 502 | 502 |
-| edge's own failure, `mirror` | — | logged, forwarded |
+| | |
+| --- | --- |
+| Kratos / Hydra unreachable | **503** |
+| Keto unreachable | **503** |
+| Keto says no | 403 |
+| anonymous on a closed path | 401 |
+| a request no rule names | 404 |
+| upstream unreachable | 502 |
+| the edge's own failure, in `mirror` | logged, forwarded |
 
 A refusal splits on whether a rule matched at all. One that did says 401 or
 403 — the caller reached the app, so nothing is revealed by telling them
-whether they may have it. One that did **not** says **404**, and that is
-measured rather than chosen: Oathkeeper answers 404 for a request no access
-rule matches, and it is right to. Inviting an anonymous caller to authenticate
-for a path that routes nowhere costs them a round trip to learn nothing is
-there, and a 403 would say the path exists.
+whether they may have it. One that did **not** says **404**. Inviting an
+anonymous caller to authenticate for a path that routes nowhere costs them a
+round trip to learn nothing is there, and a 403 would confirm the path exists
+to someone probing for it.
 
 Bodies are the parc's `{ status, message, debugMessage, timestamp }`, **not
 translated**: the edge has no locale contract with the caller and no
 catalogue, and inventing one would make an edge refusal and an app refusal read
-differently for the same reason. Oathkeeper's own 401 is untranslated too.
+differently for the same reason. The caller's own layer knows the locale.
 
 ## Authenticators
 
@@ -187,3 +192,32 @@ installs the optional peer.
 bun add @nxgt/edge
 bun add stx-sdk   # only if you use the Ory authenticator
 ```
+
+## Why it exists
+
+It replaced Ory Oathkeeper, and it was written for one **measured** defect:
+with Kratos down, Oathkeeper answered **403**. Indistinguishable from a real
+refusal — a UI reads it as *you may not* when the truth is *nobody could ask*,
+and the caller has no reason to retry. Its `cookie_session` authenticator has
+no retry and its error handler no status table; `stx-sdk/ory` throws
+`OryUnavailable` rather than returning `false`, so on this side the defect
+never existed.
+
+The second reason was structural: Oathkeeper's `access-rules` document is a
+different policy language from `@nxgt/security`'s `rules.yaml`, and the two had
+to be kept in agreement by hand across a whole parc.
+
+Two more things worth keeping, because both were found by **asking a running
+Oathkeeper rather than reading its configuration**, and both contradict what
+that configuration looks like:
+
+- it authenticates a **CORS preflight** like any other request, and a browser
+  preflight carries neither cookie nor `Authorization` by design — so the real
+  request is never made at all;
+- `GET /health` could not be routed, because every fronted app serves that
+  exact path and a second matching rule made it refuse outright.
+
+The lesson generalises past this package: **record what a system answers, do
+not transcribe what its configuration implies.** The corpus that proved this
+edge equivalent was recorded, not written, and it produced two answers its
+author had predicted wrongly.

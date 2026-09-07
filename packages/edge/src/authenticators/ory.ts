@@ -35,10 +35,10 @@ export interface OryAuthenticatorConfig {
 	/** The app's `createOry()` — one per process. */
 	ory: Ory;
 	/**
-	 * How the edge vouches for a caller upstream. Give it the same issuer and
-	 * the same key set Oathkeeper uses and every fronted app accepts our
-	 * tokens with no change at all, which is what makes the switchover a
-	 * compose change rather than a bump of the parc.
+	 * How the edge vouches for a caller upstream. The issuer and the key set
+	 * are what a fronted app verifies against, so moving either is a
+	 * coordinated change — `createEdgeVerifier` takes a LIST of issuers for
+	 * exactly that reason.
 	 */
 	signer: EdgeSignerConfig;
 }
@@ -52,12 +52,11 @@ export interface OryAuthenticatorConfig {
  * with no opinion about identity, so an edge in front of a parc with no Ory
  * never loads this and never installs the optional peer.
  *
- * What it does that Ory Oathkeeper does not: an authority that cannot answer
- * becomes `AuthorityUnavailable`, which the edge turns into **503**.
- * Oathkeeper's `cookie_session` has no retry and its error handler no status
- * mapping, so with Kratos down it answers 403 — a refusal a caller cannot
- * tell from a real one, and a UI reads as "you may not" when the truth is
- * "nobody could ask".
+ * An authority that cannot answer becomes `AuthorityUnavailable`, which the
+ * edge turns into **503** — never 401, never 403. `stx-sdk/ory` throws
+ * `OryUnavailable` rather than returning `false`, so the distinction survives
+ * the whole way down; an authenticator that collapsed an outage into "no"
+ * would make every caller look refused for as long as Kratos was down.
  */
 export function oryAuthenticator(
 	config: OryAuthenticatorConfig,
