@@ -114,11 +114,14 @@ must not be able to break what already works.
 
 **`enforce`** — decide and act: refuse, or forward with a signed assertion.
 
-Switching is one variable. The verdict a mirror record carries (`agree` /
-`differ` / `error`) is coarse on purpose — from outside, a 403 the mirrored
-edge produced and a 403 the *app* produced look identical — so it is for
-watching the network path on live traffic, not for proving equivalence. That
-is the differential harness's job, against a recorded corpus.
+Switching is one variable. A mirror record carries the status the edge *would*
+have answered beside the one the mirrored edge actually gave, and a verdict:
+when the edge would answer a status of its own the comparison is exact; when it
+would forward, only the refusals an edge is capable of making (401, 403, 503)
+read as disagreement, because from outside a 403 the mirrored edge produced and
+a 403 the *app* produced look identical. It is for watching the network path on
+live traffic, not for proving equivalence — that is the differential harness's
+job, against a recorded corpus.
 
 ## Headers
 

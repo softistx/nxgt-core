@@ -319,6 +319,40 @@ describe('createEdge — mirror', () => {
 		expect(sink.seen[0]?.url).toBe('http://oathkeeper:4455/nowhere');
 	});
 
+	test('records what it would ANSWER, not just that it would not refuse', async () => {
+		const { edge: e, records } = mirror({ authenticators: [caller()] });
+
+		await e.fetch(get('/health'));
+
+		// `/health` is routable nowhere and allowed, so the edge would answer
+		// it itself — 200, where the mirrored edge says 404. Recording that as
+		// "would forward" made a total disagreement read as agreement.
+		expect(records[0]).toMatchObject({
+			status: 200,
+			upstreamStatus: 200,
+			verdict: 'agree',
+		});
+	});
+
+	test('does not call a matching pair of statuses a disagreement', async () => {
+		const { edge: e, records } = mirror({
+			authenticators: [
+				{ name: 'stub', resolve: async () => null } satisfies Authenticator,
+			],
+			fetch: (async () =>
+				new Response('nope', {
+					status: 404,
+				})) as unknown as typeof globalThis.fetch,
+		});
+
+		await e.fetch(get('/nowhere'));
+
+		// Both answer 404 for a request neither routes. The old verdict asked
+		// whether the upstream status was in a fixed refusal list, which 404
+		// was not, so it flagged every one of these.
+		expect(records[0]).toMatchObject({ status: 404, verdict: 'agree' });
+	});
+
 	test('records agreement when both would let it through', async () => {
 		const { edge: e, records } = mirror();
 
