@@ -24,15 +24,21 @@ import {
  * trip between them. The key is Keto's own notation, `Bookmark:b1#view@idn-7`,
  * so a cache hit is legible in a log line.
  *
- * Mount it once, next to `oryAuth(ory)`. Nothing else in the app then needs to
- * know a Keto URL exists.
+ * Mount it once, right after `oryAuth(ory)` — the pair reads as a pair, and
+ * that is why it is not called `useOry`: `use` is React's hook prefix, and
+ * Biome's rules-of-hooks lint fires on a middleware named that way in every
+ * consumer. Hono middlewares here are `oryAuth`, `secured`, `acceptQuery`;
+ * `use` is the method you pass them to, not part of their name. (The Yoga side
+ * keeps `useKetoChecks`, because there `use*` IS the plugin convention.)
+ *
+ * Nothing else in the app then needs to know a Keto URL exists.
  */
 export type KetoChecker = (
 	permission: Permission,
 	subject: Subject,
 ) => Promise<boolean>;
 
-export function useOry(ory: Ory) {
+export function oryChecks(ory: Ory) {
 	return createMiddleware(async (ctx, next) => {
 		const loader = new DataLoader<
 			{ permission: Permission; subject: Subject },
@@ -135,7 +141,7 @@ export function ketoCheck(
 
 		const check = ctx.get('ketoChecks');
 		if (!check) {
-			throw new Error('ketoCheck: useOry(ory) is not mounted on this app');
+			throw new Error('ketoCheck: oryChecks(ory) is not mounted on this app');
 		}
 
 		// The body is read once, before evaluation, because `evaluateRequirement`

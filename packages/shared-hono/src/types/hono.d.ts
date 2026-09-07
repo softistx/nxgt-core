@@ -13,7 +13,7 @@ declare module 'hono' {
 		 */
 		ory?: OryPrincipal | null;
 		/**
-		 * Set by `useOry()`: the per-request Keto answer cache every
+		 * Set by `oryChecks()`: the per-request Keto answer cache every
 		 * `ketoCheck()` and the app's own access layer share, so asking the
 		 * same question twice costs one round trip.
 		 */
