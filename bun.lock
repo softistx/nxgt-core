@@ -30,6 +30,29 @@
         "typescript": "^6.0.3",
       },
     },
+    "packages/edge": {
+      "name": "@nxgt/edge",
+      "version": "0.0.0",
+      "dependencies": {
+        "@nxgt/security": "workspace:^",
+        "@nxgt/shared": "workspace:^",
+        "@nxgt/shared-logging": "workspace:^",
+        "yaml": "^2.9.0",
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.0",
+        "jose": "^6.2.9",
+        "stx-sdk": ">=1.2.0",
+      },
+      "peerDependencies": {
+        "stx-sdk": ">=1.2.0",
+        "typescript": "^6.0.3",
+      },
+      "optionalPeers": [
+        "stx-sdk",
+      ],
+    },
     "packages/i18n": {
       "name": "@nxgt/i18n",
       "version": "1.0.2",
@@ -716,6 +739,8 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@nxgt/datasource-rest": ["@nxgt/datasource-rest@workspace:packages/datasource-rest"],
+
+    "@nxgt/edge": ["@nxgt/edge@workspace:packages/edge"],
 
     "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
 
@@ -2019,7 +2044,7 @@
 
     "strnum": ["strnum@2.4.2", "", { "dependencies": { "anynum": "^1.0.1" } }, "sha512-rDG3Ah4TV0k1hWvLSzkZtMmLN9+eS+h3knq4MP6A42Y3Yh5qGNnOUs1jJkoSr8FG5dsL28c7KgkIBzSEykqtuw=="],
 
-    "stx-sdk": ["stx-sdk@1.1.0", "", { "dependencies": { "async-mutex": "^0.5.0", "axios": "^1.19.0", "date-fns": "^4.4.0", "jose": "^6.2.9", "lodash": "^4.18.1", "zod": "^4.4.3" }, "peerDependencies": { "@hookform/resolvers": "^5.9.0", "@nxgt/material": ">=1.0.0-alpha16", "@tanstack/react-query": "^5.101.4", "openapi-fetch": "^0.17.0", "openapi-react-query": "^0.5.4", "react": "^19.2.8", "react-dom": "^19.2.8", "react-hook-form": "^7.85.0", "react-router": "^8.3.1" }, "optionalPeers": ["@hookform/resolvers", "@nxgt/material", "react-hook-form"] }, "sha512-WYXLdKyAGP2juJ8VHp/7yFXq+3rj8ucl93+AAdglU7NIluAmAH7H7xfamJ7U6eLw2YMHwElCFvu0p3IDFka6kg=="],
+    "stx-sdk": ["stx-sdk@1.2.0", "", { "dependencies": { "async-mutex": "^0.5.0", "axios": "^1.19.0", "date-fns": "^4.4.0", "jose": "^6.2.9", "lodash": "^4.18.1", "zod": "^4.4.3" }, "peerDependencies": { "@hookform/resolvers": "^5.9.0", "@nxgt/material": ">=1.0.0-alpha16", "@tanstack/react-query": "^5.101.4", "openapi-fetch": "^0.17.0", "openapi-react-query": "^0.5.4", "react": "^19.2.8", "react-dom": "^19.2.8", "react-hook-form": "^7.85.0", "react-router": "^8.3.1" }, "optionalPeers": ["@hookform/resolvers", "@nxgt/material", "react-hook-form"] }, "sha512-GZ+yV2NiSMJmGisGI8LJheKBA3pO6aRgoW6zelrPjvV/THkjQyR18YCZmSZI4pJzSToSVkoF2KSAo0XVVShYVQ=="],
 
     "subscriptions-transport-ws": ["subscriptions-transport-ws@0.11.0", "", { "dependencies": { "backo2": "^1.0.2", "eventemitter3": "^3.1.0", "iterall": "^1.2.1", "symbol-observable": "^1.0.4", "ws": "^5.2.0 || ^6.0.0 || ^7.0.0" }, "peerDependencies": { "graphql": "^15.7.2 || ^16.0.0" } }, "sha512-8D4C6DIH5tGiAIpp5I0wD/xRlNiZAPGHygzCe7VzyzUoxHtawzjNAY9SUTXU05/EY2NMY9/9GF0ycizkXr1CWQ=="],
 
