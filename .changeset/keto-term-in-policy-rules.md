@@ -26,3 +26,11 @@ into one fails at startup instead of being stripped in silence.
 `stx-sdk` is a new **optional** peer dependency, imported only by the new
 `@nxgt/security/integrations/hono/keto` entrypoint — a service with no `keto`
 term never resolves it.
+
+The generated JSON Schema moves to `schema/rules.schema.json` and is now in
+`files`, so it ships. Rules files point their `# yaml-language-server:
+$schema=` pragma at `node_modules/@nxgt/security/schema/rules.schema.json`.
+While this package lived inside the consuming monorepo those pragmas pointed
+at its source tree; after the extraction to nxgt-core they resolved to
+nothing, and the completion they exist for had been silently gone from three
+production rules files.
