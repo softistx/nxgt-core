@@ -12,7 +12,10 @@ import { zRuleEntry } from '../rule-entry.schema';
  */
 const zGraphqlFieldMap = z.record(
 	z.string().describe('Field name on this GraphQL type, e.g. "createUser".'),
-	zRuleEntry,
+	// `.strict()` so a REST-only key that wandered into a GraphQL rule — `keto`
+	// above all — fails at startup with a Zod error naming it, rather than
+	// being stripped in silence and leaving the field looking guarded.
+	zRuleEntry.strict(),
 );
 
 /**

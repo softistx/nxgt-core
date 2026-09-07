@@ -135,25 +135,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -199,6 +185,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -249,25 +294,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -313,6 +344,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -363,25 +453,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -427,6 +503,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -477,25 +612,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -541,6 +662,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -591,25 +771,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -655,6 +821,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -705,25 +930,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -769,6 +980,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -819,25 +1089,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -883,6 +1139,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -933,25 +1248,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -997,6 +1298,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -1047,25 +1407,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -1111,6 +1457,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -1161,25 +1566,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -1225,6 +1616,65 @@
 								},
 								"required": ["windowMs", "limit"],
 								"additionalProperties": false
+							},
+							"keto": {
+								"description": "Per-object permission checks answered by Keto, evaluated in order after `authorities` and `expression`. Each entry is one check with its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to be given a permission evaluator — a rule that asks for one without it throws rather than denying.",
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"permissions": {
+											"minItems": 1,
+											"type": "array",
+											"items": {
+												"minItems": 1,
+												"type": "array",
+												"items": {
+													"type": "object",
+													"properties": {
+														"namespace": {
+															"type": "string",
+															"minLength": 1,
+															"description": "Keto namespace of the object, e.g. \"Bookmark\". Named here rather than in a URL, so no Keto address ever appears in a rules file."
+														},
+														"permit": {
+															"type": "string",
+															"minLength": 1,
+															"description": "The relation the caller must hold on the object, e.g. \"view\" or \"edit\"."
+														},
+														"id": {
+															"default": "param.id",
+															"description": "Where the object id is read from on the request: \"param.<name>\", \"query.<name>\" or \"json.<path>\" (dotted). Validated at startup. A path resolving to a LIST requires the permit on every element; a path resolving to nothing is a wiring mistake and throws — it is never an allow. Defaults to \"param.id\".",
+															"examples": [
+																"param.id",
+																"param.subjectId",
+																"query.projectId",
+																"json.bookmarkId"
+															],
+															"type": "string",
+															"pattern": "^(param|query|json)(\\.[A-Za-z0-9_]+)+$"
+														}
+													},
+													"required": ["namespace", "permit", "id"],
+													"additionalProperties": false
+												}
+											},
+											"description": "Permission requirement in disjunctive normal form: the OUTER list is OR, the INNER list is AND — [[A, B], [C]] reads \"(A and B) or C\". NOTE this is the OPPOSITE nesting to `authorities` above, which is outer-AND / inner-OR. It is deliberate: this is the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared. The two are not confusable in practice — an authority is a string, a permission term is an object."
+										},
+										"onDeny": {
+											"default": "NOT_FOUND",
+											"description": "How a failure of THIS check is answered. NOT_FOUND (the default) is the same answer as for an id that never existed, so ids cannot be probed. FORBIDDEN is for a second check on an object the caller can already see.",
+											"type": "string",
+											"enum": ["NOT_FOUND", "FORBIDDEN"]
+										},
+										"message": {
+											"description": "The i18n key the denial carries, e.g. \"bookmarks.errors.not-found\". Defaults to \"errors.not-found\" / \"errors.insufficient-permissions\" — the same fallbacks as `ketoCheck()`, because two rails that refuse the same thing must say it with the same words.",
+											"type": "string"
+										}
+									},
+									"required": ["permissions", "onDeny"],
+									"additionalProperties": false
+								}
 							}
 						},
 						"additionalProperties": false
@@ -1290,25 +1740,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -1411,25 +1847,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -1532,25 +1954,11 @@
 							},
 							"authenticated": {
 								"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"public": {
 								"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-								"anyOf": [
-									{
-										"type": "boolean"
-									},
-									{
-										"type": "null"
-									}
-								]
+								"type": ["boolean", "null"]
 							},
 							"cors": {
 								"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",
@@ -1654,25 +2062,11 @@
 						},
 						"authenticated": {
 							"description": "Declares that this route needs a signed-in caller and no particular authority. Documentary — every matched rule already requires one — but far clearer than an empty `authorities` list or an expression on `claims.sub`. Cannot be combined with `public: true`.",
-							"anyOf": [
-								{
-									"type": "boolean"
-								},
-								{
-									"type": "null"
-								}
-							]
+							"type": ["boolean", "null"]
 						},
 						"public": {
 							"description": "Lets anonymous callers reach this rule instead of being answered 401. Only for routes that carry their own credential (e.g. a share-link token the service validates). Cannot be combined with `authenticated: true`.",
-							"anyOf": [
-								{
-									"type": "boolean"
-								},
-								{
-									"type": "null"
-								}
-							]
+							"type": ["boolean", "null"]
 						},
 						"cors": {
 							"description": "Per-rule CORS override. Reserved for future use — not currently enforced by the policy evaluators in this package.",

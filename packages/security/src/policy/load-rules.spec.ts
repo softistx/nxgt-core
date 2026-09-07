@@ -12,12 +12,12 @@ import {
 import { evaluateRest } from './rest/evaluator';
 
 describe('parseRules', () => {
-	it('validates and precompiles in one call', () => {
+	it('validates and precompiles in one call', async () => {
 		const policy = parseRules({
 			rest: { '/widgets': { GET: { authorities: [['ADMIN']] } } },
 		});
 
-		const result = evaluateRest(policy, {
+		const result = await evaluateRest(policy, {
 			type: 'rest',
 			method: 'GET',
 			path: '/widgets',
@@ -26,7 +26,7 @@ describe('parseRules', () => {
 		expect(result.decision).toBe('ALLOW');
 	});
 
-	it('throws a Zod error for an invalid document', () => {
+	it('throws a Zod error for an invalid document', async () => {
 		expect(() => parseRules({ rest: { '/widgets': { GTE: {} } } })).toThrow();
 	});
 });
@@ -47,7 +47,7 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 		);
 
 		const policy = await loadRulesFromFile(path);
-		const result = evaluateRest(policy, {
+		const result = await evaluateRest(policy, {
 			type: 'rest',
 			method: 'GET',
 			path: '/widgets',
@@ -76,12 +76,14 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 				fallbackPath,
 			});
 			expect(
-				evaluateRest(policy, {
-					type: 'rest',
-					method: 'GET',
-					path: '/from-env',
-					claims: { sub: 'user-1' },
-				}).decision,
+				(
+					await evaluateRest(policy, {
+						type: 'rest',
+						method: 'GET',
+						path: '/from-env',
+						claims: { sub: 'user-1' },
+					})
+				).decision,
 			).toBe('ALLOW');
 		} finally {
 			delete process.env.TEST_RULES_FILE;
@@ -102,12 +104,14 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 			fallbackPath,
 		});
 		expect(
-			evaluateRest(policy, {
-				type: 'rest',
-				method: 'GET',
-				path: '/fallback',
-				claims: { sub: 'user-1' },
-			}).decision,
+			(
+				await evaluateRest(policy, {
+					type: 'rest',
+					method: 'GET',
+					path: '/fallback',
+					claims: { sub: 'user-1' },
+				})
+			).decision,
 		).toBe('ALLOW');
 	});
 
