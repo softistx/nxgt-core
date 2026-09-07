@@ -21,12 +21,15 @@ makes those other layers visible, and that turns "this file is incomplete and I
 know it" — a real comment in a real production document — into a startup
 failure.
 
-Turn it on only once the file is exhaustive, and `unnamedOperations(policy,
-paths)` ships alongside it so that "exhaustive" is a number rather than a
-feeling: every operation in an OpenAPI `paths` object that no rule names. It
-asks the compiled matchers directly, so there are no claims to invent and no
-Keto evaluator to stub. Run it from the app's own suite, get it to zero, set
-the flag, and it stays at zero.
+Turn it on only once the file is exhaustive, and `unnamedOperations` ships
+alongside it so that "exhaustive" is a number rather than a feeling: every
+operation no rule names. Feed it the app's own route table — a Hono
+`app.routes` goes straight in — because that is the mounted surface, which is
+what the guard is actually asked about; `openapiOperations` is the fallback
+and is strictly weaker, since a service can mount routes it never documents.
+It asks the compiled matchers directly, so there are no claims to invent and
+no Keto evaluator to stub. Run it from the app's own suite, get it to zero,
+set the flag, and it stays at zero.
 
 **`unmatched` is REST-only, and `compilePolicy` throws rather than pretend
 otherwise.** `applyGraphqlPolicy` never wraps a field no rule names, so no
