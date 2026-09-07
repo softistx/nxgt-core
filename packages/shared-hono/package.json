@@ -54,6 +54,7 @@
 		"@modelcontextprotocol/hono": "^2.0.0",
 		"@modelcontextprotocol/server": "^2.0.0",
 		"@nxgt/i18n": "workspace:^",
+		"@nxgt/security": "workspace:^",
 		"@nxgt/shared": "workspace:^",
 		"@nxgt/shared-exceptions": "workspace:^",
 		"@nxgt/shared-logging": "workspace:^",

@@ -32,6 +32,11 @@
 			"import": "./dist/integrations/hono/index.js",
 			"default": "./dist/integrations/hono/index.js"
 		},
+		"./integrations/ory": {
+			"types": "./dist/integrations/ory/index.d.ts",
+			"import": "./dist/integrations/ory/index.js",
+			"default": "./dist/integrations/ory/index.js"
+		},
 		"./integrations/hono/keto": {
 			"types": "./dist/integrations/hono/keto.d.ts",
 			"import": "./dist/integrations/hono/keto.js",
@@ -64,6 +69,7 @@
 			"src/index.ts",
 			"src/policy/index.ts",
 			"src/policy/graphql/index.ts",
+			"src/integrations/ory/index.ts",
 			"src/integrations/hono/index.ts",
 			"src/integrations/hono/keto.ts",
 			"src/integrations/graphql/keto.ts"
