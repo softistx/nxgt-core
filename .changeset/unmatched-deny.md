@@ -19,9 +19,14 @@ It is not a security fix: in this parc every unnamed path turned out to be
 covered by `secured()` or by an authentication floor. It is the mechanism that
 makes those other layers visible, and that turns "this file is incomplete and I
 know it" — a real comment in a real production document — into a startup
-failure. Turn it on only once the file is exhaustive; the way to know is to
-check every operation the service publishes against the evaluator, from the
-app's own test suite.
+failure.
+
+Turn it on only once the file is exhaustive, and `unnamedOperations(policy,
+paths)` ships alongside it so that "exhaustive" is a number rather than a
+feeling: every operation in an OpenAPI `paths` object that no rule names. It
+asks the compiled matchers directly, so there are no claims to invent and no
+Keto evaluator to stub. Run it from the app's own suite, get it to zero, set
+the flag, and it stays at zero.
 
 **`unmatched` is REST-only, and `compilePolicy` throws rather than pretend
 otherwise.** `applyGraphqlPolicy` never wraps a field no rule names, so no

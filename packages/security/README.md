@@ -105,7 +105,19 @@ Everything else is identical, and shared in code: `evaluateKetoRungs` in `src/po
 
 `global.unmatched: deny` closes it: an unnamed path is refused where it would have passed, 401 for an anonymous caller and 403 otherwise — the same ladder a matched rule applies, so nothing new reaches the UIs. The decision is taken in `evaluateRest`, not in each guard, so `policyGuard`, a gateway's per-service guards and a dry-run `POST /evaluate` all inherit it and cannot disagree.
 
-It is worth turning on only when the file is exhaustive, and the way to know is to ask: for every operation the service publishes (its OpenAPI document is the list), does `evaluateRest` answer anything but `NOT_APPLICABLE`? That check belongs in the app's test suite — write it first, get it green, then set the flag, and it stays green.
+It is worth turning on only when the file is exhaustive, and `unnamedOperations` is how you know that rather than feel it:
+
+```ts
+import { loadRawRulesFromFile, parseRules, unnamedOperations } from '@nxgt/security/policy';
+
+const paths = (Bun.YAML.parse(await Bun.file('openapi/api-docs.yaml').text()) as any).paths;
+const missing = unnamedOperations(parseRules(await loadRawRulesFromFile('rules.yaml')), paths, {
+  basePath: '/api',
+});
+expect(missing).toEqual([]);   // then, and only then, set `unmatched: deny`
+```
+
+It asks the compiled matchers directly — the question is "does any rule name this operation", not "would it allow this caller" — so there are no claims to invent, no Keto evaluator to stub and no expression to run. It catches the case a reader's eye skips: a **method** the file forgot on a path it does name. Put it in the app's own suite, get it to zero, then set the flag, and it stays at zero.
 
 **`unmatched` is REST-only, and compiling refuses to pretend otherwise.** `applyGraphqlPolicy` leaves a field with no rule entry completely untouched: its resolver is never wrapped, so no evaluator runs for it and no default can reach it. Making one apply would mean wrapping *every* field of every type — `Note.title` included — and a GraphQL document would have to enumerate the whole schema before it could boot. The floor on that side is `@authenticated` on the fields themselves. `compilePolicy` therefore **throws** when a document carries both `global.unmatched: deny` and a `graphql:` block, rather than closing half of it in silence.
 
