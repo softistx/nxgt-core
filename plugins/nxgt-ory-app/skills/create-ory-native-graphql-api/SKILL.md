@@ -164,6 +164,29 @@ Four rules, each of which has already gone wrong somewhere:
   the Mongo filter before the read, not a check. A directive there would fetch
   everything and filter after, and `totalCount` and the cursors would lie.
 
+**By default, no `rules.yaml`.** Since `@nxgt/security` 3.0.0 there is one, and
+a GraphQL rule carries a `keto` list in the same `[[A, B], [C]]` grammar, rungs
+and denials and `message:` and all — the whole of the section above, said
+declaratively in one document instead of on each field. Ids are `args.<path>`
+or `source.<path>`; a REST `param.id` written there is refused by the schema.
+It is wired with `applyGraphqlPolicy(schema, rawRules, { getClaims,
+permissions: ketoPermissions() })`, after `useKetoChecks(ory)` — whose loader
+it then shares.
+
+It is an **alternative** to `@check`, chosen once per app, never half-mixed:
+two half-statements of one permission is the drift this whole page exists to
+prevent. notes-api carries both on purpose, as a bench — its
+`second-rail.spec.ts` counts the Keto batches and its live spec proves the two
+answer identically. It is the only app that should.
+
+Two things to know before choosing it. A field a rule does not name is
+`NOT_APPLICABLE`, which means **open** — `@authenticated` on every field is
+what covers that, and it stays. And `applyGraphqlPolicy` refuses, at startup, a
+rule on a **non-null** field, because a denial there propagates to the nearest
+nullable ancestor; for a root operation field that ancestor is `data` and the
+propagation is exactly right, which is why notes-api passes `strict: false`
+and says so where it does.
+
 ### `<m>.access.ts`
 ```ts
 export async function require<M>Access(check: KetoChecker, id, caller: OryPrincipal | null, relation: 'view' | 'edit' = 'view') {
@@ -271,6 +294,7 @@ cd apps/<product>/<product>-api && env -u MONGODB_URI KRATOS_PUBLIC_URL=http://l
 - [ ] Every field `@authenticated`, none `@policy`
 - [ ] `@check` on every single-object field — `view`/NOT_FOUND then `edit`/FORBIDDEN — and **none** on the lists or on `create<M>`
 - [ ] Every `@check` whose service answers a domain message carries the same `message:` key
+- [ ] No `rules.yaml` (the default) — the `keto` rules file is an alternative to `@check`, never a second half of it
 - [ ] `require<M>Access` takes the context's `check`, not `ory`; answers NOT_FOUND for no `view`, FORBIDDEN for `view` without `edit`; resolvers never ask Keto
 - [ ] `create` grants owners after the document and rolls back; delete cascades to `revokeAll`; list from `heldBy`, AND-ed
 - [ ] `ketoWrite` imported by `src/ory/tuples.ts` only, guarded by `noRestrictedImports`

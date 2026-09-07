@@ -173,6 +173,9 @@ of) `requireAuthenticated()`. bookmarks-api carries both on purpose, as a
 bench: its route specs pass only while the two say the same thing. It is the
 only app that should.
 
+The GraphQL side has the same term since 3.0.0 — see
+`create-ory-native-graphql-api`, where notes-api plays the same role.
+
 ### nxgt-ory's `config/keto.namespaces.ts` — your namespace
 ```ts
 class <M> implements Namespace {
