@@ -153,6 +153,45 @@ describe('oryAuth', () => {
 		});
 	});
 
+	test('the claims it writes speak the Kratos vocabulary, `exp` in seconds', async () => {
+		const expiresAt = new Date('2026-09-07T12:00:00.000Z');
+		const response = await app({
+			'/sessions/whoami': {
+				status: 200,
+				body: {
+					...session,
+					authenticator_assurance_level: 'aal2',
+					expires_at: expiresAt.toISOString(),
+				},
+			},
+		}).request('/me', { headers: { cookie: 'ory_kratos_session=abc' } });
+
+		// One mapper with the GraphQL plugin — `claimsFromOryPrincipal` — so a
+		// rule reads the same claims whichever transport carried the request.
+		expect((await response.json()).claims).toEqual({
+			sub: 'idn-1',
+			kind: 'session',
+			email: 'ada@example.test',
+			email_verified: true,
+			aal: 'aal2',
+			exp: Math.floor(expiresAt.getTime() / 1000),
+		});
+	});
+
+	test('`exp` is a NumericDate, which is what a rule can compare', async () => {
+		const response = await app({
+			'/sessions/whoami': {
+				status: 200,
+				body: { ...session, expires_at: '2026-09-07T12:00:00.000Z' },
+			},
+		}).request('/me', { headers: { cookie: 'ory_kratos_session=abc' } });
+
+		// It used to be `expiresAt.toISOString()` under a field `PolicyClaims`
+		// declares `number`, so `claims.exp < Date.now() / 1000` compared a
+		// string to a number and was false for every value it could hold.
+		expect(typeof (await response.json()).claims.exp).toBe('number');
+	});
+
 	test('a Bearer token becomes a token principal and is kept as accessToken', async () => {
 		const response = await app({
 			'/admin/oauth2/introspect': {
