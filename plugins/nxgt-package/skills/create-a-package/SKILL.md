@@ -1,3 +1,13 @@
+---
+name: create-a-package
+description: >-
+  Add a new `@nxgt/*` package to nxgt-core — scaffolding, the layering and
+  entry-point conventions, and the checks that catch what a new package
+  usually gets wrong. Use when a piece of code should be shared between
+  repositories; shared packages live only in nxgt-core, so from any other
+  repository this is a PR there followed by a version bump here.
+---
+
 # Skill: Create a package in nxgt-core
 
 ## Purpose

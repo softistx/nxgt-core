@@ -1,3 +1,12 @@
+---
+name: release-a-package-change
+description: >-
+  Take a change to an `@nxgt/*` package all the way through: changeset,
+  release from nxgt-core, then the version bump in each consuming repository.
+  Use for any edit under `packages/`, a one-line fix included, and for any
+  consumer PR that depends on one.
+---
+
 # Skill: Release a package change
 
 ## Purpose

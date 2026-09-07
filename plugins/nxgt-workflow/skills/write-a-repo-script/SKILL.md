@@ -1,3 +1,12 @@
+---
+name: write-a-repo-script
+description: >-
+  Write repository automation as a TypeScript file run by Bun, using Bun Shell
+  for the commands, rather than a `.sh`. Use when adding anything under
+  `scripts/`, when porting a shell script you are about to edit, or for any
+  chore that touches more than two files or that anyone might want to re-run.
+---
+
 # Skill: Write a repository script
 
 ## Purpose

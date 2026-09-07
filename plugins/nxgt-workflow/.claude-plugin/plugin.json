@@ -1,0 +1,6 @@
+{
+	"name": "nxgt-workflow",
+	"description": "How an effort is split into branches, and how repository automation is written, across the nxgt repositories.",
+	"version": "1.0.0",
+	"author": { "name": "softistx" }
+}

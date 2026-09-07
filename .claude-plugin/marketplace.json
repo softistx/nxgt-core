@@ -1,0 +1,17 @@
+{
+	"name": "nxgt-core",
+	"description": "The skills shared by the nxgt repositories \u2014 sellix-monorepo, nxgt-federation, nxgt-ory and stx-sdk \u2014 authored once here rather than copied into each.",
+	"owner": {
+		"name": "softistx"
+	},
+	"plugins": [
+		{
+			"name": "nxgt-workflow",
+			"source": "./plugins/nxgt-workflow"
+		},
+		{
+			"name": "nxgt-package",
+			"source": "./plugins/nxgt-package"
+		}
+	]
+}

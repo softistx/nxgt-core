@@ -15,18 +15,29 @@ be "cleaned up".
 
 ## Skills
 
-`.claude/skills/*/SKILL.md`:
+**This repository is the marketplace.** The skills the four repositories share
+live under `plugins/`, not in `.claude/skills/`, and every repository — this one
+included — consumes them by enabling the plugin in its own committed
+`.claude/settings.json`. Authored once, versioned once; nothing is copied.
 
-- **`release-a-package-change`** — load it before editing anything under
-  `packages/`. A change here is not done when it compiles; it is done when it
-  is released and the consumer is bumped. Also carries what a changeset has to
-  say and which documentation moves with a change.
-- **`create-a-package`** — a thirteenth `@nxgt/*` package: where it goes in the
-  layering, the scaffolding, and the four conventions that are not visible from
-  reading an existing one. Replaces `nxgt-federation`'s old
-  `create-shared-package`, which cannot be done there any more.
-- **`write-a-repo-script`** — anything automated in any of the four
-  repositories is a TypeScript file run by Bun with Bun Shell, not a `.sh`.
+| plugin | skills |
+| --- | --- |
+| `nxgt-workflow` | `large-feature-branch-workflow`, `write-a-repo-script` |
+| `nxgt-package` | `create-a-package`, `release-a-package-change` |
+
+Do not list them here by hand. Each `SKILL.md` carries its own `description` in
+frontmatter, which is what decides when it fires, and `claude plugin details
+<name>` prints the inventory and its token cost. A prose copy of that is a copy
+that goes stale — which is the whole reason these moved.
+
+Adding a skill that is genuinely only about this repository still means
+`.claude/skills/<name>/SKILL.md`, which takes precedence over anything a plugin
+provides. Adding one the other repositories should have means `plugins/`, and a
+version bump in `.claude-plugin/marketplace.json`.
+
+`large-feature-branch-workflow` carries a `references/<repo>.md` per repository
+for what genuinely differs — the green bar, the sequencing, the access surface
+a deep review must check. `references/nxgt-core.md` is this one's.
 
 ## Related repositories
 
