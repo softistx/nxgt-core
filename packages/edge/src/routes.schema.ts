@@ -3,15 +3,15 @@ import { z } from 'zod';
 /**
  * Where a request goes — and nothing about who may make it.
  *
- * Ory Oathkeeper puts both in one `access-rules.yaml` entry, and that
- * conflation is the source of two of its traps: a rule's `methods` list
- * doubles as routing, so a method nobody thought of (`QUERY`) is unroutable
- * rather than merely unauthorised; and a host-agnostic `match.url` makes
- * `/health` a rule that either exists for every fronted app or for none.
+ * Routing answers "which upstream", the rules document answers "who may", and
+ * the separation is load-bearing rather than tidy. A routing table that also
+ * listed methods would make a method nobody thought of — `QUERY` — unroutable
+ * rather than merely unauthorised; and a match that ignored the host would
+ * make `/health` a rule that either exists for every fronted app at once or
+ * for none, since they all serve that exact path.
  *
- * Here routing answers "which upstream", the rules document answers "who may".
- * The two are kept in agreement by a startup assertion, not by hand: every app
- * named here must be named there.
+ * The two documents are kept in agreement by a startup assertion, not by hand:
+ * every app named here must be named there.
  */
 const zMatch = z
 	.object({
@@ -58,10 +58,10 @@ const zApp = z.object({
 	match: zMatch,
 	upstream: z.url().describe(
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: the placeholder syntax this field documents
-		'Where the request is forwarded, after `${VAR}` expansion. Oathkeeper ' +
-			'does NOT expand variables in its own `upstream.url`, which is the ' +
-			'most-cited operational annoyance about it and costs five lines to ' +
-			'fix.',
+		'Where the request is forwarded, after `${VAR}` expansion — so one ' +
+			'document serves every environment, and an upstream that differs ' +
+			'between them is a variable rather than a second file. An unset ' +
+			'variable throws at startup; it is never forwarded as an empty host.',
 	),
 	stripPrefix: z
 		.boolean()

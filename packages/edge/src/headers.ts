@@ -43,10 +43,10 @@ export interface ForwardOptions {
  * The headers to send upstream.
  *
  * Everything the caller sent survives except the scrubbed list — `Cookie`
- * included. That is deliberate and temporary: Oathkeeper forwards it, and a
- * second rail that changes what crosses is not a comparison. Stripping the
- * cookie once the edge is enforcing is a separate hardening, and it needs
- * checking that a fronted UI is still correct without it.
+ * included, deliberately. A fronted app stays correct on its own address, and
+ * an app that reads the session cookie directly there must keep working
+ * behind the edge. Stripping it is a hardening of its own, and it needs
+ * checking app by app rather than assuming.
  */
 export function forwardHeaders(
 	incoming: Headers,

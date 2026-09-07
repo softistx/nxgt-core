@@ -42,7 +42,6 @@
 		"@nxgt/security": "workspace:^",
 		"@nxgt/shared": "workspace:^",
 		"@nxgt/shared-logging": "workspace:^",
-		"yaml": "^2.9.0",
 		"zod": "^4.4.3"
 	},
 	"peerDependencies": {

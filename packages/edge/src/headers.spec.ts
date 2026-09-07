@@ -59,8 +59,9 @@ describe('forwardHeaders', () => {
 		// `ory.resolve` reads the Bearer before the cookie, so the upstream
 		// takes ours.
 		expect(withToken.get('authorization')).toBe('Bearer ours');
-		// The cookie still travels: Oathkeeper forwards it, and a second rail
-		// that changes what crosses is not a comparison.
+		// The cookie still travels: a fronted app stays correct on its own
+		// address, and one that reads the session cookie there must keep
+		// working behind the edge.
 		expect(withToken.get('cookie')).toBe('ory_kratos_session=x');
 
 		const mirrored = forwardHeaders(

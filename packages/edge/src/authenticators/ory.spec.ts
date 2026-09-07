@@ -5,7 +5,7 @@ import { createEdgeVerifier, OryUnavailable } from 'stx-sdk/ory';
 import { AuthorityUnavailable } from '../types';
 import { oryAuthenticator } from './ory';
 
-const ISSUER = 'http://oathkeeper:4456/';
+const ISSUER = 'http://edge:4456/';
 
 /** `expect(x).not.toBeNull()` does not narrow, and `!` is linted out. */
 function must<T>(value: T | null | undefined): T {
@@ -97,7 +97,7 @@ describe('oryAuthenticator', () => {
 
 		// `null` here would make a Kratos outage look like a caller with no
 		// credential, and the request would then be refused as if they had
-		// none — which is precisely Oathkeeper's 403.
+		// none: an outage answered as a refusal.
 		const failure = auth
 			.resolve(new Request('https://edge.test/api'))
 			.catch((error) => error);

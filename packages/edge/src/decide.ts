@@ -43,11 +43,10 @@ function named(policy: CompiledPolicy, method: string, path: string): boolean {
  * a decision recorded as "would forward" beside an upstream 404 reads as
  * agreement when the two in fact disagree completely.
  *
- * `isNamed: false` overrides both with **404**, and that is measured rather
- * than chosen: Ory Oathkeeper answers 404 for a request no access rule
- * matches, and it is right to. Inviting an anonymous caller to authenticate
- * for a path that routes nowhere costs them a round trip to learn that
- * nothing is there — and answering 403 to a named caller says the path exists.
+ * `isNamed: false` overrides both with **404**. Inviting an anonymous caller
+ * to authenticate for a path that routes nowhere costs them a round trip to
+ * learn that nothing is there — and answering 403 to a named caller says the
+ * path exists.
  * A refusal from a rule that DID match keeps 401/403: there the caller already
  * knows the app is there, having reached it.
  */
@@ -146,9 +145,10 @@ export async function decide(
 }
 
 /**
- * A 503 for an authority that could not answer — the whole point of the
- * exercise. Ory Oathkeeper's `cookie_session` answers 403 with Kratos down,
- * which is indistinguishable from a real refusal.
+ * A 503 for an authority that could not answer.
+ *
+ * Not 403, which is indistinguishable from a real refusal, and not 401, which
+ * invites a caller to re-present a credential nothing can currently check.
  */
 export function unavailableDecision(
 	error: AuthorityUnavailable,
