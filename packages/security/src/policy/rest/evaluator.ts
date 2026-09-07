@@ -78,6 +78,14 @@ export interface EvaluateResult {
  * every caller treats as open. A path a rules file does not name is not
  * guarded by it, and adding Keto terms does not change that; mount the guard
  * on a prefix, and keep whatever answers the authentication floor.
+ *
+ * Unless the document says `global.unmatched: deny`, in which case an unnamed
+ * path is REFUSED here instead — UNAUTHENTICATED for an anonymous caller,
+ * DENY otherwise, the same ladder a matched rule applies. The decision is
+ * taken here rather than in each guard so that every consumer inherits it:
+ * `policyGuard`, the gateway's per-service guards, and oauth-api's dry-run
+ * `POST /evaluate`, which would otherwise report an open path as
+ * NOT_APPLICABLE while the guard in front of it refused.
  */
 export async function evaluateRest(
 	policy: CompiledPolicy,
@@ -164,8 +172,21 @@ export async function evaluateRest(
 		}
 	}
 
-	return {
-		decision: 'NOT_APPLICABLE',
-		reason: `No rule matched ${method} ${input.path}`,
-	};
+	const unmatched = `No rule matched ${method} ${input.path}`;
+
+	if (policy.global?.unmatched === 'deny') {
+		// The same 401-then-403 split a matched rule makes, for the same
+		// reason: the UIs re-authenticate on 401 and show a refusal on 403.
+		return isAuthenticated(input.claims)
+			? {
+					decision: 'DENY',
+					reason: `${unmatched}, and \`global.unmatched\` is deny`,
+				}
+			: {
+					decision: 'UNAUTHENTICATED',
+					reason: `${unmatched}, and \`global.unmatched\` is deny`,
+				};
+	}
+
+	return { decision: 'NOT_APPLICABLE', reason: unmatched };
 }
