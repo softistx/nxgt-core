@@ -155,8 +155,11 @@ All of them are in `AGENTS.md` with the detail; the short forms:
   *required* one that resolves nowhere fails it with a 404, and a `link:` in
   `devDependencies` is harmless because a consumer never installs those. The
   404 on `stx-sdk` that cost a day was a required peer, not an ignored
-  `optional` — `@nxgt/material` and `@nxgt/map` are on no registry, so declare
-  them optional or not at all.
+  `optional`. `@nxgt/material` and `@nxgt/map` were the standing example of
+  packages on no registry; both are public on npmjs at `1.0.0` since
+  2026-09-07, so they are safe to require now. The rule is unchanged and still
+  worth checking — it is the *example* that expired, and the next unpublished
+  package will hit it again.
 - **Internal dependencies are `workspace:^`, never `workspace:*`.** The latter
   publishes as an exact version, so a consumer resolving `^1.0.0` to a newer
   release ends up with two copies of the sibling — and two `model()` calls on

@@ -37,11 +37,16 @@ and **Keto answers `false` — not an error — for a relation it does not know*
 so the consumer's tests read a missing namespace as a correct denial. The order
 above is not negotiable, and the consumer's PR body should name this repo's PR.
 
-`stx-sdk` and `@nxgt/material` arrive by `link:`, not as workspace packages. If
-a slice needs a change in either, build it there (`bun run build`) and
-`rm -rf node_modules/.vite` here before the dev server sees it — it fails
-silently otherwise. Give that its own slice only when the propagation involves
-real changes; otherwise it is a step inside the slice that needed it.
+`stx-sdk` and `@nxgt/material` are published dependencies, not workspace
+packages. If a slice needs a change in either, it has to be built there,
+**released**, and the range bumped here — then `rm -rf node_modules/.vite`
+before the dev server sees it, because it fails silently otherwise. They used to
+arrive by `link:`, where the build alone was enough; the release is a real step
+now. Give that propagation its own slice only when it involves real changes;
+otherwise it is a step inside the slice that needed it.
+
+There is also no builder base in that repo any longer — it existed only to carry
+the `link:`ed packages, and `kratos/Dockerfile` builds from `oven/bun` directly.
 
 ## Deep review — the access surface here
 
