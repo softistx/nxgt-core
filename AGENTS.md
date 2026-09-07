@@ -120,14 +120,17 @@ Neither defect above was visible to `bun run build`, `bun typecheck` or `biome`.
 Only importing the built output catches them, and the workspace never imports
 it — `@nxgt/*` resolves to `src/` here.
 
-So before releasing, install the packages the way a consumer does and load them:
+So before releasing, the packages are installed the way a consumer installs
+them and every declared subpath is imported. That is `bun run verify:artifacts`
+(`scripts/verify-artifacts.ts`): it packs each package, builds a scratch
+manifest depending on the tarballs — with `overrides` pointing every `@nxgt/*`
+at its own tarball so transitive ones resolve locally too — installs, and
+`await import()`s every subpath in `exports`.
 
-```sh
-for d in packages/*/; do (cd "$d" && bun pm pack --destination /tmp/probe/tarballs); done
-# a scratch package.json depending on the twelve tarballs, with `overrides`
-# pointing every @nxgt/* at its tarball so transitive ones resolve locally too
-bun install && bun run smoke.ts   # await import() of all 23 declared subpaths
-```
+Do not re-derive that by hand: the script reads the package list and the
+subpaths from the manifests, so it cannot go stale against them, and it is
+already wired into `changeset:publish`, which runs
+`build && verify:artifacts && publish.ts`. A release cannot skip it.
 
 This is also the only check that exercises `files`, `exports` and the
 `workspace:*` -> version rewrite that `bun pm pack` performs.
@@ -338,8 +341,9 @@ unreachable there — the `nxgt` GitHub org has existed since 2017 and is not
 ours. Publishing under `@softistx` was tried, and abandoned for the reason that
 actually decides it: **GitHub Packages demands a token to install, even for a
 public package.** That is a secret in every CI job and every Docker build in
-both monorepos, forever, on the same path where `scripts/build-base.sh` already
-leaked one through `--build-arg`.
+both monorepos, forever, on the same path where nxgt-docker's old
+`images/bun/script.sh` already leaked one through `--build-arg` — the leak that
+`images/bun/build.ts` was written to close, by passing it as a BuildKit secret.
 
 npmjs public costs nothing, needs no token to read, and let the `@nxgt` scope
 stay — which is why not one `import` in either monorepo changed.
