@@ -32,7 +32,7 @@
     },
     "packages/edge": {
       "name": "@nxgt/edge",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@nxgt/security": "workspace:^",
         "@nxgt/shared": "workspace:^",
