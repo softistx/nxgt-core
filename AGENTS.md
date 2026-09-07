@@ -364,6 +364,27 @@ a fixed depth from the calling file: the bundle is `dist/index.js`, the source
 is `src/utils/schema.utils.ts`, and no single relative path serves both. See
 `SHARED_SCHEMA_PATH`, which walks up to the nearest `package.json`.
 
+### A shipped directive is not a composed directive
+
+`@check` is declared in `graphql/directives/check.graphqls`, inside the
+`graphql/**/*.graphqls` glob `SHARED_SCHEMA_PATH` already exposes — not in
+`SHARED_TYPE_DEFS`. That is the difference between a subgraph seeing it and
+not: `health` and `platform` build through `buildSubgraphSchema` and never load
+`SHARED_TYPE_DEFS`, so a declaration put there would be invisible to exactly
+the schemas most likely to want it next.
+
+Shipping the SDL is enough for a **standalone** Yoga schema. It is **not**
+enough for a subgraph that federation composes. The day `@check` is used in
+`health` or `platform`, rover needs both:
+
+- `@composeDirective(name: "@check")` in that subgraph, and
+- the directive named in the subgraph's own `@link` import list.
+
+Without them the composition **drops it silently** — the supergraph SDL comes
+out valid, the field loses its check, and nothing fails. Nobody is doing this
+today; `apps/supergraph/supergraph.yaml` composes only those two subgraphs and
+neither carries a `@check`. Read this before the first one does.
+
 ### Siblings are depended on by range — `workspace:^`, never `workspace:*`
 
 `workspace:*` publishes as the **exact** version. That is not a cosmetic

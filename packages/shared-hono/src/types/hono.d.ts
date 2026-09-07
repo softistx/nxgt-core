@@ -1,5 +1,5 @@
 import type { Principal } from '@nxgt/shared/models';
-import type { OryPrincipal } from 'stx-sdk/ory';
+import type { OryPrincipal, Permission, Subject } from 'stx-sdk/ory';
 
 declare module 'hono' {
 	interface ContextVariableMap {
@@ -11,6 +11,12 @@ declare module 'hono' {
 		 * caller. `ory.subject` is the string Keto receives.
 		 */
 		ory?: OryPrincipal | null;
+		/**
+		 * Set by `useOry()`: the per-request Keto answer cache every
+		 * `ketoCheck()` and the app's own access layer share, so asking the
+		 * same question twice costs one round trip.
+		 */
+		ketoChecks?: (permission: Permission, subject: Subject) => Promise<boolean>;
 		'X-User-Id'?: string | null;
 		'X-User-Name'?: string | null;
 		'X-User-Email'?: string | null;

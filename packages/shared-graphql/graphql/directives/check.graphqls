@@ -1,0 +1,73 @@
+# The Ory-native counterpart to @policy.
+#
+# @policy asks whether the caller CARRIES an authority. An Ory principal
+# carries none — `toPrincipal` sets `authorities: []` on purpose — because
+# Keto answers per OBJECT: "may this subject `view` `Note:<id>`". @check is how
+# a schema asks that, and `useKetoChecks(ory)` is what answers it.
+#
+# It lives here, in the shipped SDL, rather than in SHARED_TYPE_DEFS, so that
+# every consumer of SHARED_SCHEMA_PATH sees it — the subgraphs built with
+# `buildSubgraphSchema` included, which never load SHARED_TYPE_DEFS.
+
+"""
+One question, with the object left as a path instead of a value.
+"""
+input CheckPermission {
+	"""
+	The Keto namespace, e.g. "Note" — from the stack's OPL document.
+	"""
+	namespace: String!
+
+	"""
+	The permit asked of it, e.g. "view". A plain relation works too; Keto
+	answers `false`, not an error, for a name it does not know.
+	"""
+	permit: String!
+
+	"""
+	Where the object id is read: `args.<path>` or `source.<path>`, dotted paths
+	allowed. A value that turns out to be a LIST requires the permit on every
+	element — that is what a mutation taking `ids: [ID!]!` means.
+	"""
+	id: String = "args.id"
+}
+
+"""
+What a denial looks like from outside.
+"""
+enum CheckDenial {
+	"""
+	The same answer as for an id that never existed, so ids cannot be probed.
+	The default, and the one to keep unless the caller already knows the object
+	is there.
+	"""
+	NOT_FOUND
+
+	"""
+	For a second check on an object the caller can already see: a viewer asked
+	to edit already knows it exists, and "you may not change it" is honest.
+	"""
+	FORBIDDEN
+}
+
+"""
+The permission a field requires, in disjunctive normal form: the OUTER list is
+OR, the INNER list is AND. `[[A, B], [C]]` reads "(A and B) or C" — the same
+shape `@policy(policies: [["ADMIN"]])` uses.
+
+Repeatable, and evaluated in declaration order, each with its own `onDeny`.
+That is how the 404-then-403 ladder is written:
+
+    updateNote(id: ID!, input: UpdateNoteInput!): Note!
+      @check(permissions: [[{ namespace: "Note", permit: "view" }]])
+      @check(permissions: [[{ namespace: "Note", permit: "edit" }]], onDeny: FORBIDDEN)
+
+NOT for a field that answers a LIST the caller is entitled to. "Which notes may
+I see" is not a check, it is a Keto query folded into the database filter
+before the read. A directive there would have to fetch everything and filter
+after, which makes `totalCount` and the cursors lie.
+"""
+directive @check(
+	permissions: [[CheckPermission!]!]!
+	onDeny: CheckDenial! = NOT_FOUND
+) repeatable on FIELD_DEFINITION
