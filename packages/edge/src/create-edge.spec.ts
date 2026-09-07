@@ -176,22 +176,45 @@ describe('createEdge — enforce', () => {
 
 		const response = await e.fetch(get('/secret'));
 
-		expect(response.status).toBeGreaterThanOrEqual(400);
+		// 404, and deliberately indistinguishable from a path that is routed
+		// but unnamed: the edge reveals nothing about which apps it fronts.
+		expect(response.status).toBe(404);
 		expect(sink.seen).toHaveLength(0);
 	});
 
-	test('a method the rules forgot is refused, on a path they do name', async () => {
+	test('a method the rules forgot is 404, like a path they never named', async () => {
 		const { edge: e, sink } = edge();
 
 		// `evaluateRest` indexes by method, so DELETE on a path whose rule
 		// names only GET/POST/QUERY matches nothing — and `unmatched: deny`
 		// turns that into a refusal instead of a pass.
+		//
+		// 404 rather than 403 because no rule matched at all: the edge is
+		// saying there is nothing here, not that this caller may not have it.
+		// Measured against Oathkeeper, which answers the same and is right to.
 		const response = await e.fetch(
 			new Request('https://edge.test/api/bookmarks/b1', { method: 'DELETE' }),
 		);
 
-		expect(response.status).toBe(403);
+		expect(response.status).toBe(404);
 		expect(sink.seen).toHaveLength(0);
+	});
+
+	test('a refusal from a rule that DID match keeps 401 and 403', async () => {
+		// The other half of the distinction: here the caller reached the app,
+		// so they already know it is there and nothing is revealed by saying
+		// whether they may have it.
+		const { edge: anonymousEdge } = edge({
+			authenticators: [
+				{ name: 'stub', resolve: async () => null } satisfies Authenticator,
+			],
+		});
+		expect((await anonymousEdge.fetch(get('/api/bookmarks'))).status).toBe(401);
+
+		const { edge: refusedEdge } = edge({
+			authenticators: [caller({ sub: 'idn-7', allowed: false })],
+		});
+		expect((await refusedEdge.fetch(get('/api/bookmarks'))).status).toBe(403);
 	});
 
 	test('QUERY travels verbatim — there is no method to pin', async () => {
