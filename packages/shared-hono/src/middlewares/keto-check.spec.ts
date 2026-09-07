@@ -140,6 +140,43 @@ describe('ketoCheck', () => {
 		);
 	});
 
+	/**
+	 * The route guard and the module's `<m>.access.ts` guard the same object.
+	 * If they word one 404 differently, the wording tells the caller which one
+	 * spoke — the difference NOT_FOUND is there to hide. `createErrorHandler`
+	 * is given an identity translator here, so the body carries the raw key.
+	 */
+	test('carries the message the route names, on both rungs', async () => {
+		const mount = (a: Hono) =>
+			a.patch(
+				'/:id',
+				ketoCheck(view(), { message: 'bookmarks.errors.not-found' }),
+				ketoCheck(edit(), {
+					onDeny: 'FORBIDDEN',
+					message: 'bookmarks.errors.read-only',
+				}),
+				(ctx) => ctx.text('ok'),
+			);
+
+		const stranger = app([], 'idn-7', mount);
+		const hidden = await stranger.hono.request('/b1', { method: 'PATCH' });
+		expect(hidden.status).toBe(404);
+		expect((await hidden.json()).message).toBe('bookmarks.errors.not-found');
+
+		const viewer = app(['Bookmark:b1#view@idn-7'], 'idn-7', mount);
+		const refused = await viewer.hono.request('/b1', { method: 'PATCH' });
+		expect(refused.status).toBe(403);
+		expect((await refused.json()).message).toBe('bookmarks.errors.read-only');
+	});
+
+	test('falls back to the shared errors.* keys when the route says nothing', async () => {
+		const { hono } = app([], 'idn-7', (a) =>
+			a.get('/:id', ketoCheck(view()), (ctx) => ctx.text('ok')),
+		);
+		const response = await hono.request('/b1');
+		expect((await response.json()).message).toBe('errors.not-found');
+	});
+
 	test('401 before asking Keto anything', async () => {
 		const { hono, batches } = app(['Bookmark:b1#view@idn-7'], null, (a) =>
 			a.get('/:id', ketoCheck(view()), (ctx) => ctx.text('ok')),

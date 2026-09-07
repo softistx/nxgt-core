@@ -72,6 +72,22 @@ Checks run in declaration order with their own `onDeny`: a stranger fails the
 it, fails `edit`, and gets `FORBIDDEN`, which is honest because they already
 know the object exists.
 
+**Word the refusal like the layer beneath it.** `message:` sets the i18n key a
+denial carries; without it the shared `errors.not-found` /
+`errors.insufficient-permissions` are used. It matters because these fields are
+guarded twice — by the directive, and by the `require<M>Access` their service
+calls — and if the two word one 404 differently, the wording alone tells the
+caller which refused: a generic message means "you may not", a domain one means
+"it is gone". That is the distinction `NOT_FOUND` exists to hide.
+
+```graphql
+note(id: ID!): Note!
+	@check(
+		permissions: [[{ namespace: "Note", permit: "view" }]]
+		message: "notes.errors.not-found"
+	)
+```
+
 ### What it does not cover, on purpose
 
 A field that answers a **list** the caller is entitled to. "Which notes may I

@@ -21,6 +21,8 @@ export type CheckDenial = 'NOT_FOUND' | 'FORBIDDEN';
 export type CheckArgs = {
 	permissions: PermissionRequirement;
 	onDeny: CheckDenial;
+	/** i18n key; the shared `errors.*` one when the field does not say. */
+	message?: string;
 };
 
 /**
@@ -48,6 +50,7 @@ export function readChecks(
 		return {
 			permissions,
 			onDeny: (raw.onDeny ?? 'NOT_FOUND') as CheckDenial,
+			message: raw.message as string | undefined,
 		};
 	});
 }
