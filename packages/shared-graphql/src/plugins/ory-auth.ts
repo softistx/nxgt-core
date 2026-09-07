@@ -1,3 +1,5 @@
+import { claimsFromOryPrincipal } from '@nxgt/security/integrations/ory';
+import type { PolicyClaims } from '@nxgt/security/policy';
 import type { TokenPrincipal } from '@nxgt/shared';
 import { GraphQLError } from 'graphql';
 import type { Plugin } from 'graphql-yoga';
@@ -17,6 +19,21 @@ import type { GraphQLBaseContext } from '../types';
  */
 export type OryContext = {
 	ory?: OryPrincipal | null;
+	/**
+	 * The caller in the vocabulary a rules document reads — what
+	 * `applyGraphqlPolicy`'s `getClaims` should return.
+	 *
+	 * It is NOT `user`. `TokenPrincipal` is the repo-wide principal shape and
+	 * carries what a service wants (`uid`, `name`, empty `authorities`); a
+	 * rule wants the OIDC claims, `email_verified`, `aal` and `aud` included,
+	 * and those have nowhere to live in a `TokenPrincipal`. Reading `user` as
+	 * claims is why `expression: "claims.aal === 'aal2'"` guarded a REST route
+	 * and silently guarded nothing here.
+	 *
+	 * Produced by the same `claimsFromOryPrincipal` the REST middleware uses,
+	 * so one rule reads the same on both transports.
+	 */
+	claims?: PolicyClaims;
 };
 
 /**
@@ -83,6 +100,7 @@ export async function resolveOryPrincipal(
 	return {
 		ory: principal,
 		user: principal ? toPrincipal(principal) : undefined,
+		claims: principal ? claimsFromOryPrincipal(principal) : undefined,
 		token: bearerOf(headers) ?? undefined,
 	};
 }
@@ -90,7 +108,7 @@ export async function resolveOryPrincipal(
 /**
  * `useAuth()` for an Ory-native API: resolves the caller through Kratos
  * (session cookie, session token) or Hydra (Bearer, introspected) and puts
- * `user`, `token` and `ory` on the context. Wire it exactly where the
+ * `user`, `claims`, `token` and `ory` on the context. Wire it exactly where the
  * standalone APIs wire `useAuth()`, ahead of `useGenericAuth` — which then
  * enforces `@authenticated` from `context.user` unchanged.
  *

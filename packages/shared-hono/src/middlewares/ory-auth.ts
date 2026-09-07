@@ -1,3 +1,4 @@
+import { claimsFromOryPrincipal } from '@nxgt/security/integrations/ory';
 import { type Principal, USER_HEADERS } from '@nxgt/shared/models';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
@@ -72,17 +73,13 @@ export function oryAuth(ory: Ory) {
 		ctx.set('principal', principal);
 		ctx.set('ory', resolved);
 		ctx.set('accessToken', bearerOf(ctx.req.raw.headers));
-		ctx.set(USER_HEADERS.CLAIMS, {
-			sub: resolved.subject,
-			kind: resolved.kind,
-			email: resolved.identity?.email,
-			email_verified: resolved.identity?.verified,
-			clientId: resolved.clientId,
-			scope: resolved.scopes.join(' ') || undefined,
-			aud: resolved.audience,
-			aal: resolved.aal,
-			exp: resolved.expiresAt?.toISOString(),
-		});
+		// One mapper, shared with the GraphQL plugin, rather than this object
+		// literal and its twin. The two had already drifted: this one wrote
+		// `exp` as an ISO string into a field `PolicyClaims` declares
+		// `number`, and the other dropped `email_verified`, `aal` and `aud`
+		// altogether — so the same caller reached the same rule as two
+		// different objects depending on the transport.
+		ctx.set(USER_HEADERS.CLAIMS, claimsFromOryPrincipal(resolved));
 
 		return next();
 	});

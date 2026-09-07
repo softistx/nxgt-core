@@ -144,7 +144,7 @@ export function policyGuard(
 
 		if (result.decision === 'DENY') {
 			logger.error(
-				`Policy DENY: ${ctx.req.method} ${ctx.req.path}, user: ${claims.username || 'anonymous'}, reason: ${result.reason}`,
+				`Policy DENY: ${ctx.req.method} ${ctx.req.path}, user: ${callerOf(claims)}, reason: ${result.reason}`,
 			);
 			// `denial` is only ever set by a Keto term, so an authority or
 			// expression refusal keeps answering exactly what it always did.
@@ -159,9 +159,25 @@ export function policyGuard(
 					});
 		}
 		logger.info(
-			`Policy ${result.decision}: ${ctx.req.method} ${ctx.req.path}, user: ${claims.username || 'anonymous'}, reason: ${result.reason}`,
+			`Policy ${result.decision}: ${ctx.req.method} ${ctx.req.path}, user: ${callerOf(claims)}, reason: ${result.reason}`,
 		);
 
 		return next();
 	});
+}
+
+/**
+ * Who to name in a decision log.
+ *
+ * `username` first so oauth-api's logs read exactly as they always have, then
+ * `sub` — which every caller has, and which an Ory one has INSTEAD of a
+ * username. Reading only `username` meant every Ory-native policy decision was
+ * logged against "anonymous", authenticated or not, which is the log line you
+ * would go to precisely when something went wrong.
+ */
+function callerOf(claims: PolicyClaims): string {
+	// `||`, not `??`: an anonymous request arrives as `{}` cast to these
+	// claims, so the fields are missing rather than null, and a producer that
+	// wrote an empty string should not name the caller "".
+	return claims.username || claims.sub || claims.clientId || 'anonymous';
 }

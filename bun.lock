@@ -48,7 +48,7 @@
     },
     "packages/security": {
       "name": "@nxgt/security",
-      "version": "1.0.2",
+      "version": "3.1.0",
       "dependencies": {
         "@graphql-tools/utils": "^12.0.0",
         "@nxgt/shared": "workspace:^",
@@ -62,10 +62,15 @@
       },
       "devDependencies": {
         "@types/bun": "^1.4.0",
+        "stx-sdk": ">=1.1.0",
       },
       "peerDependencies": {
+        "stx-sdk": ">=1.1.0",
         "typescript": "^6.0.3",
       },
+      "optionalPeers": [
+        "stx-sdk",
+      ],
     },
     "packages/shared": {
       "name": "@nxgt/shared",
@@ -124,7 +129,7 @@
     },
     "packages/shared-graphql": {
       "name": "@nxgt/shared-graphql",
-      "version": "1.4.0",
+      "version": "1.4.2",
       "dependencies": {
         "@apollo/server": "^5.5.1",
         "@apollo/subgraph": "^2.14.3",
@@ -174,6 +179,7 @@
         "@modelcontextprotocol/hono": "^2.0.0",
         "@modelcontextprotocol/server": "^2.0.0",
         "@nxgt/i18n": "workspace:^",
+        "@nxgt/security": "workspace:^",
         "@nxgt/shared": "workspace:^",
         "@nxgt/shared-exceptions": "workspace:^",
         "@nxgt/shared-logging": "workspace:^",

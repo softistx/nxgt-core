@@ -155,6 +155,18 @@ GraphQL expressions see `claims`, `args`, `source` (the resolver's parent/source
 
 ## Integrations
 
+### `integrations/ory` (`@nxgt/security/integrations/ory`)
+
+`claimsFromOryPrincipal(principal)` — the one mapper from a resolved Ory caller to the `PolicyClaims` a rule sees.
+
+There were two, and they had drifted. `oryAuth()` in `@nxgt/shared-hono` wrote `exp` as an **ISO string** into a field declared `number`; `useOryAuth()` in `@nxgt/shared-graphql` wrote it as seconds but dropped `email_verified`, `aal` and `aud` altogether. The same caller therefore reached the same rule as two different objects depending on the transport, so `expression: "claims.aal === 'aal2'"` guarded a REST route and silently guarded nothing on a GraphQL field. Both middlewares call this now, for the same reason all three Keto vocabularies call `evaluateRequirement`.
+
+`PolicyClaims` is **Kratos/OIDC-shaped**: `sub`, `kind`, `email`, `email_verified`, `aal`, `aud`, `clientId`, `scope`, `iss`, `exp` (a NumericDate — seconds, per RFC 7519 §2). The oauth-api vocabulary (`username`, `authorities`, `roles`, `permissions`, `uid`, `user`) is still there and still checked by `checkAuthorities`, but it is marked `@deprecated`: `apps/oauth` is being retired in favour of Kratos/Hydra/Keto, and three rules documents in production still name those fields.
+
+An Ory caller has **no** `authorities` and **no** `roles` — deliberately. Keto answers per object, so the Ory way to say "may do this" is a `keto:` term, not a longer authority list; the only way an `authorities:` group is satisfied is through the space-split `scope`.
+
+Like `integrations/hono/keto`, this module imports `stx-sdk` and is its own entrypoint for that reason — a service that resolves its callers some other way never loads it, and never installs the optional peer.
+
 ### `integrations/hono` (`@nxgt/security/integrations/hono`)
 
 `policyGuard(rawRules)` — a Hono middleware wrapping `evaluateRest`. Moved here from `@nxgt/shared-hono` so REST policy enforcement lives next to the engine it wraps, in the package whose whole purpose is being the home for security features.
