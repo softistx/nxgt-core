@@ -19,6 +19,30 @@ export const zGlobalConfig = z.object({
 		.describe(
 			'Prefix prepended to every REST path pattern before matching, e.g. "/api".',
 		),
+	/**
+	 * What a REST path no rule names is answered.
+	 *
+	 * `allow` — the default, and what every document did before this field
+	 * existed. `deny` closes the door and makes the rules file the exhaustive
+	 * statement of what the service exposes.
+	 */
+	unmatched: z
+		.enum(['allow', 'deny'])
+		.default('allow')
+		.describe(
+			'What a REST request no rule matches is answered. "allow" (the ' +
+				'default, and the behaviour of every document written before this ' +
+				'field existed) lets it through — the rules file adds protections ' +
+				'to the paths it names and says nothing about the others. "deny" ' +
+				'makes the file the EXHAUSTIVE statement of what this service ' +
+				'exposes: an unnamed path is refused, 401 for an anonymous caller ' +
+				'and 403 otherwise, exactly as a matched rule would refuse them. ' +
+				'Turn it on only once every published operation has an entry — ' +
+				'the point is that forgetting one then fails loudly instead of ' +
+				'silently leaving it open. REST ONLY: see the note in the ' +
+				'package README on why GraphQL has no equivalent.',
+		),
+
 	rateLimit: zRateLimitConfig
 		.optional()
 		.describe(

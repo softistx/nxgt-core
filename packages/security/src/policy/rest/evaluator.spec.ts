@@ -474,3 +474,88 @@ describe('evaluateRest — where an object id comes from', () => {
 		);
 	});
 });
+
+describe('evaluateRest — `global.unmatched`', () => {
+	const named: Rules['rest'] = {
+		'/things/:id': { GET: { authenticated: true } },
+	};
+
+	const ask = (
+		unmatched: 'allow' | 'deny' | undefined,
+		path: string,
+		claims: Record<string, unknown> = { sub: 'idn-7' },
+	) =>
+		evaluateRest(
+			compilePolicy({
+				global: unmatched ? { unmatched } : undefined,
+				rest: named,
+			} as Rules),
+			{
+				type: 'rest',
+				method: 'GET',
+				path,
+				claims: claims as never,
+			},
+		);
+
+	it('is open by default, which is what every document written so far means', async () => {
+		const result = await ask(undefined, '/things/t1/share');
+		expect(result.decision).toBe('NOT_APPLICABLE');
+	});
+
+	it('is still open when the document says so out loud', async () => {
+		const result = await ask('allow', '/things/t1/share');
+		expect(result.decision).toBe('NOT_APPLICABLE');
+	});
+
+	it('refuses an unnamed path when the document says deny', async () => {
+		const result = await ask('deny', '/things/t1/share');
+		expect(result.decision).toBe('DENY');
+		// The reason names the path AND the reason it was refused, because a
+		// 403 on a route nobody thought was guarded is otherwise a long
+		// afternoon.
+		expect(result.reason).toContain('GET /things/t1/share');
+		expect(result.reason).toContain('`global.unmatched` is deny');
+	});
+
+	it('answers an anonymous caller 401, not 403', async () => {
+		// The same split a matched rule makes: the UIs re-authenticate on 401
+		// and show a refusal on 403. An unnamed path must not tell a signed-out
+		// caller they lack a permission.
+		const result = await ask('deny', '/things/t1/share', {});
+		expect(result.decision).toBe('UNAUTHENTICATED');
+	});
+
+	it('changes nothing for a path the document does name', async () => {
+		const result = await ask('deny', '/things/t1');
+		expect(result.decision).toBe('ALLOW');
+	});
+
+	it('still refuses an unnamed METHOD on a named path', async () => {
+		// The trap this is really for: `/things/:id` is in the file, `DELETE`
+		// is not, and routes are partitioned by method.
+		const result = await evaluateRest(
+			compilePolicy({ global: { unmatched: 'deny' }, rest: named } as Rules),
+			{
+				type: 'rest',
+				method: 'DELETE',
+				path: '/things/t1',
+				claims: { sub: 'idn-7' } as never,
+			},
+		);
+		expect(result.decision).toBe('DENY');
+	});
+
+	it('refuses to compile beside a `graphql:` block, rather than doing nothing there', async () => {
+		// `applyGraphqlPolicy` never wraps a field no rule names, so no default
+		// could reach it. Accepting the flag would say "closed" and mean
+		// "open on half the document".
+		expect(() =>
+			compilePolicy({
+				global: { unmatched: 'deny' },
+				rest: named,
+				graphql: { Query: { thing: { authenticated: true } } },
+			} as Rules),
+		).toThrow(/REST-only/);
+	});
+});
