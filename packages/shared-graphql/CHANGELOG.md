@@ -1,5 +1,12 @@
 # @nxgt/shared-graphql
 
+## 1.4.1
+
+### Patch Changes
+
+- Updated dependencies [[`3a9d46c`](https://github.com/softistx/nxgt-core/commit/3a9d46c6e9741b41381ad8e2d3dda3c57e87af34)]:
+  - @nxgt/security@2.0.0
+
 ## 1.4.0
 
 ### Minor Changes
