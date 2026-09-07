@@ -43,6 +43,10 @@ before drawing the slices.
 
 ## Structure
 
+**Read `references/<repo>.md` first.** `nxgt-federation` does not use an
+integration branch at all — every PR there targets `develop`, and rules 1, 3
+and 4 below do not apply. The other three repositories work as described here.
+
 ```
 develop
   └─ feat/<slug>                   ← integration branch, off develop
