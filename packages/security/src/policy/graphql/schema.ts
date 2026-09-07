@@ -1,9 +1,49 @@
 import { z } from 'zod';
-import { zRuleEntry } from '../rule-entry.schema';
+import { zGraphqlKetoCheck, zRuleEntry } from '../rule-entry.schema';
 
 // ---------------------------------------------------------------------------
 // GraphQL rules  →  type name → field name → rule entry
 // ---------------------------------------------------------------------------
+
+/**
+ * A GraphQL rule: everything a shared rule entry carries, plus `keto`.
+ *
+ * The twin of `zRestRuleEntry`. Same field, same rungs, same denials — only
+ * the `id` grammar differs, `args.<path>` / `source.<path>` where REST reads
+ * `param.` / `query.` / `json.`. That difference is exactly why the field is
+ * declared per transport instead of on the shared entry: written once, either
+ * spelling would be accepted on either side and then resolve nothing at
+ * request time.
+ */
+export const zGraphqlRuleEntry = zRuleEntry.extend({
+	/**
+	 * Per-object permission checks, answered by Keto — the declarative
+	 * statement of what the `@check` directive says on a field.
+	 *
+	 * A LIST, evaluated in order, each entry carrying its own denial: `view`
+	 * answering NOT_FOUND then `edit` answering FORBIDDEN is the ladder, and
+	 * it is why `@check` is `repeatable`.
+	 *
+	 * Evaluated LAST, after the authentication floor, `authorities` and
+	 * `expression` — those are local and synchronous, and there is no reason
+	 * to cross the network for a question already answerable here.
+	 */
+	keto: z
+		.array(zGraphqlKetoCheck)
+		.optional()
+		.describe(
+			'Per-object permission checks answered by Keto, evaluated in order ' +
+				'after `authorities` and `expression`. Each entry is one check with ' +
+				'its own denial: list `view` (NOT_FOUND) then `edit` (FORBIDDEN) to ' +
+				'get the 404-then-403 ladder. Ids are read from `args.<path>` or ' +
+				'`source.<path>`. Requires `applyGraphqlPolicy` to be given a ' +
+				'permission evaluator — a rule that asks for one without it throws ' +
+				'rather than denying. NOT for a field that answers a LIST: that is ' +
+				'a Keto query folded into the read, not a check.',
+		),
+});
+
+export type GraphqlRuleEntry = z.infer<typeof zGraphqlRuleEntry>;
 
 /**
  * Rule entries for one GraphQL type, keyed by field name. Field names can't
@@ -12,10 +52,11 @@ import { zRuleEntry } from '../rule-entry.schema';
  */
 const zGraphqlFieldMap = z.record(
 	z.string().describe('Field name on this GraphQL type, e.g. "createUser".'),
-	// `.strict()` so a REST-only key that wandered into a GraphQL rule — `keto`
-	// above all — fails at startup with a Zod error naming it, rather than
-	// being stripped in silence and leaving the field looking guarded.
-	zRuleEntry.strict(),
+	// `.strict()` so a key that belongs to the other transport — a REST
+	// `param.id` term, above all — fails at startup with a Zod error naming
+	// it, rather than being stripped in silence and leaving the field looking
+	// guarded.
+	zGraphqlRuleEntry.strict(),
 );
 
 /**

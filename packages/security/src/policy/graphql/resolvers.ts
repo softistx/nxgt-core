@@ -3,6 +3,7 @@ import type { GraphQLSchema } from 'graphql';
 import { defaultFieldResolver, GraphQLError, isNonNullType } from 'graphql';
 import type { PolicyClaims } from '../claims.types';
 import { parseRules } from '../load-rules';
+import type { PermissionEvaluator, PolicySubject } from '../permissions.types';
 import { evaluateGraphql } from './evaluator';
 
 export interface ApplyGraphqlPolicyOptions {
@@ -13,6 +14,22 @@ export interface ApplyGraphqlPolicyOptions {
 	 * this package doesn't depend on any of them.
 	 */
 	getClaims: (context: unknown) => PolicyClaims;
+
+	/**
+	 * Supplies the caller and the Keto evaluator for fields whose rule carries
+	 * `keto`. Use `ketoPermissions()` from
+	 * `@nxgt/security/integrations/graphql/keto`, on a server whose context
+	 * carries what `useOryAuth(ory)` and `useKetoChecks(ory)` publish. Rules
+	 * with no `keto` term need nothing.
+	 *
+	 * Declared structurally rather than imported from that module, because it
+	 * imports `stx-sdk` and this file must not — a server whose rules ask Keto
+	 * nothing should never resolve it.
+	 */
+	permissions?: (context: unknown) => {
+		subject: PolicySubject | null | undefined;
+		evaluatePermissions: PermissionEvaluator;
+	};
 
 	/**
 	 * When a rule targets a field whose GraphQL type is non-null, a DENY on
@@ -48,10 +65,17 @@ export class NonNullRuleFieldError extends Error {
  * For every `typeName.fieldName` that has a rule entry (this covers `Query`/
  * `Mutation`/`Subscription` root fields as well as any other object type
  * declared in the policy, e.g. `User.email`), the field's resolver is
- * replaced with a wrapper that runs the same authorities + expression check
- * as `evaluateGraphql`, then either throws a `GraphQLError` (DENY) or
- * delegates to the original resolver — `defaultFieldResolver` when the field
- * had none (ALLOW). Fields with no rule entry are left completely untouched.
+ * replaced with a wrapper that runs the same checks as `evaluateGraphql` —
+ * authentication floor, authorities, expression, then any `keto` rungs — and
+ * either throws a `GraphQLError` or delegates to the original resolver
+ * (`defaultFieldResolver` when the field had none). Fields with no rule entry
+ * are left completely untouched.
+ *
+ * The error carries the code the refusal earned: `UNAUTHENTICATED` for a
+ * caller the floor turned away, `NOT_FOUND` for a Keto rung declaring it, and
+ * `FORBIDDEN` otherwise. Its message is the rule's i18n key when it named one
+ * — the same keys `@check` uses, so a field guarded here and a field guarded
+ * by the directive refuse in the same words.
  *
  * By default (`strict: true`), throws `NonNullRuleFieldError` at wrap time
  * for any rule-covered field whose GraphQL type is non-null — see
@@ -86,22 +110,50 @@ export function applyGraphqlPolicy(
 
 			return {
 				...fieldConfig,
-				resolve: (source, args, context, info) => {
+				resolve: async (source, args, context, info) => {
 					const claims = options.getClaims(context);
-					const result = evaluateGraphql(compiledPolicy, {
-						type: 'graphql',
-						operationType: typeName,
-						field: fieldName,
-						claims,
-						args,
-						source,
-						info,
-					});
+					// Per request, because both halves are: the subject is this
+					// caller, and the evaluator closes over this request's Keto
+					// answer cache.
+					const permissions = options.permissions?.(context);
+
+					const result = await evaluateGraphql(
+						compiledPolicy,
+						{
+							type: 'graphql',
+							operationType: typeName,
+							field: fieldName,
+							claims,
+							args,
+							source,
+							info,
+						},
+						{
+							evaluatePermissions: permissions?.evaluatePermissions,
+							subject: permissions?.subject,
+						},
+					);
+
+					// UNAUTHENTICATED used to fall through here, so a field under a
+					// rule the REST guard answers 401 for let an anonymous caller
+					// straight to its resolver. That was already wrong; with a Keto
+					// rung it would also mean asking Keto about nobody.
+					if (result.decision === 'UNAUTHENTICATED') {
+						throw new GraphQLError(result.message ?? 'errors.unauthenticated', {
+							extensions: { code: 'UNAUTHENTICATED', reason: result.reason },
+						});
+					}
 
 					if (result.decision === 'DENY') {
-						throw new GraphQLError(result.reason, {
-							extensions: { code: 'FORBIDDEN' },
-						});
+						// `denial` is only ever set by a Keto rung, so an authority or
+						// expression refusal throws exactly what it always did.
+						throw result.denial
+							? new GraphQLError(result.message ?? 'errors.not-found', {
+									extensions: { code: result.denial, reason: result.reason },
+								})
+							: new GraphQLError(result.reason, {
+									extensions: { code: 'FORBIDDEN' },
+								});
 					}
 
 					return originalResolve(source, args, context, info);

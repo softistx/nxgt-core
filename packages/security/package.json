@@ -37,6 +37,11 @@
 			"import": "./dist/integrations/hono/keto.js",
 			"default": "./dist/integrations/hono/keto.js"
 		},
+		"./integrations/graphql/keto": {
+			"types": "./dist/integrations/graphql/keto.d.ts",
+			"import": "./dist/integrations/graphql/keto.js",
+			"default": "./dist/integrations/graphql/keto.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"repository": {
@@ -60,7 +65,8 @@
 			"src/policy/index.ts",
 			"src/policy/graphql/index.ts",
 			"src/integrations/hono/index.ts",
-			"src/integrations/hono/keto.ts"
+			"src/integrations/hono/keto.ts",
+			"src/integrations/graphql/keto.ts"
 		]
 	},
 	"dependencies": {

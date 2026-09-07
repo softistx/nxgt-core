@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zKetoCheck, zRuleEntry } from '../rule-entry.schema';
+import { zRestKetoCheck, zRuleEntry } from '../rule-entry.schema';
 
 // ---------------------------------------------------------------------------
 // REST rules  →  path pattern → HTTP method → rule entry
@@ -8,12 +8,13 @@ import { zKetoCheck, zRuleEntry } from '../rule-entry.schema';
 /**
  * A REST rule: everything a shared rule entry carries, plus `keto`.
  *
- * `keto` lives HERE and not on `zRuleEntry` on purpose. `zRuleEntry` feeds
- * the GraphQL rule map too, and `evaluateGraphql` honours no Keto term — a
- * field declared on the shared entry would be advertised by the generated
- * JSON Schema under `graphql:`, autocompleted by the editor, accepted by the
- * parser, and then silently ignored. A primitive that no-ops in one of two
- * evaluators is worse than one that does not exist there at all.
+ * `keto` lives HERE, and its GraphQL twin lives in `graphql/schema.ts`, rather
+ * than on the shared `zRuleEntry` — because only the `id` grammar differs, and
+ * it differs in a way the schema must enforce. A REST term reads `param.id`;
+ * a GraphQL one reads `args.id`. Declared once on the shared entry, either
+ * spelling would be accepted on either side, autocompleted by the editor, and
+ * then resolve nothing at request time — where a term that resolves nothing
+ * throws. The split is what makes the editor refuse the wrong half.
  */
 export const zRestRuleEntry = zRuleEntry.extend({
 	/**
@@ -30,7 +31,7 @@ export const zRestRuleEntry = zRuleEntry.extend({
 	 * reason to cross the network for a question already answerable here.
 	 */
 	keto: z
-		.array(zKetoCheck)
+		.array(zRestKetoCheck)
 		.optional()
 		.describe(
 			'Per-object permission checks answered by Keto, evaluated in order ' +

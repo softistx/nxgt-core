@@ -154,9 +154,9 @@ describe('evaluateGraphql — authentication floor', () => {
 				claims,
 			} as any);
 
-		expect(run('me', {}).decision).toBe('UNAUTHENTICATED');
-		expect(run('me', { sub: 'user-1' }).decision).toBe('ALLOW');
-		expect(run('publicFeed', {}).decision).toBe('ALLOW');
+		expect((await run('me', {})).decision).toBe('UNAUTHENTICATED');
+		expect((await run('me', { sub: 'user-1' })).decision).toBe('ALLOW');
+		expect((await run('publicFeed', {})).decision).toBe('ALLOW');
 	});
 });
 
