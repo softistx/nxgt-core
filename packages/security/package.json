@@ -31,6 +31,11 @@
 			"import": "./dist/integrations/hono/index.js",
 			"default": "./dist/integrations/hono/index.js"
 		},
+		"./integrations/hono/keto": {
+			"types": "./dist/integrations/hono/keto.d.ts",
+			"import": "./dist/integrations/hono/keto.js",
+			"default": "./dist/integrations/hono/keto.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"repository": {
@@ -53,7 +58,8 @@
 			"src/index.ts",
 			"src/policy/index.ts",
 			"src/policy/graphql/index.ts",
-			"src/integrations/hono/index.ts"
+			"src/integrations/hono/index.ts",
+			"src/integrations/hono/keto.ts"
 		]
 	},
 	"dependencies": {
@@ -68,9 +74,16 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@types/bun": "^1.4.0"
+		"@types/bun": "^1.4.0",
+		"stx-sdk": ">=1.1.0"
 	},
 	"peerDependencies": {
+		"stx-sdk": ">=1.1.0",
 		"typescript": "^6.0.3"
+	},
+	"peerDependenciesMeta": {
+		"stx-sdk": {
+			"optional": true
+		}
 	}
 }

@@ -1,9 +1,48 @@
 import { z } from 'zod';
-import { zRuleEntry } from '../rule-entry.schema';
+import { zKetoCheck, zRuleEntry } from '../rule-entry.schema';
 
 // ---------------------------------------------------------------------------
 // REST rules  →  path pattern → HTTP method → rule entry
 // ---------------------------------------------------------------------------
+
+/**
+ * A REST rule: everything a shared rule entry carries, plus `keto`.
+ *
+ * `keto` lives HERE and not on `zRuleEntry` on purpose. `zRuleEntry` feeds
+ * the GraphQL rule map too, and `evaluateGraphql` honours no Keto term — a
+ * field declared on the shared entry would be advertised by the generated
+ * JSON Schema under `graphql:`, autocompleted by the editor, accepted by the
+ * parser, and then silently ignored. A primitive that no-ops in one of two
+ * evaluators is worse than one that does not exist there at all.
+ */
+export const zRestRuleEntry = zRuleEntry.extend({
+	/**
+	 * Per-object permission checks, answered by Keto.
+	 *
+	 * A LIST, evaluated in order, each entry the exact equivalent of one
+	 * `ketoCheck()` middleware — because that is how the 404-then-403 ladder is
+	 * written: `view` first with a NOT_FOUND denial, then `edit` with a
+	 * FORBIDDEN one. A stranger is told the object is not there; a viewer who
+	 * tries to write is told they may not.
+	 *
+	 * Evaluated LAST, after the authentication floor, `authorities` and
+	 * `expression` — those three are local and synchronous, and there is no
+	 * reason to cross the network for a question already answerable here.
+	 */
+	keto: z
+		.array(zKetoCheck)
+		.optional()
+		.describe(
+			'Per-object permission checks answered by Keto, evaluated in order ' +
+				'after `authorities` and `expression`. Each entry is one check ' +
+				'with its own denial: list `view` (NOT_FOUND) then `edit` ' +
+				'(FORBIDDEN) to get the 404-then-403 ladder. Requires the guard to ' +
+				'be given a permission evaluator — a rule that asks for one ' +
+				'without it throws rather than denying.',
+		),
+});
+
+export type RestRuleEntry = z.infer<typeof zRestRuleEntry>;
 
 /**
  * Rule entries for one path pattern, keyed by HTTP method. Modeled as an
@@ -22,17 +61,17 @@ import { zRuleEntry } from '../rule-entry.schema';
  */
 const zRestMethodMap = z
 	.object({
-		GET: zRuleEntry.optional(),
-		POST: zRuleEntry.optional(),
-		PUT: zRuleEntry.optional(),
-		PATCH: zRuleEntry.optional(),
-		DELETE: zRuleEntry.optional(),
-		HEAD: zRuleEntry.optional(),
-		OPTIONS: zRuleEntry.optional(),
-		CONNECT: zRuleEntry.optional(),
-		TRACE: zRuleEntry.optional(),
+		GET: zRestRuleEntry.optional(),
+		POST: zRestRuleEntry.optional(),
+		PUT: zRestRuleEntry.optional(),
+		PATCH: zRestRuleEntry.optional(),
+		DELETE: zRestRuleEntry.optional(),
+		HEAD: zRestRuleEntry.optional(),
+		OPTIONS: zRestRuleEntry.optional(),
+		CONNECT: zRestRuleEntry.optional(),
+		TRACE: zRestRuleEntry.optional(),
 		/** IETF draft safe-method-with-body — GET semantics with a request body. */
-		QUERY: zRuleEntry.optional(),
+		QUERY: zRestRuleEntry.optional(),
 	})
 	.strict()
 	.describe('Rule entries keyed by HTTP method for this path pattern.');

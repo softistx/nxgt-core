@@ -1,10 +1,39 @@
 import { USER_HEADERS } from '@nxgt/shared/models';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
+import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import type { MiddlewareHandler } from 'hono/types';
-import type { PolicyClaims } from '../../policy';
+import type {
+	PermissionEvaluator,
+	PolicyClaims,
+	PolicySubject,
+} from '../../policy';
 import { evaluateRest, parseRules } from '../../policy';
+
+/**
+ * Everything a rule carrying `keto` needs, for one request.
+ *
+ * Declared here rather than imported from `./keto` on purpose: that module
+ * imports `stx-sdk`, and this one must not — a service whose rules file has no
+ * Keto term should never resolve it. `ketoPermissions()` satisfies this shape
+ * structurally.
+ */
+export interface PolicyPermissions {
+	subject: PolicySubject | null | undefined;
+	evaluatePermissions: PermissionEvaluator;
+}
+
+export type PermissionsProvider = (ctx: Context) => PolicyPermissions;
+
+export interface PolicyGuardOptions {
+	/**
+	 * Supplies the caller and the Keto evaluator for rules that carry `keto`.
+	 * Use `ketoPermissions()` from `@nxgt/security/integrations/hono/keto`,
+	 * mounted after `oryChecks(ory)`. Rules with no `keto` term need nothing.
+	 */
+	permissions?: PermissionsProvider;
+}
 
 /**
  * Hono middleware that evaluates every incoming REST request against a
@@ -41,7 +70,10 @@ import { evaluateRest, parseRules } from '../../policy';
  * app.use('/api/*', bearerAuth(), policyGuard(rawRules));
  * ```
  */
-export function policyGuard(rawRules: unknown): MiddlewareHandler {
+export function policyGuard(
+	rawRules: unknown,
+	options: PolicyGuardOptions = {},
+): MiddlewareHandler {
 	const compiledPolicy = parseRules(rawRules);
 	return createMiddleware(async (ctx, next) => {
 		const clonedRaw = ctx.req.raw.clone();
@@ -76,18 +108,29 @@ export function policyGuard(rawRules: unknown): MiddlewareHandler {
 			new URL(ctx.req.url).searchParams,
 		);
 
-		const result = evaluateRest(compiledPolicy, {
-			type: 'rest',
-			method: ctx.req.method,
-			path: ctx.req.path,
-			claims,
-			req: {
-				body,
-				query,
-				cookies,
-				headers: ctx.req.header(),
+		// Per request, because both halves are: the subject is this caller, and
+		// the evaluator closes over this request's Keto answer cache.
+		const permissions = options.permissions?.(ctx);
+
+		const result = await evaluateRest(
+			compiledPolicy,
+			{
+				type: 'rest',
+				method: ctx.req.method,
+				path: ctx.req.path,
+				claims,
+				req: {
+					body,
+					query,
+					cookies,
+					headers: ctx.req.header(),
+				},
 			},
-		});
+			{
+				evaluatePermissions: permissions?.evaluatePermissions,
+				subject: permissions?.subject,
+			},
+		);
 
 		if (result.decision === 'UNAUTHENTICATED') {
 			logger.error(
@@ -103,10 +146,17 @@ export function policyGuard(rawRules: unknown): MiddlewareHandler {
 			logger.error(
 				`Policy DENY: ${ctx.req.method} ${ctx.req.path}, user: ${claims.username || 'anonymous'}, reason: ${result.reason}`,
 			);
-			throw CustomException.forbidden({
-				message: 'errors.forbidden',
-				debugMessage: result.reason,
-			});
+			// `denial` is only ever set by a Keto term, so an authority or
+			// expression refusal keeps answering exactly what it always did.
+			throw result.denial === 'NOT_FOUND'
+				? CustomException.notFound({
+						message: result.message ?? 'errors.not-found',
+						debugMessage: result.reason,
+					})
+				: CustomException.forbidden({
+						message: result.message ?? 'errors.forbidden',
+						debugMessage: result.reason,
+					});
 		}
 		logger.info(
 			`Policy ${result.decision}: ${ctx.req.method} ${ctx.req.path}, user: ${claims.username || 'anonymous'}, reason: ${result.reason}`,

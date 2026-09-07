@@ -1,5 +1,6 @@
 import { type MatchFunction, match } from 'path-to-regexp';
 import { compileFunction } from './evaluation.utils';
+import type { RestRuleEntry } from './rest/schema';
 import type { RuleEntry, Rules } from './rules.schema';
 
 // ---------------------------------------------------------------------------
@@ -16,10 +17,16 @@ export interface CompiledRestRoute {
 	/** basePath-prefixed pattern, precomputed once. */
 	pattern: string;
 	matcher: MatchFunction<Partial<Record<string, string | string[]>>>;
-	rule: RuleEntry;
+	rule: RestRuleEntry;
 	/** Precomputed so the per-request path never re-scans `rule.authorities`. */
 	hasDomainPlaceholder: boolean;
 	compiledExpression?: CompiledExpression;
+	/**
+	 * True when some Keto term on this route reads `json.<path>`, so the guard
+	 * knows to buffer the request body. Precomputed for the same reason
+	 * `hasDomainPlaceholder` is: the request path must not re-scan the rule.
+	 */
+	ketoReadsBody: boolean;
 }
 
 export interface CompiledGraphqlEntry {
@@ -109,7 +116,7 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 		const matcher = match(pattern, { decode: decodeURIComponent });
 
 		for (const [method, rule] of Object.entries(
-			(methodMap ?? {}) as Record<string, RuleEntry>,
+			(methodMap ?? {}) as Record<string, RestRuleEntry>,
 		)) {
 			if (rule.authenticated && rule.public) {
 				throw new Error(
@@ -118,6 +125,32 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 						'signed-in caller or admits anonymous ones.',
 				);
 			}
+
+			// A Keto term asks what THIS caller may do to an object; a public
+			// rule has no caller to ask about. Refused here, next to the
+			// `authenticated` + `public` contradiction, for the same reason.
+			//
+			// Nothing else needs checking at this point: the schema already
+			// refuses `[]` ("admits nobody"), `[[]]` (a conjunction over no
+			// terms is vacuously true, so it would admit EVERYONE) and an `id`
+			// that is not a readable path — at parse time, with a message that
+			// names the offending key.
+			if (rule.public && rule.keto?.length) {
+				throw new Error(
+					`Invalid rule for ${method} ${pattern}: \`public\` and \`keto\` are ` +
+						'contradictory — a Keto term asks what the caller may do to an ' +
+						'object, and a public rule admits callers there is nothing to ask ' +
+						'about.',
+				);
+			}
+
+			const ketoReadsBody = Boolean(
+				rule.keto?.some((check) =>
+					check.permissions.some((group) =>
+						group.some((term) => term.id.startsWith('json.')),
+					),
+				),
+			);
 
 			const hasDomainPlaceholder = Boolean(
 				rule.authorities?.some((group) =>
@@ -135,6 +168,7 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 					compile,
 					REST_SCOPE,
 				),
+				ketoReadsBody,
 			};
 
 			const existing = restRoutesByMethod.get(method);

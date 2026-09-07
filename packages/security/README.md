@@ -26,14 +26,16 @@ const policy = await loadRulesFromEnv({
 	fallbackPath: 'rules.yaml',
 });
 
-const result = evaluateRest(policy, {
+const result = await evaluateRest(policy, {
 	type: 'rest',
 	method: 'GET',
 	path: '/users/123',
 	claims: { sub: 'user-1', authorities: ['ADMIN'] },
 });
-// result.decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE'
+// result.decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE' | 'UNAUTHENTICATED'
 ```
+
+`evaluateRest` is **async** since 2.0.0, because a rule may carry a `keto` term and that is a remote question. `evaluateGraphql` stays synchronous — no Keto term is accepted there (see below).
 
 `loadRulesFromEnv`/`loadRulesFromFile` are convenience wrappers around `parseRules(raw)` (itself `compilePolicy(RulesSchema.parse(raw))`) — use `parseRules` directly if you already have the raw rules data in memory (e.g. a static import, or a value read some other way). Each also has a `loadRaw*` counterpart (`loadRawRulesFromEnv`/`loadRawRulesFromFile`) that validates but doesn't compile — for callers that need the raw document itself, e.g. `policyGuard`/`applyGraphqlPolicy` (see below), which compile it internally. See `src/policy/load-rules.ts`.
 
@@ -46,6 +48,45 @@ Within a given path's method map (or a given GraphQL type's field list), matchin
 **Declarative-only fields:** `global.rateLimit`, `global.cors`, `global.providers`, and the per-rule `cors`/`rateLimit` overrides on any REST or GraphQL rule entry are schema-only today — they validate and round-trip, but no evaluator in this package reads or enforces them. Real CORS/rate-limiting still lives in each app's own middleware (e.g. `@nxgt/shared-hono`'s `rateLimiter()`). Treat these fields as reserved for a future enforcement pass, not as live configuration.
 
 **`expression.value` isn't member-completable** — it's an arbitrary JS string, so a JSON Schema can't offer real completion of e.g. `claims.` → `roles`/`scope` the way it does for structural keys. It does carry a curated `examples` array (via Zod's `.meta({ examples: [...] })`), which `vscode-yaml` surfaces as value-choice suggestions when you start typing that field — a starting point to adapt, not live semantic completion.
+
+**Per-object permissions: the `keto` term.** `authorities` asks what the caller *carries*. It cannot ask what an Ory-native API needs to know — **may this caller `view` `Bookmark:b1`** — a question about one object, answered by Keto. That is what `keto` adds, in the same grammar as the `@check` directive and `ketoCheck()`, so one permission reads identically wherever it is declared:
+
+```yaml
+rest:
+  /bookmarks/:id:
+    GET:
+      keto:
+        - permissions: [[{ namespace: Bookmark, permit: view, id: param.id }]]
+          message: bookmarks.errors.not-found
+    PATCH:
+      # Two rungs, in order — this is the 404-then-403 ladder, not a
+      # redundancy: a stranger is told it is not there, a viewer who tries to
+      # write is told they may not.
+      keto:
+        - permissions: [[{ namespace: Bookmark, permit: view, id: param.id }]]
+          message: bookmarks.errors.not-found
+        - permissions: [[{ namespace: Bookmark, permit: edit, id: param.id }]]
+          onDeny: FORBIDDEN
+```
+
+A `keto` list is evaluated **last** — after the authentication floor, `authorities` and `expression`, all of which are local and synchronous. There is no reason to cross the network for a question already answerable here.
+
+The two nestings in a rule are **opposite**, and deliberately so:
+
+| field | outer list | inner list | grammar shared with |
+| --- | --- | --- | --- |
+| `authorities` | AND | OR | — (this package only) |
+| `keto[].permissions` | **OR** | **AND** | `@check`, `ketoCheck()`, `@policy` |
+
+Aligning them would mean changing what an existing `authorities` line means, silently, in three rules files already in production. They do not get confused in practice: an authority is a **string**, a permission term is an **object**, and the schema refuses one where the other belongs.
+
+Two things the schema refuses outright, both at parse time with a message that names the key: `permissions: []` (a disjunction satisfied by nothing — admits nobody) and `permissions: [[]]` (a conjunction over no terms is vacuously true — **admits everyone**, while reading like "no permission needed"). `id` must be `param.<name>`, `query.<name>` or `json.<path>`; `args.`/`source.` are the GraphQL grammar and are rejected.
+
+**`param.` reads the pattern in the rules file, not the app's route.** The captures come from the path pattern this document declares. A file that says `/bookmarks/:bookmarkId` does not give you `param.id`, however the Hono route is spelled — and when a `ketoCheck()` on the same route says `param.id`, that is exactly how the two rails come to disagree in silence. Read the pattern and the term together.
+
+**`keto` is a REST-only field.** It is declared on the REST rule entry, not the shared one, because `evaluateGraphql` honours no Keto term — a field on the shared entry would be advertised by the generated JSON Schema under `graphql:`, autocompleted, accepted by the parser and then ignored. GraphQL rule entries are `.strict()`, so a `keto` key that wanders into one fails at startup naming itself.
+
+**A path no rule names is still open.** `NOT_APPLICABLE` means open, and adding `keto` terms does not change that — a file that decides per object *looks* more complete than it is. Mount the guard on a prefix (`app.use('/api/*', …)`), never per route, and keep whatever answers the authentication floor.
 
 Run `bun run schema:gen` after changing `rules.schema.ts` to regenerate that checked-in JSON Schema file.
 
@@ -95,7 +136,27 @@ app.use('/api/*', bearerAuth(), policyGuard(rawRules));
 
 Like `applyGraphqlPolicy`, `policyGuard` only accepts a raw/unvalidated rules document (never a pre-compiled `CompiledPolicy`) — it compiles internally, once, when `policyGuard(...)` is called, not per request. If a service also needs a `CompiledPolicy` for direct `evaluateRest`/`evaluateGraphql` calls elsewhere (e.g. a policy dry-run endpoint), load the raw document once and derive both: `const rawRules = await loadRawRulesFromEnv(...); const policy = compilePolicy(rawRules);` — see `apps/oauth/oauth-api/src/modules/policies/rules.loader.ts` for a real example.
 
-Must run after the token-resolution middleware (`bearerAuth`/`currentUser`/`oryAuth`/...) that populates the `USER_HEADERS` context variables it reads claims from — **context variables, not request headers**, so nothing a client sends can reach the decision directly. A proxy in front changes none of this: an Ory-native API behind Ory Oathkeeper still runs `oryAuth()`, which verifies the edge's signed token and then sets the same `X-Claims` context variable this guard reads. Note also that Oathkeeper's own `access_rules` document is a **different engine** that never reads these rules files and is never read by them; the two must be kept in agreement by hand (see nxgt-ory's `docs/oathkeeper.md`). On DENY it throws a 403 `CustomException`; on ALLOW/NOT_APPLICABLE it calls `next()`. This subpath (unlike the base `policy` subpath) depends on `@nxgt/shared`, `@nxgt/shared-exceptions`, `@nxgt/shared-logging`, and `hono` — consumers that never import `@nxgt/security/integrations/hono` never pull those in.
+Must run after the token-resolution middleware (`bearerAuth`/`currentUser`/`oryAuth`/...) that populates the `USER_HEADERS` context variables it reads claims from — **context variables, not request headers**, so nothing a client sends can reach the decision directly. A proxy in front changes none of this: an Ory-native API behind Ory Oathkeeper still runs `oryAuth()`, which verifies the edge's signed token and then sets the same `X-Claims` context variable this guard reads. Note also that Oathkeeper's own `access_rules` document is a **different engine** that never reads these rules files and is never read by them; the two must be kept in agreement by hand (see nxgt-ory's `docs/oathkeeper.md`). On DENY it throws a 403 `CustomException` — or a 404 when the refusal came from a `keto` rung declaring `onDeny: NOT_FOUND`; on ALLOW/NOT_APPLICABLE it calls `next()`. This subpath (unlike the base `policy` subpath) depends on `@nxgt/shared`, `@nxgt/shared-exceptions`, `@nxgt/shared-logging`, and `hono` — consumers that never import `@nxgt/security/integrations/hono` never pull those in.
+
+### `integrations/hono/keto` (`@nxgt/security/integrations/hono/keto`)
+
+`ketoPermissions()` — what a rules file's `keto` terms need in order to be answerable. It is its **own entrypoint**, and it is the only module in this package that imports `stx-sdk`:
+
+```ts
+import { policyGuard } from '@nxgt/security/integrations/hono';
+import { ketoPermissions } from '@nxgt/security/integrations/hono/keto';
+
+app.use('*', oryAuth(ory), oryChecks(ory));
+app.use('/api/*', requireAuthenticated(), policyGuard(rawRules, { permissions: ketoPermissions() }));
+```
+
+It reads two things `@nxgt/shared-hono` already puts on the context — `ory.subject` from `oryAuth()`, and the per-request `ketoChecks` `DataLoader` from `oryChecks(ory)`, which must therefore be mounted **before** the guard. That loader is what makes a second rail free: it memoises by Keto's own `Bookmark:b1#view@idn-7` notation, so the same question asked by the rules file and again by a `ketoCheck()` on the route costs one round trip between them.
+
+The DNF walk itself is `evaluateRequirement` from `stx-sdk/ory`, not a copy — so the rules file, the `@check` directive and `ketoCheck()` cannot come to disagree about what `[[A, B], [C]]` means.
+
+`stx-sdk` is an **optional** peer dependency for exactly this reason: a service whose rules file has no `keto` term never imports this subpath, so it never has to install it. The gateway, oauth-api and storex-api authenticate with oauth-api JWTs and will never ask Keto anything.
+
+A rule that carries a `keto` term with no evaluator supplied **throws**; it is never an allow. Wiring that is missing should fall over on the first request, loudly.
 
 ## Development
 

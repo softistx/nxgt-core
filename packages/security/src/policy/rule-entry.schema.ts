@@ -16,6 +16,96 @@ export const zRateLimitConfig = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Keto permission checks
+// ---------------------------------------------------------------------------
+
+/**
+ * The paths a Keto term's `id` may take, mirroring `ketoCheck()`'s grammar in
+ * `@nxgt/shared-hono` — `param.<name>`, `query.<name>`, `json.<path>`. Kept in
+ * step by hand with `assertReadablePath` there; two lines of regex are a
+ * smaller price than a release of `stx-sdk` and `@nxgt/shared-hono` just to
+ * share them. Enforced in the schema rather than at startup, so a bad path is
+ * underlined in the editor as it is typed.
+ */
+export const PERMISSION_ID_PATH = /^(param|query|json)(\.[A-Za-z0-9_]+)+$/;
+
+export const zKetoTerm = z.object({
+	namespace: z
+		.string()
+		.min(1)
+		.describe(
+			'Keto namespace of the object, e.g. "Bookmark". Named here rather ' +
+				'than in a URL, so no Keto address ever appears in a rules file.',
+		),
+	permit: z
+		.string()
+		.min(1)
+		.describe(
+			'The relation the caller must hold on the object, e.g. "view" or ' +
+				'"edit".',
+		),
+	id: z
+		.string()
+		.regex(PERMISSION_ID_PATH, {
+			message: '`id` must be "param.<name>", "query.<name>" or "json.<path>"',
+		})
+		.default('param.id')
+		.describe(
+			'Where the object id is read from on the request: "param.<name>", ' +
+				'"query.<name>" or "json.<path>" (dotted). Validated at startup. ' +
+				'A path resolving to a LIST requires the permit on every element; ' +
+				'a path resolving to nothing is a wiring mistake and throws — it ' +
+				'is never an allow. Defaults to "param.id".',
+		)
+		.meta({
+			examples: [
+				'param.id',
+				'param.subjectId',
+				'query.projectId',
+				'json.bookmarkId',
+			],
+		}),
+});
+
+export const zKetoCheck = z.object({
+	/**
+	 * The permission requirement, in the SAME grammar as the `@check`
+	 * directive and `ketoCheck()`: outer list is OR, inner list is AND.
+	 */
+	permissions: z
+		.array(z.array(zKetoTerm).min(1))
+		.min(1)
+		.describe(
+			'Permission requirement in disjunctive normal form: the OUTER list ' +
+				'is OR, the INNER list is AND — [[A, B], [C]] reads "(A and B) or ' +
+				'C". NOTE this is the OPPOSITE nesting to `authorities` above, ' +
+				'which is outer-AND / inner-OR. It is deliberate: this is the same ' +
+				'grammar as the `@check` directive and `ketoCheck()`, so one ' +
+				'permission reads identically wherever it is declared. The two are ' +
+				'not confusable in practice — an authority is a string, a ' +
+				'permission term is an object.',
+		),
+	onDeny: z
+		.enum(['NOT_FOUND', 'FORBIDDEN'])
+		.default('NOT_FOUND')
+		.describe(
+			'How a failure of THIS check is answered. NOT_FOUND (the default) is ' +
+				'the same answer as for an id that never existed, so ids cannot be ' +
+				'probed. FORBIDDEN is for a second check on an object the caller ' +
+				'can already see.',
+		),
+	message: z
+		.string()
+		.optional()
+		.describe(
+			'The i18n key the denial carries, e.g. "bookmarks.errors.not-found". ' +
+				'Defaults to "errors.not-found" / "errors.insufficient-' +
+				'permissions" — the same fallbacks as `ketoCheck()`, because two ' +
+				'rails that refuse the same thing must say it with the same words.',
+		),
+});
+
+// ---------------------------------------------------------------------------
 // Shared rule entry — used by both REST and GraphQL rule maps
 // ---------------------------------------------------------------------------
 
@@ -153,3 +243,5 @@ export const zRuleEntry = z.object({
 });
 
 export type RuleEntry = z.infer<typeof zRuleEntry>;
+export type KetoCheck = z.infer<typeof zKetoCheck>;
+export type KetoTerm = z.infer<typeof zKetoTerm>;
