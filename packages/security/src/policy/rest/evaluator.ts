@@ -5,7 +5,7 @@ import {
 	isAuthenticated,
 	runCompiledExpression,
 } from '../evaluation.utils';
-import type { PermissionEvaluator, PolicySubject } from '../permissions.types';
+import { evaluateKetoRungs, type KetoDeps } from '../keto-rungs';
 import { objectsOfTerm } from './permission-paths';
 
 // ---------------------------------------------------------------------------
@@ -36,26 +36,11 @@ export interface RestEvaluateInput {
 
 /**
  * What the caller needs supplied for a rule carrying `keto` to be answerable.
- *
- * Both are per-request — the subject is this caller, and the evaluator closes
+ * Both are per request — the subject is this caller, and the evaluator closes
  * over this request's answer cache — so they ride on the call, not on the
- * compiled policy.
+ * compiled policy. Shared with the GraphQL evaluator; see `../keto-rungs.ts`.
  */
-export interface RestEvaluateDeps {
-	/**
-	 * The DNF walk, with its Keto `check` already bound to the request's
-	 * batching, memoising loader. Supplied by `ketoPermissions()` in
-	 * `@nxgt/security/integrations/hono/keto`; see `permissions.types.ts` for
-	 * why the core takes it rather than importing one.
-	 */
-	evaluatePermissions?: PermissionEvaluator;
-	/**
-	 * The Keto subject. In an Ory-native app this is `claims.sub` — `oryAuth()`
-	 * publishes the Ory subject there — which is why the Hono adapter can
-	 * default it and nothing has to be wired by hand.
-	 */
-	subject?: PolicySubject | null;
-}
+export type RestEvaluateDeps = KetoDeps;
 
 export interface EvaluateResult {
 	decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE' | 'UNAUTHENTICATED';
@@ -160,50 +145,17 @@ export async function evaluateRest(
 				}
 			}
 
-			// Keto checks, in document order, each with its own denial — this is
-			// how the 404-then-403 ladder is written: `view` first answering
-			// NOT_FOUND, then `edit` answering FORBIDDEN.
-			for (const check of route.rule.keto ?? []) {
-				if (!deps.evaluatePermissions) {
-					throw new Error(
-						`Policy: ${method} ${route.pattern} declares a \`keto\` check, but no ` +
-							'permission evaluator was supplied. Mount the guard with ' +
-							'`policyGuard(rules, { permissions: ketoPermissions() })` from ' +
-							'`@nxgt/security/integrations/hono/keto`, after `oryChecks(ory)`.',
-					);
-				}
-				if (!deps.subject) {
-					// Only reachable on a `public` rule, which compilePolicy already
-					// refuses to pair with `keto` — kept so the invariant is stated
-					// where it is relied on rather than only where it is enforced.
-					return {
-						decision: 'UNAUTHENTICATED',
-						reason: `${method} ${route.pattern} needs a subject to ask Keto about`,
-					};
-				}
-
-				const allowed = await deps.evaluatePermissions(
-					check.permissions,
-					(term) => objectsOfTerm(term, req),
-					deps.subject,
-				);
-
-				if (!allowed) {
-					const denial = check.onDeny;
-					return {
-						decision: 'DENY',
-						denial,
-						// The same fallbacks as `ketoCheck()`: two rails that refuse the
-						// same thing have to say it with the same words.
-						message:
-							check.message ??
-							(denial === 'FORBIDDEN'
-								? 'errors.insufficient-permissions'
-								: 'errors.not-found'),
-						reason: `Keto refused ${describe(check.permissions)} for ${method} ${input.path}`,
-					};
-				}
-			}
+			// Keto rungs, in document order, each with its own denial — the
+			// 404-then-403 ladder. Walked by the one function the GraphQL
+			// evaluator also calls.
+			const refusal = await evaluateKetoRungs(
+				route.rule.keto,
+				deps,
+				(term) => objectsOfTerm(term, req),
+				`${method} ${route.pattern}`,
+				`${method} ${input.path}`,
+			);
+			if (refusal) return refusal;
 
 			return {
 				decision: 'ALLOW',
@@ -216,15 +168,4 @@ export async function evaluateRest(
 		decision: 'NOT_APPLICABLE',
 		reason: `No rule matched ${method} ${input.path}`,
 	};
-}
-
-/** A requirement, in the `Namespace#permit` shorthand, for a log line. */
-function describe(
-	requirement: { namespace: string; permit: string }[][],
-): string {
-	return requirement
-		.map((group) =>
-			group.map((term) => `${term.namespace}#${term.permit}`).join(' and '),
-		)
-		.join(' or ');
 }

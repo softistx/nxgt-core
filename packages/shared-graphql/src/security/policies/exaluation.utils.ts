@@ -17,14 +17,14 @@ export async function evaluateFromRules(
 	// their path patterns and expressions already built — where the copy this
 	// replaced took the raw document and compiled on every request.
 	const policy = compilePolicy(rules);
-	// `evaluateRest` is async since @nxgt/security 2.0.0 — a rule may carry a
+	// Both evaluators are async since @nxgt/security 3.0.0 — a rule may carry a
 	// Keto term, which is a remote question. This dry-run path supplies no
 	// permission evaluator, so a rules document that carries one throws here
 	// rather than being reported as an allow.
 	const result =
 		input.type === 'rest'
 			? await evaluateRest(policy, input)
-			: evaluateGraphql(policy, input);
+			: await evaluateGraphql(policy, input);
 
 	return {
 		decision:

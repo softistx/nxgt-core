@@ -35,7 +35,7 @@ const result = await evaluateRest(policy, {
 // result.decision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE' | 'UNAUTHENTICATED'
 ```
 
-`evaluateRest` is **async** since 2.0.0, because a rule may carry a `keto` term and that is a remote question. `evaluateGraphql` stays synchronous — no Keto term is accepted there (see below).
+**Both evaluators are `async` since 3.0.0**, because a rule may carry a `keto` term and that is a remote question.
 
 `loadRulesFromEnv`/`loadRulesFromFile` are convenience wrappers around `parseRules(raw)` (itself `compilePolicy(RulesSchema.parse(raw))`) — use `parseRules` directly if you already have the raw rules data in memory (e.g. a static import, or a value read some other way). Each also has a `loadRaw*` counterpart (`loadRawRulesFromEnv`/`loadRawRulesFromFile`) that validates but doesn't compile — for callers that need the raw document itself, e.g. `policyGuard`/`applyGraphqlPolicy` (see below), which compile it internally. See `src/policy/load-rules.ts`.
 
@@ -69,6 +69,19 @@ rest:
           onDeny: FORBIDDEN
 ```
 
+The GraphQL half reads the same, on a field instead of a route — it is the declarative statement of what the `@check` directive says:
+
+```yaml
+graphql:
+  Mutation:
+    updateNote:
+      keto:
+        - permissions: [[{ namespace: Note, permit: view, id: args.id }]]
+          message: notes.errors.not-found
+        - permissions: [[{ namespace: Note, permit: edit, id: args.id }]]
+          onDeny: FORBIDDEN
+```
+
 A `keto` list is evaluated **last** — after the authentication floor, `authorities` and `expression`, all of which are local and synchronous. There is no reason to cross the network for a question already answerable here.
 
 The two nestings in a rule are **opposite**, and deliberately so:
@@ -84,7 +97,9 @@ Two things the schema refuses outright, both at parse time with a message that n
 
 **`param.` reads the pattern in the rules file, not the app's route.** The captures come from the path pattern this document declares. A file that says `/bookmarks/:bookmarkId` does not give you `param.id`, however the Hono route is spelled — and when a `ketoCheck()` on the same route says `param.id`, that is exactly how the two rails come to disagree in silence. Read the pattern and the term together.
 
-**`keto` is a REST-only field.** It is declared on the REST rule entry, not the shared one, because `evaluateGraphql` honours no Keto term — a field on the shared entry would be advertised by the generated JSON Schema under `graphql:`, autocompleted, accepted by the parser and then ignored. GraphQL rule entries are `.strict()`, so a `keto` key that wanders into one fails at startup naming itself.
+**`keto` exists on both sides, with two id grammars.** REST reads `param.<name>` / `query.<name>` / `json.<path>`; GraphQL reads `args.<path>` / `source.<path>` — `source.` being how a field on a returned type names its object, e.g. `User.email` guarded by `source.id`. The field is declared **per transport** rather than on the shared rule entry for exactly that reason: written once, either spelling would be accepted on either side, autocompleted by the editor, and then resolve nothing at request time — where a term that resolves nothing throws. Rule entries on both sides are `.strict()`, so the wrong grammar fails at startup naming itself.
+
+Everything else is identical, and shared in code: `evaluateKetoRungs` in `src/policy/keto-rungs.ts` walks the rungs, short-circuits and maps the denials for both evaluators. Two copies of that would be two chances for `[[A, B], [C]]` to come to mean different things on the two sides.
 
 **A path no rule names is still open.** `NOT_APPLICABLE` means open, and adding `keto` terms does not change that — a file that decides per object *looks* more complete than it is. Mount the guard on a prefix (`app.use('/api/*', …)`), never per route, and keep whatever answers the authentication floor.
 
@@ -157,6 +172,26 @@ The DNF walk itself is `evaluateRequirement` from `stx-sdk/ory`, not a copy — 
 `stx-sdk` is an **optional** peer dependency for exactly this reason: a service whose rules file has no `keto` term never imports this subpath, so it never has to install it. The gateway, oauth-api and storex-api authenticate with oauth-api JWTs and will never ask Keto anything.
 
 A rule that carries a `keto` term with no evaluator supplied **throws**; it is never an allow. Wiring that is missing should fall over on the first request, loudly.
+
+### `integrations/graphql/keto` (`@nxgt/security/integrations/graphql/keto`)
+
+The twin of `integrations/hono/keto`, for a schema policed by `applyGraphqlPolicy`:
+
+```ts
+import { applyGraphqlPolicy } from '@nxgt/security/policy/graphql';
+import { ketoPermissions } from '@nxgt/security/integrations/graphql/keto';
+
+const policed = applyGraphqlPolicy(schema, rawRules, {
+  getClaims: (ctx) => (ctx as IContext).claims,
+  permissions: ketoPermissions(),
+});
+```
+
+It reads `ory.subject` and the `ketoChecks` `DataLoader` off the GraphQL context — what `useOryAuth(ory)` and `useKetoChecks(ory)` from `@nxgt/shared-graphql` publish, so `useKetoChecks` must be registered before the policed schema is served. Same consequence as on the REST side: a `@check` on the field and a `keto` rung in the rules file asking the same question cost one round trip between them.
+
+Like its twin it is the only module on this side that imports `stx-sdk`, and it is its own entrypoint for that reason.
+
+**`applyGraphqlPolicy` honours every decision since 3.0.0.** It used to branch on `DENY` alone, so a field under a rule the REST guard answers 401 for let an anonymous caller straight to its resolver — the same rule, the same document, two different answers depending on the transport. It now throws `UNAUTHENTICATED` for a caller the floor turned away, and carries a Keto rung's `NOT_FOUND` / `FORBIDDEN` code and i18n key onto the `GraphQLError`.
 
 ## Development
 
