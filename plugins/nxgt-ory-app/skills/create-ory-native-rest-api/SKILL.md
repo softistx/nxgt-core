@@ -38,9 +38,8 @@ with the reason in its `docs/`.
 
 Do **not** use it for an API behind `apps/gateway` / oauth-api: that is the
 storex-api shape unchanged (`remoteAuth()`, authorities in `rules.yaml`). That
-exclusion is about the **oauth** stack's gateway, not about proxies in general
-— this stack has an edge of its own (Ory Oathkeeper), and an API built from
-this skill works with it or without it.
+exclusion is about the **oauth** stack's gateway. There is no equivalent on
+this side: an Ory-native API has nothing in front of it and decides for itself.
 
 ---
 
@@ -54,7 +53,7 @@ this skill works with it or without it.
 | Per-object decision, enforced | `<m>.access.ts` over a membership table | `<m>.access.ts` over **Keto**, taking the per-request checker — same file shape |
 | Ownership | a field / a table row | a **tuple** written by the service at creation |
 | Error handler | `createErrorHandler(translate)` | `withOryUnavailable(createErrorHandler(translate))` |
-| A proxy in front | `apps/gateway` injects `X-User-*` and the app trusts them | Oathkeeper signs a JWT and the app **verifies** it. Never trust an injected header: `principalFromMockHeaders` reads those names behind only a `NODE_ENV` gate |
+| A proxy in front | `apps/gateway` injects `X-User-*` and the app trusts them | **none** — nothing fronts an Ory-native API, so nothing erases those headers either. Never read an identity from one: `principalFromMockHeaders` reads those names behind only a `NODE_ENV` gate, and that is the sole exception |
 | Everything else | middleware order, OpenAPI 3.2.0 → redocly → zod + types, `MongoCrudService`, `POST …/search` + `QUERY`, i18n, Dockerfile, compose per group, route specs | **unchanged** — the root `AGENTS.md` rules apply |
 
 ---
@@ -88,13 +87,6 @@ export const ory = createOry({
   kratosPublicUrl: env.KRATOS_PUBLIC_URL,
   ketoReadUrl: env.KETO_READ_URL,
   hydraAdminUrl: env.HYDRA_ADMIN_URL,
-  // Optional, and the ONLY place that knows whether an edge exists. Unset,
-  // the API resolves every caller itself — which is what keeps it correct on
-  // its own address. `OATHKEEPER_ISSUER_URL` must be optional in src/env.ts,
-  // with no default.
-  edge: env.OATHKEEPER_ISSUER_URL
-    ? { issuer: env.OATHKEEPER_ISSUER_URL, jwksUrl: env.OATHKEEPER_JWKS_URL }
-    : undefined,
 });
 // The unauthenticated listeners, and the two factories that are the only
 // things allowed to hold them. Never imported by a route file.
@@ -238,9 +230,8 @@ depth relative to the app root — Bun's isolated linker does not hoist)
 ---
 
 ## Environment
-`src/env.ts`: the five Ory URLs with `localhost` defaults, plus
-`OATHKEEPER_ISSUER_URL` and `OATHKEEPER_JWKS_URL` **optional with no
-default** — an absent issuer is what makes the edge optional; `.env.development`
+`src/env.ts`: the five Ory URLs with `localhost` defaults, and nothing else
+Ory-related — there is no gateway to point at. `.env.development`
 holds only the app's own values (`MONGODB_URI` composed from the system
 vars, `NODE_ENV`); `.env.test` its port and `-test` database. `docker/shared.env`
 already carries the container names. The compose healthcheck is `/health`,
@@ -278,9 +269,7 @@ viewer gets **403** on an edit and loses `view` after unshare.
 ## Documentation (mandatory — part of the same branch)
 1. `README.md` — running it, an endpoints table with the **Needs** column
    (`signed in` / `view` / `edit`), non-goals (no user table, no authorities,
-   not behind the **oauth** gateway — say which gateway, since Oathkeeper is a
-   proxy this API does work with).
-   If the app is fronted by the edge, say so here and say that it is optional.
+   not behind the **oauth** gateway — and no gateway at all).
 2. `docs/README.md` (one picture of the request), `01-authentication.md`,
    `02-authorization.md` (404 vs 403, who writes tuples, how a list is
    built), `03-troubleshooting.md` — **every entry a failure that actually
@@ -291,9 +280,6 @@ viewer gets **403** on an edit and loses `view` after unshare.
 5. nxgt-ory's `README.md` — one row in the consumers table. **Another repo:
    its own PR.**
 6. `stx-sdk/docs/ory/` — only if you changed the shared module.
-7. nxgt-ory's `config/oathkeeper.rules.yaml` + its `docs/oathkeeper.md` —
-   only if you put the app behind the edge (one rule and a tuple; the doc
-   says how).
 
 ---
 
@@ -314,15 +300,8 @@ viewer gets **403** on an edit and loses `view` after unshare.
    the live stack.
 6. `bun run build` and boot the binary once; `curl` 401 / 404 / 403 by hand.
 7. Dockerfile, compose, `oxfile.toml`; `docker compose config --quiet`.
-8. Optional, and last: front it with the edge — ONE rule in
-   nxgt-ory's `config/oathkeeper.rules.yaml` (`/api/**` with your own
-   `App:<app>#use` object), a `users` tuple for each caller, and the two env
-   variables. **No `/health` rule**: every app serves that path, and a second
-   rule matching the same URL and method makes Oathkeeper answer 500. Re-run
-   step 6's `curl`s through `:4455` AND direct: **both must answer
-   identically**, including the 404.
-9. Documentation, all seven items above.
-10. PR to `develop` per `large-feature-branch-workflow`.
+8. Documentation, all six items above.
+9. PR to `develop` per `large-feature-branch-workflow`.
 
 ## Checklist before finishing
 - [ ] One `createOry()`; `ketoWrite` imported by `src/ory/tuples.ts` only, and guarded by `noRestrictedImports`
@@ -338,6 +317,4 @@ viewer gets **403** on an edit and loses `view` after unshare.
 - [ ] Spec asserts against Keto, sweeps tuples, uses run-unique subjects
 - [ ] Namespace names in OPL and `tuples.ts` agree
 - [ ] README + docs/ + AGENTS.md + CLAUDE.md list + nxgt-ory's `README.md` row
-- [ ] The API answers correctly with **no** `OATHKEEPER_ISSUER_URL` set — the edge is additive, never a dependency
-- [ ] If fronted: the same `curl` matrix through `:4455` and direct gives the same statuses, 404 included
-- [ ] No route reads an `X-User-*` header from the wire; the edge is trusted by signature only
+- [ ] No route reads an `X-User-*`, `X-Roles` or `X-Claims` header from the wire — nothing fronts this API, so nothing erases them; `NODE_ENV=test` is the only gate that may honour one

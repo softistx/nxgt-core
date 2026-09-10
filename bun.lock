@@ -30,29 +30,6 @@
         "typescript": "^6.0.3",
       },
     },
-    "packages/edge": {
-      "name": "@nxgt/edge",
-      "version": "0.1.2",
-      "dependencies": {
-        "@nxgt/security": "workspace:^",
-        "@nxgt/shared": "workspace:^",
-        "@nxgt/shared-logging": "workspace:^",
-        "yaml": "^2.9.0",
-        "zod": "^4.4.3",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.4.0",
-        "jose": "^6.2.9",
-        "stx-sdk": ">=1.2.0",
-      },
-      "peerDependencies": {
-        "stx-sdk": ">=1.2.0",
-        "typescript": "^6.0.3",
-      },
-      "optionalPeers": [
-        "stx-sdk",
-      ],
-    },
     "packages/i18n": {
       "name": "@nxgt/i18n",
       "version": "1.0.2",
@@ -739,8 +716,6 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@nxgt/datasource-rest": ["@nxgt/datasource-rest@workspace:packages/datasource-rest"],
-
-    "@nxgt/edge": ["@nxgt/edge@workspace:packages/edge"],
 
     "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
 
