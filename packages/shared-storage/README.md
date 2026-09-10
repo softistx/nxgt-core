@@ -1,15 +1,29 @@
 # @nxgt/shared-storage
 
-Object storage over MinIO/S3: the storage service, the GridFS bridge, upload
-validation and the file model.
+Object storage over MinIO/S3: `StorageService`, the GridFS bridge, and
+`createLazyStorage`.
 
-Its specs skip themselves unless all four of `S3_ENDPOINT`, `S3_BUCKET`,
-`S3_USER` and `S3_PASSWORD` are set — infrastructure that is absent is not a
-failing test.
+```ts
+import { createLazyStorage } from '@nxgt/shared-storage';
 
-`StorageService`'s constructor fires an unawaited bucket-existence check, so
-construct it lazily rather than at module scope if the process may start before
-the bucket does.
+const getStorage = createLazyStorage(process.env.S3_BUCKET);
+```
+
+`createLazyStorage` must be bound to a **module-level** `const`, not a class
+field: a per-request service that stored the getter on `this` would construct a
+new `StorageService` every time the field initializer ran.
+
+## Things that bite
+
+- **`StorageService`'s constructor fires an unawaited bucket-existence check.**
+  Construct it lazily if the process may start before the bucket does. An
+  unhandled rejection from that check takes the process down; the constructor
+  catches and logs, but only after it has already been called.
+- **`S3_ENDPOINT`, `S3_BUCKET`, `S3_USER`, `S3_PASSWORD` are read at import
+  and default to a local MinIO** (`host.docker.internal:9000` / `minio` /
+  `minio123` / `uploads`). A process that forgets to set them does not fail
+  closed — it talks to that. Specs skip themselves unless all four are set;
+  infrastructure that is absent is not a failing test, and CI has no S3.
 
 ## Install
 

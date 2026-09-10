@@ -37,6 +37,11 @@ throw `OverwriteModelError`.
 - **`clearDatabase()` is guarded** and refuses to run unless `NODE_ENV=test`
   and the database name ends in `-test`. Leave the guard alone; it has already
   stopped one production wipe.
+- **Two filter DSLs, same names, incompatible meanings.** REST helpers live on
+  the package root; the GraphQL ones live on `@nxgt/shared-mongo/filters`.
+  `buildArrayFilter` is an exact match on one side and `$in` on the other.
+  Import from the subpath when the input is GraphQL, from the root when it is
+  REST query parameters. Do not merge them.
 
 ## Install
 
