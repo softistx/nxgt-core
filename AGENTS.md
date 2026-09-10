@@ -329,9 +329,12 @@ it touches no registry, and it stays. But `changeset publish` shells out to
 everything here is built and verified against.
 
 So `scripts/publish.ts` does it: dependency order, skips any version already on
-the registry, and `bun publish` for the rest. It prints `New tag: <name>@<v>`
-for each publish, which is the line `changesets/action` parses to create GitHub
-releases — do not change that format without checking it.
+the registry, and `bun publish` for the rest. `changesets/action@v2` no longer
+parses `New tag:` from stdout; it reads NDJSON events from the file in
+`$CHANGESETS_OUTPUT` (`{"type":"git-tag","tag":"<name>@<v>","packageName":"<name>"}`).
+The script writes those, creates the local git tag, and still prints `New tag:`
+so a leftover `@v1` runner is not silently broken. Do not drop the file write
+— without it the packages land on npmjs and GitHub releases never appear.
 
 ### Why npmjs and not GitHub Packages
 
