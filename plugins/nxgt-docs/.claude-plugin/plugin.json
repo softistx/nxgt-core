@@ -1,0 +1,9 @@
+{
+	"name": "nxgt-docs",
+	"displayName": "nxgt documentation",
+	"version": "1.0.0",
+	"description": "Keeps every @nxgt/* npm README complete when the public surface changes.",
+	"author": {
+		"name": "softistx"
+	}
+}

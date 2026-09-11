@@ -117,7 +117,8 @@ the change is:
 | something that changes how a *consumer* works | the consuming repo's `AGENTS.md`, in the consumer PR |
 | a rule a future package must follow | the relevant **skill**, not just `AGENTS.md` — a skill is what gets loaded before the work, `AGENTS.md` is what gets read after the surprise |
 
-`CHANGELOG.md` is generated; never edit it by hand.
+`CHANGELOG.md` is generated; never edit it by hand. Load `keep-docs-current`
+and the `documentation-auditor` agent before finishing a public-API change.
 
 The README test: someone lands on the npm page knowing nothing about this
 repository. Do they learn what the package is, which subpaths it has, and what
