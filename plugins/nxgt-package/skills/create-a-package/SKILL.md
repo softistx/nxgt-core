@@ -252,6 +252,7 @@ write down the traps a consumer will otherwise hit. See
 ## Related
 
 - `release-a-package-change` — the release sequence and its failure modes.
+- `keep-docs-current` — the README is the npm page; load it before finishing.
 - `write-a-repo-script` — anything you automate here is a TypeScript file using
   Bun Shell, not a `.sh`.
 - `AGENTS.md` — the long form of every trap named above.
