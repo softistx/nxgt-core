@@ -11,8 +11,11 @@ bun add @nxgt/shared-hono
 
 Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
 `^6.0.3` across every `@nxgt/*` package — the set is unsatisfiable if one of
-them widens it. `stx-sdk` is a peer too, because the OAuth types come from it;
-it is public on npmjs.
+them widens it. **`stx-sdk` is a required peer** (`>=1.1.0`): an install that
+cannot resolve it fails. It is public on npmjs.
+
+There is no `createApp`. This package is middleware, an error handler, and two
+subpaths — not an application factory.
 
 ## Subpaths
 
@@ -131,7 +134,9 @@ entry. See AGENTS.md.
 `@nxgt/shared-hono/mcp` re-exports `@modelcontextprotocol/{hono,server}` (again,
 from the entry point) and `createMcpServerApp(server)`. The helper introspects
 the caller's bearer token through `stx-sdk/auth` before handing the request to
-the MCP transport.
+the MCP transport. The introspect base URL is currently hardcoded to
+`http://localhost:8080/api` — a consumer in another environment must not assume
+it follows `PORT`.
 
 ## Things that bite
 

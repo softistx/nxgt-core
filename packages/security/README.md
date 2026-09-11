@@ -19,7 +19,7 @@ them widens it.
 
 | Subpath | What is in it |
 | --- | --- |
-| `@nxgt/security` | re-exports `policy` |
+| `@nxgt/security` | re-exports `./policy` — `import { evaluateRest } from '@nxgt/security'` is the same as `…/policy` |
 | `@nxgt/security/policy` | parse, compile, `evaluateRest` / `evaluateGraphql` |
 | `@nxgt/security/policy/graphql` | `applyGraphqlPolicy` — wrap a schema's resolvers |
 | `@nxgt/security/integrations/hono` | `policyGuard` |

@@ -41,8 +41,11 @@ t('users.greeting', { name });
 `createTranslator` when a service has messages this package does not. A missing
 key returns the key itself, not a throw.
 
-`LocaleKey` is `keyof` the flattened English catalogue. `Language` is
-`'en' | 'fr'`.
+`LocaleKey` is `keyof` the flattened English catalogue — that is the type
+`CustomException.message` uses. `Language` is `'en' | 'fr'`. `resources`,
+`en` and `fr` are the catalogues themselves. Shared keys include
+`errors.not-found`, `errors.unauthenticated`, `errors.insufficient-permissions`
+and `errors.service-unavailable`.
 
 ## Where the language comes from
 

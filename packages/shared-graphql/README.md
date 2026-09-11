@@ -12,14 +12,14 @@ bun add @nxgt/shared-graphql
 
 Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
 `^6.0.3` across every `@nxgt/*` package — the set is unsatisfiable if one of
-them widens it. `stx-sdk` is a peer too, public on npmjs.
+them widens it. **`stx-sdk` is a required peer** (`>=1.1.0`).
 
 ## Subpaths
 
 | Subpath | What is in it |
 | --- | --- |
 | `@nxgt/shared-graphql` | server wiring, scalars, utils, context types, plugins |
-| `@nxgt/shared-graphql/security` | the `@policy` directive and its validation |
+| `@nxgt/shared-graphql/security` | `PolicyEvaluationService` / `evaluateFromRules` — wraps `@nxgt/security/policy` for a Yoga schema |
 
 ## The shared SDL ships in `graphql/`, not in `dist/`
 
@@ -167,3 +167,8 @@ SDL.
 - **`@check` on a list field is the wrong tool.** Filter before the read.
 - **Do not import `graphql-subscriptions` from `graphql-subscriptions`.** Take
   it from this package, same reason mongoose comes from `@nxgt/shared-mongo`.
+- **The sandbox helper is spelled `sandboxExpolorer`.** That is the export
+  name. A corrected spelling is a breaking change, not a typo fix in the
+  consumer.
+- **`stx-sdk` is required.** Unlike `@nxgt/security`, this package does not
+  mark it optional.

@@ -36,7 +36,7 @@ new `StorageService` every time the field initializer ran.
 | --- | --- |
 | `StorageService` | Bun `S3Client` writes, plus a `MinioService` for bucket admin |
 | `MinioService` | the minio SDK: ensure bucket, presign, list |
-| `GridFSService` | Mongo GridFS, for payloads that must live next to the document |
+| `GridFSService` | Mongo GridFS (`paginate`, `upload`, `download`, `findById`, `delete`, `rename`); buckets `avatars`, `uploads`, `images`, `videos`, `files`. The constructor throws if `mongoose.connection.db` is missing — connect first. |
 | `createLazyStorage(bucket)` | process-lifetime singleton getter |
 | `S3_CREDENTIALS` | `{ endpoint, bucket, accessKeyId, secretAccessKey }` from env |
 

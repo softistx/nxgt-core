@@ -42,11 +42,15 @@ importing it made this package and `@nxgt/shared` depend on each other.
 
 ```ts
 import { SALES_EVENT_NAMES, createSalesEventsQueue } from '@nxgt/shared-events/sales';
-import { createWorker } from '@nxgt/shared-events/core';
+import { createWorker, createQueue, createQueueEvents } from '@nxgt/shared-events/core';
 
 const queue = createSalesEventsQueue(redisUrl);
 await queue.add(SALES_EVENT_NAMES.ORDER_CONFIRMED, { data: { order, items }, user });
 ```
+
+`./core` re-exports `Job`, `Queue` and `Worker` from `bullmq`. Take them from
+here, not from `bullmq` directly, so there is one copy. `createWorker` defaults
+its Redis connection to `redis://localhost:6379` when you omit one.
 
 Patient and customer events are **two queues** (`patient-events`,
 `customer-events`). A BullMQ worker competes for every job on the queue name

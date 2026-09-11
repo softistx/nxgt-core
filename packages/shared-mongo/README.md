@@ -68,9 +68,21 @@ applyPlugins(schema, [
 ]);
 ```
 
-`paginate` pages by offset (sellix). `paginateCursor` returns a Relay
-connection (federation). Same idea, incompatible signatures; both are in
-production. Cursor pagination orders by `_id` — the cursor *is* the `_id`.
+Model statics the pagination plugin adds:
+
+| Method | What it returns |
+| --- | --- |
+| `paginate` | Relay connection (federation) |
+| `paginateOffset` | offset page (sellix) |
+| `cursorPaginate` | cursor page ordered by `_id` — the cursor *is* the `_id` |
+| `paginateList` / `paginateListOffset` | the same two shapes over an in-memory list |
+
+Same idea, incompatible signatures; both are in production. There is no
+`sort` argument: a second sort key would have to be part of the cursor.
+
+The package also `export * from 'async-mutex'` (`Mutex`), because
+`MongoCrudService` requires one and a second copy of the mutex package is
+how you fail to share it.
 
 ## Migrations
 
