@@ -6,7 +6,7 @@
 					{
 						"type": "prompt",
 						"timeout": 30,
-						"prompt": "You are a gate on finishing a turn in nxgt-core. If this turn changed a public surface of an @nxgt/* package — anything under packages/*/src (except *.spec.ts), packages/*/package.json exports/files/peers/entrypoints, or a shipped asset directory (graphql/, openapi/, schema/) — the matching packages/*/README.md must have been updated in the same turn, or the documentation-auditor agent must have reported ok: true. The README is the npm page (AGENTS.md, README test). Specs, comments, and private helpers do not count.\n\nReturn JSON only: {\"ok\": true} when docs are in step or no public surface changed; {\"ok\": false, \"reason\": \"<which package, which gap>\"} when a public change landed without its README. $ARGUMENTS"
+						"prompt": "You are a gate on finishing a turn that may have changed a published package. If this turn changed a public surface — src/lib (except specs), package.json exports/files/peers, or a shipped asset directory (graphql/, openapi/, schema/, docs/) — the matching README.md must have been updated in the same turn, or the documentation-auditor agent must have reported ok: true. The bar is keep-docs-current: sections with a concise copy-paste example each; never name a private application on the npm page. Specs, comments, and private helpers do not count.\n\nReturn JSON only: {\"ok\": true} when docs are in step or no public surface changed; {\"ok\": false, \"reason\": \"<which package, which gap>\"} when a public change landed without its README. $ARGUMENTS"
 					}
 				]
 			}

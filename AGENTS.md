@@ -502,10 +502,12 @@ Established here, and applying to all four repositories:
   and went nowhere. When you add a field to a shared schema, follow it to the
   code that consumes it in the same change, or do not add it.
 - **A package's `README.md` is its page on npmjs.** It is published, and it is
-  read by people who will never open this repository: say what the package is,
-  table its subpaths, and write down what will bite a consumer. Ten of the
-  twelve shipped `bun init` boilerplate until 2026-09-06, five of those under
-  the wrong package name.
+  read by someone who has never seen this repository and does not know the
+  private applications that consume it. Organize by section, each with a
+  concise copy-paste example; never name a private app, a private monorepo,
+  or "the parc" there — those names belong in this file. The bar is
+  `keep-docs-current`. Ten of the twelve shipped `bun init` boilerplate
+  until 2026-09-06, five of those under the wrong package name.
 
 ## Known state
 

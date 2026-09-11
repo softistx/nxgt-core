@@ -120,10 +120,10 @@ the change is:
 `CHANGELOG.md` is generated; never edit it by hand. Load `keep-docs-current`
 and the `documentation-auditor` agent before finishing a public-API change.
 
-The README test: someone lands on the npm page knowing nothing about this
-repository. Do they learn what the package is, which subpaths it has, and what
-will bite them? Ten of the twelve shipped `bun init` boilerplate for a while,
-five of those under the wrong package name.
+The README bar is `keep-docs-current`: sections with a concise copy-paste
+example each; never name a private application on the npm page. Ten of the
+twelve shipped `bun init` boilerplate for a while, five of those under the
+wrong package name.
 
 ## Why step 4 exists
 

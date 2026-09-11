@@ -1,31 +1,30 @@
 ---
 name: keep-docs-current
 description: >-
-  After a change to an @nxgt/* public surface, keep the package README (the
-  npm page) complete: what it is, install, subpaths, usage, traps. Use when
-  adding or changing an export, subpath, peer, shipped asset, or trap; when
-  editing packages/*/src or packages/*/package.json; when asked if the docs
+  After a change to a published package's public surface, keep the README (the
+  npm page) developer-friendly: sections with a concise copy-paste example each,
+  no private app names. Use when adding or changing an export, subpath, peer,
+  shipped asset, or trap; when editing a package README; when asked if the docs
   are up to date; or when running /keep-docs-current.
 ---
 
 # Skill: Keep package docs current
 
-A change to a package is not done until its `README.md` still passes the
-README test in `AGENTS.md`. That file is the npm page. `CHANGELOG.md` is
-generated; never edit it by hand.
+A change to a package is not done until its `README.md` still passes the bar
+below. That file is the npm page, read by someone who has never seen this
+repository and does not know the private applications that consume it.
+`CHANGELOG.md` is generated; never edit it by hand.
 
 ## When
 
 - A new or changed public export, subpath, peer, or shipped asset
-  (`graphql/`, `openapi/`, `schema/` named in `files`).
+  (`graphql/`, `openapi/`, `schema/`, `docs/` named in `files`).
 - A trap that will fail a consumer at install, import, or first call.
 - Explicitly: `/keep-docs-current`.
 
 Not for a spec-only change, a private helper, or a comment.
 
 ## What to update
-
-The table in `release-a-package-change` is the index. Short form:
 
 | Change | Also update |
 | --- | --- |
@@ -34,17 +33,41 @@ The table in `release-a-package-change` is the index. Short form:
 | how a *consumer* works | the consumer repo's `AGENTS.md`, in the consumer PR |
 | a rule a future package must follow | the relevant skill |
 
+Estate-specific names (`oauth-ui`, `kratos-ui`, a monorepo, "the parc")
+belong in `AGENTS.md`. They do **not** belong on the npm page.
+
 ## README shape
 
-Match the pages already in `packages/*/README.md`:
+The heading is the package name (`# @nxgt/<name>` or `# stx-sdk`). Then, in
+this order:
 
-1. What it is
-2. Install (`bun add`, public npmjs, `typescript` `^6.0.3`; name a required peer as required)
-3. Subpaths table matching `exports` (omit only when `.` is the only one)
-4. Usage / public API
-5. Things that bite
+1. **What it is** — one or two sentences a stranger on npmjs can use.
+2. **Install** — `bun add <name>`, public registry. Required peers named as
+   required, optional peers marked optional. One `bun add` block; do not
+   repeat install later under "Consuming it".
+3. **Setup** — anything that is not `import`: CSS `@source`, sprites, Vite
+   `dedupe`, env. Each item is a snippet, then one sentence for why it exists.
+4. **Subpaths** — a table that matches `exports`, minus `./package.json`.
+   Omit only when `.` is the sole subpath.
+5. **Usage** — one section per area a consumer actually starts from, each
+   with **one copy-paste example**. A section with no snippet is an essay;
+   cut it or add the snippet.
+6. **Traps** — one sentence + the line that prevents it. Not a guided tour
+   of `src/`.
 
-The heading is `# @nxgt/<name>`.
+Rules that decide tone:
+
+- **The reader does not work here.** Never name a private application, a
+  private monorepo, or "the parc" / "the estate" on the README. Write "an
+  SSR app" not `kratos-ui`; write "the consumer" not `sellix-monorepo`.
+- **Examples are the documentation.** Prefer 15 lines of working code over
+  40 lines of prose.
+- **Do not catalogue** every component or every type alias. Name the groups
+  a caller imports (`*FormField`, `createOry`, `Map`) and show one of each.
+- **Do not duplicate.** Install once. A trap that is already the Setup
+  snippet does not also need a paragraph in Traps.
+
+Patch changeset: the README ships.
 
 ## How
 
