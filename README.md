@@ -26,7 +26,24 @@ repository is the single copy.
 | `@nxgt/datasource-rest` | Typed REST datasource over `openapi-fetch` |
 
 Each package's `README.md` is its page on npmjs: what it is, which subpaths it
-exports, and what will bite a consumer.
+exports, how to use it, and what will bite a consumer. Read that page, not
+this table, before importing.
+
+## Layering
+
+```
+shared-logging   shared-openapi        (no internal dependencies)
+      └─ i18n
+           └─ shared
+                ├─ shared-exceptions
+                └─ shared-mongo
+                     ├─ shared-storage
+                     ├─ shared-hono
+                     └─ security
+```
+
+`shared-events`, `shared-graphql` and `datasource-rest` sit with the
+application layer. There are no cycles and there must not be one.
 
 ## Consuming them
 
