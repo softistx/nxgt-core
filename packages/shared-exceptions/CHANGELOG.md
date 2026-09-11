@@ -1,5 +1,19 @@
 # @nxgt/shared-exceptions
 
+## 1.0.3
+
+### Patch Changes
+
+- [#57](https://github.com/softistx/nxgt-core/pull/57) [`1154ac6`](https://github.com/softistx/nxgt-core/commit/1154ac642f4a0dd843f78f7637150b0fa7ec87dc) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Ship complete npm pages for every package.
+  
+  Each README now has the same shape — what it is, install, subpaths, usage,
+  then the traps — and covers the public API a consumer actually imports,
+  not just the one-line summary. `@nxgt/security` keeps the engine, keto,
+  unmatched, GraphQL wrapper and integrations; it drops only the in-monorepo
+  paths and the Oathkeeper paragraph that no longer name anything.
+- Updated dependencies [[`1154ac6`](https://github.com/softistx/nxgt-core/commit/1154ac642f4a0dd843f78f7637150b0fa7ec87dc), [`49bb8a3`](https://github.com/softistx/nxgt-core/commit/49bb8a34c1b5002f1f5379c722379c597efe0b83)]:
+  - @nxgt/i18n@1.0.3
+
 ## 1.0.2
 
 ### Patch Changes
