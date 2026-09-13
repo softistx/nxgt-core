@@ -21,7 +21,8 @@
  * tarballs rather than to whatever is on the registry — otherwise this would
  * silently verify the *published* versions instead of the working tree.
  * Everything else, `stx-sdk` included, resolves from the registry the way a
- * consumer's install does.
+ * consumer's install does. Optional peers are installed too, the way a
+ * consumer who uses the subpath that needs one would.
  */
 
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -162,6 +163,31 @@ try {
 		process.exit(1);
 	}
 
+	// An optional peer is installed only by whoever asks for it, so ask for each
+	// one: `@nxgt/openapi-codegen/hono` then loads because `hono` is installed
+	// on purpose, not because another package's peer happened to hoist it. One
+	// on no registry is left out, as the manifest check above allows.
+	const optionalPeers: Record<string, string> = {};
+	for (const tgz of tarballs) {
+		const manifest = JSON.parse(
+			await $`tar -xzOf ${tgz} package/package.json`.quiet().text(),
+		);
+		const meta: Record<string, { optional?: boolean }> =
+			manifest.peerDependenciesMeta ?? {};
+		for (const [peer, range] of Object.entries<string>(
+			manifest.peerDependencies ?? {},
+		)) {
+			if (!meta[peer]?.optional || peer in overrides || peer in optionalPeers) {
+				continue;
+			}
+			const res = await fetch(
+				`https://registry.npmjs.org/${peer.replace('/', '%2F')}`,
+				{ method: 'HEAD' },
+			).catch(() => null);
+			if (res?.ok) optionalPeers[peer] = range;
+		}
+	}
+
 	// `stx-sdk` is a required peer of two packages and resolves from the public
 	// registry like anything else — no checkout next door, no special case.
 	await Bun.write(
@@ -172,7 +198,7 @@ try {
 				private: true,
 				version: '0.0.0',
 				type: 'module',
-				dependencies: overrides,
+				dependencies: { ...optionalPeers, ...overrides },
 				overrides,
 				resolutions: overrides,
 			},
