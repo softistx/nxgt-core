@@ -78,6 +78,22 @@ for await (const file of walk('src')) {
 	copied++;
 }
 
+// A bin runs as a file: it keeps the `#!` line Bun.build carries over from
+// its entry, and it must be executable, or `node_modules/.bin/<cmd>` fails.
+const bins: Record<string, string> =
+	typeof pkg.bin === 'string' ? { [name]: pkg.bin } : (pkg.bin ?? {});
+for (const [command, target] of Object.entries(bins)) {
+	const file = Bun.file(target);
+	if (!(await file.exists()) || !(await file.text()).startsWith('#!')) {
+		console.error(
+			`${name}: bin ${command} points at ${target}, which is missing or has ` +
+				'no #! line. Build it from an entry point that starts with one.',
+		);
+		process.exit(1);
+	}
+	await $`chmod 755 ${target}`.quiet();
+}
+
 console.log(
 	`${name}: ${result.outputs.length} artifact(s)` +
 		(copied ? `, ${copied} hand-written declaration(s) copied` : ''),
