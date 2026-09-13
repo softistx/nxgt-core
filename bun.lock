@@ -49,15 +49,23 @@
     "packages/openapi-codegen": {
       "name": "@nxgt/openapi-codegen",
       "version": "0.0.0",
+      "bin": {
+        "nxgt-openapi": "./dist/cli.js",
+      },
       "devDependencies": {
         "@types/bun": "^1.4.0",
+        "hono": "^4.13.4",
         "openapi-fetch": "^0.17.0",
         "zod": "^4.5.4",
       },
       "peerDependencies": {
+        "hono": "^4.13.4",
         "typescript": "^6.0.3",
         "zod": "^4.5.4",
       },
+      "optionalPeers": [
+        "hono",
+      ],
     },
     "packages/security": {
       "name": "@nxgt/security",
