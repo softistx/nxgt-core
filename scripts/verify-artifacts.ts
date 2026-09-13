@@ -13,7 +13,9 @@
  *   - `@nxgt/shared-openapi` threw on `ts.factory` under the wrong TypeScript
  *
  * All three were invisible to `bun run build`, `bun typecheck` and `biome`.
- * Only importing the built artifact catches that class of failure.
+ * Only importing the built artifact catches that class of failure. A bin is
+ * the same story, so each one declared is run from `node_modules/.bin` with
+ * `--help`: that proves the link, the `#!` line and the mode together.
  *
  * The install uses `overrides` so the packages resolve to each other's
  * tarballs rather than to whatever is on the registry — otherwise this would
@@ -29,7 +31,7 @@ import { $ } from 'bun';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
 
-type Pkg = { name: string; dir: string; subpaths: string[] };
+type Pkg = { name: string; dir: string; subpaths: string[]; bins: string[] };
 
 /** Every subpath a package publishes, from its own `exports` map. */
 function subpathsOf(name: string, exports: Record<string, unknown>): string[] {
@@ -47,6 +49,10 @@ async function readPackages(): Promise<Pkg[]> {
 			name: manifest.name,
 			dir: join(ROOT, rel.replace(/\/package\.json$/, '')),
 			subpaths: subpathsOf(manifest.name, manifest.exports ?? {}),
+			bins:
+				typeof manifest.bin === 'string'
+					? [manifest.name.split('/').pop()]
+					: Object.keys(manifest.bin ?? {}),
 		});
 	}
 	return pkgs;
@@ -210,6 +216,32 @@ try {
 		process.exit(1);
 	}
 	console.log(`\nAll ${subpaths.length} subpaths load.`);
+
+	const bins = packages.flatMap((p) => p.bins);
+	if (bins.length > 0) {
+		console.log(`\nRunning ${bins.length} declared bin(s) with --help…\n`);
+		let broken = 0;
+		for (const bin of bins) {
+			const ran = await $`./node_modules/.bin/${bin} --help`
+				.cwd(workdir)
+				.quiet()
+				.nothrow();
+			const ok = ran.exitCode === 0;
+			if (!ok) broken++;
+			console.log(
+				`  ${ok ? 'ok  ' : 'FAIL'}    ${bin.padEnd(40)}` +
+					(ok ? '' : ran.stderr.toString().split('\n')[0]),
+			);
+		}
+		if (broken > 0) {
+			console.error(
+				`\n${broken} bin(s) failed to run from node_modules/.bin. A missing #!\n` +
+					'line or a non-executable file is the usual cause; build.ts checks both.',
+			);
+			process.exit(1);
+		}
+		console.log(`\nAll ${bins.length} bin(s) run.`);
+	}
 } finally {
 	await rm(workdir, { recursive: true, force: true });
 }
