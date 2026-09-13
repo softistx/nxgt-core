@@ -15,7 +15,7 @@
     },
     "packages/datasource-rest": {
       "name": "@nxgt/datasource-rest",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "@nxgt/shared": "workspace:*",
         "@nxgt/shared-exceptions": "workspace:*",
@@ -32,7 +32,7 @@
     },
     "packages/i18n": {
       "name": "@nxgt/i18n",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "hono": "^4.13.4",
         "intl-messageformat": "^11.2.13",
@@ -46,9 +46,19 @@
         "typescript": "^6.0.3",
       },
     },
+    "packages/openapi-codegen": {
+      "name": "@nxgt/openapi-codegen",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.4.0",
+      },
+      "peerDependencies": {
+        "typescript": "^6.0.3",
+      },
+    },
     "packages/security": {
       "name": "@nxgt/security",
-      "version": "3.2.0",
+      "version": "3.2.1",
       "dependencies": {
         "@graphql-tools/utils": "^12.0.0",
         "@nxgt/shared": "workspace:^",
@@ -74,7 +84,7 @@
     },
     "packages/shared": {
       "name": "@nxgt/shared",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/shared-events": "workspace:^",
@@ -101,7 +111,7 @@
     },
     "packages/shared-events": {
       "name": "@nxgt/shared-events",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "bullmq": "^6.1.1",
         "bunqueue": "^2.8.59",
@@ -115,7 +125,7 @@
     },
     "packages/shared-exceptions": {
       "name": "@nxgt/shared-exceptions",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/i18n": "workspace:^",
@@ -129,7 +139,7 @@
     },
     "packages/shared-graphql": {
       "name": "@nxgt/shared-graphql",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "dependencies": {
         "@apollo/server": "^5.5.1",
         "@apollo/subgraph": "^2.14.3",
@@ -173,7 +183,7 @@
     },
     "packages/shared-hono": {
       "name": "@nxgt/shared-hono",
-      "version": "2.1.0",
+      "version": "2.1.1",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@modelcontextprotocol/hono": "^2.0.0",
@@ -205,7 +215,7 @@
     },
     "packages/shared-logging": {
       "name": "@nxgt/shared-logging",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "dependencies": {
         "hono": "^4.13.4",
         "lodash": "^4.18.1",
@@ -222,7 +232,7 @@
     },
     "packages/shared-mongo": {
       "name": "@nxgt/shared-mongo",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "dependencies": {
         "@nxgt/i18n": "workspace:^",
         "@nxgt/shared": "workspace:^",
@@ -248,7 +258,7 @@
     },
     "packages/shared-openapi": {
       "name": "@nxgt/shared-openapi",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "devDependencies": {
         "@types/bun": "^1.4.0",
       },
@@ -260,7 +270,7 @@
     },
     "packages/shared-storage": {
       "name": "@nxgt/shared-storage",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "dependencies": {
         "@nxgt/i18n": "workspace:*",
         "@nxgt/shared": "workspace:*",
@@ -718,6 +728,8 @@
     "@nxgt/datasource-rest": ["@nxgt/datasource-rest@workspace:packages/datasource-rest"],
 
     "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
+
+    "@nxgt/openapi-codegen": ["@nxgt/openapi-codegen@workspace:packages/openapi-codegen"],
 
     "@nxgt/security": ["@nxgt/security@workspace:packages/security"],
 
