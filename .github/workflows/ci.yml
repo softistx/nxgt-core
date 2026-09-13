@@ -2,7 +2,11 @@ name: CI
 
 on:
   pull_request:
-    branches: [develop, main]
+    # `feat/**` too: an effort built with large-feature-branch-workflow merges
+    # each slice into its integration branch `feat/<slug>`, and those slices
+    # are merged without waiting for a human. Without this they merged with no
+    # CI at all — no MongoDB suite, no artifact check.
+    branches: [develop, main, 'feat/**']
 
 jobs:
   ci:
