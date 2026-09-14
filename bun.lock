@@ -46,9 +46,22 @@
         "typescript": "^6.0.3",
       },
     },
+    "packages/openapi-client": {
+      "name": "@nxgt/openapi-client",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@nxgt/openapi-codegen": "workspace:^",
+        "@types/bun": "^1.4.0",
+        "hono": "^4.13.4",
+        "zod": "^4.5.4",
+      },
+      "peerDependencies": {
+        "typescript": "^6.0.3",
+      },
+    },
     "packages/openapi-codegen": {
       "name": "@nxgt/openapi-codegen",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
         "nxgt-openapi": "./dist/cli.js",
       },
@@ -742,6 +755,8 @@
     "@nxgt/datasource-rest": ["@nxgt/datasource-rest@workspace:packages/datasource-rest"],
 
     "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
+
+    "@nxgt/openapi-client": ["@nxgt/openapi-client@workspace:packages/openapi-client"],
 
     "@nxgt/openapi-codegen": ["@nxgt/openapi-codegen@workspace:packages/openapi-codegen"],
 
