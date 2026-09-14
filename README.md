@@ -25,6 +25,7 @@ repository is the single copy.
 | `@nxgt/security` | Policy engine — REST and GraphQL evaluators |
 | `@nxgt/datasource-rest` | Typed REST datasource over `openapi-fetch` |
 | `@nxgt/openapi-codegen` | Types, Zod 4 validators and typed Hono routes from an OpenAPI 3.1 or 3.2 spec |
+| `@nxgt/openapi-client` | Typed `fetch` client for the operations `openapi-codegen` generates |
 
 Each package's `README.md` is its page on npmjs: what it is, which subpaths it
 exports, how to use it, and what will bite a consumer. Read that page, not
@@ -33,7 +34,7 @@ this table, before importing.
 ## Layering
 
 ```
-shared-logging   shared-openapi   openapi-codegen   (no internal dependencies)
+shared-logging   shared-openapi   openapi-codegen   openapi-client   (no internal dependencies)
       └─ i18n
            └─ shared
                 ├─ shared-exceptions
