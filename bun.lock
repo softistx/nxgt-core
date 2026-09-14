@@ -30,6 +30,19 @@
         "typescript": "^6.0.3",
       },
     },
+    "packages/http-client": {
+      "name": "@nxgt/http-client",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@nxgt/openapi-codegen": "workspace:^",
+        "@types/bun": "^1.4.0",
+        "hono": "^4.13.4",
+        "zod": "^4.5.4",
+      },
+      "peerDependencies": {
+        "typescript": "^6.0.3",
+      },
+    },
     "packages/i18n": {
       "name": "@nxgt/i18n",
       "version": "1.0.3",
@@ -41,19 +54,6 @@
       "devDependencies": {
         "@types/bun": "^1.4.0",
         "@types/lodash": "^4.17.25",
-      },
-      "peerDependencies": {
-        "typescript": "^6.0.3",
-      },
-    },
-    "packages/openapi-client": {
-      "name": "@nxgt/openapi-client",
-      "version": "0.0.0",
-      "devDependencies": {
-        "@nxgt/openapi-codegen": "workspace:^",
-        "@types/bun": "^1.4.0",
-        "hono": "^4.13.4",
-        "zod": "^4.5.4",
       },
       "peerDependencies": {
         "typescript": "^6.0.3",
@@ -754,9 +754,9 @@
 
     "@nxgt/datasource-rest": ["@nxgt/datasource-rest@workspace:packages/datasource-rest"],
 
-    "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
+    "@nxgt/http-client": ["@nxgt/http-client@workspace:packages/http-client"],
 
-    "@nxgt/openapi-client": ["@nxgt/openapi-client@workspace:packages/openapi-client"],
+    "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
 
     "@nxgt/openapi-codegen": ["@nxgt/openapi-codegen@workspace:packages/openapi-codegen"],
 
