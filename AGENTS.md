@@ -10,10 +10,9 @@ depend on. Until 2026-09-06 each monorepo carried its own copy under
 `shared` by ~260. This repository is the single copy, published to GitHub
 Packages.
 
-It currently holds the nine packages extracted from `sellix-monorepo`.
-Federation's three that exist nowhere else — `datasource-rest`,
-`shared-events`, `shared-graphql` — arrive with the reconciliation of its own
-copies.
+It holds thirteen packages: the nine extracted from `sellix-monorepo`, the
+three that existed only in `nxgt-federation` — `datasource-rest`,
+`shared-events`, `shared-graphql` — and `openapi-codegen`, written here.
 
 Nothing here imports application code. The dependency runs one way: apps depend
 on these packages, never the reverse.
@@ -21,7 +20,7 @@ on these packages, never the reverse.
 ## Layering
 
 ```
-shared-logging   shared-openapi        (no internal dependencies)
+shared-logging   shared-openapi   openapi-codegen   (no internal dependencies)
       └─ i18n
            └─ shared
                 ├─ shared-exceptions
@@ -408,7 +407,7 @@ the build on an exact sibling pin, so a new package cannot reintroduce it.
 
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
-All twelve declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+All thirteen declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
 `~7.0.2`, which is not a preference difference — the ranges are mutually
 unsatisfiable, so a consumer installing the set gets a peer conflict, and if
 TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
@@ -428,13 +427,30 @@ CI enforces two things a green build does not:
   changeset is a change that never reaches a consumer, because the release
   workflow has nothing to version. Use `bun changeset --empty` when that is
   genuinely intended, and say why.
-- **`bun run verify:artifacts`** — packs the twelve, installs them the way a
+- **`bun run verify:artifacts`** — packs the thirteen, installs them the way a
   consumer does, imports every subpath each package declares, and rejects a
   manifest that would break an install — a `link:` or `file:` in a field a
   consumer resolves, or a **required** peer that is on no registry. It reads
   the subpath list from each
   `exports` map, so a new entry point is covered as soon as it is declared.
   `changeset:publish` runs it too, so a broken artifact cannot be published.
+
+### Bins and optional peers
+
+`@nxgt/openapi-codegen` is the first package with a `bin` and with optional
+peers, and both are checked on the artifact, not the source:
+
+- **A bin runs as a file.** `build.ts` refuses a `bin` target that is missing
+  or lacks its `#!` line, and marks each one executable; `verify:artifacts`
+  then runs every declared bin with `--help` from `node_modules/.bin`, and
+  fails on a non-zero exit.
+- **An optional peer is installed on purpose.** A consumer gets one only by
+  asking for it, so `verify:artifacts` adds every optional peer that is on
+  the registry to its probe project. `@nxgt/openapi-codegen/hono` therefore
+  loads because `hono` was requested, not because another package's peer
+  happened to hoist it. Code that needs an optional peer must import it
+  only on the path that uses it (`lint` imports `@redocly/openapi-core`
+  dynamically), so the rest of the package loads without it.
 
 Publishing goes through **`bun publish`**, never `npm publish` — Bun is the
 package manager for this repo, and `bun pm pack` is what rewrites `workspace:*`
@@ -511,7 +527,7 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **199 pass, 0 fail**. Treat any failure as yours.
+`bun run test` is **442 pass, 0 fail**. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running them together produced 6 failures
