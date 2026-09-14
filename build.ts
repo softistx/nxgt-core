@@ -2,7 +2,7 @@
  * The build for every package in this workspace.
  *
  * Each package runs `bun run ../../build.ts` from its own directory. There is
- * one script rather than one per package because the twelve differ only in
+ * one script rather than one per package because the thirteen differ only in
  * their entry points, which they declare themselves under `nxgt.entrypoints`.
  *
  * Two outputs, from two tools:
@@ -76,6 +76,22 @@ for await (const file of walk('src')) {
 	await $`mkdir -p ${dirname(target)}`.quiet();
 	await Bun.write(target, Bun.file(file));
 	copied++;
+}
+
+// A bin runs as a file: it keeps the `#!` line Bun.build carries over from
+// its entry, and it must be executable, or `node_modules/.bin/<cmd>` fails.
+const bins: Record<string, string> =
+	typeof pkg.bin === 'string' ? { [name]: pkg.bin } : (pkg.bin ?? {});
+for (const [command, target] of Object.entries(bins)) {
+	const file = Bun.file(target);
+	if (!(await file.exists()) || !(await file.text()).startsWith('#!')) {
+		console.error(
+			`${name}: bin ${command} points at ${target}, which is missing or has ` +
+				'no #! line. Build it from an entry point that starts with one.',
+		);
+		process.exit(1);
+	}
+	await $`chmod 755 ${target}`.quiet();
 }
 
 console.log(

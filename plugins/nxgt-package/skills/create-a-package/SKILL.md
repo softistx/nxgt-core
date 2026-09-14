@@ -12,7 +12,7 @@ description: >-
 
 ## Purpose
 
-Add a thirteenth `@nxgt/*` package: the scaffolding, the four conventions that
+Add a fourteenth `@nxgt/*` package: the scaffolding, the four conventions that
 are not obvious from looking at an existing one, and the checks that catch the
 mistakes this repository has already paid for.
 
@@ -39,7 +39,7 @@ Decide this before writing any code, because it is the one thing that cannot be
 fixed later without a coordinated release:
 
 ```
-shared-logging   shared-openapi        (no internal dependencies)
+shared-logging   shared-openapi   openapi-codegen   (no internal dependencies)
       └─ i18n
            └─ shared
                 ├─ shared-exceptions
@@ -245,7 +245,9 @@ write down the traps a consumer will otherwise hit. See
    build proves almost nothing.
 5. `bun changeset` — `minor` on the new package, and the changeset is what makes
    `1.0.0` exist. See the `release-a-package-change` skill for the rest of the
-   release, which has a manual step.
+   release, which has a manual step. A package whose API is still settling can
+   start at `"version": "0.0.0"` instead, so the same `minor` publishes `0.1.0`:
+   `@nxgt/openapi-codegen` did.
 
 ---
 
