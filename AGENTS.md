@@ -10,9 +10,11 @@ depend on. Until 2026-09-06 each monorepo carried its own copy under
 `shared` by ~260. This repository is the single copy, published to GitHub
 Packages.
 
-It holds thirteen packages: the nine extracted from `sellix-monorepo`, the
-three that existed only in `nxgt-federation` — `datasource-rest`,
-`shared-events`, `shared-graphql` — and `openapi-codegen`, written here.
+It holds twelve packages: the nine extracted from `sellix-monorepo`, the two
+that existed only in `nxgt-federation` — `shared-events`, `shared-graphql` —
+and `openapi-codegen`, written here. A third from `nxgt-federation`,
+`datasource-rest`, moved to `softistx/nxgt-http` on 2026-09-14, with its
+history.
 
 Nothing here imports application code. The dependency runs one way: apps depend
 on these packages, never the reverse.
@@ -407,7 +409,7 @@ the build on an exact sibling pin, so a new package cannot reintroduce it.
 
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
-All thirteen declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+All twelve declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
 `~7.0.2`, which is not a preference difference — the ranges are mutually
 unsatisfiable, so a consumer installing the set gets a peer conflict, and if
 TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
@@ -427,7 +429,7 @@ CI enforces two things a green build does not:
   changeset is a change that never reaches a consumer, because the release
   workflow has nothing to version. Use `bun changeset --empty` when that is
   genuinely intended, and say why.
-- **`bun run verify:artifacts`** — packs the thirteen, installs them the way a
+- **`bun run verify:artifacts`** — packs the twelve, installs them the way a
   consumer does, imports every subpath each package declares, and rejects a
   manifest that would break an install — a `link:` or `file:` in a field a
   consumer resolves, or a **required** peer that is on no registry. It reads

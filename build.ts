@@ -2,7 +2,7 @@
  * The build for every package in this workspace.
  *
  * Each package runs `bun run ../../build.ts` from its own directory. There is
- * one script rather than one per package because the thirteen differ only in
+ * one script rather than one per package because the twelve differ only in
  * their entry points, which they declare themselves under `nxgt.entrypoints`.
  *
  * Two outputs, from two tools:
