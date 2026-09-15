@@ -12,7 +12,7 @@ description: >-
 
 ## Purpose
 
-Add a fourteenth `@nxgt/*` package: the scaffolding, the four conventions that
+Add a twelfth `@nxgt/*` package: the scaffolding, the four conventions that
 are not obvious from looking at an existing one, and the checks that catch the
 mistakes this repository has already paid for.
 
@@ -39,7 +39,7 @@ Decide this before writing any code, because it is the one thing that cannot be
 fixed later without a coordinated release:
 
 ```
-shared-logging   shared-openapi   openapi-codegen   (no internal dependencies)
+shared-logging   shared-openapi   (no internal dependencies)
       └─ i18n
            └─ shared
                 ├─ shared-exceptions
@@ -69,6 +69,7 @@ packages/<name>/
   biome.json
   .gitignore
   README.md
+  LICENSE               ← a copy of the root LICENSE: npm ships only the package's own
   src/
     index.ts            ← the entry point
     <feature>/
@@ -105,11 +106,11 @@ every package and should stay that way:
 {
   "name": "@nxgt/<name>",
   "version": "1.0.0",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "package.json"],
+  "files": ["dist", "README.md", "package.json", "LICENSE"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
     "./package.json": "./package.json"
@@ -188,7 +189,7 @@ font — anything that is not code — must live in its **own top-level director
 and be named in `files`:
 
 ```jsonc
-"files": ["dist", "graphql", "README.md", "package.json"]
+"files": ["dist", "graphql", "README.md", "package.json", "LICENSE"]
 ```
 
 `@nxgt/shared-graphql` published its resolvers without the SDL they resolve for
@@ -247,7 +248,7 @@ write down the traps a consumer will otherwise hit. See
    `1.0.0` exist. See the `release-a-package-change` skill for the rest of the
    release, which has a manual step. A package whose API is still settling can
    start at `"version": "0.0.0"` instead, so the same `minor` publishes `0.1.0`:
-   `@nxgt/openapi-codegen` did.
+   `@nxgt/openapi-codegen` did, before it moved to `softistx/nxgt-http`.
 
 ---
 

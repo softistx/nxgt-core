@@ -137,10 +137,11 @@ shipped past a green build:
 | `@nxgt/shared-hono/mcp` | `hono is not defined` | same |
 | `@nxgt/shared-openapi` | `ts.factory` undefined | wrong TypeScript major resolved by a peer conflict |
 
-`bun run verify:artifacts` packs the twelve, installs them the way a consumer
+`bun run verify:artifacts` packs the eleven, installs them the way a consumer
 does, imports **every subpath each package declares**, and refuses a manifest
 that would break an install: a `link:` or `file:` in a field a consumer
-resolves, or a **required** peer that is on no registry. It derives the subpath
+resolves, or a **required** peer that is on no registry. It also refuses a
+package that is not MIT or whose tarball has no `LICENSE`. It derives the subpath
 list from each `exports`
 map, so a new entry point is covered the moment it is declared — do not maintain
 a list by hand. It also installs each **optional** peer that is on the
@@ -175,7 +176,7 @@ All of them are in `AGENTS.md` with the detail; the short forms:
   must resolve against the **package root**: the bundle is `dist/index.js` and
   the source is `src/<dir>/<file>.ts`, so no fixed relative depth serves both
   layouts.
-- **`typescript` stays `^6.0.3` across all twelve.** Raising it in one package
+- **`typescript` stays `^6.0.3` across all eleven.** Raising it in one package
   makes the set unsatisfiable and breaks `@nxgt/shared-openapi` at import.
 - **Registry config lives in `bunfig.toml`, never a `.npmrc`.** A committed
   `.npmrc` expands `${NPM_TOKEN}` to an empty string wherever the variable is

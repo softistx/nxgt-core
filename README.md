@@ -23,7 +23,6 @@ repository is the single copy.
 | `@nxgt/shared-hono` | Hono app factory, auth, `openapi-fetch`, MCP |
 | `@nxgt/shared-graphql` | Yoga / federation, shared SDL, `@check` |
 | `@nxgt/security` | Policy engine — REST and GraphQL evaluators |
-| `@nxgt/openapi-codegen` | Types, Zod 4 validators and typed Hono routes from an OpenAPI 3.1 or 3.2 spec |
 
 Each package's `README.md` is its page on npmjs: what it is, which subpaths it
 exports, how to use it, and what will bite a consumer. Read that page, not
@@ -32,7 +31,7 @@ this table, before importing.
 ## Layering
 
 ```
-shared-logging   shared-openapi   openapi-codegen   (no internal dependencies)
+shared-logging   shared-openapi   (no internal dependencies)
       └─ i18n
            └─ shared
                 ├─ shared-exceptions
@@ -43,9 +42,10 @@ shared-logging   shared-openapi   openapi-codegen   (no internal dependencies)
 ```
 
 `shared-events` and `shared-graphql` sit with the application layer.
-`@nxgt/datasource-rest` moved to
+`@nxgt/openapi-codegen` and `@nxgt/datasource-rest` moved to
 [softistx/nxgt-http](https://github.com/softistx/nxgt-http) on 2026-09-14,
-with its history: it is an integration of the generated OpenAPI operations. There are no cycles and there must not be one.
+with their history, next to the HTTP client and the Hono runtime the
+generated code binds to. There are no cycles and there must not be one.
 
 ## Consuming them
 
@@ -87,3 +87,7 @@ bun changeset        # describe the change, pick the bump
 
 Merging to `develop` opens a "Version Packages" pull request; merging *that*
 publishes to npmjs.
+
+## License
+
+[MIT](LICENSE), for every package.

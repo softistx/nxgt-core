@@ -75,6 +75,8 @@ async function readPackages(): Promise<Pkg[]> {
  *     1.1.0 — two copies in one tree, each registering the `Audit` Mongoose
  *     model, and `OverwriteModelError` on the second. `workspace:^` publishes
  *     as a caret range, which dedupes.
+ *   - a **license other than MIT, or no `LICENSE` in the tarball**. npm only
+ *     ships the `LICENSE` in the package's own directory, never the root's.
  */
 async function manifestProblems(tarballs: string[]): Promise<string[]> {
 	const problems: string[] = [];
@@ -86,6 +88,15 @@ async function manifestProblems(tarballs: string[]): Promise<string[]> {
 		const manifest = JSON.parse(raw);
 		manifests.push(manifest);
 		own.add(manifest.name);
+		if (manifest.license !== 'MIT') {
+			problems.push(
+				`${manifest.name}: license is ${manifest.license}, not MIT`,
+			);
+		}
+		const entries = (await $`tar -tzf ${tgz}`.quiet().text()).split('\n');
+		if (!entries.includes('package/LICENSE')) {
+			problems.push(`${manifest.name}: the tarball has no LICENSE`);
+		}
 	}
 
 	for (const manifest of manifests) {
@@ -158,14 +169,15 @@ try {
 		for (const problem of problems) console.error(`  ${problem}`);
 		console.error(
 			'\nA `link:` or `file:` no consumer can resolve, a required peer that is\n' +
-				'on no registry, or an exact pin on a sibling. See AGENTS.md.',
+				'on no registry, an exact pin on a sibling, or a license other than\n' +
+				'MIT or no LICENSE shipped. See AGENTS.md.',
 		);
 		process.exit(1);
 	}
 
 	// An optional peer is installed only by whoever asks for it, so ask for each
-	// one: `@nxgt/openapi-codegen/hono` then loads because `hono` is installed
-	// on purpose, not because another package's peer happened to hoist it. One
+	// one: a subpath that needs it then loads because it is installed on
+	// purpose, not because another package's peer happened to hoist it. One
 	// on no registry is left out, as the manifest check above allows.
 	const optionalPeers: Record<string, string> = {};
 	for (const tgz of tarballs) {
