@@ -1,6 +1,6 @@
 {
 	"name": "@nxgt/shared-graphql",
-	"version": "1.5.1",
+	"version": "1.5.2",
 	"license": "MIT",
 	"type": "module",
 	"main": "./dist/index.js",
