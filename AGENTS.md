@@ -10,11 +10,12 @@ depend on. Until 2026-09-06 each monorepo carried its own copy under
 `shared` by ~260. This repository is the single copy, published to GitHub
 Packages.
 
-It holds twelve packages: the nine extracted from `sellix-monorepo`, the two
-that existed only in `nxgt-federation` — `shared-events`, `shared-graphql` —
-and `openapi-codegen`, written here. A third from `nxgt-federation`,
-`datasource-rest`, moved to `softistx/nxgt-http` on 2026-09-14, with its
-history.
+It holds eleven packages: the nine extracted from `sellix-monorepo` and the two
+that existed only in `nxgt-federation` — `shared-events`, `shared-graphql`. A
+third from `nxgt-federation`, `datasource-rest`, moved to `softistx/nxgt-http`
+on 2026-09-14, with its history. `openapi-codegen`, written here and published
+from here at 0.1.0, followed it there the same day: its releases from 0.2.0 on
+come from nxgt-http.
 
 Nothing here imports application code. The dependency runs one way: apps depend
 on these packages, never the reverse.
@@ -22,7 +23,7 @@ on these packages, never the reverse.
 ## Layering
 
 ```
-shared-logging   shared-openapi   openapi-codegen   (no internal dependencies)
+shared-logging   shared-openapi   (no internal dependencies)
       └─ i18n
            └─ shared
                 ├─ shared-exceptions
@@ -409,7 +410,7 @@ the build on an exact sibling pin, so a new package cannot reintroduce it.
 
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
-All twelve declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+All eleven declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
 `~7.0.2`, which is not a preference difference — the ranges are mutually
 unsatisfiable, so a consumer installing the set gets a peer conflict, and if
 TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
@@ -429,18 +430,29 @@ CI enforces two things a green build does not:
   changeset is a change that never reaches a consumer, because the release
   workflow has nothing to version. Use `bun changeset --empty` when that is
   genuinely intended, and say why.
-- **`bun run verify:artifacts`** — packs the twelve, installs them the way a
+- **`bun run verify:artifacts`** — packs the eleven, installs them the way a
   consumer does, imports every subpath each package declares, and rejects a
   manifest that would break an install — a `link:` or `file:` in a field a
-  consumer resolves, or a **required** peer that is on no registry. It reads
+  consumer resolves, or a **required** peer that is on no registry — and a
+  package that is not MIT or ships no `LICENSE`. It reads
   the subpath list from each
   `exports` map, so a new entry point is covered as soon as it is declared.
   `changeset:publish` runs it too, so a broken artifact cannot be published.
 
+### Every package is MIT, and ships its own `LICENSE`
+
+The root `LICENSE` is MIT, and each `packages/*/` holds a copy, named in
+`files`: npm ships only the `LICENSE` in the package's own directory, never
+the root's. A new package copies it and declares `"license": "MIT"`. Change
+the copies together. `@nxgt/material` is the exception the licence is about,
+and it is not a package of this repository.
+
 ### Bins and optional peers
 
-`@nxgt/openapi-codegen` is the first package with a `bin` and with optional
-peers, and both are checked on the artifact, not the source:
+`@nxgt/openapi-codegen` was the first package here with a `bin` and with
+optional peers; it now lives in `softistx/nxgt-http`, and no package here has
+either today. The checks stay, for the next one, and both run on the
+artifact, not the source:
 
 - **A bin runs as a file.** `build.ts` refuses a `bin` target that is missing
   or lacks its `#!` line, and marks each one executable; `verify:artifacts`
@@ -448,11 +460,12 @@ peers, and both are checked on the artifact, not the source:
   fails on a non-zero exit.
 - **An optional peer is installed on purpose.** A consumer gets one only by
   asking for it, so `verify:artifacts` adds every optional peer that is on
-  the registry to its probe project. `@nxgt/openapi-codegen/hono` therefore
-  loads because `hono` was requested, not because another package's peer
+  the registry to its probe project. A subpath that needs one therefore
+  loads because the peer was requested, not because another package's peer
   happened to hoist it. Code that needs an optional peer must import it
-  only on the path that uses it (`lint` imports `@redocly/openapi-core`
-  dynamically), so the rest of the package loads without it.
+  only on the path that uses it (codegen's `lint` imported
+  `@redocly/openapi-core` dynamically), so the rest of the package loads
+  without it.
 
 Publishing goes through **`bun publish`**, never `npm publish` — Bun is the
 package manager for this repo, and `bun pm pack` is what rewrites `workspace:*`
