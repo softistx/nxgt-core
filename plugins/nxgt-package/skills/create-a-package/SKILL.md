@@ -70,6 +70,11 @@ packages/<name>/
   .gitignore
   README.md
   LICENSE               ← a copy of the root LICENSE: npm ships only the package's own
+  docs/
+    README.md           ← index of the pages below
+    troubleshooting.md
+    roadmap.md
+    guide/<area>.md     ← once an area needs more than the README's example
   src/
     index.ts            ← the entry point
     <feature>/
@@ -110,7 +115,7 @@ every package and should stay that way:
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "package.json", "LICENSE"],
+  "files": ["dist", "docs", "README.md", "package.json", "LICENSE"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
     "./package.json": "./package.json"
@@ -189,7 +194,7 @@ font — anything that is not code — must live in its **own top-level director
 and be named in `files`:
 
 ```jsonc
-"files": ["dist", "graphql", "README.md", "package.json", "LICENSE"]
+"files": ["dist", "graphql", "docs", "README.md", "package.json", "LICENSE"]
 ```
 
 `@nxgt/shared-graphql` published its resolvers without the SDL they resolve for
@@ -233,6 +238,12 @@ and five of those carried the *wrong package name* in the `#` heading.
 State what the package is, list its subpaths in a table, show the install, and
 write down the traps a consumer will otherwise hit. See
 `packages/shared-mongo/README.md`.
+
+`docs/` is the long version: the `documentation-writer`,
+`troubleshooting-writer` and `roadmap-keeper` agents (plugin `nxgt-docs`)
+write it from the exports, the specs and the errors the package throws, and
+`documentation-auditor` checks it. A new package starts with at least
+`docs/troubleshooting.md` and `docs/roadmap.md`.
 
 ---
 
