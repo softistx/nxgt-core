@@ -31,17 +31,23 @@ this table, before importing.
 ## Layering
 
 ```
-shared-logging   shared-openapi   (no internal dependencies)
-      └─ i18n
-           └─ shared
-                ├─ shared-exceptions
-                └─ shared-mongo
-                     ├─ shared-storage
-                     ├─ shared-hono
-                     └─ security
+shared-logging   shared-openapi   shared-events   i18n   (no internal dependencies)
+
+package             depends on
+shared-exceptions   i18n
+shared              shared-logging, shared-events
+shared-mongo        shared, shared-exceptions, i18n, shared-logging
+security            shared, shared-exceptions, shared-logging
+shared-storage      shared-mongo, shared, shared-exceptions, i18n, shared-logging
+shared-hono         shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
+shared-graphql      shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
 ```
 
-`shared-events` and `shared-graphql` sit with the application layer.
+Each row is a package's direct `@nxgt/*` dependencies, and names only rows
+above it. The manifests are the source of truth:
+`grep -n '"@nxgt/' packages/*/package.json`.
+
+`shared-graphql` sits with the application layer.
 `@nxgt/openapi-codegen` and `@nxgt/datasource-rest` moved to
 [softistx/nxgt-http](https://github.com/softistx/nxgt-http) on 2026-09-14,
 with their history, next to the HTTP client and the Hono runtime the

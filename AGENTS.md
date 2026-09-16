@@ -7,8 +7,8 @@ Instructions for any coding agent working in `nxgt-core`.
 The shared `@nxgt/*` packages that `sellix-monorepo` and `nxgt-federation` both
 depend on. Until 2026-09-06 each monorepo carried its own copy under
 `packages/`, and the copies had forked: `shared-mongo` differed by ~1430 lines,
-`shared` by ~260. This repository is the single copy, published to GitHub
-Packages.
+`shared` by ~260. This repository is the single copy, published to the public
+npm registry.
 
 It holds eleven packages: the nine extracted from `sellix-monorepo` and the two
 that existed only in `nxgt-federation` — `shared-events`, `shared-graphql`. A
@@ -23,15 +23,21 @@ on these packages, never the reverse.
 ## Layering
 
 ```
-shared-logging   shared-openapi   (no internal dependencies)
-      └─ i18n
-           └─ shared
-                ├─ shared-exceptions
-                └─ shared-mongo
-                     ├─ shared-storage
-                     ├─ shared-hono
-                     └─ security
+shared-logging   shared-openapi   shared-events   i18n   (no internal dependencies)
+
+package             depends on
+shared-exceptions   i18n
+shared              shared-logging, shared-events
+shared-mongo        shared, shared-exceptions, i18n, shared-logging
+security            shared, shared-exceptions, shared-logging
+shared-storage      shared-mongo, shared, shared-exceptions, i18n, shared-logging
+shared-hono         shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
+shared-graphql      shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
 ```
+
+Each row is a package's direct `@nxgt/*` dependencies, and names only rows
+above it. The manifests are the source of truth:
+`grep -n '"@nxgt/' packages/*/package.json`.
 
 **There are no cycles and there must not be one.** A published package cannot
 depend on a package that depends back on it — the version bump has no fixed
@@ -536,7 +542,11 @@ Established here, and applying to all four repositories:
   read by someone who has never seen this repository and does not know the
   private applications that consume it. Organize by section, each with a
   concise copy-paste example; never name a private app, a private monorepo,
-  or "the parc" there — those names belong in this file. The bar is
+  or "the parc" there — those names belong in this file. The long version
+  is the package's `docs/` folder, named in `files` — none has one yet;
+  the `nxgt-docs` agents write it: guide pages with the
+  detail and an example for each point, `troubleshooting.md` headed by the
+  exact error a consumer sees, and `roadmap.md`, with no dates. The bar is
   `keep-docs-current`. Ten of the twelve shipped `bun init` boilerplate
   until 2026-09-06, five of those under the wrong package name.
 
