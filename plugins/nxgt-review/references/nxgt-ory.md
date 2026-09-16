@@ -54,7 +54,7 @@ The reviewer may run all four above. Do **not** run `bun run test` (it needs a l
 ## Layering and packaging
 
 - There is one private workspace (`nxgt-ory`, `private: true`) with a single app, `kratos/` (`kratos-ui`, also private). Nothing is published: there are no changesets and no release flow.
-- `stx-sdk` (`^1.1.0`) and `@nxgt/material` (`^1.0.0`) resolve from public npmjs with no token. A `link:` dependency or a registry credential for either is a regression. Ignore the stale `link:` wording in AGENTS.md's "Related repositories" table: its invariant sections say both packages have been on npmjs since 2026-09-07.
+- `stx-sdk` (`^1.1.0`) and `@nxgt/material` (`^1.0.0`) resolve from public npmjs with no token. A `link:` dependency or a registry credential for either is a regression. AGENTS.md's "Related repositories" table still says `link:`; its invariant sections say both packages have been on npmjs since 2026-09-07. Follow the invariant sections, and report the stale table once as a documentation finding.
 - In the app, only `stx-sdk/kratos` and `stx-sdk/ory/*` are used. `stx-sdk/oauth/react` and `stx-sdk/oauth/react/server` must not be imported: the app has exactly one identity system. stx-sdk code is imported only from `.server.ts` modules and as types; report a client-side import.
 - Server-only code lives in `*.server.ts`. Report any admin/tuples client, or any `serverEnv` read, that reaches client code.
 - Consumers (`sellix-monorepo`, `nxgt-federation`) reach this stack only by URL on the `proxy` network. Report any import or path reference into those repos.

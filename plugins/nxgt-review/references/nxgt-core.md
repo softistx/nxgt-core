@@ -111,10 +111,13 @@ From the table in `AGENTS.md`:
 
 ## Layering and packaging
 
-- Layers: `shared-logging` and `shared-openapi` have no internal dependency;
-  `i18n` → `shared` → `shared-exceptions`, `shared-mongo` → `shared-storage`,
-  `shared-hono`, `security`. `shared-events` and `shared-graphql` sit with
-  the application layer.
+- Layers: `shared-logging`, `shared-openapi` and `shared-events` have no
+  internal dependency; `i18n` → `shared` (which depends on `shared-events`)
+  → `shared-exceptions`, `shared-mongo` → `shared-storage`, `shared-hono`,
+  `security`. `shared-graphql` sits on top, with the application layer.
+  The manifests are the truth where the `AGENTS.md` diagram is less precise:
+  check `grep -n '"@nxgt/' packages/*/package.json` before reporting a
+  layering finding.
 - Changesets, independent versions. `develop` opens the "Version packages"
   PR; merging it publishes through `scripts/publish.ts` and `bun publish`,
   never `changeset publish` or `npm publish`.

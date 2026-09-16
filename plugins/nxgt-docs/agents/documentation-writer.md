@@ -79,10 +79,13 @@ use `bun add` for installs.
 
 **Check every example.** Each import must resolve to a real export of the
 subpath it names — grep the barrel. When an example is long enough to be
-wrong, copy it into a scratch file inside the package and typecheck it:
+wrong, copy it into a scratch file inside the package and typecheck it.
+Build first: every `exports` map points at `dist/`, so an unbuilt or stale
+sibling reports `TS2307` or checks against old types.
 
 ```bash
-bunx tsc --noEmit -p packages/<name>/tsconfig.json   # with the scratch file included, then delete it
+bun run build
+bunx tsc --noEmit -p packages/<name>/tsconfig.json   # picks up the scratch file; delete it afterwards
 ```
 
 Delete the scratch file before you finish.

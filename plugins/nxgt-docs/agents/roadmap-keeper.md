@@ -54,8 +54,10 @@ For each package:
    `changeset status` says it will produce:
 
    ```bash
-   bun changeset status --verbose 2>/dev/null || true
+   bun run changeset:status -- --verbose
    ```
+
+   A non-zero exit is not "nothing pending" — say it in the report.
 
 4. **What is asked for** — open issues, when the repository is on GitHub:
 

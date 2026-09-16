@@ -85,9 +85,10 @@ the symptom.
 Run the parts of the green bar the reference allows, and nothing it forbids —
 some suites write to a database, some need a live stack, some scripts
 publish or write files. When a check fails, re-run it on `origin/develop`
-(a `git worktree add` in your scratch directory, never a checkout of the
-caller's tree) before calling it a regression. A failure that is already on
-`develop` is still reported, as such.
+(`git worktree add "$(mktemp -d)" origin/develop`, removed with
+`git worktree remove` when done — never a checkout of the caller's tree)
+before calling it a regression. A failure that is already on `develop` is
+still reported, as such.
 
 ## The invariants come first
 

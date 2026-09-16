@@ -537,7 +537,8 @@ Established here, and applying to all four repositories:
   private applications that consume it. Organize by section, each with a
   concise copy-paste example; never name a private app, a private monorepo,
   or "the parc" there — those names belong in this file. The long version
-  is the package's `docs/` folder, named in `files`: guide pages with the
+  is the package's `docs/` folder, named in `files` — none has one yet;
+  the `nxgt-docs` agents write it: guide pages with the
   detail and an example for each point, `troubleshooting.md` headed by the
   exact error a consumer sees, and `roadmap.md`, with no dates. The bar is
   `keep-docs-current`. Ten of the twelve shipped `bun init` boilerplate

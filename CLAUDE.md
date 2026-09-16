@@ -35,8 +35,9 @@ that goes stale — which is the whole reason these moved.
 
 Adding a skill that is genuinely only about this repository still means
 `.claude/skills/<name>/SKILL.md`, which takes precedence over anything a plugin
-provides. Adding one the other repositories should have means `plugins/`, and a
-version bump in `.claude-plugin/marketplace.json`.
+provides. Adding one the other repositories should have means `plugins/`, a
+`version` bump in that plugin's `.claude-plugin/plugin.json`, and — for a new
+plugin — an entry in `.claude-plugin/marketplace.json`.
 
 `code-reviewer` works the same way: `plugins/nxgt-review/references/<repo>.md`
 holds what it checks in each repository, and `references/nxgt-core.md` is this
