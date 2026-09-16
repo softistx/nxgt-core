@@ -39,15 +39,21 @@ Decide this before writing any code, because it is the one thing that cannot be
 fixed later without a coordinated release:
 
 ```
-shared-logging   shared-openapi   (no internal dependencies)
-      └─ i18n
-           └─ shared
-                ├─ shared-exceptions
-                └─ shared-mongo
-                     ├─ shared-storage
-                     ├─ shared-hono
-                     └─ security
+shared-logging   shared-openapi   shared-events   i18n   (no internal dependencies)
+
+package             depends on
+shared-exceptions   i18n
+shared              shared-logging, shared-events
+shared-mongo        shared, shared-exceptions, i18n, shared-logging
+security            shared, shared-exceptions, shared-logging
+shared-storage      shared-mongo, shared, shared-exceptions, i18n, shared-logging
+shared-hono         shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
+shared-graphql      shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
 ```
+
+Each row is a package's direct `@nxgt/*` dependencies, and names only rows
+above it. The manifests are the source of truth:
+`grep -n '"@nxgt/' packages/*/package.json`.
 
 **A cycle is fatal, not untidy.** Two packages that depend on each other have no
 version bump with a fixed point, and changesets cannot order the release.
