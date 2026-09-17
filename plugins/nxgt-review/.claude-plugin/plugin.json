@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-review",
 	"displayName": "nxgt review",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "A read-only code reviewer for every nxgt repository: measured structure, the invariants each repository's AGENTS.md argues for, layering and packaging — reported, never edited.",
 	"author": { "name": "softistx" }
 }
