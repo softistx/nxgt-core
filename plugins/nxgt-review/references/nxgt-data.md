@@ -1,6 +1,6 @@
 # `code-reviewer` in nxgt-data
 
-nxgt-data is the Bun workspace behind the public `@nxgt/*` data-access packages: `@nxgt/drizzle` (with the `./pg` dialect subpath), `@nxgt/meilisearch` and `@nxgt/mongo`, published to npmjs with changesets. Its promise is type safety that is **measured** — what the compiler rejects, proved by `@ts-expect-error` cases — and specs that run against real servers. The worst defects here compile and pass: a refusal the types no longer make, a factory that grew a closure back, a stamp name spelled out as a literal, two copies of a driver class.
+nxgt-data is the Bun workspace behind the public `@nxgt/*` data-access packages: `@nxgt/drizzle` (with the `./pg` dialect subpath), `@nxgt/meilisearch`, `@nxgt/mongo` (with the `./migrations` subpath) and the bridge `@nxgt/mongo-meilisearch`, published to npmjs with changesets. Its promise is type safety that is **measured** — what the compiler rejects, proved by `@ts-expect-error` cases — and specs that run against real servers. The worst defects here compile and pass: a refusal the types no longer make, a factory that grew a closure back, a stamp name spelled out as a literal, two copies of a driver class.
 
 ## Measure
 
@@ -24,8 +24,9 @@ You may run the measure commands, `biome ci`, `build`, `typecheck` and `verify:a
 
 ## Invariants
 
-- **Every package is standalone.** No package depends on a sibling unless it declares it by `workspace:^` and imports it by its published name; no tsconfig `paths` to a sibling, no relative import into one, and **no cycle, devDependencies included**.
+- **Every package is standalone.** No package depends on a sibling unless it declares it by `workspace:^` and imports it by its published name; no tsconfig `paths` to a sibling, no relative import into one, and **no cycle, devDependencies included**. Only `@nxgt/mongo-meilisearch` depends on siblings, both as required peers; an import of one sibling from `@nxgt/mongo` or `@nxgt/meilisearch` is a finding — a bridge is a third package.
   `grep -n '"@nxgt/' packages/*/package.json; grep -rn "from '\.\./\.\./\.\./" packages/*/src`
+- **`@nxgt/mongo/migrations` is a subpath, not a package.** `src/migrations/` imports the rest of `@nxgt/mongo`; nothing else imports it.
 - **A dialect is a subpath, not a package.** What is dialect-free (errors, cursor, page shapes) lives in `@nxgt/drizzle` itself, and every dialect throws those same classes.
 - **One driver, one `ObjectId`.** The `mongodb` devDependency pin stays inside the range `mongodb-memory-server-core` depends on; a tree with two drivers is a finding.
   `ls node_modules/.bun | grep '^mongodb@'`
@@ -40,7 +41,9 @@ You may run the measure commands, `biome ci`, `build`, `typecheck` and `verify:a
 - **`@nxgt/mongo`: subjects import one way.** In `src/collection/`, `operations/` never imports `hooks/`; only `get-collection.ts` and `types.ts` reach into every subject; the one root import of a subject is `context.ts` → `hooks/sets`.
   `grep -rn "from '\.\./hooks" packages/mongo/src/collection/operations`
 - **A refactor leaves the specs alone.** A spec that changed in a `chore:` commit means behaviour moved. A refactor is its own PR, with a patch changeset, and identical test counts on both sides.
-- **A package keeps its own errors**, and depends on no exception package.
+- **A package keeps its own errors**, and depends on no exception package. The bridge throws `SearchSyncError`, wrapping its siblings' errors as `cause`.
+- **`@nxgt/mongo-meilisearch`: the context holds data**, plus the caller's `transform` and `toIndexId` as given; the one widening from the caller's types is in `create-search-sync.ts`. An `as never` elsewhere is a finding.
+- **`@nxgt/mongo-meilisearch`: nothing is recorded that was not sent.** A resume point is saved only after the batch it covers is applied, or, with nothing to send and no change being handled, from the subscription's `position`. A `saveState` that could run before its `send`, or while a change is in its handler, is a finding: the change would never be sent again.
 
 ## Structure
 
@@ -55,13 +58,14 @@ From the table in `AGENTS.md`:
 
 - `LICENSE` at the root and in each `packages/*/`.
 - `build.ts`, `scripts/`, `.github/`, `biome.json`, `bunfig.toml`, copied from nxgt-http.
+- `test/mongo.ts` and `test/meilisearch.ts` in `@nxgt/mongo-meilisearch`, copies of its siblings' `test/server.ts`. Do report a `MONGOD_VERSION` that differs between the two mongo copies.
 - `pagination/page.ts` and `pagination/cursor.ts` in both `@nxgt/drizzle` and `@nxgt/mongo`. Do report a fix made in one and not the other. `errors/data-error.ts` is **not** a copy: the classes differ.
 - `@nxgt/drizzle`'s `pg/repository/` still being a factory: it is split when next opened for a real change, never in the same PR as a behaviour change.
 - `syncIndex`'s `TASK_FAILED` and `index_already_exists` branches covered by a scripted client: Meilisearch cannot be made to fail a settings task.
 
 ## Layering and packaging
 
-- Three standalone packages; `@nxgt/drizzle/pg` is a subpath of the first.
+- Three standalone packages and one bridge on two of them; `@nxgt/drizzle/pg` and `@nxgt/mongo/migrations` are subpaths.
 - Changesets, independent versions, `bun publish` through `scripts/publish.ts`; registry configuration in `bunfig.toml`, never `.npmrc`.
 - Every package public (never `private: true`), MIT, with its own `LICENSE`; `typescript` is `^6.0.3` everywhere; siblings by `workspace:^`.
 - A README is the npm page: sections with an example each, an **API**, a **What does not compile** list where the package has one, and a **Traps** section; no private name.
