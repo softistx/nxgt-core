@@ -1,5 +1,13 @@
 # @nxgt/shared-exceptions
 
+## 1.0.4
+
+### Patch Changes
+
+- [#85](https://github.com/softistx/nxgt-core/pull/85) [`4704393`](https://github.com/softistx/nxgt-core/commit/4704393e3e980e05002d1da52c84055e53fa5c38) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Licensed MIT: the package ships a LICENSE file. It was `UNLICENSED` before, which gave no one the right to use it.
+- Updated dependencies [[`4704393`](https://github.com/softistx/nxgt-core/commit/4704393e3e980e05002d1da52c84055e53fa5c38)]:
+  - @nxgt/i18n@1.0.4
+
 ## 1.0.3
 
 ### Patch Changes
