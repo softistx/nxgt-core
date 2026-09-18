@@ -414,6 +414,21 @@ first install without anyone noticing.
 `workspace:^` publishes as `^1.0.0`, which dedupes. `verify-artifacts.ts` fails
 the build on an exact sibling pin, so a new package cannot reintroduce it.
 
+**And the range is substituted from `bun.lock`, not from the sibling's
+`package.json`.** `changeset version` rewrites every manifest and leaves the
+lockfile untouched, so a publish that follows it directly ships yesterday's
+numbers: `@nxgt/shared-graphql@2.0.0` and `@nxgt/shared-hono@3.0.0` went to the
+registry asking for `@nxgt/security@^3.2.1` while their `dist` imported the
+4.0.0 API. Every range was a well-formed caret, the install succeeded and the
+types checked — and the consumer got both majors, the 3.2.1 copy still reaching
+`stx-sdk/ory`, so `OryUnavailable` crossed a class boundary and an Ory outage
+answered 500 instead of 503.
+
+`changeset:version` is therefore `changeset version && bun install`, and the
+**updated `bun.lock` belongs in the Version Packages PR**. `verify-artifacts.ts`
+fails any tarball whose sibling range excludes the sibling being published
+beside it, which is the check that would have caught it.
+
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
 All eleven declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on

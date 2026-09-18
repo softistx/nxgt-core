@@ -75,19 +75,27 @@ async function readPackages(): Promise<Pkg[]> {
  *     1.1.0 — two copies in one tree, each registering the `Audit` Mongoose
  *     model, and `OverwriteModelError` on the second. `workspace:^` publishes
  *     as a caret range, which dedupes.
+ *   - a **sibling range that excludes the sibling being published beside it**.
+ *     `workspace:^` is substituted from `bun.lock`, not from the sibling's
+ *     `package.json`, so a `changeset version` that is not followed by a
+ *     `bun install` publishes yesterday's numbers: `@nxgt/shared-graphql@2.0.0`
+ *     went out asking for `@nxgt/security@^3.2.1` while its own `dist` imported
+ *     the 4.0.0 API. The install succeeds, the types check, and the consumer
+ *     quietly gets both majors. Nothing else here catches that, because every
+ *     range involved is a well-formed caret.
  *   - a **license other than MIT, or no `LICENSE` in the tarball**. npm only
  *     ships the `LICENSE` in the package's own directory, never the root's.
  */
 async function manifestProblems(tarballs: string[]): Promise<string[]> {
 	const problems: string[] = [];
-	const own = new Set<string>();
+	const own = new Map<string, string>();
 	const manifests: Record<string, unknown>[] = [];
 
 	for (const tgz of tarballs) {
 		const raw = await $`tar -xzOf ${tgz} package/package.json`.quiet().text();
 		const manifest = JSON.parse(raw);
 		manifests.push(manifest);
-		own.add(manifest.name);
+		own.set(manifest.name, manifest.version);
 		if (manifest.license !== 'MIT') {
 			problems.push(
 				`${manifest.name}: license is ${manifest.license}, not MIT`,
@@ -117,6 +125,14 @@ async function manifestProblems(tarballs: string[]): Promise<string[]> {
 					problems.push(
 						`${name}: ${field}.${dep} = ${range} pins a sibling exactly; ` +
 							'use `workspace:^` so the consumer gets one copy',
+					);
+				}
+				const sibling = own.get(dep);
+				if (sibling && !Bun.semver.satisfies(sibling, String(range))) {
+					problems.push(
+						`${name}: ${field}.${dep} = ${range} excludes ${dep}@${sibling}, ` +
+							'which is being published beside it; run `bun install` after ' +
+							'`changeset version` so `bun.lock` carries the new numbers',
 					);
 				}
 			}
