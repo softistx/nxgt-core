@@ -1,5 +1,11 @@
 # @nxgt/shared-openapi
 
+## 2.0.2
+
+### Patch Changes
+
+- [#85](https://github.com/softistx/nxgt-core/pull/85) [`4704393`](https://github.com/softistx/nxgt-core/commit/4704393e3e980e05002d1da52c84055e53fa5c38) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Licensed MIT: the package ships a LICENSE file. It was `UNLICENSED` before, which gave no one the right to use it.
+
 ## 2.0.1
 
 ### Patch Changes
