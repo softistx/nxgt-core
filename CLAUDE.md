@@ -27,6 +27,7 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-ory-app` | `create-ory-native-rest-api`, `create-ory-native-graphql-api`, `create-ory-native-ui`, `admin-screen-pattern` |
 | `nxgt-docs` | `keep-docs-current`; agents `documentation-writer`, `troubleshooting-writer`, `roadmap-keeper`, `documentation-auditor` |
 | `nxgt-review` | `review-before-a-pr`; agent `code-reviewer`, with a `references/<repo>.md` per repository |
+| `nxgt-api` | `build-a-bun-hono-api` |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
 frontmatter, which is what decides when it fires, and `claude plugin details

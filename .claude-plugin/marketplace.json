@@ -24,6 +24,10 @@
 		{
 			"name": "nxgt-review",
 			"source": "./plugins/nxgt-review"
+		},
+		{
+			"name": "nxgt-api",
+			"source": "./plugins/nxgt-api"
 		}
 	]
 }
