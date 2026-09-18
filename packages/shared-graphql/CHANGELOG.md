@@ -1,5 +1,23 @@
 # @nxgt/shared-graphql
 
+## 2.0.1
+
+### Patch Changes
+
+- [#92](https://github.com/softistx/nxgt-core/pull/92) [`70ca700`](https://github.com/softistx/nxgt-core/commit/70ca700bec2ce5553a7574b891a5c2fe6ce6f62b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Ask for `@nxgt/security@^4.0.0`, the major these packages are actually built
+  against.
+  
+  `workspace:^` is substituted at pack time from `bun.lock`, not from the
+  sibling's `package.json`. `changeset version` rewrites the manifests and leaves
+  the lockfile alone, so 2.0.0 and 3.0.0 went to the registry asking for
+  `@nxgt/security@^3.2.1` while their `dist` imported the 4.0.0 API. A consumer
+  installed both majors: the 3.2.1 copy still reaches `stx-sdk/ory`, so
+  `OryUnavailable` crossed a class boundary and a Kratos or Keto outage answered
+  500 instead of 503.
+  
+  `changeset:version` now runs `bun install`, and `verify:artifacts` fails a
+  tarball whose sibling range excludes the sibling being published beside it.
+
 ## 2.0.0
 
 ### Major Changes
