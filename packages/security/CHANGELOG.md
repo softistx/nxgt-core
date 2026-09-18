@@ -116,7 +116,7 @@
   
   Everything else is shared in code — `evaluateKetoRungs` walks the rungs,
   short-circuits and maps denials for both evaluators, over the one
-  `evaluateRequirement` from `stx-sdk/ory`.
+  `evaluateRequirement` from `@nxgt/ory-sdk`.
   
   **Breaking:** `evaluateGraphql` is now `async`, like `evaluateRest`. Callers
   using `applyGraphqlPolicy` need no code change.
@@ -145,7 +145,7 @@
   `onDeny` and `message`. Two rungs, `view` then `edit`, is the 404-then-403
   ladder, written where the rest of the route's policy already lives.
   
-  The DNF walk is `evaluateRequirement` from `stx-sdk/ory`, not a copy, so the
+  The DNF walk is `evaluateRequirement` from `@nxgt/ory-sdk`, not a copy, so the
   rules file and the two existing mechanisms cannot come to disagree.
   
   **Breaking:** `evaluateRest` is now `async` — a Keto term is a remote question.

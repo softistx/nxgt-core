@@ -159,7 +159,7 @@
   and evaluated in declaration order with their own `onDeny`, which is how a
   denial stays a **404 for a stranger** (an id cannot be probed) and a **403 for
   a viewer** (who already knows the object exists). The evaluator itself is
-  `stx-sdk/ory`'s, so the two cannot drift.
+  `@nxgt/ory-sdk`'s, so the two cannot drift.
   
   `@nxgt/shared-graphql` adds `useKetoChecks(ory)`, `applyKetoChecks(schema)` and
   the SDL in `graphql/directives/check.graphqls` — shipped, so any schema built

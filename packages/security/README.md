@@ -330,7 +330,7 @@ the guard. That loader memoises by Keto's own `Bookmark:b1#view@idn-7`
 notation, so the same question asked by the rules file and again by a
 `ketoCheck()` on the route costs one round trip.
 
-The DNF walk itself is `evaluateRequirement` from `stx-sdk/ory`, not a copy —
+The DNF walk itself is `evaluateRequirement` from `@nxgt/ory-sdk`, not a copy —
 so the rules file, `@check` and `ketoCheck()` cannot disagree about
 `[[A, B], [C]]`.
 

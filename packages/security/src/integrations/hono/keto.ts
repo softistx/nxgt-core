@@ -1,10 +1,10 @@
-import type { Context } from 'hono';
 import {
 	evaluateRequirement,
 	type PermissionTerm as OryPermissionTerm,
 	type Permission,
 	type Subject,
-} from 'stx-sdk/ory';
+} from '@nxgt/ory-sdk';
+import type { Context } from 'hono';
 import type { PermissionTerm, PolicySubject } from '../../policy';
 import type { PolicyPermissions } from './policy-guard';
 
@@ -35,7 +35,7 @@ void _termsMatch;
  *   notation, so the same question asked by the rules file and again by a
  *   `ketoCheck()` on the route costs one round trip between them.
  *
- * `evaluateRequirement` comes from `stx-sdk/ory` rather than being rewritten
+ * `evaluateRequirement` comes from `@nxgt/ory-sdk` rather than being rewritten
  * here, so the rules file, the `@check` directive and `ketoCheck()` all walk
  * the same DNF and cannot come to disagree about what `[[A, B], [C]]` means.
  *

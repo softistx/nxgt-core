@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { Ory, OryPrincipal } from 'stx-sdk/ory';
-import { OryUnavailable } from 'stx-sdk/ory';
+import type { Ory, OryPrincipal } from '@nxgt/ory-sdk';
+import { OryUnavailable } from '@nxgt/ory-sdk';
 import { resolveOryPrincipal } from './ory-auth';
 
 const expiry = new Date('2026-09-07T12:00:00.000Z');

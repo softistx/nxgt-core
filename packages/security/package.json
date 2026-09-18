@@ -89,14 +89,14 @@
 	},
 	"devDependencies": {
 		"@types/bun": "^1.4.0",
-		"stx-sdk": ">=1.1.0"
+		"@nxgt/ory-sdk": ">=0.1.0"
 	},
 	"peerDependencies": {
-		"stx-sdk": ">=1.1.0",
+		"@nxgt/ory-sdk": ">=0.1.0",
 		"typescript": "^6.0.3"
 	},
 	"peerDependenciesMeta": {
-		"stx-sdk": {
+		"@nxgt/ory-sdk": {
 			"optional": true
 		}
 	}
