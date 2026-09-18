@@ -1,15 +1,15 @@
+import {
+	bearerOf,
+	type Ory,
+	type OryPrincipal,
+	OryUnavailable,
+} from '@nxgt/ory-sdk';
 import { claimsFromOryPrincipal } from '@nxgt/security/integrations/ory';
 import { type Principal, USER_HEADERS } from '@nxgt/shared/models';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
 import type { ErrorHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import {
-	bearerOf,
-	type Ory,
-	type OryPrincipal,
-	OryUnavailable,
-} from 'stx-sdk/ory';
 import { env } from '../env';
 import { principalFromMockHeaders } from '../utils/test.utils';
 

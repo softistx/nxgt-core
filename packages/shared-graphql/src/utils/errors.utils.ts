@@ -8,12 +8,12 @@ import {
 	type TranslationContext,
 	translate as translateBase,
 } from '@nxgt/i18n';
+import { OryUnavailable } from '@nxgt/ory-sdk';
 import { CustomException, ErrorCode } from '@nxgt/shared-exceptions';
 import { MONGO_UTILS, mongoose } from '@nxgt/shared-mongo';
 import { GraphQLError, type GraphQLErrorOptions } from 'graphql';
 import type { MaskError } from 'graphql-yoga';
 import { kebabCase } from 'lodash';
-import { OryUnavailable } from 'stx-sdk/ory';
 import type { GraphQLBaseContext } from '../types';
 
 export function createGraphQLError(
@@ -105,7 +105,7 @@ const HTTP_STATUS_BY_CODE: Record<string, number> = {
  * turns one into a `GraphQLError` with the translated message, the
  * exception's `code` in `extensions`, and a matching HTTP status; a Mongoose
  * error goes through `castError` first, as `createFormatError` does for
- * Apollo. `OryUnavailable` (stx-sdk/ory) becomes a 503 `SERVICE_UNAVAILABLE`,
+ * Apollo. `OryUnavailable` (@nxgt/ory-sdk) becomes a 503 `SERVICE_UNAVAILABLE`,
  * never a denial. Everything else is masked exactly as before.
  *
  *     createYoga({ maskedErrors: { maskError: createMaskError(translate) } })

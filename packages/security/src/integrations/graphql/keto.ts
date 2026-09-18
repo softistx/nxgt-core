@@ -3,7 +3,7 @@ import {
 	type PermissionTerm as OryPermissionTerm,
 	type Permission,
 	type Subject,
-} from 'stx-sdk/ory';
+} from '@nxgt/ory-sdk';
 import type { PermissionTerm, PolicySubject } from '../../policy';
 import type { ApplyGraphqlPolicyOptions } from '../../policy/graphql/resolvers';
 
@@ -40,7 +40,7 @@ interface OryGraphqlContext {
  *   file and again by a `@check` on the field costs one round trip between
  *   them.
  *
- * `evaluateRequirement` comes from `stx-sdk/ory` rather than being rewritten,
+ * `evaluateRequirement` comes from `@nxgt/ory-sdk` rather than being rewritten,
  * so the rules file, `@check` and `ketoCheck()` all walk the same DNF.
  *
  * ```ts

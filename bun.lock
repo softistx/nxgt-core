@@ -8,6 +8,7 @@
         "@biomejs/biome": "^2.5.9",
         "@changesets/changelog-github": "^1.0.1",
         "@changesets/cli": "^3.0.1",
+        "@nxgt/ory-sdk": "^0.1.0",
         "@types/bun": "^1.4.0",
         "stx-sdk": "^1.1.0",
         "typescript": "~6.0.3",
@@ -44,15 +45,15 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@nxgt/ory-sdk": ">=0.1.0",
         "@types/bun": "^1.4.0",
-        "stx-sdk": ">=1.1.0",
       },
       "peerDependencies": {
-        "stx-sdk": ">=1.1.0",
+        "@nxgt/ory-sdk": ">=0.1.0",
         "typescript": "^6.0.3",
       },
       "optionalPeers": [
-        "stx-sdk",
+        "@nxgt/ory-sdk",
       ],
     },
     "packages/shared": {
@@ -150,6 +151,7 @@
         "@types/ws": "^8.18.1",
       },
       "peerDependencies": {
+        "@nxgt/ory-sdk": ">=0.1.0",
         "stx-sdk": ">=1.1.0",
         "typescript": "^6.0.3",
       },
@@ -182,6 +184,7 @@
         "jose": "^6.2.9",
       },
       "peerDependencies": {
+        "@nxgt/ory-sdk": ">=0.1.0",
         "stx-sdk": ">=1.1.0",
         "typescript": "^6.0.3",
       },
@@ -699,6 +702,8 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
+
+    "@nxgt/ory-sdk": ["@nxgt/ory-sdk@0.1.0", "", { "dependencies": { "jose": "^6.2.9" }, "peerDependencies": { "openapi-fetch": "^0.17.0", "typescript": "^6.0.3", "zod": "^4.4.3" } }, "sha512-ic1h/+fZQ4T//hUCN2RlNdErbpJMk3Gvd7rCG8dazd5XHGn7ivxFcDXJarwf5oObRQTNXJVzbGvohzC4w1vtLg=="],
 
     "@nxgt/security": ["@nxgt/security@workspace:packages/security"],
 

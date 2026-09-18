@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'bun:test';
+import {
+	type Ory,
+	OryUnavailable,
+	type Permission,
+	tuple,
+} from '@nxgt/ory-sdk';
 import { ErrorCode } from '@nxgt/shared-exceptions';
 import { graphql } from 'graphql';
 import { createSchema } from 'graphql-yoga';
-import { type Ory, OryUnavailable, type Permission, tuple } from 'stx-sdk/ory';
 import { applyKetoChecks, createKetoChecks } from './keto-checks';
 
 /**
