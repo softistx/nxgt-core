@@ -1,10 +1,10 @@
 import { getDirective } from '@graphql-tools/utils';
-import type { GraphQLSchema } from 'graphql';
 import {
 	assertRequirement,
 	type PermissionRequirement,
 	type PermissionTerm,
-} from 'stx-sdk/ory';
+} from '@nxgt/ory-sdk';
+import type { GraphQLSchema } from 'graphql';
 
 /**
  * `@check` — the Ory-native counterpart to `@policy`.

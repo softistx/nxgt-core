@@ -1,14 +1,14 @@
-import { claimsFromOryPrincipal } from '@nxgt/security/integrations/ory';
-import type { PolicyClaims } from '@nxgt/security/policy';
-import type { TokenPrincipal } from '@nxgt/shared';
-import { GraphQLError } from 'graphql';
-import type { Plugin } from 'graphql-yoga';
 import {
 	bearerOf,
 	type Ory,
 	type OryPrincipal,
 	OryUnavailable,
-} from 'stx-sdk/ory';
+} from '@nxgt/ory-sdk';
+import { claimsFromOryPrincipal } from '@nxgt/security/integrations/ory';
+import type { PolicyClaims } from '@nxgt/security/policy';
+import type { TokenPrincipal } from '@nxgt/shared';
+import { GraphQLError } from 'graphql';
+import type { Plugin } from 'graphql-yoga';
 import type { GraphQLBaseContext } from '../types';
 
 /**
@@ -65,7 +65,7 @@ export function toPrincipal(ory: OryPrincipal): TokenPrincipal {
 /**
  * A 503 the client can read as one — a real `GraphQLError` so Yoga's masking
  * leaves it alone, `extensions.http.status` so the transport says 503 too.
- * Never a denial: `stx-sdk/ory` throws `OryUnavailable` only when Kratos,
+ * Never a denial: `@nxgt/ory-sdk` throws `OryUnavailable` only when Kratos,
  * Hydra or Keto could not answer, and that must not read as "not signed in".
  */
 export function oryUnavailableError(error: OryUnavailable): GraphQLError {

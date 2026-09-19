@@ -1,5 +1,58 @@
 # @nxgt/security
 
+## 4.0.0
+
+### Major Changes
+
+- [#91](https://github.com/softistx/nxgt-core/pull/91) [`1494df8`](https://github.com/softistx/nxgt-core/commit/1494df8da29b8bc156f113cda7c5eae594cbd256) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Take the Ory layer from `@nxgt/ory-sdk` instead of `stx-sdk`.
+  
+  The code that `evaluateRequirement`, `createOry`, `OryPrincipal` and
+  `OryUnavailable` come from has moved to the repository that owns the Ory stack
+  and publishes as [`@nxgt/ory-sdk`](https://www.npmjs.com/package/@nxgt/ory-sdk).
+  Nothing about the behaviour changes — same functions, same wire format, same
+  `OryUnavailable`-is-a-503 rule.
+  
+  **This is breaking because the peer changed name.** Update your own manifest:
+  
+  ```diff
+  -"stx-sdk": ">=1.1.0"
+  +"@nxgt/ory-sdk": ">=0.1.0"
+  ```
+  
+  `@nxgt/security` swaps it outright — it only ever used `stx-sdk/ory`.
+  `@nxgt/shared-hono` and `@nxgt/shared-graphql` now declare **both**, because
+  they still import `stx-sdk/auth` for the policy and MCP helpers. An app that
+  uses neither Ory integration installs neither peer, as before.
+  
+  Also removed: the `oryAuth` tests for tokens minted by the edge. The edge was
+  deleted from the platform in September 2026 and `createOry` no longer takes an
+  `edge:` option, so those five tests covered a branch that does not exist.
+  Nothing in `src/` referenced it.
+
+### Patch Changes
+
+- [#85](https://github.com/softistx/nxgt-core/pull/85) [`4704393`](https://github.com/softistx/nxgt-core/commit/4704393e3e980e05002d1da52c84055e53fa5c38) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Licensed MIT: the package ships a LICENSE file. It was `UNLICENSED` before, which gave no one the right to use it.
+- Updated dependencies [[`4704393`](https://github.com/softistx/nxgt-core/commit/4704393e3e980e05002d1da52c84055e53fa5c38)]:
+  - @nxgt/shared@1.0.4
+  - @nxgt/shared-exceptions@1.0.4
+  - @nxgt/shared-logging@1.0.4
+
+## 3.2.1
+
+### Patch Changes
+
+- [#57](https://github.com/softistx/nxgt-core/pull/57) [`1154ac6`](https://github.com/softistx/nxgt-core/commit/1154ac642f4a0dd843f78f7637150b0fa7ec87dc) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Ship complete npm pages for every package.
+  
+  Each README now has the same shape — what it is, install, subpaths, usage,
+  then the traps — and covers the public API a consumer actually imports,
+  not just the one-line summary. `@nxgt/security` keeps the engine, keto,
+  unmatched, GraphQL wrapper and integrations; it drops only the in-monorepo
+  paths and the Oathkeeper paragraph that no longer name anything.
+- Updated dependencies [[`1154ac6`](https://github.com/softistx/nxgt-core/commit/1154ac642f4a0dd843f78f7637150b0fa7ec87dc), [`49bb8a3`](https://github.com/softistx/nxgt-core/commit/49bb8a34c1b5002f1f5379c722379c597efe0b83)]:
+  - @nxgt/shared-logging@1.0.3
+  - @nxgt/shared-exceptions@1.0.3
+  - @nxgt/shared@1.0.3
+
 ## 3.2.0
 
 ### Minor Changes
@@ -100,7 +153,7 @@
   
   Everything else is shared in code — `evaluateKetoRungs` walks the rungs,
   short-circuits and maps denials for both evaluators, over the one
-  `evaluateRequirement` from `stx-sdk/ory`.
+  `evaluateRequirement` from `@nxgt/ory-sdk`.
   
   **Breaking:** `evaluateGraphql` is now `async`, like `evaluateRest`. Callers
   using `applyGraphqlPolicy` need no code change.
@@ -129,7 +182,7 @@
   `onDeny` and `message`. Two rungs, `view` then `edit`, is the 404-then-403
   ladder, written where the rest of the route's policy already lives.
   
-  The DNF walk is `evaluateRequirement` from `stx-sdk/ory`, not a copy, so the
+  The DNF walk is `evaluateRequirement` from `@nxgt/ory-sdk`, not a copy, so the
   rules file and the two existing mechanisms cannot come to disagree.
   
   **Breaking:** `evaluateRest` is now `async` — a Keto term is a remote question.

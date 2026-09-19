@@ -14,7 +14,7 @@
 		"format": "biome format",
 		"lint": "biome lint",
 		"changeset": "changeset",
-		"changeset:version": "changeset version",
+		"changeset:version": "changeset version && bun install",
 		"changeset:publish": "bun run build && bun run verify:artifacts && bun run scripts/publish.ts",
 		"verify:artifacts": "bun run scripts/verify-artifacts.ts",
 		"changeset:status": "changeset status --since=origin/develop"
@@ -24,6 +24,7 @@
 		"@changesets/changelog-github": "^1.0.1",
 		"@changesets/cli": "^3.0.1",
 		"@types/bun": "^1.4.0",
+		"@nxgt/ory-sdk": "^0.1.0",
 		"stx-sdk": "^1.1.0",
 		"typescript": "~6.0.3"
 	},

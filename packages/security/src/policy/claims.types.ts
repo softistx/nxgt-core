@@ -37,7 +37,7 @@ export interface PolicyClaims {
 
 	/**
 	 * How the caller authenticated: a Kratos browser session, or a token
-	 * (Hydra, or an edge JWT standing in for one).
+	 * (Hydra).
 	 */
 	kind?: 'session' | 'token';
 
@@ -46,7 +46,7 @@ export interface PolicyClaims {
 
 	/**
 	 * Whether Kratos has verified that address. Snake_case because it is the
-	 * OIDC claim name, and the same string the edge token carries — renaming
+	 * OIDC claim name, and the same string Kratos and Hydra both use — renaming
 	 * it here would mean translating at every boundary.
 	 */
 	email_verified?: boolean;

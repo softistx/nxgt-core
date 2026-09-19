@@ -51,8 +51,9 @@ also needs no `GH_TOKEN`.
 
 Whether any slice widened what an unauthenticated or non-owner caller can
 reach: a route that lost its `ketoCheck`, a service method reachable without
-`require<M>Access`, an Oathkeeper rule in nxgt-ory that now matches more than
-it did, or a `secured()` removed without the rules file gaining the equivalent.
+`require<M>Access`, a `secured()` removed without the rules file gaining the
+equivalent, or an Ory-native route that now reads an identity out of a request
+header (nothing fronts those APIs, so nothing erases `X-User-*`).
 
 ## Example
 

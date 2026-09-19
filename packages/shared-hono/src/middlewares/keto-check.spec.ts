@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'bun:test';
+import { createOry, type OryPrincipal } from '@nxgt/ory-sdk';
 import { Hono } from 'hono';
-import { createOry, type OryPrincipal } from 'stx-sdk/ory';
 import { createErrorHandler } from './error-handler';
 import { ketoCheck, oryChecks, requireAuthenticated } from './keto-check';
 import { withOryUnavailable } from './ory-auth';
 
 /**
  * Against a stubbed Keto: what the batch endpoint answers, and what a route
- * therefore returns. `stx-sdk/ory` owns the wire format; this owns the mapping
+ * therefore returns. `@nxgt/ory-sdk` owns the wire format; this owns the mapping
  * from a denial to a status code, which is the part a route spec depends on.
  */
 function stack(held: string[], status = 200) {

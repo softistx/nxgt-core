@@ -1,8 +1,4 @@
 import { MapperKind, mapSchema } from '@graphql-tools/utils';
-import { CustomException } from '@nxgt/shared-exceptions';
-import DataLoader from 'dataloader';
-import { defaultFieldResolver, type GraphQLSchema } from 'graphql';
-import type { Plugin } from 'graphql-yoga';
 import {
 	evaluateRequirement,
 	type Ory,
@@ -10,7 +6,11 @@ import {
 	type PermissionTerm,
 	type Subject,
 	tuple,
-} from 'stx-sdk/ory';
+} from '@nxgt/ory-sdk';
+import { CustomException } from '@nxgt/shared-exceptions';
+import DataLoader from 'dataloader';
+import { defaultFieldResolver, type GraphQLSchema } from 'graphql';
+import type { Plugin } from 'graphql-yoga';
 import {
 	type CheckArgs,
 	objectIds,

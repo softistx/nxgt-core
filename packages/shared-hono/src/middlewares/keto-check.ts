@@ -1,7 +1,3 @@
-import { CustomException } from '@nxgt/shared-exceptions';
-import DataLoader from 'dataloader';
-import type { Context } from 'hono';
-import { createMiddleware } from 'hono/factory';
 import {
 	assertRequirement,
 	evaluateRequirement,
@@ -11,7 +7,11 @@ import {
 	type PermissionTerm,
 	type Subject,
 	tuple,
-} from 'stx-sdk/ory';
+} from '@nxgt/ory-sdk';
+import { CustomException } from '@nxgt/shared-exceptions';
+import DataLoader from 'dataloader';
+import type { Context } from 'hono';
+import { createMiddleware } from 'hono/factory';
 
 /**
  * The per-request Keto answer cache — the same thing `useKetoChecks` puts on a

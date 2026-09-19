@@ -27,7 +27,6 @@ There are two shapes, and the first question is which one:
 | Who is signed in | Kratos `whoami` with the visitor's `ory_kratos_session` cookie | a Hydra token set in the app's own signed cookie |
 | Sign-in screen | kratos-ui's `/login` with `return_to` | Hydra → kratos-ui's `/oauth2/login` + `/oauth2/consent` |
 | API receives | the forwarded `Cookie` | `Authorization: Bearer` |
-| If the API is behind Oathkeeper | unchanged — the edge reads the same cookie | unchanged — the edge introspects the same Bearer |
 | Extra moving parts | `allowed_return_urls` in `kratos.yaml`, Traefik `Host && PathPrefix` | a registered Hydra client, `SESSION_SECRET`, refresh |
 | Pick when | the UI can live on kratos-ui's host | it cannot (another domain, another team's host, a machine-facing surface) |
 
@@ -71,25 +70,16 @@ not mix the two auth modules in one app.
   for a cookie, the token's `sub` for Hydra (public subject identifiers).
   The API's Keto tuples are about that string.
 - **The UI reaches only public listeners**: Kratos public (`whoami`, shape a)
-  or Hydra public (shape b), and the API — which may be the API's own address
-  or Oathkeeper's proxy (`4455`) in front of it, the UI cannot tell and must
-  not care. Never Kratos admin, Keto (read or write), Hydra admin, and never
-  Oathkeeper's API listener (`4456`, it serves the whole policy) — no `KETO_*`
-  and no `OATHKEEPER_API_URL` in the UI's env at all.
-- **The edge changes nothing for a UI.** It consumes the same cookie or the
-  same Bearer, so pointing `API_URL` at `:4455` instead of the API is a config
-  change and nothing more. Two statuses become possible that the API alone
-  would not send: a **401 whose body is not translated** (the edge refused
-  before reaching the API) and a **403 meaning "this identity may not use this
-  app at all"** (`App:<app>#use`), which is not about any object. Handle both
-  as you already handle 401 and 403; do not try to distinguish them.
+  or Hydra public (shape b), and the API's own address — there is no gateway
+  in between. Never Kratos admin, Keto (read or write) or Hydra admin: no
+  `KETO_*` in the UI's env at all.
 - **Unavailable is never anonymous.** Kratos / Hydra not answering is a 503
   page, never a redirect to login and never an empty list.
 - **The API decides.** 404 for what the caller may not see, 403 for an edit a
   viewer attempted, `myAccess` on each object for what to render. Do not add
-  a UI-side Keto check "to save a round trip". This holds with an edge in
-  front: Oathkeeper is deliberately not allowed to answer about an object,
-  precisely so that the 404 keeps meaning what it means.
+  a UI-side Keto check "to save a round trip" — a UI that decides is a UI that
+  can be wrong about what the API will do, and the 404 stops meaning what it
+  means.
 
 ---
 
@@ -366,7 +356,7 @@ PR, not on every save (the user asked not to block on them).
 - [ ] SSR; nothing `VITE_`-prefixed; no `KETO_*`, no admin URL in the app's runtime env
 - [ ] One session/auth middleware on the root; the guard on the layout; `redirectDocument` to every other origin
 - [ ] The API is called from `.server.ts` only, with the cookie (a) or the Bearer (b); statuses pass through untouched
-- [ ] Whether `API_URL` points at the API or at Oathkeeper's proxy is a config choice the UI code cannot see
+- [ ] `API_URL` points at the API itself; no `KETO_*` and no admin listener anywhere in the UI env
 - [ ] `/health` answers anonymously; probes point there
 - [ ] Shape (a): prefix everywhere, `allowed_return_urls`; shape (b): whole token set stored, cookie committed after refresh, `register-client` documented
 - [ ] No hand-written `call.server.ts` or node readers — they are `stx-sdk/ory/flows`; the session context stays local

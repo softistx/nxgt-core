@@ -7,13 +7,15 @@ Instructions for any coding agent working in `nxgt-core`.
 The shared `@nxgt/*` packages that `sellix-monorepo` and `nxgt-federation` both
 depend on. Until 2026-09-06 each monorepo carried its own copy under
 `packages/`, and the copies had forked: `shared-mongo` differed by ~1430 lines,
-`shared` by ~260. This repository is the single copy, published to GitHub
-Packages.
+`shared` by ~260. This repository is the single copy, published to the public
+npm registry.
 
-It currently holds the nine packages extracted from `sellix-monorepo`.
-Federation's three that exist nowhere else — `datasource-rest`,
-`shared-events`, `shared-graphql` — arrive with the reconciliation of its own
-copies.
+It holds eleven packages: the nine extracted from `sellix-monorepo` and the two
+that existed only in `nxgt-federation` — `shared-events`, `shared-graphql`. A
+third from `nxgt-federation`, `datasource-rest`, moved to `softistx/nxgt-http`
+on 2026-09-14, with its history. `openapi-codegen`, written here and published
+from here at 0.1.0, followed it there the same day: its releases from 0.2.0 on
+come from nxgt-http.
 
 Nothing here imports application code. The dependency runs one way: apps depend
 on these packages, never the reverse.
@@ -21,15 +23,21 @@ on these packages, never the reverse.
 ## Layering
 
 ```
-shared-logging   shared-openapi        (no internal dependencies)
-      └─ i18n
-           └─ shared
-                ├─ shared-exceptions
-                └─ shared-mongo
-                     ├─ shared-storage
-                     ├─ shared-hono
-                     └─ security
+shared-logging   shared-openapi   shared-events   i18n   (no internal dependencies)
+
+package             depends on
+shared-exceptions   i18n
+shared              shared-logging, shared-events
+shared-mongo        shared, shared-exceptions, i18n, shared-logging
+security            shared, shared-exceptions, shared-logging
+shared-storage      shared-mongo, shared, shared-exceptions, i18n, shared-logging
+shared-hono         shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
+shared-graphql      shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
 ```
+
+Each row is a package's direct `@nxgt/*` dependencies, and names only rows
+above it. The manifests are the source of truth:
+`grep -n '"@nxgt/' packages/*/package.json`.
 
 **There are no cycles and there must not be one.** A published package cannot
 depend on a package that depends back on it — the version bump has no fixed
@@ -329,9 +337,12 @@ it touches no registry, and it stays. But `changeset publish` shells out to
 everything here is built and verified against.
 
 So `scripts/publish.ts` does it: dependency order, skips any version already on
-the registry, and `bun publish` for the rest. It prints `New tag: <name>@<v>`
-for each publish, which is the line `changesets/action` parses to create GitHub
-releases — do not change that format without checking it.
+the registry, and `bun publish` for the rest. `changesets/action@v2` no longer
+parses `New tag:` from stdout; it reads NDJSON events from the file in
+`$CHANGESETS_OUTPUT` (`{"type":"git-tag","tag":"<name>@<v>","packageName":"<name>"}`).
+The script writes those, creates the local git tag, and still prints `New tag:`
+so a leftover `@v1` runner is not silently broken. Do not drop the file write
+— without it the packages land on npmjs and GitHub releases never appear.
 
 ### Why npmjs and not GitHub Packages
 
@@ -403,9 +414,24 @@ first install without anyone noticing.
 `workspace:^` publishes as `^1.0.0`, which dedupes. `verify-artifacts.ts` fails
 the build on an exact sibling pin, so a new package cannot reintroduce it.
 
+**And the range is substituted from `bun.lock`, not from the sibling's
+`package.json`.** `changeset version` rewrites every manifest and leaves the
+lockfile untouched, so a publish that follows it directly ships yesterday's
+numbers: `@nxgt/shared-graphql@2.0.0` and `@nxgt/shared-hono@3.0.0` went to the
+registry asking for `@nxgt/security@^3.2.1` while their `dist` imported the
+4.0.0 API. Every range was a well-formed caret, the install succeeded and the
+types checked — and the consumer got both majors, the 3.2.1 copy still reaching
+`stx-sdk/ory`, so `OryUnavailable` crossed a class boundary and an Ory outage
+answered 500 instead of 503.
+
+`changeset:version` is therefore `changeset version && bun install`, and the
+**updated `bun.lock` belongs in the Version Packages PR**. `verify-artifacts.ts`
+fails any tarball whose sibling range excludes the sibling being published
+beside it, which is the check that would have caught it.
+
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
-All twelve declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+All eleven declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
 `~7.0.2`, which is not a preference difference — the ranges are mutually
 unsatisfiable, so a consumer installing the set gets a peer conflict, and if
 TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
@@ -425,13 +451,42 @@ CI enforces two things a green build does not:
   changeset is a change that never reaches a consumer, because the release
   workflow has nothing to version. Use `bun changeset --empty` when that is
   genuinely intended, and say why.
-- **`bun run verify:artifacts`** — packs the twelve, installs them the way a
+- **`bun run verify:artifacts`** — packs the eleven, installs them the way a
   consumer does, imports every subpath each package declares, and rejects a
   manifest that would break an install — a `link:` or `file:` in a field a
-  consumer resolves, or a **required** peer that is on no registry. It reads
+  consumer resolves, or a **required** peer that is on no registry — and a
+  package that is not MIT or ships no `LICENSE`. It reads
   the subpath list from each
   `exports` map, so a new entry point is covered as soon as it is declared.
   `changeset:publish` runs it too, so a broken artifact cannot be published.
+
+### Every package is MIT, and ships its own `LICENSE`
+
+The root `LICENSE` is MIT, and each `packages/*/` holds a copy, named in
+`files`: npm ships only the `LICENSE` in the package's own directory, never
+the root's. A new package copies it and declares `"license": "MIT"`. Change
+the copies together. `@nxgt/material` is the exception the licence is about,
+and it is not a package of this repository.
+
+### Bins and optional peers
+
+`@nxgt/openapi-codegen` was the first package here with a `bin` and with
+optional peers; it now lives in `softistx/nxgt-http`, and no package here has
+either today. The checks stay, for the next one, and both run on the
+artifact, not the source:
+
+- **A bin runs as a file.** `build.ts` refuses a `bin` target that is missing
+  or lacks its `#!` line, and marks each one executable; `verify:artifacts`
+  then runs every declared bin with `--help` from `node_modules/.bin`, and
+  fails on a non-zero exit.
+- **An optional peer is installed on purpose.** A consumer gets one only by
+  asking for it, so `verify:artifacts` adds every optional peer that is on
+  the registry to its probe project. A subpath that needs one therefore
+  loads because the peer was requested, not because another package's peer
+  happened to hoist it. Code that needs an optional peer must import it
+  only on the path that uses it (codegen's `lint` imported
+  `@redocly/openapi-core` dynamically), so the rest of the package loads
+  without it.
 
 Publishing goes through **`bun publish`**, never `npm publish` — Bun is the
 package manager for this repo, and `bun pm pack` is what rewrites `workspace:*`
@@ -499,14 +554,20 @@ Established here, and applying to all four repositories:
   and went nowhere. When you add a field to a shared schema, follow it to the
   code that consumes it in the same change, or do not add it.
 - **A package's `README.md` is its page on npmjs.** It is published, and it is
-  read by people who will never open this repository: say what the package is,
-  table its subpaths, and write down what will bite a consumer. Ten of the
-  twelve shipped `bun init` boilerplate until 2026-09-06, five of those under
-  the wrong package name.
+  read by someone who has never seen this repository and does not know the
+  private applications that consume it. Organize by section, each with a
+  concise copy-paste example; never name a private app, a private monorepo,
+  or "the parc" there — those names belong in this file. The long version
+  is the package's `docs/` folder, named in `files` — none has one yet;
+  the `nxgt-docs` agents write it: guide pages with the
+  detail and an example for each point, `troubleshooting.md` headed by the
+  exact error a consumer sees, and `roadmap.md`, with no dates. The bar is
+  `keep-docs-current`. Ten of the twelve shipped `bun init` boilerplate
+  until 2026-09-06, five of those under the wrong package name.
 
 ## Known state
 
-`bun run test` is **199 pass, 0 fail**. Treat any failure as yours.
+`bun run test` is **442 pass, 0 fail**. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running them together produced 6 failures

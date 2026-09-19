@@ -12,7 +12,7 @@ description: >-
 
 ## Purpose
 
-Add a thirteenth `@nxgt/*` package: the scaffolding, the four conventions that
+Add a twelfth `@nxgt/*` package: the scaffolding, the four conventions that
 are not obvious from looking at an existing one, and the checks that catch the
 mistakes this repository has already paid for.
 
@@ -39,15 +39,21 @@ Decide this before writing any code, because it is the one thing that cannot be
 fixed later without a coordinated release:
 
 ```
-shared-logging   shared-openapi        (no internal dependencies)
-      └─ i18n
-           └─ shared
-                ├─ shared-exceptions
-                └─ shared-mongo
-                     ├─ shared-storage
-                     ├─ shared-hono
-                     └─ security
+shared-logging   shared-openapi   shared-events   i18n   (no internal dependencies)
+
+package             depends on
+shared-exceptions   i18n
+shared              shared-logging, shared-events
+shared-mongo        shared, shared-exceptions, i18n, shared-logging
+security            shared, shared-exceptions, shared-logging
+shared-storage      shared-mongo, shared, shared-exceptions, i18n, shared-logging
+shared-hono         shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
+shared-graphql      shared-mongo, security, shared, shared-exceptions, i18n, shared-logging
 ```
+
+Each row is a package's direct `@nxgt/*` dependencies, and names only rows
+above it. The manifests are the source of truth:
+`grep -n '"@nxgt/' packages/*/package.json`.
 
 **A cycle is fatal, not untidy.** Two packages that depend on each other have no
 version bump with a fixed point, and changesets cannot order the release.
@@ -69,6 +75,12 @@ packages/<name>/
   biome.json
   .gitignore
   README.md
+  LICENSE               ← a copy of the root LICENSE: npm ships only the package's own
+  docs/
+    README.md           ← index of the pages below
+    troubleshooting.md
+    roadmap.md
+    guide/<area>.md     ← once an area needs more than the README's example
   src/
     index.ts            ← the entry point
     <feature>/
@@ -105,11 +117,11 @@ every package and should stay that way:
 {
   "name": "@nxgt/<name>",
   "version": "1.0.0",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "package.json"],
+  "files": ["dist", "docs", "README.md", "package.json", "LICENSE"],
   "exports": {
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
     "./package.json": "./package.json"
@@ -188,7 +200,7 @@ font — anything that is not code — must live in its **own top-level director
 and be named in `files`:
 
 ```jsonc
-"files": ["dist", "graphql", "README.md", "package.json"]
+"files": ["dist", "graphql", "docs", "README.md", "package.json", "LICENSE"]
 ```
 
 `@nxgt/shared-graphql` published its resolvers without the SDL they resolve for
@@ -233,6 +245,12 @@ State what the package is, list its subpaths in a table, show the install, and
 write down the traps a consumer will otherwise hit. See
 `packages/shared-mongo/README.md`.
 
+`docs/` is the long version: the `documentation-writer`,
+`troubleshooting-writer` and `roadmap-keeper` agents (plugin `nxgt-docs`)
+write it from the exports, the specs and the errors the package throws, and
+`documentation-auditor` checks it. A new package starts with at least
+`docs/troubleshooting.md` and `docs/roadmap.md`.
+
 ---
 
 ## Wiring it up
@@ -245,13 +263,16 @@ write down the traps a consumer will otherwise hit. See
    build proves almost nothing.
 5. `bun changeset` — `minor` on the new package, and the changeset is what makes
    `1.0.0` exist. See the `release-a-package-change` skill for the rest of the
-   release, which has a manual step.
+   release, which has a manual step. A package whose API is still settling can
+   start at `"version": "0.0.0"` instead, so the same `minor` publishes `0.1.0`:
+   `@nxgt/openapi-codegen` did, before it moved to `softistx/nxgt-http`.
 
 ---
 
 ## Related
 
 - `release-a-package-change` — the release sequence and its failure modes.
+- `keep-docs-current` — the README is the npm page; load it before finishing.
 - `write-a-repo-script` — anything you automate here is a TypeScript file using
   Bun Shell, not a `.sh`.
 - `AGENTS.md` — the long form of every trap named above.
