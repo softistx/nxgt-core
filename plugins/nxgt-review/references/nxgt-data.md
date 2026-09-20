@@ -65,7 +65,7 @@ You may run the measure commands, `biome ci`, `build`, `typecheck` and `verify:a
 
 ## Structure
 
-- A function over **80** lines, or a source file over **250**. A long file of declarations is not a finding (`mongo/src/collection/types.ts` is one). For a grown factory, the seam is the shape `packages/mongo/src/collection/` follows: a data-only `context.ts`, then plain functions taking it first — `filters.ts`, `documents.ts`, `operations/reads.ts`, `operations/writes.ts`, `operations/paginate.ts`.
+- A function over **80** lines, or a source file over **250**. A long file of declarations is not a finding (`mongo/src/collection/types.ts` is one). For a grown factory, the seam is the shape `packages/mongo/src/collection/` follows: a data-only `context.ts`, then plain functions taking it first — `filters.ts`, `documents.ts`, `operations/reads.ts`, `operations/writes.ts`, `operations/paginate.ts`. `@nxgt/drizzle`'s `pg/repository/` is the second one cut that way and the one to compare a third against: `context.ts` (five fields, no closures, and a `builders(ctx)` that **reads** the loosely typed handles rather than holding a second copy of the database), `filters.ts`, `stamp-writes.ts`, `operations/{reads,writes,paginate}.ts`, and a `create-repository.ts` whose `build()` only names the methods. A split like this is its own PR with **no spec touched** — the unchanged test count is the only evidence nothing moved — so a spec change in the same diff is a finding.
 - A folder past a dozen source files, or files that need a prefix to tell apart, is several subjects.
 - Specs are split by subject and live next to the code; `AGENTS.md` lists `@nxgt/mongo`'s. A new subject with no spec of its own is a finding.
 - An import carrying a `.js` or `.ts` extension is a finding.
@@ -81,7 +81,6 @@ From the table in `AGENTS.md`:
 - `pagination/page.ts` and `pagination/cursor.ts` in both `@nxgt/drizzle` and `@nxgt/mongo`. Do report a fix made in one and not the other. `errors/data-error.ts` is **not** a copy: the classes differ.
 - `connection/connect.ts` in both `@nxgt/mongo` and `@nxgt/redis` — 107 of 167 lines identical, the reference-counted client shared per URI. Do report a fix made in one and not the other. `@nxgt/s3` deliberately has **no** third copy: S3 is stateless HTTP, so there is no connection to share and nothing to close; a registry appearing there is a finding, not an omission.
 - `@nxgt/s3`'s `ObjectPage` is **not** a copy of `CursorPage`: four lines agreeing on a shape so a caller pages the same way, with no logic to keep in step.
-- `@nxgt/drizzle`'s `pg/repository/` still being a factory: it is split when next opened for a real change, never in the same PR as a behaviour change.
 - `syncIndex`'s `TASK_FAILED` and `index_already_exists` branches covered by a scripted client: Meilisearch cannot be made to fail a settings task.
 
 ## Layering and packaging
