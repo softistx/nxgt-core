@@ -28,6 +28,10 @@
 		{
 			"name": "nxgt-api",
 			"source": "./plugins/nxgt-api"
+		},
+		{
+			"name": "nxgt-compose",
+			"source": "./plugins/nxgt-compose"
 		}
 	]
 }
