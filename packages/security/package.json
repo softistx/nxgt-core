@@ -1,7 +1,7 @@
 {
 	"name": "@nxgt/security",
-	"version": "3.2.0",
-	"license": "UNLICENSED",
+	"version": "4.0.0",
+	"license": "MIT",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -9,7 +9,8 @@
 		"dist",
 		"schema",
 		"README.md",
-		"package.json"
+		"package.json",
+		"LICENSE"
 	],
 	"exports": {
 		".": {
@@ -88,14 +89,14 @@
 	},
 	"devDependencies": {
 		"@types/bun": "^1.4.0",
-		"stx-sdk": ">=1.1.0"
+		"@nxgt/ory-sdk": ">=0.1.0"
 	},
 	"peerDependencies": {
-		"stx-sdk": ">=1.1.0",
+		"@nxgt/ory-sdk": ">=0.1.0",
 		"typescript": "^6.0.3"
 	},
 	"peerDependenciesMeta": {
-		"stx-sdk": {
+		"@nxgt/ory-sdk": {
 			"optional": true
 		}
 	}

@@ -207,7 +207,7 @@ one `POST /relation-tuples/batch/check`, so a service asking about an object
 whose directive just passed pays nothing.
 
 And it does have to be kept. The directive guards the schema; the service is
-reachable from a subscription resolver, a job, a REST edge — anywhere the SDL
+reachable from a subscription resolver, a job, a REST surface — anywhere the SDL
 is not. A decision that lives only in the schema stops protecting the moment
 something else calls the service.
 

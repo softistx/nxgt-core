@@ -8,54 +8,15 @@
         "@biomejs/biome": "^2.5.9",
         "@changesets/changelog-github": "^1.0.1",
         "@changesets/cli": "^3.0.1",
+        "@nxgt/ory-sdk": "^0.1.0",
         "@types/bun": "^1.4.0",
         "stx-sdk": "^1.1.0",
         "typescript": "~6.0.3",
       },
     },
-    "packages/datasource-rest": {
-      "name": "@nxgt/datasource-rest",
-      "version": "1.0.2",
-      "dependencies": {
-        "@nxgt/shared": "workspace:*",
-        "@nxgt/shared-exceptions": "workspace:*",
-        "lodash": "^4.18.1",
-        "openapi-fetch": "^0.17.0",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.4.0",
-        "@types/lodash": "^4.17.24",
-      },
-      "peerDependencies": {
-        "typescript": "^6.0.3",
-      },
-    },
-    "packages/edge": {
-      "name": "@nxgt/edge",
-      "version": "0.1.2",
-      "dependencies": {
-        "@nxgt/security": "workspace:^",
-        "@nxgt/shared": "workspace:^",
-        "@nxgt/shared-logging": "workspace:^",
-        "yaml": "^2.9.0",
-        "zod": "^4.4.3",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.4.0",
-        "jose": "^6.2.9",
-        "stx-sdk": ">=1.2.0",
-      },
-      "peerDependencies": {
-        "stx-sdk": ">=1.2.0",
-        "typescript": "^6.0.3",
-      },
-      "optionalPeers": [
-        "stx-sdk",
-      ],
-    },
     "packages/i18n": {
       "name": "@nxgt/i18n",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "dependencies": {
         "hono": "^4.13.4",
         "intl-messageformat": "^11.2.13",
@@ -71,7 +32,7 @@
     },
     "packages/security": {
       "name": "@nxgt/security",
-      "version": "3.2.0",
+      "version": "4.0.0",
       "dependencies": {
         "@graphql-tools/utils": "^12.0.0",
         "@nxgt/shared": "workspace:^",
@@ -84,20 +45,20 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@nxgt/ory-sdk": ">=0.1.0",
         "@types/bun": "^1.4.0",
-        "stx-sdk": ">=1.1.0",
       },
       "peerDependencies": {
-        "stx-sdk": ">=1.1.0",
+        "@nxgt/ory-sdk": ">=0.1.0",
         "typescript": "^6.0.3",
       },
       "optionalPeers": [
-        "stx-sdk",
+        "@nxgt/ory-sdk",
       ],
     },
     "packages/shared": {
       "name": "@nxgt/shared",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/shared-events": "workspace:^",
@@ -124,7 +85,7 @@
     },
     "packages/shared-events": {
       "name": "@nxgt/shared-events",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "dependencies": {
         "bullmq": "^6.1.1",
         "bunqueue": "^2.8.59",
@@ -138,7 +99,7 @@
     },
     "packages/shared-exceptions": {
       "name": "@nxgt/shared-exceptions",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/i18n": "workspace:^",
@@ -152,7 +113,7 @@
     },
     "packages/shared-graphql": {
       "name": "@nxgt/shared-graphql",
-      "version": "1.5.0",
+      "version": "2.0.1",
       "dependencies": {
         "@apollo/server": "^5.5.1",
         "@apollo/subgraph": "^2.14.3",
@@ -190,13 +151,14 @@
         "@types/ws": "^8.18.1",
       },
       "peerDependencies": {
+        "@nxgt/ory-sdk": ">=0.1.0",
         "stx-sdk": ">=1.1.0",
         "typescript": "^6.0.3",
       },
     },
     "packages/shared-hono": {
       "name": "@nxgt/shared-hono",
-      "version": "2.1.0",
+      "version": "3.0.1",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@modelcontextprotocol/hono": "^2.0.0",
@@ -222,13 +184,14 @@
         "jose": "^6.2.9",
       },
       "peerDependencies": {
+        "@nxgt/ory-sdk": ">=0.1.0",
         "stx-sdk": ">=1.1.0",
         "typescript": "^6.0.3",
       },
     },
     "packages/shared-logging": {
       "name": "@nxgt/shared-logging",
-      "version": "1.0.2",
+      "version": "1.0.4",
       "dependencies": {
         "hono": "^4.13.4",
         "lodash": "^4.18.1",
@@ -245,7 +208,7 @@
     },
     "packages/shared-mongo": {
       "name": "@nxgt/shared-mongo",
-      "version": "1.1.2",
+      "version": "1.1.4",
       "dependencies": {
         "@nxgt/i18n": "workspace:^",
         "@nxgt/shared": "workspace:^",
@@ -271,7 +234,7 @@
     },
     "packages/shared-openapi": {
       "name": "@nxgt/shared-openapi",
-      "version": "2.0.0",
+      "version": "2.0.2",
       "devDependencies": {
         "@types/bun": "^1.4.0",
       },
@@ -283,7 +246,7 @@
     },
     "packages/shared-storage": {
       "name": "@nxgt/shared-storage",
-      "version": "1.0.4",
+      "version": "1.0.6",
       "dependencies": {
         "@nxgt/i18n": "workspace:*",
         "@nxgt/shared": "workspace:*",
@@ -738,11 +701,9 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
-    "@nxgt/datasource-rest": ["@nxgt/datasource-rest@workspace:packages/datasource-rest"],
-
-    "@nxgt/edge": ["@nxgt/edge@workspace:packages/edge"],
-
     "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
+
+    "@nxgt/ory-sdk": ["@nxgt/ory-sdk@0.1.0", "", { "dependencies": { "jose": "^6.2.9" }, "peerDependencies": { "openapi-fetch": "^0.17.0", "typescript": "^6.0.3", "zod": "^4.4.3" } }, "sha512-ic1h/+fZQ4T//hUCN2RlNdErbpJMk3Gvd7rCG8dazd5XHGn7ivxFcDXJarwf5oObRQTNXJVzbGvohzC4w1vtLg=="],
 
     "@nxgt/security": ["@nxgt/security@workspace:packages/security"],
 

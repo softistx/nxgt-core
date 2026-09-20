@@ -2,7 +2,7 @@
  * The permission vocabulary, declared structurally so that `src/policy/` — the
  * framework-agnostic core — depends on nothing to speak it.
  *
- * Every type here is structurally identical to its namesake in `stx-sdk/ory`,
+ * Every type here is structurally identical to its namesake in `@nxgt/ory-sdk`,
  * and deliberately so: the Keto adapter in `src/integrations/hono/keto.ts`
  * passes values straight between the two with no conversion. That adapter
  * carries a compile-time assertion pinning the two shapes together, so a drift
@@ -41,7 +41,7 @@ export type PolicySubject =
  *
  * The core hands over the requirement, a way to resolve each term's object
  * ids from this request, and the subject; the adapter supplies
- * `evaluateRequirement` from `stx-sdk/ory` with its `check` already bound to
+ * `evaluateRequirement` from `@nxgt/ory-sdk` with its `check` already bound to
  * the per-request DataLoader. One evaluator serves the rules file, the
  * `@check` directive and `ketoCheck()`, so the three cannot disagree about
  * what `[[A, B], [C]]` means.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import type { OryPrincipal } from 'stx-sdk/ory';
+import type { OryPrincipal } from '@nxgt/ory-sdk';
 import { checkAuthorities, isAuthenticated } from '../../policy';
 import { claimsFromOryPrincipal } from './claims';
 

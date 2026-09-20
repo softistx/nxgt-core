@@ -40,17 +40,18 @@ jobs:
       - name: Build packages
         run: bun run build
       # No npmrc step: `bunfig.toml` reads $NPM_TOKEN from the environment.
+      # v2 of the action no longer writes one from NPM_TOKEN either.
       - name: Version or publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
-          version: bun run changeset:version
-          publish: bun run changeset:publish
-          title: 'chore: Version packages'
-          commit: 'chore: Version packages'
+          version-script: bun run changeset:version
+          publish-script: bun run changeset:publish
+          pr-title: 'chore: Version packages'
+          commit-message: 'chore: Version packages'
+          # v2 ignores GITHUB_TOKEN in env for its own GitHub API calls.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
-          # GITHUB_TOKEN opens the "Version packages" PR; NPM_TOKEN publishes.
-          # They are different registries and different credentials.
-          # GITHUB_TOKEN opens the "Version packages" PR and writes the
-          # changelog links; NPM_TOKEN publishes, read through bunfig.toml.
+          # changelog-github still reads GITHUB_TOKEN while versioning.
+          # NPM_TOKEN publishes, read through bunfig.toml.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

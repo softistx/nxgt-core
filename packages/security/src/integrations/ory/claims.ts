@@ -1,4 +1,4 @@
-import type { OryPrincipal } from 'stx-sdk/ory';
+import type { OryPrincipal } from '@nxgt/ory-sdk';
 import type { PolicyClaims } from '../../policy';
 
 /**

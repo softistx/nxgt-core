@@ -1,5 +1,5 @@
+import type { OryPrincipal } from '@nxgt/ory-sdk';
 import type { Principal } from '@nxgt/shared/models';
-import type { OryPrincipal } from 'stx-sdk/ory';
 import type { KetoChecker } from '../middlewares/keto-check';
 
 declare module 'hono' {

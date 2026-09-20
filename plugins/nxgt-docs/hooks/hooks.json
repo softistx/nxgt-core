@@ -1,0 +1,15 @@
+{
+	"hooks": {
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type": "prompt",
+						"timeout": 30,
+						"prompt": "You are a gate on finishing a turn that may have changed a published package. If this turn changed a public surface — src/lib (except specs), package.json exports/files/peers, or a shipped asset directory (graphql/, openapi/, schema/, docs/) — the matching README.md (and the docs/ guide page for that area, when the package has docs/) must have been updated in the same turn, or the documentation-auditor agent must have reported ok: true. The bar is keep-docs-current: README sections with a concise copy-paste example each, detailed guides with examples under docs/, a new consumer-visible error recorded in docs/troubleshooting.md; never name a private application on the npm page or in docs/. Specs, comments, and private helpers do not count.\n\nReturn JSON only: {\"ok\": true} when docs are in step or no public surface changed; {\"ok\": false, \"reason\": \"<which package, which gap>\"} when a public change landed without its README. $ARGUMENTS"
+					}
+				]
+			}
+		]
+	}
+}
