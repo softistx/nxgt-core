@@ -41,9 +41,15 @@ both consumers. Do not trust a default here; read `docker network inspect proxy`
   `$$apr1$$…` doubling that a label needs disappears when the hash moves into
   `.env`: compose interpolates that file, the label is no longer the place the
   escaping happens.
-- `TRAEFIK_ENABLE` gates whether a container gets picked up at all. It comes
-  from the shell profile; a session started before that profile changed carries
-  the old value into every container it creates.
+- `TRAEFIK_ENABLE` gates whether a container gets picked up at all, and it comes
+  from the shell profile — which this machine's still sets to `false`. **This is
+  the one repository where that variable is still defensible**, because many of
+  its services really are optional on the ingress and some are reached by port.
+  It is not defensible in a stack that publishes nothing: `nxgt-ory`,
+  `sellix-monorepo` and `nxgt-federation` all replaced it with a literal
+  `traefik.enable=true` on 2026-09-21, after it labelled containers out of
+  traefik on a plain `up -d`. See skill §9. If a service here must always be
+  routed, say `true` outright rather than inheriting a machine-wide switch.
 
 ## Ports here, after 2026-09-20
 

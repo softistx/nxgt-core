@@ -24,6 +24,13 @@ so editing a URL there alone changes nothing.
 - **Three routers, for three public listeners**: Kratos `4433`, Keto read
   `4466`, Hydra public `4444`. Kratos admin `4434`, Keto write `4467` and Hydra
   admin `4445` have no router and no port anywhere.
+- **`traefik.enable=true`, literal**, on all five routed services since
+  2026-09-21 (PR #24). It was `${TRAEFIK_ENABLE:-true}`, and this machine's shell
+  profile exports `false` — so a plain `up -d` labelled containers out of traefik.
+  See skill §9. The chart's local values still choose *no* ingress, which is the
+  one place this repo and its Helm chart deliberately disagree: ServiceLB makes
+  the service port the local interface there. That divergence is written down in
+  `charts/nxgt-ory/README.md` as a divergence, not as agreement.
 - `ory-postgres` is an ordinary service with `./data/postgres`,
   `traefik.enable=false`, and the three DSNs composed from `DB_HOST` and the
   per-service `*_DB_*` variables. `docker-compose.dev.yaml` gives it
