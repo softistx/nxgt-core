@@ -2,13 +2,14 @@
 name: compose-a-stack
 description: >-
   Write the docker compose of an nxgt stack so two deployments of it can run
-  on one machine: no published port, a `STACK_PREFIX` for the docker names
-  and a whole hostname per service for DNS, no pinned address, no route in
-  front of an unauthenticated listener, a `dev` profile with mounted sources
-  beside the `prod` one, and every host volume inside the project. Use when
-  writing or editing a `docker-compose*.yaml`, adding a service to a stack,
-  publishing or unpublishing a port, wiring a dev mode, or deciding where a
-  volume, a hostname or a database lives.
+  on one machine, in development as in production: no published port at all,
+  a `STACK_PREFIX` for the docker names and a whole hostname per service for
+  DNS, no pinned address, no route in front of an unauthenticated listener, a
+  `dev` profile with mounted sources beside the `prod` one, and every host
+  volume inside the project. Use when writing or editing a
+  `docker-compose*.yaml`, adding a service to a stack, publishing or
+  unpublishing a port, wiring a dev mode, or deciding where a volume, a
+  hostname, an image tag or a database lives.
 ---
 
 # Skill: Compose a stack
@@ -16,7 +17,8 @@ description: >-
 ## Purpose
 
 Every service in these repositories runs on **one** external docker network,
-`proxy`, reached through one traefik. There is exactly one — `nxgt_network`, in
+`proxy`, reached through one traefik — which is the single exception to the rule
+below, because it is the ingress and its ports are what it is. There is exactly one — `nxgt_network`, in
 the repositories that still declare it, is a leftover to be migrated, not an
 alternative. `proxy` is created by nxgt-docker's traefik and is `external: true`
 everywhere else. That makes three things shared, and
@@ -41,22 +43,56 @@ service to it.
 
 ---
 
-## 1. Nothing publishes a port
+## 1. Nothing publishes a port — in development either
 
-No `ports:` in the base compose. Not for the app, not for the API, not for the
-database. A service is reached:
+No `ports:` anywhere: not in the base compose, not in a `dev` profile, not in an
+override file. Not for the app, not for the API, not for the database. A service
+is reached:
 
 - from another container, **by its container name** on `proxy`;
 - from a browser or the host, **through traefik**, by hostname.
 
 Publishing a port is how a stack claims a number that no second deployment can
-have, and — for anything that is not itself an authenticated API — it is also
-how an internal listener becomes reachable from the whole machine.
+have, and — for anything that is not itself an authenticated API — it is also how
+an internal listener becomes reachable from the whole machine. Neither reason
+weakens in development: development code runs in compose too, on `proxy`, so it
+joins its siblings by container name and needs nothing published. A dev port
+would buy nothing and would make two dev stacks collide.
 
 `.localhost` hostnames need no `/etc/hosts` entry. Measured: glibc resolves any
 name under the reserved `.localhost` TLD (RFC 6761) to `127.0.0.1` **and**
 `::1`, at any depth, with `systemd-resolved` inactive. Docker publishes traefik
 on `0.0.0.0` and `[::]`, so the v6 answer that comes back first works.
+
+### The two cases that are not a service reaching out
+
+**A port that IS the interface.** Traefik's `:80` and `:443`, a resolver's `:53`
+and DHCP, a mail server's SMTP and IMAP listeners, an FRP server's `:7000`: for
+these the port is what the thing is, and a resolver nothing can reach is not a
+resolver. They stay published, in the **base** file with the comment saying why,
+and they collide with nothing because there is exactly one of each per machine —
+that is the ingress, not a service.
+
+**A service that does not speak HTTP.** Postgres, MariaDB, Mongo and Redis get no
+port either, and the reason is not traefik — it is that **everything is on
+`proxy`**. Whatever needs the database is a container on that network, in
+development exactly as in production, so it connects to `my-postgres:5432` by
+name. There is nothing left for a host port to serve.
+
+That is also why traefik is not the answer here and does not have to be: an HTTP
+router does not apply to the postgres wire protocol, and a TCP router would need an
+entrypoint of its own per port — a host port again, under another name.
+
+The two things a human still does, neither of which claims a number:
+
+```bash
+docker compose exec my-postgres psql -U app app        # a shell
+docker compose exec my-postgres pg_dump -U app app > ./data/dump.sql
+```
+
+and, for a GUI, a container of its own on `proxy` behind traefik (pgAdmin, dbgate,
+mongo-express) rather than a desktop client on the host. That desktop client is the
+one workflow this costs.
 
 ## 2. Two namespaces, and they are not the same one
 
@@ -203,6 +239,25 @@ give each one a watcher service on the `dev` profile running its
 `build --watch`, and say in a comment why the watcher exists: without it,
 editing `packages/*/src` changes nothing visible and the reason is invisible.
 
+**Its image tag carries the prefix too.** `image: nxgt/my-ui:dev` is a global
+name: a second deployment that rebuilds it replaces the first one's image
+underneath it. Write `image: ${STACK_PREFIX:+${STACK_PREFIX}-}my-ui:dev`, the same
+form as everything else.
+
+**The dev server keeps its framework's default port.** There is nothing to choose:
+each container has its own network namespace, so Vite's 5173 cannot collide with
+anything, and a pinned port is one more number two deployments could have
+disagreed about. The traefik `loadbalancer.server.port` label points at that
+default. What does have to be set is not the port:
+
+```ts
+server: {
+	host: '0.0.0.0',          // not just the container's loopback
+	allowedHosts: ['.localhost', APP_HOST],  // Vite 8 answers 403 otherwise
+	hmr: { clientPort: 80 },  // the browser talks to traefik, not to the container
+},
+```
+
 Two measured traps:
 
 - **Memory.** Vite and `tsc` are killed silently under a low `mem_limit` —
@@ -213,26 +268,46 @@ Two measured traps:
   not know: set `server.allowedHosts`, and `server.hmr.clientPort` to the port
   the browser actually talks to (80 behind traefik).
 
-## 8. Ports on a dev machine come from an override file, not a profile
+## 8. The dev layer carries no global name
 
-A profile cannot do this. Measured: `profiles:` is a **service** key, not a
-field key, so there is no way to make `ports:` conditional
-(`services.x.ports must be a array`), and an empty entry is refused
-(`no port specified: <empty>`). The mechanism is a second file:
+A development stack has to be as deployable-twice as the production one — the
+machine where two deployments actually meet *is* the dev machine. So the dev
+layer, whether it is a profile or an override file, may contain **nothing that
+names something outside its own project**:
+
+| not in the dev layer | because |
+| --- | --- |
+| `ports:` | a host port is one number for the whole machine (§1) |
+| a fixed `image:` tag | a rebuild replaces the other deployment's image (§7) |
+| a fixed data path | two stacks would write the same directory (§6) |
+| a network alias, a fixed subnet, an address | `proxy` is shared (§4) |
+| a database name or role | `setup` would migrate the same database twice (§5) |
+
+What an override file **is** for is substituting a service, not exposing one:
+
+```yaml
+# docker-compose.dev.yaml — reuse the machine's postgres, do not start ours
+services:
+  my-postgres:
+    profiles: ["own-db"]
+```
 
 ```
-# .env, on the machine that wants them — never committed
+# .env, on that machine — never committed
 COMPOSE_FILE=docker-compose.yaml:docker-compose.dev.yaml
+DB_HOST=postgres
 ```
 
-`docker-compose.dev.yaml` holds `ports:` blocks and nothing else. With it, an
-ordinary `docker compose up` publishes; in production, where the `.env` has no
-`COMPOSE_FILE`, the same command publishes nothing.
+A profile could not express even that much. Measured: `profiles:` is a **service**
+key, not a field key, so no profile can make a field conditional
+(`services.x.ports must be a array`), an empty port entry is refused
+(`no port specified: <empty>`), and `ports:` does not interpolate as a list. An
+override file that **adds** `profiles:` to a service is what takes it out of a
+default `up` — which is the whole mechanism behind §5.
 
-It holds **only the ports a human needs from the host** — the public listeners
-and the UI. Not the admin ones (§3), and a database port only as a convenience
-for a GUI, since the application itself runs in compose too and joins by
-container name.
+The simplest way to run two stacks at once is two clones, each with its own
+`.env`, its own `STACK_PREFIX` and its own `./data/`. Everything above is what
+makes that work without editing a single compose file.
 
 ## 9. `.env` is the machine, `.env.example` is the contract
 
@@ -262,19 +337,24 @@ move fixed it.
 docker compose config                 # interpolation, before anything runs
 docker compose --profile prod build   # with NO profile, this builds nothing:
                                       # "No services to build"
-docker compose up -d
-docker ps --format '{{.Names}}\t{{.Ports}}'        # no published port
+docker compose --profile dev up -d
+docker ps --format '{{.Names}}\t{{.Ports}}'        # the Ports column is EMPTY,
+                                                   # in dev as in prod
 curl -I http://<service>.localhost/health/ready    # 200 through traefik
 curl -I http://localhost:<admin-port>/             # connection refused
+grep -rn 'ports:' docker-compose*.yaml             # only what IS the interface
 ```
 
-Then the test that proves the exercise — the same stack twice, side by side:
+Then the test that proves the exercise — the same stack twice, side by side, and
+run it with `--profile dev`, since that is the mode two of them will actually be
+in:
 
 ```bash
 STACK_PREFIX=ory2 KRATOS_HOSTNAME=kratos-ory2.localhost \
-  UI_HOSTNAME=kratosix-ory2.localhost docker compose up -d
+  UI_HOSTNAME=kratosix-ory2.localhost docker compose --profile dev up -d
 ```
 
 Both answer on their own hostnames, and nothing collides. A second deployment
-needs its own database roles, so check what the repo's setup script reads
-before running it twice against one server.
+needs its own database roles and its own `./data/`, so check what the repo's setup
+script reads before running it twice against one server — or give the second one
+its own clone, which is the shape this is built for.

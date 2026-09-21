@@ -34,6 +34,14 @@ files. It consumes nxgt-ory over the network by URL.
   check what the Dockerfile does with it before assuming the token is not in the
   published image.
 
+## What is waiting on this repo
+
+`nxgt-docker` keeps seven `docker-compose.dev.yaml` files alive — one TCP port each
+— **only** because this repo and `sellix-monorepo` run dev servers on the host that
+dial postgres, mongo, redis, mailpit's SMTP, minio's S3 API and rabbitmq's AMQP.
+Moving these apps onto `proxy` in compose is what lets those seven files be
+deleted, so the network move is not just tidiness here.
+
 ## The host scripts, same as sellix
 
 `notes-ui/playwright/config/ory.ts`, `notes-ui/playwright.config.ts`,
