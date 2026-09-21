@@ -45,6 +45,39 @@ both consumers. Do not trust a default here; read `docker network inspect proxy`
   from the shell profile; a session started before that profile changed carries
   the old value into every container it creates.
 
+## Ports here, after 2026-09-20
+
+Nothing publishes for convenience, in development either. What is published is
+what the port IS: traefik's `:80`/`:443` and its mail entrypoints, adguard's DNS
+and DHCP, the `dms` listeners, `frps` on `:7000`. Eleven `docker-compose.dev.yaml`
+files whose only job was publishing an HTTP console were deleted — a console needs
+a router, and `mailpit.${HOST}`, `minio.${HOST}`, `rabbitmq.${HOST}`,
+`grafana.${HOST}`, `keycloak.${HOST}`, `pgadmin.${HOST}` are those routers.
+
+Seven files remain and are **transitional**, one TCP port each: postgres `5432`,
+mariadb `3306`, mongo `27017`/`27018`, redis `6379`, mailpit SMTP `1025`, minio S3
+`9000`, rabbitmq AMQP `5672`. They exist only because `sellix-monorepo` and
+`nxgt-federation` still run dev servers on the host that dial them. Deleting them
+is the last step of converting those two repos — not a separate decision.
+
+## Two things `.env` taught here, the hard way
+
+- **`git rm` is not `git rm --cached`.** The commit that untracked the twenty-six
+  `.env` files deleted them from disk as well, and said in its message that it had
+  not. Containers recreated in the following hours came up without them. They were
+  restored from the commit before; the two keys introduced *by* that commit could
+  not be, and one had to be read back from a running container's own label.
+- **Compose gives the shell precedence over `.env`, and this machine's real
+  credentials are in `~/.bashrc`** — postgres, mariadb, minio, rabbitmq, S3, and
+  the three `TRAEFIK_*`. So `docker compose up -d` does different things in
+  different shells: from the owner's terminal it keeps what is running, from an
+  agent's session or a CI job it would rotate those credentials silently. Recreate
+  a service from the shell that owns the values, and never assume a `.env` you can
+  read is the value in effect. A stale export is the same trap in reverse: a
+  session started before a profile changed carries the old value into every
+  container it creates — which is exactly how a `traefik.enable=false` got baked
+  into four freshly created containers, twice.
+
 ## When you add a service here
 
 Container name and hostname, no port, no address, `./data/<service>` for state,

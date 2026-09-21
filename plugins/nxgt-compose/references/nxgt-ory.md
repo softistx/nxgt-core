@@ -33,9 +33,19 @@ so editing a URL there alone changes nothing.
   `mem_limit: 4g`), and `ory-sdk-watch` / `ory-react-watch` from one YAML anchor
   (`mem_limit: 2g`), running `build.ts --watch`. `kratos-ui` carries
   `profiles: ["prod"]` because both claim `Host(UI_HOSTNAME)`.
-- `docker-compose.dev.yaml` publishes exactly `4433`, `4466`, `4444`,
-  `${APP_PORT}` and `5177`, and carries a comment explaining why the three admin
-  ports are absent.
+- `docker-compose.dev.yaml` publishes **nothing**. It published those five for a
+  day and they were removed the same week: development runs in compose too, so a
+  human uses a hostname and a process uses a container name. What is left in the
+  file is the one thing a dev machine differs by — `ory-postgres` with
+  `profiles: ["own-db"]` — plus a comment saying why there is nothing else.
+- **Vite keeps its default port** (5173). The pinned 5177 belonged to
+  `bun run dev` on the host, when the port was published. `vite.config.ts` still
+  sets `host: '0.0.0.0'`, `allowedHosts` and `hmr.clientPort: 80`; none of those is
+  the port.
+- **The `image:` tags carry the prefix**
+  (`nxgt/kratos-ui:${STACK_PREFIX:+${STACK_PREFIX}-}dev`). A fixed tag is as global
+  as a port: a second deployment that rebuilt it would replace the first one's
+  image underneath it.
 
 ## Consequences already handled here — copy these too
 
@@ -47,6 +57,21 @@ so editing a URL there alone changes nothing.
 - The admin scripts (`grant-admin`, `create-client`, `seed-clients`) and the
   Keto spec suite run through `docker compose exec`. That is the only mode now,
   not a fallback.
+- **The e2e suite reaches the three admin listeners the same way, per request.**
+  `kratos/playwright/config/network.ts` runs each one as
+  `docker compose exec -T kratos-ui-dev bun -e '<fetch>' '<request as JSON>'` —
+  the request crosses as one JSON argument, because quoting a URL and a body into
+  `-e` is a shell-escaping bug waiting to happen. About 0.3s per call, so only
+  those three go that way; Hydra's public API, Mailpit and the app are routed or
+  published and are fetched directly. Copy this when a suite in another repo hits
+  the same wall.
+- **The dev containers run as uid 1000 (`bun`), not root.** They mount the host's
+  sources and create files in them — typegen output, each package's `dist/` — and
+  as root those arrive owned by root, after which `bun run typecheck` on the host
+  dies with `EACCES`. It hid for a day because overwriting an existing file keeps
+  its owner: only newly created files were affected. The install happens as that
+  user so there is no `chown -R` layer, and the anonymous `node_modules` volumes
+  take their ownership from the image.
 - `kratos/playwright.config.ts` targets `${PUBLIC_SCHEME}://${UI_HOSTNAME}` and
   reuses the dev container (`reuseExistingServer`) rather than starting
   `bun dev` on the host.
