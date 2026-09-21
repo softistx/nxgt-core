@@ -5,7 +5,20 @@ Seven backends and their UIs, in three compose files: `docker-compose.yml`
 `apps/bookmarks/docker-compose.yaml` (api, ui). It consumes nxgt-ory over
 `proxy` by URL, and nothing else.
 
-**Not converted yet.** What follows is measured, and is the work.
+**Converted across PR #128 and PR #129** (2026-09-20 and 2026-09-21). What follows
+is measured; the numbered list is kept because it is the order the work was worth
+doing in, and the same order applies to any repository still waiting.
+
+Done here, beyond the list: `prod` and `dev` profiles in `apps/bookmarks`, the
+Playwright suite on a `docker compose exec` transport, `traefik.enable=true`
+literal on all seven routed services, every `proxy` address in
+`docker/shared.env` written out (skill §9), and `APP_PORT` back to `3000` —
+`apps/oauth/.env.example` still pinned the oxmgr-era `3006`, which broke
+`nxgt-federation`'s supergraph with `Unable to connect` while every container in
+both repos reported healthy.
+
+Still open: `apps/oauth` has **no `dev` profile**. Its header says what one will
+need. The root `gateway` still publishes `8080` and `4173`.
 
 ## What is already right
 
@@ -54,6 +67,20 @@ Seven backends and their UIs, in three compose files: `docker-compose.yml`
    and become container names.
 5. **The prose** — the `AGENTS.md`/`README.md` passages that describe reaching
    the stack on a published port.
+
+## Two traps this repo is the record of
+
+- **A UI that must read `ory_kratos_session` cannot have its own hostname.** That
+  cookie is host-only, so `bookmarks-ui` lives on kratos-ui's host under
+  `PathPrefix(/bookmarks)` at `priority: 10` against kratos-ui's `1`. Both
+  priorities are explicit, because traefik's rank-by-rule-length default is
+  invisible from either repo alone. A UI that is an OAuth2 *client* instead —
+  nxgt-federation's notes-ui — carries its own session and is free to take its own
+  hostname.
+- **A rebuild reuses anonymous volumes.** `up -d --build` alone left a new
+  dependency in the image and out of what the container reads, so a fresh
+  `@nxgt/ory-sdk` import 500'd in Vite. `--renew-anon-volumes` is part of the
+  command after any `package.json` change, not a recovery step.
 
 ## When you add a service here
 

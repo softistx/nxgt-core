@@ -4,7 +4,37 @@ A GraphQL federation: a supergraph gateway and several subgraphs, plus four UIs
 (`sellix-ui`, `content-hub-ui`, `healthix-ui`, and the notes app). Eight compose
 files. It consumes nxgt-ory over the network by URL.
 
-**Not converted, and further from the shape than sellix.** The measurements:
+**Converted on 2026-09-21** (PR #210). Everything below the next heading is the
+state it was converted *from*, kept because it is the shape of every repository
+that has not been converted yet. What it looks like now:
+
+- one `proxy`, no `nxgt_network`, no published port in either profile
+- `prod` and `dev` profiles on the root compose and on all three UI stacks; the
+  three `docker-compose.dev.yaml` second-projects and the three
+  `Dockerfile.development` are gone
+- `oxmgr` runs five processes in one container, which is why notes-ui's Vite keeps
+  an explicit `port: 5401` while every other dev server dropped its own — five
+  servers in one network namespace do need distinct numbers (skill §8 is about
+  names that are global to the *machine*; this one is not)
+- `traefik.enable=true` literal, and every `proxy` address in `docker/shared.env`
+  written out (skill §9)
+- every `health_cmd` on `bun -e` and on `/health`, never `curl` and never
+  `{__typename}` (skill §10)
+
+**One finding here is worth carrying to any repo with a browser-facing OAuth2
+client.** notes-ui needs *two* Hydra URLs, and one string cannot do both jobs:
+measured on glibc 2.41, inside a container any `*.localhost` name resolves to
+`::1` and `/etc/hosts` is not consulted, so `extra_hosts` and `--add-host` cannot
+redirect it. A local public hostname is reachable from the browser and from
+nothing else. So the issuer stays the public hostname — it is what the browser is
+sent to and what the id token is signed by — and a second variable carries the
+container name for the calls the server makes, with one `fetch` wrapper rewriting
+that one origin. Give the second variable an empty default: empty means "use the
+public one", which is right wherever the public name resolves from inside.
+
+## What it was converted from
+
+The measurements, as of 2026-09-20:
 
 - **It is on the wrong network.** Every file joins `nxgt_network`, not `proxy`.
   That is why its services publish ports instead of getting routes — there is no
@@ -37,17 +67,24 @@ files. It consumes nxgt-ory over the network by URL.
 ## What is waiting on this repo
 
 `nxgt-docker` keeps seven `docker-compose.dev.yaml` files alive — one TCP port each
-— **only** because this repo and `sellix-monorepo` run dev servers on the host that
+— **only** because this repo and `sellix-monorepo` ran dev servers on the host that
 dial postgres, mongo, redis, mailpit's SMTP, minio's S3 API and rabbitmq's AMQP.
-Moving these apps onto `proxy` in compose is what lets those seven files be
-deleted, so the network move is not just tidiness here.
 
-## The host scripts, same as sellix
+Both repos now run in compose, so those seven files can go. One thing still holds
+them: `bun run dev` on the host still works for the **subgraphs** here, and only
+because those ports are published. Deleting them is the right next step and it
+closes that door deliberately rather than by accident.
+
+## The host scripts, same as sellix — done
 
 `notes-ui/playwright/config/ory.ts`, `notes-ui/playwright.config.ts`,
 `playwright/e2e/access.spec.ts` and `notes-ui/scripts/register-client.ts` all
-call Kratos admin, Keto write or Hydra admin on `localhost`. They move to
-`docker compose exec` or into a container on `proxy`.
+called Kratos admin, Keto write or Hydra admin on `localhost`. They now go
+through `playwright/config/network.ts`, a `docker compose exec -T` transport
+ported from nxgt-ory's — keep the copies in step. `register-client` runs in the
+container too, and with `--user "$(id -u):$(id -g)"`, because it writes
+`.env.local` into the mounted tree: as root that leaves a root-owned file on the
+host and the next host-side typecheck fails on `EACCES` somewhere unrelated.
 
 ## Two apps are leaving
 

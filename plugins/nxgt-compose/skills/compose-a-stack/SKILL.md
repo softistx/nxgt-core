@@ -36,7 +36,7 @@ that repository has been converted and what is measured about it.
 | `sellix-monorepo` | `references/sellix-monorepo.md` |
 | `nxgt-federation` | `references/nxgt-federation.md` |
 
-A repository with no reference here still follows the nine rules; add its
+A repository with no reference here still follows the eleven rules; add its
 reference when you convert it, in the shape of the others — what it is, what is
 already right, what is wrong in order of real cost, and what to do when adding a
 service to it.
@@ -305,11 +305,87 @@ key, not a field key, so no profile can make a field conditional
 override file that **adds** `profiles:` to a service is what takes it out of a
 default `up` — which is the whole mechanism behind §5.
 
+`ports:` is not the only field a shell reaches, either — §9 is about everything else it
+reaches.
+
 The simplest way to run two stacks at once is two clones, each with its own
 `.env`, its own `STACK_PREFIX` and its own `./data/`. Everything above is what
 makes that work without editing a single compose file.
 
-## 9. `.env` is the machine, `.env.example` is the contract
+## 9. The shell beats the file, so an address is not a variable
+
+Compose gives the **shell environment precedence over `.env`**, and an `env_file`
+whose lines are `${VAR:-default}` inherits from whatever ran compose. So a stale
+export in a profile decides what a container gets, and nothing in the repository
+is wrong.
+
+Measured three times on one machine, on 2026-09-20 and 2026-09-21:
+
+| the export | what it did |
+| --- | --- |
+| `REDIS_URL=redis://localhost:6379` | four processes in one container retrying `ECONNREFUSED 127.0.0.1:6379`; in a sibling repo a container died on `Reached the max retries per request limit` after twenty |
+| `TRAEFIK_ENABLE=false` | two hostnames answering traefik's own plain-text 404, beside a third answering 200 because *that* container had been created in a shell without the export |
+| `APP_PORT=3006`, from a stale `.env.example` | another repo's federated query answering `Unable to connect` while every container in both repos reported healthy |
+
+Every one of them was correct when it was written. That is the pattern: a value
+describing the old world survives in a shell profile and outlives the change.
+
+**The rule.** A name with exactly one right answer on this network is not a
+variable — write it out:
+
+```bash
+# docker/shared.env — every address inside `proxy`, literal
+MONGO_HOSTS=mongo1:27017,mongo2:27017
+REDIS_URL=redis://redis:6379
+KETO_WRITE_URL=http://keto:4467
+
+# still indirected: no single right answer, and compose must refuse to guess
+MONGO_PASSWORD=${MONGO_PASSWORD:?export MONGO_PASSWORD}
+JWT_SECRET=${JWT_SECRET:?export JWT_SECRET — must match the OAuth server's}
+MAIL_HOST=${MAIL_HOST:-mailpit}
+```
+
+Secrets, credentials, policy (`CORS_ORIGINS`) and endpoints a machine may
+legitimately point elsewhere (mail) keep indirecting. Addresses on the shared
+network do not. **To override an address anyway, put it in that service's
+`environment:`**, which beats `env_file:` — a deliberate, readable override
+instead of whatever the shell happens to hold.
+
+**`traefik.enable` is a literal `true`, never `${TRAEFIK_ENABLE:-true}`.** Once
+nothing publishes a port (§1), traefik is the only ingress, so a route is not an
+option a machine-wide setting may withdraw. A service that must *not* be routed
+says `traefik.enable=false` outright, and an unauthenticated listener carries no
+label at all (§3). `TRAEFIK_HTTP_ENTRYPOINTS` and `TRAEFIK_USE_TLS` stay
+variables: *which* entrypoint, and whether it terminates TLS, really are
+properties of the shared network. Whether a service has a route is a property of
+that service — the three were never the same kind of thing, and grouping them is
+what made this look consistent.
+
+Labels are read **at container creation**, so neither a `restart` nor a traefik
+reload changes one. A fix needs `up -d`, and that is why one container can
+disagree with its neighbours indefinitely.
+
+**A container-internal port is a cross-repo constant when another repo dials it.**
+It looks private — nothing publishes it, each container has its own namespace — so
+it drifts into a per-app `.env`. But a sibling repository naming
+`http://oauth-api:3000/api` has no compiler to tell it the number moved. Pick one
+number for every service in the parc, keep it in the compose file, and say in
+`AGENTS.md` who dials it.
+
+## 10. A health probe must be runnable, and must answer for one process
+
+Two ways a probe is worse than none, both measured:
+
+- **The binary is not in the image.** Five `health_cmd` lines used `curl`; the bun
+  base image has neither `curl` nor `wget`. Every probe failed with
+  `sh: 1: curl: not found` and the stack booted anyway, so nothing announced it.
+  Use the interpreter the image is built on:
+  `bun -e 'const r = await fetch("http://localhost:5401/health"); process.exit(r.ok ? 0 : 1)'`.
+- **The probe federates.** `{__typename}` on a gateway is planned across its
+  subgraphs, so it reaches another project's containers and fails whenever that
+  project is down. A liveness probe answers for its own process: `/health`.
+
+## 11. `.env` is the machine, `.env.example` is the contract
 
 The `.env` is untracked and keeps real values; `.env.example` is tracked and
 carries the same keys with placeholders — or, where the repo's convention is
@@ -343,6 +419,11 @@ docker ps --format '{{.Names}}\t{{.Ports}}'        # the Ports column is EMPTY,
 curl -I http://<service>.localhost/health/ready    # 200 through traefik
 curl -I http://localhost:<admin-port>/             # connection refused
 grep -rn 'ports:' docker-compose*.yaml             # only what IS the interface
+
+# §9 — what the SHELL did to the container you just created
+docker inspect <name> --format '{{index .Config.Labels "traefik.enable"}}'
+docker exec <name> env | grep -E '_URL|_HOSTS'
+env | grep -E '^(TRAEFIK_|REDIS_|KRATOS_|KETO_|HYDRA_|APP_PORT)'   # if set, it won
 ```
 
 Then the test that proves the exercise — the same stack twice, side by side, and
