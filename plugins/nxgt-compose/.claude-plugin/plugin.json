@@ -1,0 +1,8 @@
+{
+	"name": "nxgt-compose",
+	"description": "Writing the docker compose of an nxgt stack: no published port, a STACK_PREFIX for the docker names and a whole hostname per service for DNS, no static address, an unauthenticated listener with no route, a dev profile with mounted sources, and every host volume inside the project.",
+	"version": "1.0.0",
+	"author": {
+		"name": "softistx"
+	}
+}
