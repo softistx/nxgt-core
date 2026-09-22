@@ -23,9 +23,18 @@
  * Everything else, `stx-sdk` included, resolves from the registry the way a
  * consumer's install does. Optional peers are installed too, the way a
  * consumer who uses the subpath that needs one would.
+ *
+ * It packs `dist/`, and it does not build. In CI a Build step runs first and
+ * `changeset:publish` builds too, so only a bare local `bun run verify:artifacts`
+ * can reach a `dist/` older than its `src/` — and `dist/` is gitignored, so the
+ * staleness is invisible and cannot be reasoned about from the diff. That
+ * happened on 2026-09-22: four subpaths failed on `Cannot find package
+ * 'stx-sdk'` while the same commit reported "All 29 subpaths load" in CI, and it
+ * cost an hour before the build was suspected instead of the environment. So it
+ * refuses to run now rather than report a failure the source does not have.
  */
 
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { $ } from 'bun';
@@ -83,6 +92,14 @@ async function readPackages(): Promise<Pkg[]> {
  *     the 4.0.0 API. The install succeeds, the types check, and the consumer
  *     quietly gets both majors. Nothing else here catches that, because every
  *     range involved is a well-formed caret.
+ *   - a **package that lists itself** in a field a consumer installs. Neither
+ *     of the checks above sees it: `@nxgt/material` shipped
+ *     `"@nxgt/material": "."` for four months, and `.` is neither a `file:`
+ *     prefix nor a digit. It is not inert — `.` resolves to the *consumer's*
+ *     directory, so every install grew a second copy of the package reporting
+ *     the consumer's own version, and a `bun.lock` entry no manifest declared.
+ *     A package self-references through its `name` and `exports`; it never
+ *     needs to depend on itself.
  *   - a **license other than MIT, or no `LICENSE` in the tarball**. npm only
  *     ships the `LICENSE` in the package's own directory, never the root's.
  */
@@ -120,6 +137,13 @@ async function manifestProblems(tarballs: string[]): Promise<string[]> {
 			)) {
 				if (/^(link|file):/.test(String(range))) {
 					problems.push(`${name}: ${field}.${dep} = ${range}`);
+				}
+				if (dep === name) {
+					problems.push(
+						`${name}: ${field} lists itself as ${range}; a relative path ` +
+							"there resolves to the CONSUMER's directory — " +
+							'`exports` already makes the package self-referencing',
+					);
 				}
 				if (own.has(dep) && /^\d/.test(String(range))) {
 					problems.push(
@@ -162,7 +186,54 @@ async function manifestProblems(tarballs: string[]): Promise<string[]> {
 	return problems;
 }
 
+/**
+ * The newest mtime under a directory, or 0 if it does not exist. Deep, because
+ * a build is only as fresh as its stalest input.
+ */
+async function newestMtime(dir: string): Promise<number> {
+	let newest = 0;
+	const glob = new Bun.Glob('**/*');
+	for await (const rel of glob.scan({ cwd: dir, onlyFiles: true })) {
+		const { mtimeMs } = await stat(join(dir, rel));
+		if (mtimeMs > newest) newest = mtimeMs;
+	}
+	return newest;
+}
+
+/** Packages whose `dist/` is missing, or older than their own `src/`. */
+async function staleBuilds(pkgs: Pkg[]): Promise<string[]> {
+	const stale: string[] = [];
+	for (const pkg of pkgs) {
+		const dist = await newestMtime(join(pkg.dir, 'dist'));
+		if (dist === 0) {
+			stale.push(`${pkg.name}: no dist/`);
+			continue;
+		}
+		const src = await newestMtime(join(pkg.dir, 'src'));
+		if (src > dist) {
+			const age = Math.round((src - dist) / 1000);
+			stale.push(`${pkg.name}: src/ is ${age}s newer than dist/`);
+		}
+	}
+	return stale;
+}
+
 const packages = await readPackages();
+
+const stale = await staleBuilds(packages);
+if (stale.length > 0) {
+	console.error('This would verify a stale build, not the working tree:\n');
+	for (const one of stale) console.error(`  ${one}`);
+	console.error(
+		'\nRun `bun run build` first. This script packs `dist/`, which is\n' +
+			'gitignored, so a stale one reports failures the source does not have —\n' +
+			'and they look like environment problems, not build problems. CI never\n' +
+			'hits this because a Build step runs before it, and neither does\n' +
+			'`changeset:publish`, which builds.',
+	);
+	process.exit(1);
+}
+
 const workdir = await mkdtemp(join(tmpdir(), 'nxgt-core-verify-'));
 
 try {
@@ -185,8 +256,10 @@ try {
 		for (const problem of problems) console.error(`  ${problem}`);
 		console.error(
 			'\nA `link:` or `file:` no consumer can resolve, a required peer that is\n' +
-				'on no registry, an exact pin on a sibling, or a license other than\n' +
-				'MIT or no LICENSE shipped. See AGENTS.md.',
+				'on no registry, an exact pin on a sibling, a sibling range that\n' +
+				'excludes the sibling published beside it, a package that lists\n' +
+				'itself, or a license other than MIT or no LICENSE shipped. See\n' +
+				'AGENTS.md.',
 		);
 		process.exit(1);
 	}
