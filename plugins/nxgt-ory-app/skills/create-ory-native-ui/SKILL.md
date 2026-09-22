@@ -279,6 +279,13 @@ loaders           gql(bearerOf(context), …) → notes-api
   for byte.
 - **`scope: 'openid offline email profile'`** — `offline` earns the refresh
   token, `email` is what the header shows.
+- **`offline` and `offline_access` are two different scopes**, not one name
+  with a synonym. Hydra refuses `invalid_scope` when the authorization request
+  asks for a scope the registered client does not list, so the client's `scope`
+  must be a superset of what `oauth2.server.ts` sends — and a client declared
+  in **both** `register-client` and nxgt-ory's `kratos/scripts/clients.seed.ts`
+  must list every name either side uses. Seeding narrowed a working client to
+  `offline_access` once and the next login failed with nothing wrong in the app.
 - **Cookie**: httpOnly, `SameSite=Lax` (the callback is a cross-site
   redirect), `secure` following `APP_URL`'s scheme (not `NODE_ENV`).
 - **`.env.local`, not `.env.development.local`** — Bun loads the first, not
@@ -329,6 +336,44 @@ that cost time:
 Also: probe `/health`, never `/`. The suites take minutes — run them before a
 PR, not on every save (the user asked not to block on them).
 
+## The production bundle is its own test, and it has failed twice
+
+`bun run dev` proves nothing about `build/`. Two migrations shipped a bundle
+that threw on its **first request — `/health` included** — while every check
+was green, because nothing boots the artifact.
+
+The failure both times: `@nxgt/material` re-exports a PDF viewer over
+`@react-pdf/renderer`, so `pdfkit` is in the server graph whether or not a route
+renders a PDF. pdfkit registers its fourteen standard fonts with
+`createRequire(import.meta.url)('#standard-fonts/<name>')` — a package-`imports`
+specifier private to pdfkit, called at **runtime**, so no bundler resolves it.
+The literal survives into the bundle, where `createRequire` is rooted at the
+build directory: `Cannot find module '#standard-fonts/Helvetica'`, on every
+route. A compose healthcheck that fetches `/` never goes healthy either.
+
+Which remedy applies depends on ONE fact — whether the runtime image has a
+`node_modules`:
+
+| Runtime image | Fix |
+| --- | --- |
+| Ships `node_modules` (most product repos) | drop `@nxgt/material` from `ssr.noExternal` **and** add `--external @nxgt/material` to `build:server`. Also cuts the bundle by an order of magnitude (14.3 MB → 1.7 MB measured) |
+| Ships `build/` only (nxgt-ory's `kratos`) | a Vite `transform` plugin rewriting those calls into static imports of `./standard-fonts/<name>.mjs`, so the fonts land in the bundle. `nxgt-ory/kratos/vite.config.ts` has it, commented |
+
+`resolve.alias` does **not** work and is the obvious first attempt: an alias
+rewrites specifiers the resolver is asked about, and this one is a string handed
+to `createRequire`. Neither does `--external pdfkit`: it is transitive, so the
+runtime cannot resolve it from the app's directory.
+
+So, after `bun run build`, always:
+
+```bash
+grep -c '#standard-fonts/' build/app.js        # want: 0
+<env…> bun ./build/app.js &                    # boot the artifact
+curl -o /dev/null -w '%{http_code}\n' localhost:$PORT/health   # want: 200, not 000
+```
+
+`000` is the shape of this bug: the process is up, the request dies.
+
 ## Documentation (mandatory — part of the same branch)
 1. `README.md` — running it (the stack, kratos-ui, the API, then this),
    *Try it end to end*, the fit, non-goals (no login form, no Keto client,
@@ -349,7 +394,9 @@ PR, not on every save (the user asked not to block on them).
    keep the auth module untouched.
 5. `bun run typecheck`, `bunx biome check --write .`, `bun run build`, boot
    the bundle once and `curl` `/health`, `/` (302) and a forged callback
-   (shape b: 400).
+   (shape b: 400). **Boot the artifact, not the dev server** — see "The
+   production bundle is its own test": `000` means the bug above, not a slow
+   start.
 6. Playwright, then documentation, then PR to `develop`.
 
 ## Checklist before finishing
@@ -360,5 +407,6 @@ PR, not on every save (the user asked not to block on them).
 - [ ] `/health` answers anonymously; probes point there
 - [ ] Shape (a): prefix everywhere, `allowed_return_urls`; shape (b): whole token set stored, cookie committed after refresh, `register-client` documented
 - [ ] No hand-written `call.server.ts` or node readers — they are `stx-sdk/ory/flows`; the session context stays local
+- [ ] `bun run build`, then the bundle booted and `/health` curl'd — no `#standard-fonts/` left in it
 - [ ] Playwright signs in through the real screens and asserts against Keto
 - [ ] README + docs/ + AGENTS.md + CLAUDE.md list + nxgt-ory's `README.md` row
