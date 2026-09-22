@@ -92,6 +92,14 @@ async function readPackages(): Promise<Pkg[]> {
  *     the 4.0.0 API. The install succeeds, the types check, and the consumer
  *     quietly gets both majors. Nothing else here catches that, because every
  *     range involved is a well-formed caret.
+ *   - a **package that lists itself** in a field a consumer installs. Neither
+ *     of the checks above sees it: `@nxgt/material` shipped
+ *     `"@nxgt/material": "."` for four months, and `.` is neither a `file:`
+ *     prefix nor a digit. It is not inert — `.` resolves to the *consumer's*
+ *     directory, so every install grew a second copy of the package reporting
+ *     the consumer's own version, and a `bun.lock` entry no manifest declared.
+ *     A package self-references through its `name` and `exports`; it never
+ *     needs to depend on itself.
  *   - a **license other than MIT, or no `LICENSE` in the tarball**. npm only
  *     ships the `LICENSE` in the package's own directory, never the root's.
  */
@@ -129,6 +137,13 @@ async function manifestProblems(tarballs: string[]): Promise<string[]> {
 			)) {
 				if (/^(link|file):/.test(String(range))) {
 					problems.push(`${name}: ${field}.${dep} = ${range}`);
+				}
+				if (dep === name) {
+					problems.push(
+						`${name}: ${field} lists itself as ${range}; a relative path ` +
+							"there resolves to the CONSUMER's directory — " +
+							'`exports` already makes the package self-referencing',
+					);
 				}
 				if (own.has(dep) && /^\d/.test(String(range))) {
 					problems.push(
@@ -241,8 +256,10 @@ try {
 		for (const problem of problems) console.error(`  ${problem}`);
 		console.error(
 			'\nA `link:` or `file:` no consumer can resolve, a required peer that is\n' +
-				'on no registry, an exact pin on a sibling, or a license other than\n' +
-				'MIT or no LICENSE shipped. See AGENTS.md.',
+				'on no registry, an exact pin on a sibling, a sibling range that\n' +
+				'excludes the sibling published beside it, a package that lists\n' +
+				'itself, or a license other than MIT or no LICENSE shipped. See\n' +
+				'AGENTS.md.',
 		);
 		process.exit(1);
 	}
