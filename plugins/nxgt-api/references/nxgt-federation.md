@@ -69,6 +69,15 @@ now this skill plus `handle-a-file-upload`, and its auth half was already marked
 superseded — a new API here resolves its caller with `useOryAuth`, not with
 `stx-sdk`'s REST introspection.
 
+## The subgraphs use the flat i18n layout, not the modular one
+
+The skill's `resources/en/<module>.json` + `en/index.ts` shape is what the
+standalone APIs here have. The subgraphs under `apps/services/*` have a single
+`resources/en.json` and `fr.json`, one top-level camelCase key per module, merged
+in `resources/index.ts`. Both are current; follow the one the service you are in
+already uses, and prefer the modular shape for anything new — a per-module file is
+what makes a module's keys removable with the module.
+
 ## Two facts about this repository that the skill's defaults assume
 
 - **`apps/**` is two levels deep** (`apps/<product>/<product>-api`), so a root
