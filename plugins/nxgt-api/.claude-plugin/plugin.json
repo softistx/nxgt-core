@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-api",
-	"description": "Building a Bun + Hono API: a folder per subject rather than per layer, the environment declared in bun.d.ts and parsed once with zod, a Bun.serve entrypoint that binds the parsed port, and an OpenAPI registry each module registers into.",
-	"version": "1.0.0",
+	"description": "Building an API on Bun: a Hono one with a folder per subject and an OpenAPI registry, a GraphQL Yoga one with a module per subject and codegen driven by a mappings list, and the presigned-URL upload pattern both use.",
+	"version": "1.1.0",
 	"author": {
 		"name": "softistx"
 	}

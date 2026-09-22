@@ -27,7 +27,7 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-ory-app` | `create-ory-native-rest-api`, `create-ory-native-graphql-api`, `create-ory-native-ui`, `admin-screen-pattern` |
 | `nxgt-docs` | `keep-docs-current`; agents `documentation-writer`, `troubleshooting-writer`, `roadmap-keeper`, `documentation-auditor` |
 | `nxgt-review` | `review-before-a-pr`; agent `code-reviewer`, with a `references/<repo>.md` per repository |
-| `nxgt-api` | `build-a-bun-hono-api` |
+| `nxgt-api` | `build-a-bun-hono-api`, `build-a-graphql-yoga-api`, `handle-a-file-upload`, with a `references/<repo>.md` where a repository differs |
 | `nxgt-compose` | `compose-a-stack`, with a `references/<repo>.md` per repository |
 | `nxgt-product` | `lay-out-a-product-repository`, `extract-a-product-from-a-monorepo`, with a `references/<product>.md` per product repository |
 

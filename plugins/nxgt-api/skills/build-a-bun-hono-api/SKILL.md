@@ -18,6 +18,11 @@ environment is read, how the process starts and stops. It is transport and
 storage agnostic — it says nothing about who authenticates a caller (that is
 `nxgt-ory-app`'s) nor which database is behind it.
 
+**If the API serves GraphQL, `build-a-graphql-yoga-api` is the one to load**: a
+Yoga instance still runs inside a Hono app, but the module layout, the codegen and
+the per-request context are its own. `handle-a-file-upload` covers attachments for
+either.
+
 Two implementations are worth reading before you start:
 
 | where | what it is |
