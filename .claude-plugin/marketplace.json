@@ -36,6 +36,10 @@
 		{
 			"name": "nxgt-product",
 			"source": "./plugins/nxgt-product"
+		},
+		{
+			"name": "nxgt-autonomy",
+			"source": "./plugins/nxgt-autonomy"
 		}
 	]
 }
