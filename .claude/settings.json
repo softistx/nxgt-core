@@ -9,6 +9,7 @@
 		"nxgt-package@nxgt-core": true,
 		"nxgt-docs@nxgt-core": true,
 		"nxgt-review@nxgt-core": true,
-		"nxgt-product@nxgt-core": true
+		"nxgt-product@nxgt-core": true,
+		"nxgt-autonomy@nxgt-core": true
 	}
 }
