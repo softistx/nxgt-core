@@ -8,7 +8,7 @@
         "@biomejs/biome": "^2.5.9",
         "@changesets/changelog-github": "^1.0.1",
         "@changesets/cli": "^3.0.1",
-        "@nxgt/ory-sdk": "^0.1.0",
+        "@nxgt/ory-sdk": "^0.1.1",
         "@types/bun": "^1.4.0",
         "stx-sdk": "^1.1.0",
         "typescript": "~6.0.3",
@@ -703,7 +703,7 @@
 
     "@nxgt/i18n": ["@nxgt/i18n@workspace:packages/i18n"],
 
-    "@nxgt/ory-sdk": ["@nxgt/ory-sdk@0.1.0", "", { "dependencies": { "jose": "^6.2.9" }, "peerDependencies": { "openapi-fetch": "^0.17.0", "typescript": "^6.0.3", "zod": "^4.4.3" } }, "sha512-ic1h/+fZQ4T//hUCN2RlNdErbpJMk3Gvd7rCG8dazd5XHGn7ivxFcDXJarwf5oObRQTNXJVzbGvohzC4w1vtLg=="],
+    "@nxgt/ory-sdk": ["@nxgt/ory-sdk@0.1.1", "", { "dependencies": { "jose": "^6.2.9" }, "peerDependencies": { "openapi-fetch": "^0.17.0", "typescript": "^6.0.3", "zod": "^4.4.3" } }, "sha512-JEF3/8VH6+GiAnLx6iMtnzl5nwAZZu7H2p/helvX0PqDDSa86Sfs+u5mMlK2fI0XbR3IK5KxaHffPQEquQS3YA=="],
 
     "@nxgt/security": ["@nxgt/security@workspace:packages/security"],
 
