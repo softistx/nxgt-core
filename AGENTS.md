@@ -10,8 +10,9 @@ depend on. Until 2026-09-06 each monorepo carried its own copy under
 `shared` by ~260. This repository is the single copy, published to the public
 npm registry.
 
-It holds eleven packages: the nine extracted from `sellix-monorepo` and the two
-that existed only in `nxgt-federation` — `shared-events`, `shared-graphql`. A
+It holds twelve packages: the nine extracted from `sellix-monorepo`, the two
+that existed only in `nxgt-federation` — `shared-events`, `shared-graphql` — and
+`env`, written here on 2026-09-22 and the first with a `bin`. A
 third from `nxgt-federation`, `datasource-rest`, moved to `softistx/nxgt-http`
 on 2026-09-14, with its history. `openapi-codegen`, written here and published
 from here at 0.1.0, followed it there the same day: its releases from 0.2.0 on
@@ -23,7 +24,7 @@ on these packages, never the reverse.
 ## Layering
 
 ```
-shared-logging   shared-openapi   shared-events   i18n   (no internal dependencies)
+shared-logging   shared-openapi   shared-events   i18n   env   (no internal dependencies)
 
 package             depends on
 shared-exceptions   i18n
@@ -38,6 +39,12 @@ shared-graphql      shared-mongo, security, shared, shared-exceptions, i18n, sha
 Each row is a package's direct `@nxgt/*` dependencies, and names only rows
 above it. The manifests are the source of truth:
 `grep -n '"@nxgt/' packages/*/package.json`.
+
+`env` has no dependency at all, internal or external, on purpose: it is the one
+package a repository runs with `bunx` before it has installed anything, and it
+carries the only `bin` in the workspace (`nxgt-env`). `build.ts` refuses a `bin`
+whose target lacks a `#!` line and `verify:artifacts` runs every declared bin
+with `--help`, so both halves of that are checked on the artifact.
 
 **There are no cycles and there must not be one.** A published package cannot
 depend on a package that depends back on it — the version bump has no fixed
