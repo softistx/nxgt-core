@@ -29,6 +29,7 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-review` | `review-before-a-pr`; agent `code-reviewer`, with a `references/<repo>.md` per repository |
 | `nxgt-api` | `build-a-bun-hono-api` |
 | `nxgt-compose` | `compose-a-stack`, with a `references/<repo>.md` per repository |
+| `nxgt-product` | `lay-out-a-product-repository`, `extract-a-product-from-a-monorepo`, with a `references/<product>.md` per product repository |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
 frontmatter, which is what decides when it fires, and `claude plugin details

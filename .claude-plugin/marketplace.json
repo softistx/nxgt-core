@@ -32,6 +32,10 @@
 		{
 			"name": "nxgt-compose",
 			"source": "./plugins/nxgt-compose"
+		},
+		{
+			"name": "nxgt-product",
+			"source": "./plugins/nxgt-product"
 		}
 	]
 }
