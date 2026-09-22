@@ -16,7 +16,7 @@
     },
     "packages/env": {
       "name": "@nxgt/env",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
         "nxgt-env": "./dist/cli.js",
       },
