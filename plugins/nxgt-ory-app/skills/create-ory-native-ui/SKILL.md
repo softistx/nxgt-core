@@ -354,10 +354,18 @@ route. A compose healthcheck that fetches `/` never goes healthy either.
 Which remedy applies depends on ONE fact — whether the runtime image has a
 `node_modules`:
 
+**The cure is upstream, and it is the first thing to check.** `@nxgt/material`
+2.0.0 moved those components to `@nxgt/material/print` and made
+`@react-pdf/renderer` an optional peer dependency, so an app that does not print
+never carries `pdfkit` at all. On that version there is nothing to do — measured
+on nxgt-ory's `kratos-ui`: bundle 13.73 MB → 11.90 MB with its local workaround
+removed. On an older one, or in an app that DOES print, pick by one fact —
+whether the runtime image ships a `node_modules`:
+
 | Runtime image | Fix |
 | --- | --- |
-| Ships `node_modules` (most product repos) | drop `@nxgt/material` from `ssr.noExternal` **and** add `--external @nxgt/material` to `build:server`. Also cuts the bundle by an order of magnitude (14.3 MB → 1.7 MB measured) |
-| Ships `build/` only (nxgt-ory's `kratos`) | a Vite `transform` plugin rewriting those calls into static imports of `./standard-fonts/<name>.mjs`, so the fonts land in the bundle. `nxgt-ory/kratos/vite.config.ts` has it, commented |
+| Ships `node_modules` (most product repos) | drop `@nxgt/material` from `ssr.noExternal` **and** add `--external @nxgt/material` to `build:server`. Also cuts the bundle by an order of magnitude (14.45 MB → 1.74 MB measured in content-hub, 14.60 → 1.92 in self-learning) |
+| Ships `build/` only (nxgt-ory's `kratos`) | `pdfkitStandardFonts()` from `@nxgt/material/vite` — the same Vite `transform`, published once instead of copied per repo. `nxgt-ory/kratos/vite.config.ts` carried the first copy |
 
 `resolve.alias` does **not** work and is the obvious first attempt: an alias
 rewrites specifiers the resolver is asked about, and this one is a string handed
