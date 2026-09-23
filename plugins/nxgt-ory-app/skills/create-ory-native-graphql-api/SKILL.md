@@ -4,7 +4,7 @@ description: >-
   Build a GraphQL API against the Ory stack: Kratos sessions through
   `useOryAuth`, `@authenticated`, and the `@check` directive with
   `useKetoChecks` batching Keto per request. Use when adding an Ory-native
-  Yoga API. It is a delta on `create-standalone-graphql-api` — read that
+  Yoga API. It is a delta on `nxgt-api`'s `build-a-graphql-yoga-api` — read that
   first.
 ---
 
@@ -12,17 +12,17 @@ description: >-
 
 > **Read `references/ory-in-one-page.md` first.** It carries the model — who is
 > calling, what a permit is, which listeners are unauthenticated, who may write
-> tuples — plus the stx-sdk entry-point table and `src/ory/tuples.ts`, all of
+> tuples — plus the package entry-point table and `src/ory/tuples.ts`, all of
 > which are the same whichever transport you build. This file is the delta for
 > a Yoga GraphQL API.
 
 ## Purpose
 Use this skill to build a **standalone Yoga GraphQL API** whose callers are
-authenticated by the **Ory stack** (the `nxgt-ory` repo: Kratos
-sessions, Hydra tokens) and authorised **per object by Ory Keto** — instead of
+authenticated by the **Ory stack** (Kratos sessions, by cookie or
+session token) and authorised **per object by Ory Keto** — instead of
 by oauth-api's introspection and `@policy` authorities.
 
-It is a **delta on `create-standalone-graphql-api`**: read that skill first;
+It is a **delta on `build-a-graphql-yoga-api`** (`nxgt-api`): read that skill first;
 everything it says about the Yoga + Hono bootstrap, SDL-first codegen,
 `MongoCrudService`, module layout, modular i18n and `bun test` still applies.
 The reference implementation is **`apps/notes/notes-api`** — `self-learning-api`
@@ -32,8 +32,7 @@ with the authority swapped, built to be copied. Read its `README.md`,
 ---
 
 ## When to use
-- A new standalone API whose users are Kratos identities (the accounts
-  kratos-ui registers) and/or machines holding Hydra tokens.
+- A new standalone API whose users are Kratos identities.
 - The access model is "who owns / who was granted what, per object" — a Keto
   question — rather than "which authority may call which field".
 
@@ -46,7 +45,7 @@ standalone API of the oauth-api world (`useAuth()`, `@policy`).
 
 | Concern | self-learning-api | Ory-native |
 | --- | --- | --- |
-| Auth plugin | `useAuth()` (oauth-api introspection) | **`useOryAuth(ory)`** from `@nxgt/shared-graphql` — puts `user` (repo-wide `Principal`, `authorities: []`), `ory` (`OryPrincipal`) and `token` on the context |
+| Auth plugin | `useAuth()` (oauth-api introspection) | **`useOryAuth(ory)`** from `@nxgt/shared-graphql` — puts `user` (repo-wide `Principal`, `authorities: []`) and `ory` (`OryPrincipal`) on the context |
 | `useGenericAuth` + `@authenticated` | enforced from `context.user` | **unchanged** — every field `@authenticated`, none `@policy` |
 | Per-object decision, declared | a docstring saying "needs edit" | **`@check` on every single-object field**, answered by `useKetoChecks(ory)` |
 | Per-object decision, enforced | `ownerId === principal.sub` in the service | **`requireXAccess(check, id, caller, relation)`** in `<m>.access.ts`, over Keto |
@@ -64,10 +63,10 @@ apps/<product>/<product>-api/
 ├── AGENTS.md, README.md, docs/{README,01-authentication,02-authorization,03-troubleshooting}.md
 ├── .env.development (NODE_ENV, MONGODB_URI composed), .env.test (PORT, -test db)
 └── src/
-    ├── env.ts                      # + KRATOS_PUBLIC_URL, KRATOS_ADMIN_URL, KETO_READ_URL, KETO_WRITE_URL, HYDRA_ADMIN_URL (localhost defaults)
+    ├── env.ts                      # + KRATOS_PUBLIC_URL, KRATOS_ADMIN_URL, KETO_READ_URL, KETO_WRITE_URL (localhost defaults)
     ├── index.ts                    # serve({ port: env.PORT, … }) — explicit, or Bun binds 3000
     ├── config/ory.ts               # ONE createOry(); ketoWrite + createIdentityAdmin kept apart
-    ├── ory/tuples.ts               # ONE createTuples() from stx-sdk/ory/tuples — never hand-written
+    ├── ory/tuples.ts               # ONE createTuples() from @nxgt/ory-sdk/tuples — never hand-written
     ├── graphql/server.ts           # useOryAuth(ory) + useGenericAuth + maskedErrors.maskError
     ├── graphql/plugins/services.ts # services(context.user ?? null, context.ory ?? null)
     └── modules/<m>/
@@ -82,12 +81,12 @@ apps/<product>/<product>-api/
 
 ### `src/config/ory.ts`
 ```ts
-export const ory = createOry({ kratosPublicUrl: env.KRATOS_PUBLIC_URL, ketoReadUrl: env.KETO_READ_URL, hydraAdminUrl: env.HYDRA_ADMIN_URL });
+export const ory = createOry({ kratosPublicUrl: env.KRATOS_PUBLIC_URL, ketoReadUrl: env.KETO_READ_URL });
 export const ketoWrite = createKetoWriteClient(env.KETO_WRITE_URL);   // src/ory/tuples.ts only
 export const kratosAdmin = createKratosClient(env.KRATOS_ADMIN_URL);
 
 // The share-by-email lookup. NOT a raw kratosAdmin.GET — see `<m>.service.ts`.
-export const identities = createIdentityAdmin({ kratosAdmin });      // stx-sdk/ory/admin
+export const identities = createIdentityAdmin({ kratosAdmin });      // @nxgt/ory-sdk/admin
 ```
 
 ### `src/graphql/server.ts`
@@ -219,7 +218,7 @@ something else calls the service.
   (AND-ed, never OR-ed); decorate each node with `myAccess` from the map.
   Direct tuples only — group-inherited access is reachable by id, not listed.
 - `share(id, { subjectId | email })`: `require…(…, 'edit')`, resolve the email
-  through **`identities.findByEmail(email)`** (`stx-sdk/ory/admin`), refuse
+  through **`identities.findByEmail(email)`** (`@nxgt/ory-sdk/admin`), refuse
   self, `grant(id, 'viewers', target)`.
 
   **Never `kratosAdmin.GET('/admin/identities', …)` read straight.**
@@ -235,32 +234,36 @@ something else calls the service.
 
 ## Environment
 `src/env.ts` with explicit `Bun.env` mapping and `localhost` defaults for the
-five Ory URLs; root `.env.example` and `docker/shared.env` already carry
-`KRATOS_*`, `KETO_*`, `HYDRA_PUBLIC_URL`, `HYDRA_ADMIN_URL`. `oxfile.toml`
+four Ory URLs; root `.env.example` and `docker/shared.env` already carry
+`KRATOS_*` and `KETO_*`. `oxfile.toml`
 entry with the container names. **`serve({ port: env.PORT })`** — without it
 Bun binds `process.env.PORT || 3000` while the sandbox says otherwise.
 
 ## Testing
-Two specs, both against the **live** Keto and Hydra — nothing about
+Two specs, both against the **live** Keto and Kratos — nothing about
 authorization is mocked. `<m>.service.spec.ts`: three run-unique
 `OryPrincipal`s (owner, friend, stranger), asserting `isAllowed` on Keto as
-well as the service's answer. `<m>.graphql.spec.ts`: `yoga.fetch` with a
-real Hydra `client_credentials` token (`sub` = client id): `NOT_FOUND` 404,
-`FORBIDDEN` 403, generic-auth's 401 for anonymous / garbage Bearer. Sweep
+well as the service's answer. `<m>.graphql.spec.ts`: `yoga.fetch` carrying a
+**real Kratos session token** — `GET /self-service/login/api`, submit the
+identifier and password, read `session_token` and send it as `X-Session-Token`,
+which `resolve()` honours; nxgt-ory's
+`packages/ory-sdk/src/create-ory.live.spec.ts:122-131` is the worked example —
+and asserting `NOT_FOUND` 404, `FORBIDDEN` 403, and generic-auth's 401 for
+anonymous or garbage credentials. Sweep
 tuples in `afterAll`. **Run from the app directory** (Bun loads `.env.test`
 from the cwd only; from the root `clearDatabase()` refuses the dev db):
 
 ```sh
 cd apps/<product>/<product>-api && env -u MONGODB_URI KRATOS_PUBLIC_URL=http://localhost:4433 \
   KRATOS_ADMIN_URL=http://localhost:4434 KETO_READ_URL=http://localhost:4466 \
-  KETO_WRITE_URL=http://localhost:4467 HYDRA_ADMIN_URL=http://localhost:4445 bun test
+  KETO_WRITE_URL=http://localhost:4467 bun test
 ```
 
 ---
 
 ## Documentation (mandatory — part of the same branch)
 1. `README.md` — running it (the stack lives in the sibling repo), a *Try it
-   with a token* recipe, the schema table with a **Needs** column, non-goals
+   end to end* recipe against a real session, the schema table with a **Needs** column, non-goals
    (no user table, no `@policy`, not federated).
 2. `docs/README.md` (one picture), `01-authentication.md`,
    `02-authorization.md` (404 vs 403, tuple writer, how a list is built),
@@ -284,7 +287,7 @@ cd apps/<product>/<product>-api && env -u MONGODB_URI KRATOS_PUBLIC_URL=http://l
 4. Schema → `bun run codegen` → model / access / tuples / service /
    integrity / resolver; i18n keys.
 5. `bun run typecheck`, `bunx biome check --write .`, both specs.
-6. `bun run build`; boot the binary; `curl` a token round trip.
+6. `bun run build`; boot the binary; `curl` one round trip with a session token.
 7. Registrations and documentation, all of the above.
 8. PR to `develop` per `large-feature-branch-workflow`.
 
