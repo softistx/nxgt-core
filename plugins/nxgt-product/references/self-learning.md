@@ -32,12 +32,13 @@ repository.
 
 `apps/ui` is a **confidential OAuth2 client of Hydra** — what older prose calls
 shape (b). `state`, the PKCE verifier and the whole token set live in a signed
-httpOnly cookie. That is **no longer a shape `nxgt-ory-app` documents**: since
-2.0.0 that plugin is identities and permissions, its UI skill builds an app that
-hosts its own Kratos screens, and the OAuth2 material is parked unread in its
-`references/oauth2-on-hold.md`. Nothing about this app has changed yet — it is
-the first one scheduled to move, and until it does, that frozen file is what
-describes what runs here. `apps/api` resolves the caller with
+httpOnly cookie. That is **no longer a shape `nxgt-ory-app` teaches**: since
+2.0.0 that plugin is identities and permissions, and its UI skill builds an app
+that hosts its own Kratos screens. The OAuth2 material is not lost and is not
+waiting either — it is `references/oauth2-and-hydra.md`, which since 2026-09-23
+is its permanent home rather than a staging file for a plugin that was dropped.
+Nothing about this app has changed yet, and that reference is what describes what
+runs here. `apps/api` resolves the caller with
 `@nxgt/ory-sdk`'s `useOryAuth`, reaching Kratos, Keto (read side only) and Hydra
 **by container name**, because `nxgt-ory` publishes no port.
 
