@@ -46,8 +46,10 @@ through, and no source to link against.
 | `@nxgt/ory-sdk/tuples` | `createTuples` — grant / revoke / heldBy / subjectsOf | `src/ory/tuples.ts` **only**, enforced by `noRestrictedImports` |
 | `@nxgt/ory-sdk/admin` | `createIdentityAdmin` — Kratos's admin listener | `src/config/ory.ts` only |
 | `@nxgt/ory-sdk/flows` | the self-service flows — what **your own** screens submit to | a UI, never an API |
-| `@nxgt/ory-react/server` | `createSessionGuard`, `createPermissionGuard`, `loginRedirect` | a React Router UI, from `*.server.ts` |
-| `@nxgt/ory-react/ui` | `Forbidden`, `readDenial` — the 403 page | the same UI's client tree |
+| `@nxgt/ory-react/server` | `createSessionGuard`, `createPermissionGuard`, `loginRedirect`; `createKratosFlows`, `createSessionMiddleware`, `createRedirectIfSignedIn` | a React Router UI, from `*.server.ts` |
+| `@nxgt/ory-react/flows` | `noRevalidateOnSubmit`, `useFlowReply` | the same UI's client tree — no optional peer |
+| `@nxgt/ory-react/forms` | `useFlowErrors` | that tree, if it is on `react-hook-form` (an optional peer) |
+| `@nxgt/ory-react/ui` | `Forbidden`, `readDenial` — the 403 page; `createFlowMessages` | that tree, if it is on `@nxgt/material` (an optional peer) |
 
 The separation IS the guarantee, not filing. Reaching for the wrong one is
 supposed to feel like a decision.

@@ -180,27 +180,57 @@ and the route guards are `@nxgt/ory-react`: `createSessionGuard`,
 stripped from the client bundle and one entry holding both halves would rely on
 tree-shaking to keep it that way.
 
-**What is not in a package yet, stated honestly:** the React half of the flow
-plumbing — the form components, `useFlowErrors`, `useFlowReply`, the session
-context — is still hand-written in `nxgt-ory`'s `kratos` app. Copying it from
-there is the current answer, and extracting it to `@nxgt/ory-react/flows` is the
-next piece of work. Write it so that swapping a copy for an import is a change
-of import line.
+**The flow plumbing is a package too, since `@nxgt/ory-react@0.3.0`.** It used
+to be hand-written in `nxgt-ory`'s `kratos` app and copied from there; two copies
+existed, 213 lines each, and they differed in three arguments. Do not write a
+third.
 
-What the app writes itself, because the SDK deliberately refuses to hold it:
+```ts
+// app/modules/kratos/flow.server.ts — the whole wiring
+import { createKratosFlows } from '@nxgt/ory-react/server';
 
-- **`flow.server.ts`** — `loadFlow`/`submitFlow` choose between `redirect` and
-  `redirectDocument`, and that choice is whether the visitor gets an anti-CSRF
-  cookie at all.
+const flows = createKratosFlows({
+  kratos,                    // createKratosClient(env.KRATOS_PUBLIC_URL)
+  appUrl: env.APP_URL,       // what every `return_to` is pinned against
+  reachable: rendering,      // YOUR outage policy — narrow, see below
+  errorPath: '/auth/error',  // omit it if your screens are at the root
+});
+
+export const { loadFlow, submitFlow } = flows;
+export const { browserInitUrl, safeReturnTo, absoluteReturnTo } = flows;
+```
+
+| You need | Import from |
+| --- | --- |
+| `loadFlow`, `submitFlow`, the `return_to` helpers, `okReply` / `nonSuccess` | `@nxgt/ory-react/server` |
+| `createSessionMiddleware`, `createRedirectIfSignedIn` | `@nxgt/ory-react/server` |
+| `noRevalidateOnSubmit`, `useFlowReply` | `@nxgt/ory-react/flows` |
+| `useFlowErrors` | `@nxgt/ory-react/forms` — optional peer `react-hook-form` |
+| `createFlowMessages` | `@nxgt/ory-react/ui` — optional peer `@nxgt/material` |
+
+One entry per optional peer: `./flows` imports `react` and nothing else, so an
+app with neither optional peer can import it — and `./server` — and typecheck.
+
+**`reachable` is yours, and it must be narrow**: `instanceof OryUnavailable`,
+rethrow the rest. A wrapper that catches everything reports a bug in your own
+code to the visitor as "Ory is down".
+
+What the app still writes itself, because the package deliberately refuses to
+hold it:
+
 - **`context.ts`** — React Router matches contexts by object identity; one
-  created inside a linked package is a *different* context. Never import a
-  context from a package.
+  created inside a linked package is a *different* context, and `context.get`
+  answers the default instead of the session, silently. You create it and pass
+  it to `createSessionMiddleware`. **Never import a context from a package.**
 - **`Traits` / `readTraits` / `submitTraits`** — they derive from the identity
   schema, which is **yours**.
-- **`urls.server.ts`** — it reads `APP_URL`; the SDK never reads the
-  environment.
+- **the translation bundle** — Kratos keys its messages by numeric id, so
+  `createFlowMessages` takes your `useTranslation` and falls back to Kratos's own
+  English `text` on a miss.
+- **the screens.**
 
-The long form is `packages/ory-sdk/docs/08-flows.md` and
+The long form is `packages/ory-react/docs/12-app-ui.md`,
+`packages/ory-sdk/docs/08-flows.md` and
 `packages/ory-react/docs/09-route-guards.md`, in the `nxgt-ory` repository.
 
 ---
@@ -441,7 +471,7 @@ curl -o /dev/null -w '%{http_code}\n' localhost:$PORT/health   # want: 200, not 
 - [ ] The API is called from `.server.ts` only, with the forwarded cookie; statuses pass through untouched
 - [ ] `API_URL` points at the API itself; no `KETO_*` and no admin listener anywhere in the UI env
 - [ ] `/health` answers anonymously; probes point there
-- [ ] No hand-written `call.server.ts` or node readers — they are `@nxgt/ory-sdk/flows`; the session context stays local
+- [ ] No hand-written `call.server.ts`, node readers, `loadFlow`/`submitFlow` or `return_to` helpers — they are `@nxgt/ory-sdk/flows` and `createKratosFlows`; the session context and `Traits` stay local
 - [ ] `bun run build`, then the bundle booted and `/health` curl'd — no `#standard-fonts/` left in it
 - [ ] Playwright signs in through this app's own screens and asserts against Keto
 - [ ] README + docs/ + AGENTS.md + CLAUDE.md list
