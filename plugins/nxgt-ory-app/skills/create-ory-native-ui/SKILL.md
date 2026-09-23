@@ -53,9 +53,10 @@ specific case: *Sharing one session across apps on one host* and *A route
 subtree (the operator console)*, below.
 
 **OAuth2 is not this skill's.** A UI that must live on another domain from any
-Kratos it could use, or a machine caller bearing a token, is
-`nxgt-ory-oauth2`'s subject — not written yet. The material is frozen in
-`references/oauth2-on-hold.md`, and three apps run it today.
+Kratos it could use, or a machine caller bearing a token, is the subject of
+`references/oauth2-and-hydra.md` — a reference, read whole, and **no skill is
+coming**: a `nxgt-ory-oauth2` plugin was planned and dropped on 2026-09-23, for
+the reasons that file states. Three apps run it today.
 
 ---
 

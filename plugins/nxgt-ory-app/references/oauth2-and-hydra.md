@@ -1,13 +1,18 @@
-# OAuth2 and Hydra — on hold, not deleted
+# OAuth2 and Hydra — the reference, and deliberately not a skill
 
-> **No skill loads this file, on purpose** — `create-ory-native-ui` carries one
-> line saying where the OAuth2 material went, and nothing more. It costs no
-> always-on tokens and triggers nothing. It is the material removed from
-> `create-ory-native-ui` and `admin-screen-pattern` on 2026-09-22, when this
-> plugin became about **identities and permissions only**. It moves verbatim
-> into `nxgt-ory-oauth2` when that plugin is written. Nothing here is known to
-> be wrong — it is out of scope, which is a different thing. Three apps run
-> exactly this today: `self-learning/apps/ui`, `content-hub/apps/ui`,
+> **No skill loads this file, on purpose, and none ever will.** This is the
+> destination, not a waiting room. `create-ory-native-ui` carries one line
+> pointing here and nothing more, so the material costs no always-on tokens and
+> triggers nothing.
+>
+> It is what was removed from `create-ory-native-ui` and `admin-screen-pattern`
+> on 2026-09-22, when this plugin became about **identities and permissions
+> only**. Until 2026-09-23 it said it would move into a `nxgt-ory-oauth2`
+> plugin. **That plugin was dropped** — see *Why there is no plugin* at the
+> bottom.
+>
+> Nothing here is known to be wrong. Three apps run exactly this today:
+> `self-learning/apps/ui`, `content-hub/apps/ui`,
 > `nxgt-federation/apps/notes/notes-ui`.
 
 The one shape that left `create-ory-native-ui`, as its table stated it:
@@ -96,7 +101,8 @@ loaders           gql(bearerOf(context), …) → notes-api
 
 The last two are not about OAuth2 and did not only live here: they are also
 stated, without Hydra, in `create-ory-native-ui`'s *Cookies and env*. They are
-kept in this list so it still stands on its own the day it moves.
+kept in this list so this file stands on its own, which it now does
+permanently.
 
 ---
 
@@ -141,25 +147,45 @@ than re-deriving it.
 
 ---
 
-## When this thaws
+## Why there is no plugin
 
-1. Create `plugins/nxgt-ory-oauth2` with its own `plugin.json`, and add it to
-   `.claude-plugin/marketplace.json`.
-2. Move everything above into its skill(s) — this file is written to be moved,
-   not summarised.
-3. Enable it in the repositories that run a relying party.
-4. **Delete this file**, and bump both plugins in that commit.
+`nxgt-ory-oauth2` was planned, then **dropped on 2026-09-23**. The reasoning,
+recorded so nobody re-proposes it as an oversight:
 
-What must **not** be claimed by it: the operator console's Hydra client screens
-stay live in `nxgt-ory/kratos` under that repo's `add-console-module`, and
-`admin-screen-pattern` keeps the write-once-value and whole-record-`PUT`
-lessons, now taught on Kratos.
+- **A skill earns its keep by being loaded.** Three apps run shape (b), all three
+  are already wired, and none of them is likely to be rewired. A skill that
+  fires once every several months is a file that drifts between the times it is
+  read — and drifted guidance is worse than a reference somebody opens knowing
+  its date.
+- **Hydra left the doctrine.** The 2026-09-22 lot took it out of
+  `ory-in-one-page.md`, out of both API skills and out of the env tables. A
+  plugin would have put a whole marketplace entry behind a component the parc has
+  decided not to lead with.
+- **The material is a single flow, not a decision tree.** Everything above reads
+  top to bottom: wire the client, bank the pending values, exchange, refresh,
+  commit the cookie. There are no branches for a skill to steer between, which is
+  what a skill is for.
+- **This file is already the shape it needs.** It stands on its own — that was
+  the constraint it was written under, back when it expected to move — so the
+  move would have been a rename.
 
-Where the material lives today, for whoever starts: `self-learning/apps/ui`,
-`content-hub/apps/ui`, `nxgt-federation/apps/notes/notes-ui`,
-`nxgt-ory/kratos/app/routes/oauth2/`, `nxgt-ory/kratos/scripts/clients.seed.ts`,
-`@nxgt/ory-sdk`'s `./oauth2` and `./hydra`, and
-`nxgt-ory/packages/ory-sdk/docs/03-oauth2-client.md`.
+So: **this file is where the OAuth2 material lives.** Keep it accurate, date the
+changes, and read it whole before wiring a relying party. If it ever does become
+a skill, the trigger is a *fourth* app needing shape (b) and asking a question
+this file does not answer — not tidiness.
+
+### What was never this file's, and still is not
+
+The operator console's Hydra client screens stay live in `nxgt-ory/kratos` under
+that repo's `add-console-module`, and `admin-screen-pattern` keeps the
+write-once-value and whole-record-`PUT` lessons, now taught on Kratos.
+
+### Where the material lives, for whoever reads this
+
+`self-learning/apps/ui`, `content-hub/apps/ui`,
+`nxgt-federation/apps/notes/notes-ui`, `nxgt-ory/kratos/app/routes/oauth2/`,
+`nxgt-ory/kratos/scripts/clients.seed.ts`, `@nxgt/ory-sdk`'s `./oauth2` and
+`./hydra`, and `nxgt-ory/packages/ory-sdk/docs/03-oauth2-client.md`.
 
 ---
 
@@ -183,4 +209,5 @@ The sentences removed elsewhere on 2026-09-22, so that whoever writes
 
 None of it was deleted for being wrong. `/admin` in `nxgt-ory/kratos` still
 operates Hydra clients today; `add-console-module` in that repo is what covers
-those screens.
+those screens. And since no plugin is coming to put any of it back, this table is
+the record — not a to-do list.
