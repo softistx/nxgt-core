@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-ory-app",
 	"description": "Building an application against the Ory stack \u2014 REST, GraphQL, or an SSR UI that hosts its own Kratos screens \u2014 with Kratos identities, Keto permissions and the 404-then-403 ladder, plus the console screen pattern those UIs are made of.",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"author": {
 		"name": "softistx"
 	}

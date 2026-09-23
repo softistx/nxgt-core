@@ -52,13 +52,19 @@ through, and no source to link against.
 The separation IS the guarantee, not filing. Reaching for the wrong one is
 supposed to feel like a decision.
 
-**`stx-sdk/ory*` is the superseded copy of all of this, and holding both is a
-measured bug.** `stx-sdk` still publishes `./ory`, `./ory/flows`,
-`./ory/tuples` and `./ory/react/*`; nothing new may import them. Two copies in
-one process are two `OryUnavailable` classes, so `instanceof` misses and an Ory
-outage answers 500 instead of 503 — with a green build and green types.
-(`stx-sdk/oauth/*` is a different, legacy module against `oauth-api`, and is
-not what this warns about.)
+**`stx-sdk/ory*` was the previous home of all of this, and `stx-sdk@3.0.0`
+removed it.** `./ory`, `./ory/flows`, `./ory/tuples`, `./ory/react/*`,
+`./kratos`, `./keto` and `./hydra` are gone from that package; its README's
+"Ory — Moved out in 3.0.0" section names the two `@nxgt/*` packages instead. So
+an import of one of those paths now fails to resolve, which is the good failure.
+
+**The bad failure needs an app pinned to `stx-sdk@<3`**, and it is measured: two
+copies of this layer in one process are two `OryUnavailable` classes, so
+`instanceof` misses, and an Ory outage answers 500 instead of 503 — with a green
+build and green types. A migration therefore moves the dependency and every
+import in one commit, never a subset. (`stx-sdk/oauth/*` is a different, legacy
+module against `oauth-api`; it is still published and is not what this warns
+about.)
 
 The React half is **`@nxgt/ory-react`**. A Vue or Nuxt sibling does not exist
 yet; when it does, this page is what it shares with the React one.
