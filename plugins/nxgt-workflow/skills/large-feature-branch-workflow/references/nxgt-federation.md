@@ -35,7 +35,7 @@ the supergraph failing is not green, however green its own app is.
 **Specs are `*.spec.ts`, auto-discovered by bun, with no `test` script.** A
 directory search for `*.test.ts` or a missing `test` script is not evidence
 that a project has no test infrastructure — `AGENTS.md`'s Testing section and
-`create-standalone-graphql-api`'s say so. Run them **from inside the app
+`build-a-graphql-yoga-api`'s say so. Run them **from inside the app
 directory** (`cd apps/<…> && NODE_ENV=test bun test src`), because Bun loads
 `.env.test` from the working directory, not from the path given to the runner.
 
