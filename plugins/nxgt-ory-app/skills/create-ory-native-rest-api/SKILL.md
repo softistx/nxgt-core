@@ -12,14 +12,14 @@ description: >-
 
 > **Read `references/ory-in-one-page.md` first.** It carries the model — who is
 > calling, what a permit is, which listeners are unauthenticated, who may write
-> tuples — plus the stx-sdk entry-point table and `src/ory/tuples.ts`, all of
+> tuples — plus the package entry-point table and `src/ory/tuples.ts`, all of
 > which are the same whichever transport you build. This file is the delta for
 > a Hono REST API.
 
 ## Purpose
 Use this skill to build a Hono REST API in this repo whose callers are
-authenticated by the **Ory stack** (the sibling repo `nxgt-ory`: Kratos sessions, Hydra
-tokens) and authorised **per object by Ory Keto** — instead of by oauth-api's
+authenticated by the **Ory stack** (Kratos sessions, by cookie or session
+token) and authorised **per object by Ory Keto** — instead of by oauth-api's
 introspection and a `rules.yaml` naming authorities.
 
 The reference implementation is **`apps/bookmarks/bookmarks-api`**. It is
@@ -31,8 +31,7 @@ with the reason in its `docs/`.
 ---
 
 ## When to use
-- A new API whose users are Kratos identities (the accounts kratos-ui
-  registers) and/or machines holding Hydra tokens.
+- A new API whose users are Kratos identities.
 - The product's access model is "who owns / who was granted what, per
   object" — a Keto question — rather than "which role may call which path".
 
@@ -47,7 +46,7 @@ this side: an Ory-native API has nothing in front of it and decides for itself.
 
 | Concern | storex-api | Ory-native |
 | --- | --- | --- |
-| Authentication middleware | `remoteAuth()` (oauth-api introspection) | `oryAuth(ory)` from `@nxgt/shared-hono` — same context contract (`principal`, `X-Claims`) plus `ory` and `accessToken` |
+| Authentication middleware | `remoteAuth()` (oauth-api introspection) | `oryAuth(ory)` from `@nxgt/shared-hono` — same context contract (`principal`, `X-Claims`) plus `ory`, and `accessToken`, which stays on the context and is `null` unless a Bearer was sent |
 | Coarse "signed in" | `rules.yaml` + `policyGuard` | **`requireAuthenticated()` on `/api/*`** — no `rules.yaml` by default. An Ory principal has `authorities: []`, so a rules file had one boolean to express and one middleware expresses it, on a prefix a rule cannot forget to name |
 | Per-object decision, declared | nothing — a comment | **`ketoCheck()` on each route naming one object** |
 | Per-object decision, enforced | `<m>.access.ts` over a membership table | `<m>.access.ts` over **Keto**, taking the per-request checker — same file shape |
@@ -68,10 +67,10 @@ apps/<product>/<product>-api/
 ├── .env.development, .env.test
 └── src/
     ├── index.ts                    # oryAuthentication() in remoteAuth()'s slot; withOryUnavailable on onError
-    ├── env.ts                      # + KRATOS_PUBLIC_URL, KRATOS_ADMIN_URL, KETO_READ_URL, KETO_WRITE_URL, HYDRA_ADMIN_URL
+    ├── env.ts                      # + KRATOS_PUBLIC_URL, KRATOS_ADMIN_URL, KETO_READ_URL, KETO_WRITE_URL
     ├── config/ory.ts               # ONE createOry(); ketoWrite + createIdentityAdmin kept apart
     ├── middlewares/auth.ts         # oryAuth(ory) — one line
-    ├── ory/tuples.ts               # ONE createTuples() from stx-sdk/ory/tuples — never hand-written
+    ├── ory/tuples.ts               # ONE createTuples() from @nxgt/ory-sdk/tuples — never hand-written
     └── modules/<m>/
         ├── <m>.access.ts           # resolve<M>Access / require<M>Access — the only Keto question
         ├── <m>.service.ts          # create → grant owners; share → grant viewers; list from heldBy
@@ -86,7 +85,6 @@ apps/<product>/<product>-api/
 export const ory = createOry({
   kratosPublicUrl: env.KRATOS_PUBLIC_URL,
   ketoReadUrl: env.KETO_READ_URL,
-  hydraAdminUrl: env.HYDRA_ADMIN_URL,
 });
 // The unauthenticated listeners, and the two factories that are the only
 // things allowed to hold them. Never imported by a route file.
@@ -136,7 +134,7 @@ Four rules, each of which has already gone wrong somewhere:
 
 - **`permissions` is `[[ ]]`** — outer list OR, inner list AND, the namespace
   written out in every term, the same grammar as nxgt-federation's `@check`
-  and over the same evaluator in `stx-sdk/ory`. `[[]]` is a conjunction over no
+  and over the same evaluator in `@nxgt/ory-sdk`. `[[]]` is a conjunction over no
   terms, so it is vacuously true and admits everyone; `ketoCheck` refuses it
   when the module loads rather than letting it become an incident. `id` is
   `param.<name>`, `query.<name>` or `json.<path>`, and a list value requires
@@ -208,7 +206,7 @@ read `.subject`, not `principal.id`, when the value goes to Keto.
   AND-ed, never OR-ed. Decorate each row with `myAccess` from the same map.
 - `share(id, { subjectId | email })`: `require<M>Access(id, caller, 'edit')`,
   resolve the email through **`identities.findByEmail(email)`**
-  (`createIdentityAdmin` from `stx-sdk/ory/admin`, constructed in
+  (`createIdentityAdmin` from `@nxgt/ory-sdk/admin`, constructed in
   `src/config/ory.ts`), refuse self, `grant(id, 'viewers', target)`.
 
   **Never `kratosAdmin.GET('/admin/identities', …)` read straight.**
@@ -230,7 +228,7 @@ depth relative to the app root — Bun's isolated linker does not hoist)
 ---
 
 ## Environment
-`src/env.ts`: the five Ory URLs with `localhost` defaults, and nothing else
+`src/env.ts`: the four Ory URLs with `localhost` defaults, and nothing else
 Ory-related — there is no gateway to point at. `.env.development`
 holds only the app's own values (`MONGODB_URI` composed from the system
 vars, `NODE_ENV`); `.env.test` its port and `-test` database. `docker/shared.env`
@@ -246,17 +244,20 @@ read from disk at startup). One
 labels as in `apps/bookmarks/docker-compose.yaml`. `oxfile.toml` entry.
 
 ## Testing
-One route spec against the live Keto and Hydra — **nothing about
+One route spec against the live Keto and Kratos — **nothing about
 authorization is mocked**. Actors: `mockUser()` + `X-User-*` headers (honoured
-by `oryAuth()` in `NODE_ENV=test`; the id becomes the subject) and a real
-`client_credentials` token from Hydra sent as Bearer (`sub` = client id).
+by `oryAuth()` in `NODE_ENV=test`; the id becomes the subject) and a **real
+Kratos session token** — `GET /self-service/login/api`, submit the identifier
+and password, read `session_token` off the answer and send it as
+`X-Session-Token`, which `resolve()` honours. nxgt-ory's
+`packages/ory-sdk/src/create-ory.live.spec.ts:122-131` is the worked example.
 Assert against Keto's own answer (`isAllowed`) as well as the HTTP status.
 Run-unique subjects; sweep the tuples in `afterAll` (`clearDatabase()` skips
 the cascade). Run one file, from the app, with the host prefix:
 
 ```sh
 env -u MONGODB_URI KRATOS_PUBLIC_URL=http://localhost:4433 KETO_READ_URL=http://localhost:4466 \
-  KETO_WRITE_URL=http://localhost:4467 HYDRA_ADMIN_URL=http://localhost:4445 \
+  KETO_WRITE_URL=http://localhost:4467 \
   NODE_ENV=test bun --env-file=.env.test test src/modules/<m>/<m>.routes.spec.ts
 ```
 
@@ -279,7 +280,7 @@ viewer gets **403** on an edit and loses `view` after unshare.
 4. Root `CLAUDE.md` — add the app's `AGENTS.md` to the per-app list.
 5. nxgt-ory's `README.md` — one row in the consumers table. **Another repo:
    its own PR.**
-6. `stx-sdk/docs/ory/` — only if you changed the shared module.
+6. `nxgt-ory's packages/ory-sdk/docs/` — only if you changed the shared module.
 
 ---
 

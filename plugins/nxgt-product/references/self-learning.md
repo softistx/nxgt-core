@@ -30,9 +30,14 @@ repository.
 
 ## The identity shape, which is why the API has no router
 
-`apps/ui` is a **confidential OAuth2 client of Hydra** — shape (b) of
-`nxgt-ory-app`'s `create-ory-native-ui`. `state`, the PKCE verifier and the whole
-token set live in a signed httpOnly cookie. `apps/api` resolves the caller with
+`apps/ui` is a **confidential OAuth2 client of Hydra** — what older prose calls
+shape (b). `state`, the PKCE verifier and the whole token set live in a signed
+httpOnly cookie. That is **no longer a shape `nxgt-ory-app` documents**: since
+2.0.0 that plugin is identities and permissions, its UI skill builds an app that
+hosts its own Kratos screens, and the OAuth2 material is parked unread in its
+`references/oauth2-on-hold.md`. Nothing about this app has changed yet — it is
+the first one scheduled to move, and until it does, that frozen file is what
+describes what runs here. `apps/api` resolves the caller with
 `@nxgt/ory-sdk`'s `useOryAuth`, reaching Kratos, Keto (read side only) and Hydra
 **by container name**, because `nxgt-ory` publishes no port.
 
@@ -41,9 +46,11 @@ The browser never learns the API's address: it posts GraphQL to the UI's own
 Bearer attached. That is why the variable is `SELF_LEARNING_API_URL` and not
 `VITE_API_URL`, and why `self-learning-api` has no hostname at all.
 
-Kratos's identity screens are **kratos-ui's, in `nxgt-ory`**.
-`ory_kratos_session` is host-only, so the app holding it owns login, registration
-and settings; the user menu here links out to its `/settings`.
+Kratos's identity screens are **kratos-ui's, in `nxgt-ory`** — true of *this*
+app, whose sign-in is Hydra's, and the user menu here links out to its
+`/settings`. It is no longer the general rule: `ory_kratos_session` is host-only,
+so an Ory-native UI written now runs its own Kratos and hosts its own login,
+registration and settings.
 
 ## The UI is an SSR *shell* — do not "finish" the migration
 

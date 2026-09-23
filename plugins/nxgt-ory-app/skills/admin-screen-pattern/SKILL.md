@@ -46,7 +46,7 @@ kept them duplicated in three apps before they were extracted.
 
 `DataTable` (TanStack Table v9) keeps its pagination state internally, and
 `PaginationBar` needs a `pageCount`. **No Ory service can give you one**:
-Kratos and Hydra page by `Link: rel="next"` header, Keto by
+Kratos pages by a `Link: rel="next"` header, Keto by a
 `next_page_token` — opaque cursors, no total, no jumping to page N. So the
 only pagination that works is `onLoadMore` / `isLoadingMore`, which renders a
 `LoadMoreButton`, with `onLoadMore={next ? load : undefined}` to hide it on
@@ -109,9 +109,8 @@ request, and a Redux slice is not available to it. Applying a filter drops
 
 **Offer only the filters the service actually has.** Kratos's
 `/admin/identities` has exactly one, `credentials_identifier`, and it is an
-exact match — no substring search, no state or verified filter. Hydra has
-`client_name` and `owner`, also exact. Keto's `/relation-tuples` has all four
-parts of a tuple, which is why the permissions page is the one with a real
+exact match — no substring search, no state or verified filter. Keto's
+`/relation-tuples` has all four parts of a tuple, which is why the permissions page is the one with a real
 filter dialog. Filtering the accumulated rows client-side looks like a filter
 and behaves like one only for the pages already fetched, which under cursor
 pagination is a lie.
@@ -135,23 +134,27 @@ route, or its loader 404s before the navigation lands.
 / `cancelText` and `ConfirmDialog`'s `confirmLabel` / `cancelLabel` default to
 **hardcoded English**: always pass translated ones.
 
-## A secret that exists once
+## A value that exists once
 
-Hydra returns `client_secret` only in the creation response and stores a hash.
-The create screen therefore does **not** navigate away on success: it shows the
-id and the secret with `CopyValue` and waits for the operator to dismiss the
-panel. Never put the secret in a summary type or a loader — a field that can be
-read back is a field somebody will assume can be read back. The spec asserts
-this both ways: the panel shows it, and Hydra's own `GET /admin/clients` does
-not.
+Some values are answered by the call that creates them and are never readable
+again. In this console it is an identity's **recovery code**: `createRecoveryCode`
+answers one, Kratos stores a hash, and nothing reads it back. So the screen does
+**not** navigate away on success — the action returns the value, the fetcher
+reply banks it, and a panel shows it until the operator dismisses it
+(`kratos/app/routes/admin/identities/identity.tsx`).
+
+The rule generalises to every write-once value: **it is returned by the action
+that created it, and it is never loader-readable or named in a summary type.**
+A field that *can* be read back is a field somebody will assume can be read
+back, and the screen that assumes it renders an empty box with no error. Assert
+it both ways — the panel shows the value, and the service's own `GET` does not.
 
 ## A whole-record PUT clears what it omits
 
-Both Kratos's `PUT /admin/identities/{id}` and Hydra's `PUT /admin/clients/{id}`
-replace the record. So the update action sends back fields the form never
-showed — the identity's own `schema_id`, the client's `grant_types` and
-`response_types` — and the spec asserts on the SERVICE, not on the page, that
-the untouched fields survived. Kratos has no "use the default schema" sentinel
+Kratos's `PUT /admin/identities/{id}` replaces the record. So the update action
+sends back fields the form never showed — the identity's own `schema_id` — and
+the spec asserts on the SERVICE, not on the page, that the untouched fields
+survived. Kratos has no "use the default schema" sentinel
 either: `default` is a literal id, so the value comes from a named constant
 tied to nxgt-ory's `config/kratos.yaml` `identity.default_schema_id`.
 

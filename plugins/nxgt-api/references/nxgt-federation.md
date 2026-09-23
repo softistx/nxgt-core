@@ -62,7 +62,10 @@ exists where there is a supergraph, and it is deeper than this reference:
 - **`refactor-subgraph-module`** and **`event-driven-patterns`** — unchanged, and
   not extractable: both are about the supergraph and the event bus behind it.
 - **`create-standalone-ui-app`** — the SPA shape, superseded for new work by
-  `nxgt-ory-app`'s `create-ory-native-ui`.
+  `nxgt-ory-app`'s `create-ory-native-ui`, which since 2.0.0 builds an SSR app
+  that hosts its own Kratos screens. `notes-ui` is an OAuth2 relying party and
+  is not what that skill builds any more; it changes when the plugin that owns
+  OAuth2 is written, not before.
 
 `create-standalone-graphql-api` was **removed on 2026-09-22**: its generic half is
 now this skill plus `handle-a-file-upload`, and its auth half was already marked

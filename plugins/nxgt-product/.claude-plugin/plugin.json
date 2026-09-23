@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-product",
 	"description": "Laying out a product as one repository holding every deployable of it — apps/api, apps/ui — plus the packages/ they share by workspace:^ and never publish, and extracting one out of a monorepo with its history.",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"author": {
 		"name": "softistx"
 	}

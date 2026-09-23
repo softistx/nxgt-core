@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-api",
 	"description": "Building an API on Bun: a Hono one with a folder per subject and an OpenAPI registry, a GraphQL Yoga one with a module per subject and codegen driven by a mappings list, and the presigned-URL upload pattern both use.",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"author": {
 		"name": "softistx"
 	}
