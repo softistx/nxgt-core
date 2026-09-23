@@ -38,6 +38,15 @@ const result = await Bun.build({
 	target: 'node',
 	format: 'esm',
 	packages: 'external',
+	// Shared modules become ONE chunk every entry point imports, instead of being
+	// inlined into each. Without it a package with several entry points hands an
+	// app two copies of its own classes, and an `instanceof` across the two is
+	// false — the same argument `packages: 'external'` makes just above for a
+	// DEPENDENCY's classes, applied to our own. No package here duplicates one
+	// today; this is what keeps that true as entry points are added. It cost
+	// nxgt-ory nine routes answering 500 instead of 503, including three admin
+	// screens written specifically to answer 503, through a green build.
+	splitting: true,
 	sourcemap: 'linked',
 	naming: { entry: '[dir]/[name].[ext]', chunk: 'chunks/[name]-[hash].[ext]' },
 });
