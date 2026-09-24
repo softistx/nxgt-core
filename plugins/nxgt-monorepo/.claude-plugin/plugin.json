@@ -1,0 +1,7 @@
+{
+	"name": "nxgt-monorepo",
+	"displayName": "nxgt monorepo",
+	"version": "1.0.0",
+	"description": "The skeleton of an nxgt library monorepo — a Bun workspace whose packages are published to npm under @nxgt/*: which root files are copied byte for byte, which ones each repository owns, and the shape of one package.",
+	"author": { "name": "softistx" }
+}
