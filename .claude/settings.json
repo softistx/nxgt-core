@@ -5,6 +5,7 @@
 		}
 	},
 	"enabledPlugins": {
+		"nxgt-base@nxgt-core": true,
 		"nxgt-workflow@nxgt-core": true,
 		"nxgt-package@nxgt-core": true,
 		"nxgt-docs@nxgt-core": true,
