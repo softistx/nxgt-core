@@ -31,6 +31,8 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-compose` | `compose-a-stack`, with a `references/<repo>.md` per repository |
 | `nxgt-product` | `lay-out-a-product-repository`, `extract-a-product-from-a-monorepo`, with a `references/<product>.md` per product repository |
 | `nxgt-autonomy` | `work-autonomously`; agents `work-queue-auditor`, `improvement-scout`, `green-bar-verifier` |
+| `nxgt-monorepo` | `lay-out-a-library-monorepo` — the skeleton nxgt-data, nxgt-http, nxgt-telemetry and nxgt-janus share |
+| `nxgt-base` | none — a bundle whose `dependencies` are `nxgt-monorepo`, `nxgt-review`, `nxgt-docs` and `nxgt-autonomy`; `claude plugin install nxgt-base@nxgt-core --scope user` makes all four active in every project |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
 frontmatter, which is what decides when it fires, and `claude plugin details

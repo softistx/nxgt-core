@@ -40,6 +40,14 @@
 		{
 			"name": "nxgt-autonomy",
 			"source": "./plugins/nxgt-autonomy"
+		},
+		{
+			"name": "nxgt-monorepo",
+			"source": "./plugins/nxgt-monorepo"
+		},
+		{
+			"name": "nxgt-base",
+			"source": "./plugins/nxgt-base"
 		}
 	]
 }

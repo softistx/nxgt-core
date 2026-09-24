@@ -1,0 +1,8 @@
+{
+	"name": "nxgt-base",
+	"displayName": "nxgt base",
+	"version": "1.0.0",
+	"description": "The plugin set every nxgt repository runs with, behind one install: the monorepo skeleton, the reviewer, the documentation agents (guides, troubleshooting, roadmap) and the autonomy loop. Installed once at user scope, it is active in every project.",
+	"author": { "name": "softistx" },
+	"dependencies": ["nxgt-monorepo", "nxgt-review", "nxgt-docs", "nxgt-autonomy"]
+}
