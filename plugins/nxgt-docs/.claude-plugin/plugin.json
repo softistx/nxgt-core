@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-docs",
 	"displayName": "nxgt documentation",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"description": "Keeps every published package documented for developers: a concise npm README, and a docs/ folder with detailed guides and examples, troubleshooting and a roadmap — written by agents, audited, never naming a private app.",
 	"author": {
 		"name": "softistx"

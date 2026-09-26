@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-autonomy",
 	"description": "Working a queue across the nxgt repositories without being told again: the mandate and the loop, an auditor that reconciles the queue with git and gh, a scout that proposes improvements without applying them, and a verifier that refuses to call unmeasured work done.",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"author": {
 		"name": "softistx"
 	}
