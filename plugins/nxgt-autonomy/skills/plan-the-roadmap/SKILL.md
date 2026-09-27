@@ -29,6 +29,7 @@ queue items, and `work-autonomously` does the rest.
 | **plan** | how an entry gets done: steps, files, public API, tests, docs | the Plan agent's output, summarised in the queue item |
 | **owner decision** | a choice in a plan that only the owner can make | an `AskUserQuestion`, recommended option first |
 | **queue item** | an accepted plan, ready to execute | the work queue, under *In flight* |
+| **queued** | said of a queue item that is in *In flight* or *Blocked on the user* — accepted and not done | the work queue |
 
 The two files, and why there are two:
 
@@ -147,8 +148,9 @@ after the owner has accepted** — an announcement made before his answer is a
 claim nobody approved. Without `nxgt-crew`, skip this.
 
 **When an accepted entry is let go** — the owner drops or defers it later, or
-it goes to another session after an alignment — withdraw its announcement, so
-other sessions stop reading it as taken:
+it goes to another session after an alignment — withdraw it, **every slice of
+it** that is still queued. First its announcement, so other sessions stop
+reading it as taken:
 
 ```bash
 /crew announce --kind plan --entry "<bold name>" --scope <repo|package> --drop
@@ -157,14 +159,22 @@ other sessions stop reading it as taken:
 with the same entry and scope it was announced with. Then the queue:
 
 - **Before its branch is cut**, remove the queue item.
-- **After its branch is cut**, close its PR, delete the branch, and move the
-  item under *Done* as `withdrawn — <reason>` rather than deleting it, so the
-  branch and the PR number stay traceable.
+- **After its branch is cut**, close its PR if one is open, delete the
+  branch, and move the item under *Done* as `- [x] … withdrawn — <reason>`
+  rather than deleting it, so the branch and the PR number stay traceable.
+  The auditor does not report it: see **withdrawn** in `work-queue-auditor`'s
+  findings table.
 
-When the owner let it go, have `roadmap-keeper` move the entry back to
-**Next** or **Later**, or to **Not planned** with his reason. When another
-session took it, leave the roadmap to that session. Without `nxgt-crew`, skip
-the announcement.
+The roadmap, when the owner let it go:
+
+- if the move to **Now** reached `develop` (an earlier slice merged), have
+  `roadmap-keeper` move the entry back to **Next** or **Later**, or to **Not
+  planned** with his reason, **in its own docs PR**;
+- if it did not — the only **Now** move sat in the PR just closed — the
+  roadmap on `develop` never changed, and there is nothing to move back.
+
+When another session took it, leave the roadmap to that session. Without
+`nxgt-crew`, skip the announcement.
 
 ### 6. Execute
 
@@ -176,11 +186,9 @@ docs, merged per the repository's `AGENTS.md`. When the item's branch is cut,
 
 - **`green-bar-verifier`** on what landed;
 - **`work-queue-auditor`** to reconcile the queue — including the roadmap
-  against it. An entry under **Now** is in step while an item in flight names
-  it, or while a *Done* item names it as `slice k of n` **and the next slice
-  is queued**. An entry under **Now** whose `last slice` is done is the other
-  finding: it belonged under **Shipped** in that PR. An item in flight whose
-  entry is still under **Next** skipped the move to **Now**.
+  against it, through its three findings **Now, nothing in flight**, **in
+  flight, still Next** and **done, not Shipped**. They are defined once, in
+  its table under "The roadmaps against the queue".
 
 ### 8. Ship
 
@@ -199,11 +207,7 @@ grep -n '^## ' packages/*/docs/roadmap.md                # every roadmap has its
 grep -c '^- \[ \]' <queue>                                # approved and not done
 ```
 
-A cycle that skipped a step shows as one of three things, and
-`work-queue-auditor` reports each; fix whichever side is wrong:
-
-- an entry under **Now** with no item in flight naming it, and no *Done*
-  `slice k of n` whose next slice is queued;
-- an entry under **Now** whose `last slice` is under *Done* — it belonged
-  under **Shipped**;
-- a queue item naming an entry that is still under **Next**.
+A cycle that skipped a step shows as one of `work-queue-auditor`'s three
+roadmap findings — **Now, nothing in flight**, **in flight, still Next**,
+**done, not Shipped** — defined in its table under "The roadmaps against the
+queue". Fix whichever side is wrong.

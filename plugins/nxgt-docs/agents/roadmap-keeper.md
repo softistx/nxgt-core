@@ -53,7 +53,8 @@ For each package:
    in the PR whose changeset **completes** it, with the version
    `changeset status` says it will produce. A changeset for one slice of
    a larger entry does not promote it — the entry stays under **Now**
-   until the caller says the slice is the last one:
+   until the caller says the slice is the last one, by the queue item's
+   marker: `slice k of n` leaves it under **Now**, `last slice` moves it:
 
    ```bash
    bun run changeset:status -- --verbose

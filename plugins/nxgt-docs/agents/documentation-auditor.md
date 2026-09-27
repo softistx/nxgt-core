@@ -104,7 +104,7 @@ and private helpers are out of scope — say so and stop.
 | guide page for a changed area left describing the old behaviour | bug |
 | no `docs/` folder, or no `troubleshooting.md` / `roadmap.md` in it | suggestion |
 | error a consumer can hit, not in `troubleshooting.md` | suggestion |
-| roadmap entry completed by a changeset in this branch (an unsliced entry, or its last slice), not under Shipped — never for the changeset of an earlier slice, which leaves the entry under Now | suggestion |
+| roadmap entry completed by a changeset in this branch (an unsliced entry, or its last slice, as the caller states it — the queue item's `slice k of n` / `last slice` marker), not under Shipped — never for the changeset of an earlier slice, which leaves the entry under Now | suggestion |
 | guide option with no default, or no snippet for a non-obvious one | suggestion |
 | `docs/` page not linked from `docs/README.md`, or `docs/` not linked from the README | suggestion |
 | install repeated under a second heading | suggestion |

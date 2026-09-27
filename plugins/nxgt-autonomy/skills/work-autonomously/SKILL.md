@@ -57,6 +57,10 @@ Four sections, and each one earns its place:
 ## Done                   crossed off with the PR number that proves it
 ```
 
+*Done* also holds `- [x] … withdrawn — <reason>` lines: an accepted item let
+go after its branch was cut, its PR closed (`plan-the-roadmap` step 5). They
+are not findings — see **withdrawn** in `work-queue-auditor`'s table.
+
 **Anything not in the file is not queued.** A task that arrives mid-session is
 written into it before it is started, so an interruption cannot lose it. If the
 file does not exist, create it from what the conversation establishes and say so.
