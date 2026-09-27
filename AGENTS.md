@@ -159,6 +159,19 @@ fields, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
 port to the others.
 
+It also fails a tarball that ships test code — a `*.spec.*`, a `*.test.*`, a
+snapshot, or a `<subject>.fixtures.*` — with
+`<package>: the tarball ships test code: <path>`. A plain `fixtures.*`
+passes: the dotted prefix is what marks the fixtures specs share. Every
+`tsconfig.build.json` excludes `test/` and `**/*.spec.ts`, and no `src/`
+holds any other kind, so no tarball holds any today; this check is what holds
+that. `TEST_CODE` in `tarball.ts` and `NOT_A_BUILD_INPUT` in `stale.ts` name
+the same files, so a spec's fixtures cannot make `dist/` stale either; a new
+kind of test file belongs in both. And a package with no `dist/` stops it before packing with
+`<package>: no dist/` and "Run `bun run build` first" — until 2026-09-27 it
+crashed on a raw `ENOENT` instead, because on Bun 1.4.2 `Bun.Glob().scan`
+throws on a missing `cwd`.
+
 This is also the only check that exercises `files`, `exports` and the
 `workspace:*` -> version rewrite that `bun pm pack` performs.
 
@@ -481,9 +494,9 @@ CI enforces two things a green build does not:
   consumer does, imports every subpath each package declares, and rejects a
   manifest that would break an install — a `link:` or `file:` in a field a
   consumer resolves, or a **required** peer that is on no registry — and a
-  package that is not MIT or ships no `LICENSE`. It reads
-  the subpath list from each
-  `exports` map, so a new entry point is covered as soon as it is declared.
+  package that is not MIT or ships no `LICENSE`, or a tarball that ships
+  test code. It reads the subpath list from each `exports` map, so a new
+  entry point is covered as soon as it is declared.
   `changeset:publish` runs it too, so a broken artifact cannot be published.
 
 ### Every package is MIT, and ships its own `LICENSE`
@@ -598,9 +611,9 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **450 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
+`bun run test` is **455 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
-real `nuxt build`), then 16 in `scripts/`. Treat any failure as yours.
+real `nuxt build`), then 21 in `scripts/`. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running the packages together in one
