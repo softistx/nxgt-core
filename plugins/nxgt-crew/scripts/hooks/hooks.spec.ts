@@ -226,6 +226,23 @@ describe('a session’s life', () => {
 		]);
 	});
 
+	test('A yields its hold with the CLI, and B may then edit the file', async () => {
+		const env = {
+			...process.env,
+			NXGT_CREW_HOME: home,
+			NXGT_CREW_SESSION_ID: 'aaaaaaaa-1',
+		};
+		const out = await $`bun ${CREW} yield ${join(repo, 'a.ts')}`
+			.env(env)
+			.quiet();
+		expect(out.stdout.toString()).toContain('released the hold');
+		expect(
+			decision(
+				await pre('bbbbbbbb-2', 'Edit', { file_path: join(repo, 'a.ts') }),
+			),
+		).toBeUndefined();
+	});
+
 	test('SessionEnd removes A, and B may then edit the file', async () => {
 		await run('session-end.ts', {
 			session_id: 'aaaaaaaa-1',

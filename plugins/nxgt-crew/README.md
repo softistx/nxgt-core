@@ -98,21 +98,32 @@ The folder is `$NXGT_CREW_HOME` when set, else `$CLAUDE_CONFIG_DIR/nxgt-crew`.
 ```
 
 - **No file contents and no secrets**: paths, a branch, timestamps, and
-  one-line announcements a session chose to make.
+  one-line announcements a session chose to make. The release announcement
+  the guard records for a publish drops `VAR=value` prefixes and masks the
+  value of any flag named like a credential (`--otp`, `--auth-token`, …).
 - **Each session writes only its own file**, through a temporary file and a
-  rename, so a reader never sees half a record. A file that does not parse is
-  skipped.
+  rename, so a reader never sees half a record. A session's hooks can run in
+  parallel, so each re-reads its record just before writing and unions the
+  edits, claims and announcements another of its hooks added meanwhile. A file
+  that does not parse is skipped.
 - **Liveness.** A session seen in the last 30 minutes is *active*. Past that,
   it stays *idle* for up to 12 hours if its Claude Code process is still
-  running, because an idle session still owns its worktree. Otherwise it is
-  *gone*. A session whose process exited is gone at once, so a crash never
-  leaves a hold behind. A gone record is swept at the next `SessionStart`.
-- **Recent edits** hold their file for 60 minutes.
+  running. Otherwise it is *gone*. A session whose process exited is gone at
+  once, so a crash never leaves a hold behind. The pid is stored with its
+  start time (on Linux) and its host, so a reused pid does not count, and a
+  pid from another machine or container is never probed. A gone record is
+  swept at the next `SessionStart`.
+- **Recent edits** hold their file for 60 minutes, or until the holding
+  session releases them with `/crew yield`.
 
 ## Conflict rules
 
 "Works in a worktree" means that the peer's current directory is in it, or
 that the peer edited a file in it within the edit window.
+
+Only an **active** peer causes a deny. When every peer in the way is idle, the
+call goes through with a note naming them, so a terminal left open overnight
+never locks a worktree.
 
 | this session is about to… | and a live peer… | verdict |
 | --- | --- | --- |
@@ -122,15 +133,17 @@ that the peer edited a file in it within the edit window.
 | edit a file | works in another worktree of the same repository | allow, silently |
 | `git checkout`, `switch`, `reset`, `stash`, `clean`, `rebase`, `merge`, `pull`, `restore`, `cherry-pick`, `revert`, `am` | works in that worktree | **deny** |
 | `git worktree remove` / `move` | works, edits or claims inside it | **deny** |
-| `git branch -d/-D` | has that branch checked out, in the same repository | **deny** |
+| `git branch -d/-D` | has that branch checked out, in the same clone | **deny** |
 | `git push --force` / `--force-with-lease` / `+refspec` | has that branch checked out, in the same repository (clones of one remote count) | **deny** |
 | `rm`, `rmdir`, `unlink`, `mv`, `git rm` on a path | works, edits or claims at or under it | **deny** |
-| the same, on a path inside a peer's worktree | and this session does not work there | **deny** |
-| `npm/bun/pnpm/yarn publish`, `changeset publish`, a `*publish*`/`*release*` script, `gh release create`, `git push --tags` | any | allow; list the peers; record a `release` announcement they read at their next prompt |
+| the same, with a glob in the last component (`*.log`) | edited, or claims, a matching path | **deny** |
+| the same, on a path inside a peer's worktree | and this session does not work there (a worktree nested in the peer's, such as `.claude/worktrees/x`, is this session's own) | **deny** |
+| `npm/bun/pnpm/yarn publish`, `changeset publish`, a script named `publish` or `release` (`changeset:publish`, `release:npm`), `gh release create`, `git push --tags` | any | allow; list the peers; record a `release` announcement they read at their next prompt |
 
-The guard follows `cd` and `git -C` to see where an operation lands. It reads
-the command text, not a shell: a path in a `$variable` or a backtick is not
-checked. A deny names the peer, its worktree and branch, when it was last
+The guard follows `cd` and `git -C` to see where an operation lands, and
+undoes a `cd` when its subshell closes. It reads the command text, not a
+shell: a path in a `$variable` or a backtick is not checked, and a heredoc's
+body is skipped as data. A deny names the peer, its worktree and branch, when it was last
 seen and what it announced, and points to `SendMessage` and `/crew`.
 
 The guard never answers `allow`. That would skip the user's permission
@@ -159,9 +172,14 @@ A registry problem must never stop work.
 /crew announce working on packages/env    what this session is doing — shown next to its name everywhere
 /crew announce --kind release @nxgt/mail 0.5.0 published — sendMail takes a Transport
 /crew claim /tmp/tmp.X1 release probe     a folder peers must not edit in or delete
+/crew yield packages/env                  release this session's hold on files it edited, so a blocked peer may take over
 ```
 
-The same CLI backs it: `bun plugins/nxgt-crew/scripts/crew.ts list|announce|claim|unclaim|whoami`.
+The same CLI backs it: `bun plugins/nxgt-crew/scripts/crew.ts list|announce|claim|unclaim|yield|whoami`.
+
+A hold ends early only by the holding session's own `/crew yield`, run under
+its own user's control. A blocked session cannot lift it, and a peer's "go
+ahead" in a message does not lift it either.
 
 ## `session-coordinator`
 
@@ -218,8 +236,9 @@ pages:
 ## Development
 
 The hook scripts are TypeScript run by Bun, with no `.sh`. The pure cores are
-`lib/registry.ts` (records and liveness), `lib/command.ts` (reading a Bash
-command), `lib/conflicts.ts` (the rules) and `lib/brief.ts` (the text). Each
+`lib/registry.ts` (records, liveness, merge), `lib/shell.ts` (words,
+heredocs, paths), `lib/command.ts` (the operations in a Bash command),
+`lib/conflicts.ts` (one rule per operation) and `lib/brief.ts` (the text). Each
 has a spec. `hooks/hooks.spec.ts` spawns every hook against a temporary
 registry and git repository.
 

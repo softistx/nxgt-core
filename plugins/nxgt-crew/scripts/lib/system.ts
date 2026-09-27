@@ -4,7 +4,8 @@
  * returns "unknown" instead of throwing.
  */
 
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { hostname } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { $ } from 'bun';
 import type { GitPlace, PidProbe } from './registry';
@@ -60,17 +61,46 @@ export async function placeResolver(
 	return (dir) => cache.get(dir) ?? {};
 }
 
-export const probePid: PidProbe = (pid) => {
+/**
+ * A process's start time, from `/proc/<pid>/stat` (field 22, in clock ticks
+ * since boot). Only Linux has it; elsewhere it is unknown and not compared.
+ */
+export function processStart(pid: number): string | undefined {
+	try {
+		const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+		// The command name, field 2, may hold spaces: count from its closing `)`.
+		const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+		return fields[19];
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Whether a record's Claude Code process still runs. A pid recorded on
+ * another host — or another PID namespace sharing `~/.claude` — is unknown,
+ * never dead; a pid whose start time changed was reused, so the session is dead.
+ */
+export const probePid: PidProbe = (record) => {
+	const pid = record.pid;
+	if (pid === undefined || record.host !== hostname()) return undefined;
 	try {
 		process.kill(pid, 0);
-		return true;
 	} catch (error) {
 		const code = (error as NodeJS.ErrnoException).code;
 		if (code === 'ESRCH') return false;
-		if (code === 'EPERM') return true;
-		return undefined;
+		if (code !== 'EPERM') return undefined;
 	}
+	if (record.pidStart === undefined) return true;
+	const start = processStart(pid);
+	return start === undefined ? true : start === record.pidStart;
 };
+
+export interface ClaudeProcess {
+	readonly pid: number;
+	readonly pidStart?: string;
+	readonly host: string;
+}
 
 /**
  * The Claude Code process that ran this hook, when it can be recognised.
@@ -78,10 +108,12 @@ export const probePid: PidProbe = (pid) => {
  * the pid is kept only when that parent's command line names `claude`, so a
  * wrapper process that exits at once can never make a live session look gone.
  */
-export async function claudePid(): Promise<number | undefined> {
+export async function claudeProcess(): Promise<ClaudeProcess | undefined> {
 	const pid = process.ppid;
 	if (!pid || pid <= 1) return undefined;
 	const ps = await $`ps -o command= -p ${pid}`.quiet().nothrow();
-	if (ps.exitCode !== 0) return undefined;
-	return /claude/i.test(ps.stdout.toString()) ? pid : undefined;
+	if (ps.exitCode !== 0 || !/claude/i.test(ps.stdout.toString())) {
+		return undefined;
+	}
+	return { pid, pidStart: processStart(pid), host: hostname() };
 }

@@ -4,7 +4,7 @@
  * live peers, the clock and the settings.
  */
 
-import type { HookInput } from './hook';
+import type { SessionInput } from './hook';
 import {
 	livePeers,
 	type Peer,
@@ -27,14 +27,14 @@ export interface Session {
 }
 
 export function load(
-	input: HookInput,
+	input: SessionInput,
 	env: Record<string, string | undefined>,
 	probe: PidProbe,
 	now = new Date(),
 ): Session {
 	const home = crewHome(env);
 	const settings = readSettings(env);
-	const sessionId = input.session_id as string;
+	const sessionId = input.session_id;
 	const records = readAll(home);
 	const found = records.find((r) => r.sessionId === sessionId);
 	const self =

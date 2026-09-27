@@ -22,7 +22,7 @@ import {
 	unseenAnnouncements,
 } from '../lib/registry';
 import { load } from '../lib/session';
-import { write } from '../lib/store';
+import { writeMerged } from '../lib/store';
 import { gitPlace, placeResolver, probePid } from '../lib/system';
 import { editedPath } from '../lib/tools';
 
@@ -59,7 +59,7 @@ await runHook(async (input) => {
 	let next = markWarned(self, verdict.warned, now);
 	if (news) next = markSeen(next, now);
 	if (verdict.publish) next = announce(next, verdict.publish, 'release', now);
-	if (next !== self || !session.registered) write(session.home, next);
+	if (next !== self || !session.registered) writeMerged(session.home, next);
 
 	const context = [verdict.context, news].filter(Boolean).join('\n\n');
 	return context

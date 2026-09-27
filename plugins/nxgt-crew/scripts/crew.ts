@@ -6,6 +6,7 @@
  *   crew.ts announce [--kind K] <text…>     K: working (default), release, decision, note
  *   crew.ts claim <path> [note…]            mark a folder as this session's
  *   crew.ts unclaim <path>
+ *   crew.ts yield [path]                    release this session's hold on its edited files (all, or under path)
  *   crew.ts whoami
  *
  * `--session <id>` names this session; without it the id comes from
@@ -25,8 +26,9 @@ import {
 	register,
 	type SessionRecord,
 	unclaim,
+	yieldEdits,
 } from './lib/registry';
-import { crewHome, readAll, readOne, write } from './lib/store';
+import { crewHome, readAll, readOne, write, writeMerged } from './lib/store';
 import { probePid } from './lib/system';
 
 const KINDS: readonly AnnouncementKind[] = [
@@ -96,7 +98,7 @@ switch (verb) {
 			fail(`--kind must be one of ${KINDS.join(', ')}`);
 		const text = rest.join(' ').trim();
 		if (!text) fail('announce needs a text');
-		write(home, announce(own(), text, kind, now));
+		writeMerged(home, announce(own(), text, kind, now));
 		process.stdout.write(`announced (${kind}): ${text}\n`);
 		break;
 	}
@@ -104,7 +106,7 @@ switch (verb) {
 		const [path, ...note] = rest;
 		if (!path) fail('claim needs a path');
 		const abs = resolve(path);
-		write(home, claim(own(), abs, note.join(' ') || undefined, now));
+		writeMerged(home, claim(own(), abs, note.join(' ') || undefined, now));
 		process.stdout.write(`claimed ${abs}\n`);
 		break;
 	}
@@ -115,9 +117,20 @@ switch (verb) {
 		process.stdout.write(`released ${resolve(path)}\n`);
 		break;
 	}
+	case 'yield': {
+		const [path] = rest;
+		const under = path === undefined ? undefined : resolve(path);
+		write(home, yieldEdits(own(), under));
+		process.stdout.write(
+			`released the hold on ${under ?? 'every file this session edited'}\n`,
+		);
+		break;
+	}
 	case 'whoami':
 		process.stdout.write(`${sessionId ?? 'unknown'}\n`);
 		break;
 	default:
-		fail(`unknown command "${verb}" (list, announce, claim, unclaim, whoami)`);
+		fail(
+			`unknown command "${verb}" (list, announce, claim, unclaim, yield, whoami)`,
+		);
 }

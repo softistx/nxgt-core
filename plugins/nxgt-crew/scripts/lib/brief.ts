@@ -5,8 +5,10 @@
  * prompt injection, and Claude rightly distrusts it.
  */
 
-import { isInside, sameRepository, worktreesOf } from './conflicts';
+import { sameRepository, worktreesOf } from './conflicts';
 import {
+	ago,
+	isInside,
 	label,
 	type Peer,
 	recentEdits,
@@ -14,13 +16,6 @@ import {
 	type Settings,
 	type Unseen,
 } from './registry';
-
-const ago = (iso: string, now: Date) => {
-	const m = Math.round((now.getTime() - Date.parse(iso)) / 60_000);
-	if (m < 1) return 'just now';
-	if (m < 120) return `${m} min ago`;
-	return `${Math.round(m / 60)} h ago`;
-};
 
 /** Peers in this session's repository first, then the rest. */
 export function partition(

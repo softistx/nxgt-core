@@ -11,19 +11,19 @@ import { runHook } from '../lib/hook';
 import { register, sweepable } from '../lib/registry';
 import { load } from '../lib/session';
 import { readAll, remove, write } from '../lib/store';
-import { claudePid, gitPlace, probePid } from '../lib/system';
+import { claudeProcess, gitPlace, probePid } from '../lib/system';
 
 await runHook(async (input) => {
 	const session = load(input, process.env, probePid);
 	const cwd = input.cwd ?? session.self.cwd;
-	const [place, pid] = await Promise.all([gitPlace(cwd), claudePid()]);
+	const [place, proc] = await Promise.all([gitPlace(cwd), claudeProcess()]);
 	const self = register(
 		session.registered ? session.self : undefined,
 		{
 			sessionId: session.self.sessionId,
 			cwd,
 			title: input.session_title,
-			pid,
+			...proc,
 			scratchpad: input.scratchpad_dir,
 			...place,
 		},

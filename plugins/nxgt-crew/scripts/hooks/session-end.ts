@@ -10,6 +10,6 @@ import { runHook } from '../lib/hook';
 import { crewHome, remove } from '../lib/store';
 
 await runHook(async (input) => {
-	remove(crewHome(process.env), input.session_id as string);
+	remove(crewHome(process.env), input.session_id);
 	return undefined;
 });

@@ -1,16 +1,19 @@
 import { describe, expect, test } from 'bun:test';
 import { minutesAgo, NOW, record, SETTINGS } from './fixtures';
 import {
+	ago,
 	announce,
 	claim,
 	currentWork,
 	heartbeat,
+	isInside,
 	isRecord,
 	LIMITS,
 	liveness,
 	livePeers,
 	markSeen,
 	markWarned,
+	merge,
 	readSettings,
 	recentEdits,
 	recordEdit,
@@ -19,6 +22,7 @@ import {
 	sweepable,
 	unclaim,
 	unseenAnnouncements,
+	yieldEdits,
 } from './registry';
 
 const unknown = () => undefined;
@@ -273,5 +277,77 @@ describe('readSettings', () => {
 			editWindowMinutes: 60,
 			idleHours: 12,
 		});
+	});
+});
+
+describe('yieldEdits', () => {
+	const r = recordEdit(
+		recordEdit(record('s'), '/w/a/x.ts', '/w', NOW),
+		'/w/b.ts',
+		'/w',
+		NOW,
+	);
+
+	test('releases every edit, or only those under a path', () => {
+		expect(yieldEdits(r).edits).toEqual([]);
+		expect(yieldEdits(r, '/w/a').edits.map((e) => e.path)).toEqual(['/w/b.ts']);
+		expect(yieldEdits(r, '/w/b.ts').edits.map((e) => e.path)).toEqual([
+			'/w/a/x.ts',
+		]);
+	});
+});
+
+describe('merge', () => {
+	test('keeps what a parallel hook added, and the later timestamps', () => {
+		const onDisk = recordEdit(
+			record('s', { lastSeen: NOW.toISOString() }),
+			'/w/a.ts',
+			'/w',
+			NOW,
+		);
+		const next = claim(
+			recordEdit(
+				record('s', { lastSeen: minutesAgo(1) }),
+				'/w/b.ts',
+				'/w',
+				NOW,
+			),
+			'/tmp/x',
+			undefined,
+			NOW,
+		);
+		const merged = merge(onDisk, next);
+		expect(merged.edits.map((e) => e.path).sort()).toEqual([
+			'/w/a.ts',
+			'/w/b.ts',
+		]);
+		expect(merged.claims.map((c) => c.path)).toEqual(['/tmp/x']);
+		expect(merged.lastSeen).toBe(NOW.toISOString());
+	});
+
+	test('one entry per file, the most recent', () => {
+		const old = recordEdit(
+			record('s'),
+			'/w/a.ts',
+			'/w',
+			new Date(NOW.getTime() - 60_000),
+		);
+		const fresh = recordEdit(record('s'), '/w/a.ts', '/w', NOW);
+		expect(merge(old, fresh).edits).toEqual(fresh.edits);
+	});
+});
+
+describe('isInside and ago', () => {
+	test('containment is by path segment', () => {
+		expect(isInside('/a/b', '/a')).toBe(true);
+		expect(isInside('/a', '/a')).toBe(true);
+		expect(isInside('/ab', '/a')).toBe(false);
+		expect(isInside('/a', '/a/b')).toBe(false);
+	});
+
+	test('ago', () => {
+		expect(ago(NOW.toISOString(), NOW)).toBe('just now');
+		expect(ago(minutesAgo(12), NOW)).toBe('12 min ago');
+		expect(ago(minutesAgo(180), NOW)).toBe('3 h ago');
 	});
 });

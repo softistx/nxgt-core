@@ -48,6 +48,10 @@ export interface SessionRecord extends GitPlace {
 	readonly title?: string;
 	/** The Claude Code process, when it could be identified; used to spot a crashed session. */
 	readonly pid?: number;
+	/** That process's start time, so a reused pid is not mistaken for it. */
+	readonly pidStart?: string;
+	/** The machine the pid belongs to: a pid means nothing on another host or namespace. */
+	readonly host?: string;
 	readonly cwd: string;
 	readonly startedAt: string;
 	readonly lastSeen: string;
@@ -91,8 +95,12 @@ export const LIMITS = {
  */
 export type Liveness = 'active' | 'idle' | 'gone';
 
-/** `true` alive, `false` dead, `undefined` unknown (no pid, or no way to probe). */
-export type PidProbe = (pid: number) => boolean | undefined;
+/**
+ * Whether a record's process is still running: `true` alive, `false` dead,
+ * `undefined` unknown (another host, or no way to probe). Called only for a
+ * record that has a pid.
+ */
+export type PidProbe = (record: SessionRecord) => boolean | undefined;
 
 const minutes = (n: number) => n * 60_000;
 
@@ -104,7 +112,7 @@ export function liveness(
 ): Liveness {
 	const silence = now.getTime() - Date.parse(record.lastSeen);
 	if (Number.isNaN(silence)) return 'gone';
-	const alive = record.pid === undefined ? undefined : probe(record.pid);
+	const alive = record.pid === undefined ? undefined : probe(record);
 	if (alive === false) return 'gone';
 	if (silence <= minutes(settings.staleMinutes)) return 'active';
 	if (alive === true && silence <= minutes(settings.idleHours * 60)) {
@@ -168,6 +176,8 @@ export interface Registration extends GitPlace {
 	readonly cwd: string;
 	readonly title?: string;
 	readonly pid?: number;
+	readonly pidStart?: string;
+	readonly host?: string;
 	readonly scratchpad?: string;
 }
 
@@ -196,7 +206,9 @@ export function register(
 		...base,
 		cwd: input.cwd,
 		title: input.title ?? base.title,
-		pid: input.pid ?? base.pid,
+		pid: input.pid,
+		pidStart: input.pidStart,
+		host: input.host,
 		worktree: input.worktree,
 		repo: input.repo,
 		remote: input.remote,
@@ -354,6 +366,92 @@ export function markWarned(
 	const warned: Record<string, string> = { ...(record.warned ?? {}) };
 	for (const id of peerIds) warned[id] = now.toISOString();
 	return { ...record, warned };
+}
+
+/**
+ * Lets go of this session's hold on files: every recent edit, or those under
+ * `under`. The holding session runs it (`/crew yield`) when it agrees a peer
+ * may take over — the only way a hold ends early, and always its own decision.
+ */
+export function yieldEdits(
+	record: SessionRecord,
+	under?: string,
+): SessionRecord {
+	const keep = (path: string) =>
+		under !== undefined && path !== under && !path.startsWith(`${under}/`);
+	return { ...record, edits: record.edits.filter((e) => keep(e.path)) };
+}
+
+const latest = (a: string | undefined, b: string | undefined) =>
+	a === undefined
+		? b
+		: b === undefined
+			? a
+			: Date.parse(a) >= Date.parse(b)
+				? a
+				: b;
+
+function unionBy<T extends { readonly at: string }>(
+	a: readonly T[],
+	b: readonly T[],
+	key: (t: T) => string,
+	cap: number,
+): T[] {
+	const byKey = new Map<string, T>();
+	for (const item of [...a, ...b]) {
+		const k = key(item);
+		const seen = byKey.get(k);
+		if (!seen || Date.parse(item.at) > Date.parse(seen.at)) byKey.set(k, item);
+	}
+	return [...byKey.values()]
+		.sort((x, y) => Date.parse(y.at) - Date.parse(x.at))
+		.slice(0, cap);
+}
+
+/**
+ * Folds what another hook of this same session wrote meanwhile into `next`.
+ * Hooks run in parallel — an async PostToolUse still writing while the next
+ * PreToolUse reads — so a plain last-writer-wins would drop an edit, and with
+ * it the protection of that file. Edits, claims and announcements are unioned;
+ * the rest is `next`'s, with the later timestamps kept.
+ */
+export function merge(
+	onDisk: SessionRecord,
+	next: SessionRecord,
+): SessionRecord {
+	const warned: Record<string, string> = { ...(onDisk.warned ?? {}) };
+	for (const [id, at] of Object.entries(next.warned ?? {})) {
+		warned[id] = latest(warned[id], at) as string;
+	}
+	return {
+		...next,
+		lastSeen: latest(onDisk.lastSeen, next.lastSeen) as string,
+		seenUntil: latest(onDisk.seenUntil, next.seenUntil),
+		warned,
+		edits: unionBy(onDisk.edits, next.edits, (e) => e.path, LIMITS.edits),
+		claims: unionBy(onDisk.claims, next.claims, (c) => c.path, LIMITS.claims),
+		announcements: unionBy(
+			onDisk.announcements,
+			next.announcements,
+			(a) => `${a.at} ${a.text}`,
+			LIMITS.announcements,
+		),
+	};
+}
+
+/** "just now", "12 min ago", "3 h ago". */
+export function ago(iso: string, now: Date): string {
+	const m = Math.round((now.getTime() - Date.parse(iso)) / 60_000);
+	if (m < 1) return 'just now';
+	if (m < 120) return `${m} min ago`;
+	return `${Math.round(m / 60)} h ago`;
+}
+
+/** `true` when `path` is `parent` or lies under it. */
+export function isInside(path: string, parent: string): boolean {
+	if (path === parent) return true;
+	const prefix = parent.endsWith('/') ? parent : `${parent}/`;
+	return path.startsWith(prefix);
 }
 
 /** A short, human name for a peer: its title, else the first eight characters of its id. */

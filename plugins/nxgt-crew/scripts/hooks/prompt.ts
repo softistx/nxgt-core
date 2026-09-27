@@ -15,7 +15,7 @@ import {
 	unseenAnnouncements,
 } from '../lib/registry';
 import { load } from '../lib/session';
-import { write } from '../lib/store';
+import { writeMerged } from '../lib/store';
 import { gitPlace, probePid } from '../lib/system';
 
 await runHook(async (input) => {
@@ -29,7 +29,7 @@ await runHook(async (input) => {
 		unseenAnnouncements(session.self, session.peers),
 		session.now,
 	);
-	write(
+	writeMerged(
 		session.home,
 		markSeen(heartbeat(session.self, session.now, { cwd, place }), session.now),
 	);

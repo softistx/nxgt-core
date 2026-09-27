@@ -4,7 +4,6 @@ import {
 	type Context,
 	evaluateBash,
 	evaluateEdit,
-	isInside,
 	normalizeRemote,
 	sameRepository,
 	type Verdict,
@@ -75,13 +74,6 @@ const bash = (
 const denied = (v: Verdict) => v.decision === 'deny';
 
 describe('helpers', () => {
-	test('isInside', () => {
-		expect(isInside('/a/b', '/a')).toBe(true);
-		expect(isInside('/a', '/a')).toBe(true);
-		expect(isInside('/ab', '/a')).toBe(false);
-		expect(isInside('/a', '/a/b')).toBe(false);
-	});
-
 	test('two clones of one GitHub repository are the same repository', () => {
 		expect(normalizeRemote('git@github.com:O/R.git')).toBe(
 			normalizeRemote('https://github.com/o/r'),
@@ -201,7 +193,7 @@ describe('git operations on a worktree', () => {
 		).toBe('allow');
 	});
 
-	test('an idle peer still holds its worktree', () => {
+	test('an idle peer does not lock its worktree: allowed, with a note', () => {
 		const v = evaluateBash(
 			parseCommand('git checkout x', { cwd: '/repo', home: '/h' }),
 			placeOf,
@@ -210,7 +202,27 @@ describe('git operations on a worktree', () => {
 				peers: [peer(inMain, 'idle')],
 			},
 		);
+		expect(v.decision).toBe('allow');
+		if (v.decision === 'allow')
+			expect(v.context).toContain('only session concerned is idle');
+	});
+
+	test('an active peer beside an idle one still denies, naming only the active one', () => {
+		const idle = record('idle-peer', {
+			...MAIN,
+			cwd: '/repo',
+			title: 'sleepy',
+		});
+		const v = evaluateBash(
+			parseCommand('git checkout x', { cwd: '/repo', home: '/h' }),
+			placeOf,
+			{
+				...ctx([]),
+				peers: [peer(idle, 'idle'), peer(inMain)],
+			},
+		);
 		expect(denied(v)).toBe(true);
+		if (v.decision === 'deny') expect(v.reason).not.toContain('sleepy');
 	});
 });
 
@@ -234,6 +246,19 @@ describe('worktrees and branches', () => {
 		});
 		expect(denied(bash('git branch -D feat/p', [p], '/repo'))).toBe(true);
 		expect(bash('git branch -D feat/q', [p], '/repo').decision).toBe('allow');
+	});
+
+	test('the same branch in another clone of the same remote is not a conflict for a delete', () => {
+		const clone = record('p', {
+			cwd: '/clone',
+			worktree: '/clone',
+			repo: '/clone/.git',
+			remote: 'https://github.com/o/r',
+			branch: 'feat/p',
+		});
+		expect(bash('git branch -D feat/p', [clone], '/repo').decision).toBe(
+			'allow',
+		);
 	});
 
 	test('the same branch name in another repository is not a conflict', () => {
@@ -290,6 +315,35 @@ describe('deletions', () => {
 		expect(denied(bash('rm /tmp/wt/held.ts', [sharer]))).toBe(true);
 	});
 
+	test('a worktree nested in a peer’s checkout deletes its own files freely', () => {
+		const nested = record('self', {
+			cwd: '/repo/.claude/worktrees/x',
+			worktree: '/repo/.claude/worktrees/x',
+			repo: '/repo/.git',
+		});
+		expect(
+			bash('rm src/old.ts', [inMain], '/repo/.claude/worktrees/x', nested)
+				.decision,
+		).toBe('allow');
+		expect(
+			denied(
+				bash('rm /repo/a.ts', [inMain], '/repo/.claude/worktrees/x', nested),
+			),
+		).toBe(true);
+	});
+
+	test('a glob in a shared root checks only matching files', () => {
+		const sharer = record('p', {
+			...WT,
+			cwd: '/tmp/wt',
+			edits: [
+				{ path: '/tmp/wt/held.orig', worktree: '/tmp/wt', at: minutesAgo(1) },
+			],
+		});
+		expect(bash('rm -f *.log', [sharer]).decision).toBe('allow');
+		expect(denied(bash('rm -f *.orig', [sharer]))).toBe(true);
+	});
+
 	test('deleting this session’s own things: allow', () => {
 		expect(bash('rm -rf /tmp/tmp.MINE build', [pad]).decision).toBe('allow');
 	});
@@ -303,6 +357,13 @@ describe('publishing', () => {
 			expect(v.publish).toBe('publishing: bun publish');
 			expect(v.context).toContain('core');
 		}
+	});
+
+	test('never announces a credential', () => {
+		const v = bash('NPM_TOKEN=npm_SECRET bun publish --otp 999', []);
+		expect(v.decision === 'allow' && v.publish).toBe(
+			'publishing: bun publish --otp ***',
+		);
 	});
 
 	test('with no peers it still records the release', () => {

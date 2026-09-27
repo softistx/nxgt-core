@@ -20,12 +20,15 @@ export interface HookInput {
 
 export type HookOutput = Record<string, unknown>;
 
+/** The input once `runHook` has checked it names a session. */
+export type SessionInput = HookInput & { readonly session_id: string };
+
 export function disabled(env: Record<string, string | undefined>): boolean {
 	return env.NXGT_CREW_DISABLE === '1' || env.NXGT_CREW_DISABLE === 'true';
 }
 
 export async function runHook(
-	handler: (input: HookInput) => Promise<HookOutput | undefined>,
+	handler: (input: SessionInput) => Promise<HookOutput | undefined>,
 ): Promise<never> {
 	let output: HookOutput | undefined;
 	try {
@@ -33,7 +36,7 @@ export async function runHook(
 			const raw = await Bun.stdin.text();
 			const input = JSON.parse(raw) as HookInput;
 			if (typeof input.session_id === 'string' && input.session_id) {
-				output = await handler(input);
+				output = await handler(input as SessionInput);
 			}
 		}
 	} catch (error) {

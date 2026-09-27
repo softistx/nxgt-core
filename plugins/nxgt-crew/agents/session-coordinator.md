@@ -56,7 +56,8 @@ you must ask the caller for in your report rather than guess.
    with `SendMessage`:
    - announcing a release this session is making, with the version and
      whether it breaks anything;
-   - asking before touching a file, branch or worktree it holds;
+   - asking before touching a file, branch or worktree it holds — and, if it
+     agrees, that it release its files with `/crew yield` (only it can);
    - relaying a decision that changes its work.
    Make the first line a self-contained sentence (it is all the peer's user
    sees in the preview). One message per peer, batched; never a loop of

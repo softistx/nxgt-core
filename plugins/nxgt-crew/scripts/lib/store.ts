@@ -19,7 +19,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { isRecord, type SessionRecord } from './registry';
+import { isRecord, merge, type SessionRecord } from './registry';
 
 export function crewHome(env: Record<string, string | undefined>): string {
 	if (env.NXGT_CREW_HOME) return env.NXGT_CREW_HOME;
@@ -87,6 +87,16 @@ export function write(home: string, record: SessionRecord): void {
 		rmSync(temp, { force: true });
 		throw error;
 	}
+}
+
+/**
+ * Writes this session's record after folding in whatever another of its own
+ * hooks wrote since `next` was read — see `merge`. What a hook adds is never
+ * lost to a parallel hook; what it removes needs `write`.
+ */
+export function writeMerged(home: string, next: SessionRecord): void {
+	const onDisk = readOne(home, next.sessionId);
+	write(home, onDisk ? merge(onDisk, next) : next);
 }
 
 /** Deletes one session's record — the only deletion this plugin ever performs. */

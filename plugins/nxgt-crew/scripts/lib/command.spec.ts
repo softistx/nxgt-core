@@ -1,65 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import {
-	directoriesToResolve,
-	parseCommand,
-	resolvePath,
-	segments,
-	staticBase,
-	tokenize,
-} from './command';
+import { directoriesToResolve, isPublish, parseCommand } from './command';
 
 const where = { cwd: '/repo', home: '/home/u' };
 const parse = (c: string) => parseCommand(c, where);
-
-describe('tokenize and segments', () => {
-	test('quotes group, operators separate', () => {
-		expect(tokenize(`git commit -m "a b" && echo 'c d'; ls|wc`)).toEqual([
-			'git',
-			'commit',
-			'-m',
-			'a b',
-			'&&',
-			'echo',
-			'c d',
-			';',
-			'ls',
-			'|',
-			'wc',
-		]);
-	});
-
-	test('a command substitution is read as its own segment', () => {
-		expect(segments('echo $(git reset --hard)')).toEqual([
-			['echo'],
-			['git', 'reset', '--hard'],
-		]);
-	});
-
-	test('comments are dropped', () => {
-		expect(segments('git status # then git reset')).toEqual([
-			['git', 'status'],
-		]);
-	});
-});
-
-describe('resolvePath', () => {
-	test('relative to the directory, with ~ expanded', () => {
-		expect(resolvePath('a/../b', '/repo', '/home/u')).toBe('/repo/b');
-		expect(resolvePath('~/x', '/repo', '/home/u')).toBe('/home/u/x');
-	});
-
-	test('anything the shell would expand is unknown', () => {
-		expect(resolvePath('$d/wt', '/repo', '/home/u')).toBeUndefined();
-		expect(resolvePath('`pwd`', '/repo', '/home/u')).toBeUndefined();
-		expect(resolvePath('rel', undefined, '/home/u')).toBeUndefined();
-	});
-
-	test('a glob is checked at its first static directory', () => {
-		expect(staticBase('/tmp/a/*')).toBe('/tmp/a');
-		expect(staticBase('/tmp/a/b?/c')).toBe('/tmp/a');
-		expect(staticBase('/tmp/a')).toBe('/tmp/a');
-	});
-});
 
 describe('git operations', () => {
 	test.each([
@@ -144,7 +87,7 @@ describe('git operations', () => {
 
 	test('git rm deletes paths', () => {
 		expect(parse('git rm -r src/old')).toEqual([
-			{ kind: 'delete', dir: '/repo', paths: ['/repo/src/old'] },
+			{ kind: 'delete', dir: '/repo', paths: ['/repo/src/old'], patterns: [] },
 		]);
 	});
 });
@@ -156,16 +99,33 @@ describe('deletions', () => {
 				kind: 'delete',
 				dir: '/repo',
 				paths: ['/repo/build', '/tmp/x', '/repo/-weird'],
+				patterns: [],
 			},
 		]);
 		expect(parse('rmdir a')).toEqual([
-			{ kind: 'delete', dir: '/repo', paths: ['/repo/a'] },
+			{ kind: 'delete', dir: '/repo', paths: ['/repo/a'], patterns: [] },
 		]);
 	});
 
 	test('mv deletes its sources, not its destination', () => {
 		expect(parse('mv a b dest/')).toEqual([
-			{ kind: 'delete', dir: '/repo', paths: ['/repo/a', '/repo/b'] },
+			{
+				kind: 'delete',
+				dir: '/repo',
+				paths: ['/repo/a', '/repo/b'],
+				patterns: [],
+			},
+		]);
+	});
+
+	test('a glob in the last component is a pattern; a bare * deletes the folder', () => {
+		expect(parse('rm -f *.orig /tmp/a/*')).toEqual([
+			{
+				kind: 'delete',
+				dir: '/repo',
+				paths: ['/tmp/a'],
+				patterns: ['/repo/*.orig'],
+			},
 		]);
 	});
 
@@ -189,12 +149,66 @@ describe('publishing', () => {
 		expect(parse(c).some((o) => o.kind === 'publish')).toBe(true);
 	});
 
+	test('the announced text drops assignments and masks credentials', () => {
+		const op = parse(
+			'NPM_CONFIG_TOKEN=npm_SECRET bun publish --otp 123456 --auth-token=abc --access public',
+		)[0];
+		expect(op).toEqual({
+			kind: 'publish',
+			dir: '/repo',
+			text: 'bun publish --otp *** --auth-token=*** --access public',
+		});
+	});
+
+	test('only scripts named publish or release count', () => {
+		expect(isPublish(['bun', 'run', 'release:npm'])).toBe(true);
+		expect(isPublish(['npm', 'run', 'release-notes'])).toBe(false);
+		expect(isPublish(['bun', 'run', 'prerelease:check'])).toBe(false);
+	});
+
 	test.each(['npm install', 'bun run build', 'bun test', 'gh release view'])(
 		'%s does not',
 		(c) => {
 			expect(parse(c).some((o) => o.kind === 'publish')).toBe(false);
 		},
 	);
+});
+
+describe('heredocs and subshells', () => {
+	test('a heredoc body is data, not commands', () => {
+		const c =
+			"cat > notes.md <<'EOF'\nTo undo: git reset --hard\nrm -rf build\ncd /elsewhere\nit's fine\nEOF\ngit checkout main";
+		expect(parse(c)).toEqual([
+			{ kind: 'tree', verb: 'checkout', dir: '/repo' },
+		]);
+	});
+
+	test('<<- and unquoted delimiters, and markdown backticks in the body', () => {
+		const c =
+			'gh pr create --body-file - <<-BODY\n\tRun `rm -rf dist` first\n\tBODY\necho ok';
+		expect(parse(c)).toEqual([]);
+	});
+
+	test('a here-string is not a heredoc', () => {
+		expect(parse('cat <<< "x"; git stash')).toEqual([
+			{ kind: 'tree', verb: 'stash', dir: '/repo' },
+		]);
+	});
+
+	test('a cd inside a subshell does not leak out', () => {
+		expect(parse('(cd /other && git status); git checkout main')).toEqual([
+			{ kind: 'tree', verb: 'checkout', dir: '/repo' },
+		]);
+		expect(parse('echo $(cd /x && pwd) && git reset')).toEqual([
+			{ kind: 'tree', verb: 'reset', dir: '/repo' },
+		]);
+	});
+
+	test('popd leaves the directory unknown', () => {
+		expect(parse('pushd /x && popd && git reset')).toEqual([
+			{ kind: 'tree', verb: 'reset', dir: undefined },
+		]);
+	});
 });
 
 describe('directoriesToResolve', () => {
