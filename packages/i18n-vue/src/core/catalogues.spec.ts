@@ -92,6 +92,24 @@ describe('checkCatalogues', () => {
 		);
 	});
 
+	test('refuses two keys that are the same key in two conventions', () => {
+		fails(
+			{ en: { signIn: 'a', 'sign-in': 'b' } },
+			'i18n: en: sign-in and signIn are the same key in two conventions — keep only one',
+			['en'],
+		);
+	});
+
+	test('accepts two keys that merely fold to the same string once hyphens are stripped', () => {
+		// `coop` and `co-op` are two different words, not one key in two
+		// conventions — a lossy fold must not treat them as a collision.
+		const messages = check({ en: { coop: 'a', 'co-op': 'b' } }, ['en']);
+		expect([...(messages.get('en')?.keys() ?? [])].sort()).toEqual([
+			'co-op',
+			'coop',
+		]);
+	});
+
 	test('refuses a message that does not parse, without its text', () => {
 		expect(() => check({ en: { a: 'Hello {name' } }, ['en'])).toThrow(
 			/^i18n: en: a is not a valid ICU message \(/,

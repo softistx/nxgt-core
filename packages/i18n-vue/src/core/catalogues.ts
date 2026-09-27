@@ -4,6 +4,7 @@ import {
 	TYPE,
 } from '@formatjs/icu-messageformat-parser';
 import { isObject } from './guards';
+import { keyVariants } from './keys';
 
 /**
  * A catalogue as written: nested objects whose leaves are ICU messages, the
@@ -219,6 +220,29 @@ function compare(
 }
 
 /**
+ * Refuses two keys of the same catalogue that are the same key in two
+ * conventions — `signIn` beside `sign-in` — which `t()` could not tell apart
+ * either: naming both, so the fix is to keep one.
+ */
+function checkNoConventionCollision(
+	locale: string,
+	keys: Iterable<string>,
+): void {
+	const owner = new Map<string, string>();
+	for (const key of keys) {
+		for (const variant of keyVariants(key)) {
+			const existing = owner.get(variant);
+			if (existing !== undefined && existing !== key) {
+				throw new Error(
+					`i18n: ${locale}: ${key} and ${existing} are the same key in two conventions — keep only one`,
+				);
+			}
+		}
+		for (const variant of keyVariants(key)) owner.set(variant, key);
+	}
+}
+
+/**
  * Checks the catalogues of every locale and answers their messages. A
  * catalogue that is not objects of camelCase or kebab-case keys, a message
  * that does not parse, and a locale that differs from the fallback locale in
@@ -233,6 +257,7 @@ export function checkCatalogues(
 	for (const locale of locales) {
 		const flat = new Map<string, string>();
 		flatten(catalogues[locale], locale, '', flat);
+		checkNoConventionCollision(locale, flat.keys());
 		out.set(
 			locale,
 			new Map(

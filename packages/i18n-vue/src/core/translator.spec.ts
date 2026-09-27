@@ -112,4 +112,17 @@ describe('lookup', () => {
 		expect(lookup(catalogue, 'common.sign-out')).toBeNull();
 		expect(lookup(catalogue, 'toString')).toBeNull();
 	});
+
+	test('does not confuse two different words that happen to fold to the same string', () => {
+		// `coop` and `co-op` both pass KEY_SEGMENT and are unrelated words. A
+		// lossy hyphen/case fold would route 'coOp' to whichever won the fold;
+		// the exact-alternate check matches neither, since `coop` has no other
+		// convention distinct from itself.
+		const catalogue = {
+			settings: { coop: 'Chicken coop', 'co-op': 'Cooperative' },
+		};
+		expect(lookup(catalogue, 'settings.coop')).toBe('Chicken coop');
+		expect(lookup(catalogue, 'settings.co-op')).toBe('Cooperative');
+		expect(lookup(catalogue, 'settings.coOp')).toBe('Cooperative');
+	});
 });

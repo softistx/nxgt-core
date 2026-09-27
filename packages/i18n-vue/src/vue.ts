@@ -13,7 +13,7 @@ import {
 	type Messages,
 } from './core/catalogues';
 import { isObject, LOCALE } from './core/guards';
-import { normalizeKey } from './core/keys';
+import { keyVariants } from './core/keys';
 import { createFormatter, type Formatter } from './core/translator';
 import type {
 	Locale,
@@ -55,7 +55,7 @@ const I18N: InjectionKey<I18n> = Symbol('@nxgt/i18n-vue');
 interface Prepared {
 	readonly messages: ReadonlyMap<string, Messages>;
 	readonly format: Formatter;
-	/** Every fallback-locale key, normalized (camelCase and kebab-case fold together), to the key as the catalogue actually spells it. */
+	/** Every other-convention spelling of a fallback-locale key (`keyVariants`), to the key as the catalogue actually spells it. */
 	readonly canonical: ReadonlyMap<string, string>;
 }
 
@@ -96,10 +96,15 @@ function prepare(
 			sameCatalogues(entry.catalogues, catalogues),
 	);
 	if (hit !== undefined) return hit.prepared;
+	// checkCatalogues has already refused two keys that collide once cases
+	// fold (see catalogues.ts), so building this from every key's exact
+	// variants — not a lossy fold — cannot silently prefer one over another.
 	const messages = checkCatalogues(catalogues, locales, fallbackLocale);
 	const canonical = new Map<string, string>();
 	for (const messageKey of (messages.get(fallbackLocale) as Messages).keys()) {
-		canonical.set(normalizeKey(messageKey), messageKey);
+		for (const variant of keyVariants(messageKey)) {
+			canonical.set(variant, messageKey);
+		}
 	}
 	const prepared: Prepared = {
 		messages,
@@ -210,9 +215,7 @@ export function createI18n(options: I18nOptions): I18n {
 			// Exact first — a catalogue's own spelling always matches itself — then
 			// falling back across camelCase and kebab-case: `t('sign-in')` finds a
 			// catalogue's `signIn`, and the other way round.
-			const actualKey = reference.has(key)
-				? key
-				: canonical.get(normalizeKey(key));
+			const actualKey = reference.has(key) ? key : canonical.get(key);
 			const declared =
 				actualKey !== undefined ? reference.get(actualKey) : undefined;
 			if (declared === undefined) {
@@ -225,8 +228,7 @@ export function createI18n(options: I18nOptions): I18n {
 		},
 		has(key): key is MessageKey {
 			return (
-				typeof key === 'string' &&
-				(reference.has(key) || canonical.has(normalizeKey(key)))
+				typeof key === 'string' && (reference.has(key) || canonical.has(key))
 			);
 		},
 		install(app) {

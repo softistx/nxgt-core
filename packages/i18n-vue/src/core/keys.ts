@@ -5,17 +5,15 @@
  * they still find each other. This is for **key path segments only**: an
  * ICU argument name (`{firstName}`) is still camelCase-only, checked by
  * `catalogues.ts`'s own `ARGUMENT_NAME`.
+ *
+ * Matching is **exact, or exactly the other convention's spelling of the
+ * same segment** — never a lossy case/hyphen fold. `coop` and `co-op` are two
+ * different words that both pass `KEY_SEGMENT`; folding hyphens and case away
+ * would make them indistinguishable and silently route a third spelling to
+ * whichever won the collision. `otherSegment` computes the one spelling a
+ * segment's other convention would produce — `signIn` -> `sign-in` and back
+ * — never a whole equivalence class.
  */
-
-/** `signIn` and `sign-in` both fold to `signin`, so the two compare equal. */
-export function normalizeSegment(segment: string): string {
-	return segment.replace(/-/g, '').toLowerCase();
-}
-
-/** `normalizeSegment`, applied to every segment of a dotted key. */
-export function normalizeKey(key: string): string {
-	return key.split('.').map(normalizeSegment).join('.');
-}
 
 /** `signIn` -> `sign-in`. Identity when there is no uppercase letter. */
 function camelToKebab(segment: string): string {
@@ -35,6 +33,17 @@ function otherSegment(segment: string): string[] {
 		? kebabToCamel(segment)
 		: camelToKebab(segment);
 	return alt === segment ? [] : [alt];
+}
+
+/**
+ * Whether `a` and `b` are the same key segment: identical, or one is exactly
+ * the other convention's spelling of the other. `coop` and `coOp` are not —
+ * `coop` has no other convention (no uppercase, no hyphen) — so a catalogue
+ * that has both `coop` and `co-op` is never confused with either from a
+ * third spelling.
+ */
+export function sameSegment(a: string, b: string): boolean {
+	return a === b || otherSegment(a).includes(b) || otherSegment(b).includes(a);
 }
 
 /**

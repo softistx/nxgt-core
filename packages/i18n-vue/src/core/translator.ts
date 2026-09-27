@@ -1,6 +1,6 @@
 import { IntlMessageFormat } from 'intl-messageformat';
 import type { Catalogue, Catalogues } from './catalogues';
-import { normalizeSegment } from './keys';
+import { sameSegment } from './keys';
 import type {
 	ArgsOf,
 	I18nMessages,
@@ -31,10 +31,7 @@ export function lookup(catalogue: Catalogue, key: string): string | null {
 		if (typeof node !== 'object' || node === null) return null;
 		const found = Object.hasOwn(node, segment)
 			? segment
-			: Object.keys(node).find(
-					(candidate) =>
-						normalizeSegment(candidate) === normalizeSegment(segment),
-				);
+			: Object.keys(node).find((candidate) => sameSegment(candidate, segment));
 		if (found === undefined) return null;
 		node = node[found];
 	}

@@ -1,19 +1,26 @@
 import { describe, expect, test } from 'bun:test';
-import { keyVariants, normalizeKey, normalizeSegment } from './keys';
+import { keyVariants, sameSegment } from './keys';
 
-describe('normalizeSegment', () => {
-	test('folds camelCase and kebab-case to the same string', () => {
-		expect(normalizeSegment('signIn')).toBe(normalizeSegment('sign-in'));
+describe('sameSegment', () => {
+	test('is true for the same string', () => {
+		expect(sameSegment('title', 'title')).toBe(true);
 	});
 
-	test('leaves a single lowercase word as is', () => {
-		expect(normalizeSegment('title')).toBe('title');
+	test('is true for camelCase and its kebab-case spelling, either order', () => {
+		expect(sameSegment('signIn', 'sign-in')).toBe(true);
+		expect(sameSegment('sign-in', 'signIn')).toBe(true);
 	});
-});
 
-describe('normalizeKey', () => {
-	test('normalizes every segment of a dotted key', () => {
-		expect(normalizeKey('auth.signIn')).toBe(normalizeKey('auth.sign-in'));
+	test('is false for two different words that happen to share letters and a hyphen', () => {
+		// `coop` and `co-op` both pass KEY_SEGMENT and are unrelated words — a
+		// lossy hyphen/case fold would confuse them; the exact-alternate check
+		// must not.
+		expect(sameSegment('coop', 'co-op')).toBe(false);
+		expect(sameSegment('co-op', 'coop')).toBe(false);
+	});
+
+	test('is false for two unrelated words', () => {
+		expect(sameSegment('signIn', 'signOut')).toBe(false);
 	});
 });
 
