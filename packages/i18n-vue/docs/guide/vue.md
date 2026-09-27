@@ -1,5 +1,8 @@
 # Vue
 
+How to wire `createI18n` into a Vue app, and use `t` and the locale from
+templates and code.
+
 ## Creating the i18n
 
 ```ts
@@ -19,11 +22,11 @@ const i18n = createI18n({
 createApp(App).use(i18n).mount('#app');
 ```
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `catalogues` | — (required) | A catalogue per locale, keyed by BCP 47 tag: `{ en, fr, 'pt-BR': ptBR }` |
-| `fallbackLocale` | the first locale of `catalogues` | The reference every other locale is checked against |
-| `locale` | `fallbackLocale` | The locale to start in |
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `catalogues` | `Catalogues` | — (required) | A catalogue per locale, keyed by BCP 47 tag: `{ en, fr, 'pt-BR': ptBR }` |
+| `fallbackLocale` | `string` | the first locale of `catalogues` | The reference every other locale is checked against |
+| `locale` | `string` | `fallbackLocale` | The locale to start in |
 
 `createI18n` checks the catalogues ([Catalogues](catalogues.md)) and throws on
 the first thing that cannot be right. A wrong option is a `TypeError`.
@@ -113,10 +116,16 @@ shared across requests would switch every visitor at once.
 import { createSSRApp } from 'vue';
 import { renderToString } from 'vue/server-renderer';
 import { createI18n, parseAcceptLanguage, pickLocale } from '@nxgt/i18n-vue';
+import App from './app.vue';
+import en from './locales/en.json';
+import fr from './locales/fr.json';
 
-export async function render(request: Request) {
+const catalogues = { en, fr };
+
+/** `storedLocale`: the visitor's `language` cookie, read however your server reads cookies. */
+export async function render(request: Request, storedLocale: string | null) {
 	const locale = pickLocale(
-		[readCookie(request, 'language'), ...parseAcceptLanguage(request.headers.get('accept-language'))],
+		[storedLocale, ...parseAcceptLanguage(request.headers.get('accept-language'))],
 		['en', 'fr'],
 		'en',
 	);
@@ -125,7 +134,8 @@ export async function render(request: Request) {
 }
 ```
 
-The catalogues are checked once per object, not per request. The browser
+The catalogues are checked once, not per request: the cache is keyed on
+the imported catalogue objects, so `{ en, fr }` wrapped anew still hits it. The browser
 must start in the same locale, or Vue reports a hydration mismatch: serialise
 it into the page and pass it back to `createI18n` there. The
 [Nuxt module](nuxt.md) does all of this.

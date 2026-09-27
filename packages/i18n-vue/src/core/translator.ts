@@ -106,7 +106,15 @@ export function createTranslator<K extends string = MessageKey>(
 		language: LanguageProvider = getLanguage,
 	): string => {
 		const locale = resolveLanguage(language);
-		if (typeof locale !== 'string' || !Object.hasOwn(catalogues, locale)) {
+		if (typeof locale !== 'string') {
+			throw new TypeError(
+				't: the language must be a string — a locale, or a function that answers one',
+			);
+		}
+		if (typeof key !== 'string') {
+			throw new TypeError("t: the key must be a string, as t('home.title')");
+		}
+		if (!Object.hasOwn(catalogues, locale)) {
 			throw new Error(
 				't: the language is not a locale of the catalogues — pick one with pickLocale',
 			);

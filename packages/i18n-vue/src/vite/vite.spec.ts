@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { expectThrow } from '../../test/expect-throw';
 import { i18nTypes } from './index';
 
 const roots: string[] = [];
@@ -66,10 +67,10 @@ describe('i18nTypes', () => {
 	test('fails the build on a catalogue that cannot be right', () => {
 		const root = project();
 		writeFileSync(join(root, 'locales/fr.json'), '{ "home": {} }');
-		expect(() => start(i18nTypes({ locales: ['en', 'fr'] }), root)).toThrow(
-			new Error(
-				'i18n: fr: home.greeting is missing — en, the fallback locale, has it',
-			),
+		expectThrow(
+			() => start(i18nTypes({ locales: ['en', 'fr'] }), root),
+			Error,
+			'i18n: fr: home.greeting is missing — en, the fallback locale, has it',
 		);
 	});
 
@@ -109,15 +110,15 @@ describe('i18nTypes', () => {
 	});
 
 	test('refuses a wiring mistake with a TypeError', () => {
-		expect(() => i18nTypes({ locales: [] })).toThrow(
-			new TypeError(
-				"i18nTypes: locales must hold at least one locale, as ['en', 'fr']",
-			),
+		expectThrow(
+			() => i18nTypes({ locales: [] }),
+			TypeError,
+			"i18nTypes: locales must hold at least one locale, as ['en', 'fr']",
 		);
-		expect(() => i18nTypes({ locales: ['en'], out: 'src/i18n.ts' })).toThrow(
-			new TypeError(
-				'i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts',
-			),
+		expectThrow(
+			() => i18nTypes({ locales: ['en'], out: 'src/i18n.ts' }),
+			TypeError,
+			'i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts',
 		);
 	});
 });

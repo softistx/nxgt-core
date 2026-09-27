@@ -448,7 +448,7 @@ beside it, which is the check that would have caught it.
 
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
-All eleven declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+Every package declares `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
 `~7.0.2`, which is not a preference difference — the ranges are mutually
 unsatisfiable, so a consumer installing the set gets a peer conflict, and if
 TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
@@ -468,7 +468,7 @@ CI enforces two things a green build does not:
   changeset is a change that never reaches a consumer, because the release
   workflow has nothing to version. Use `bun changeset --empty` when that is
   genuinely intended, and say why.
-- **`bun run verify:artifacts`** — packs the eleven, installs them the way a
+- **`bun run verify:artifacts`** — packs every package, installs them the way a
   consumer does, imports every subpath each package declares, and rejects a
   manifest that would break an install — a `link:` or `file:` in a field a
   consumer resolves, or a **required** peer that is on no registry — and a
@@ -589,7 +589,9 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **442 pass, 0 fail**. Treat any failure as yours.
+`bun run test` is **396 pass, 9 skip, 0 fail** in CI on 2026-09-27 (the 9 are
+`shared-storage`'s S3 suites; `i18n-vue`'s 83 include a real `nuxt build`).
+Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running them together produced 6 failures

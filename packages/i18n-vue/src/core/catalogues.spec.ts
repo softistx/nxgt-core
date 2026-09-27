@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { expectThrow } from '../../test/expect-throw';
 import {
 	type Catalogues,
 	checkCatalogues,
@@ -9,9 +10,7 @@ const check = (catalogues: Catalogues, locales = ['en', 'fr']) =>
 	checkCatalogues(catalogues, locales, 'en');
 
 const fails = (catalogues: unknown, message: string, locales?: string[]) =>
-	expect(() => check(catalogues as Catalogues, locales)).toThrow(
-		new Error(message),
-	);
+	expectThrow(() => check(catalogues as Catalogues, locales), Error, message);
 
 describe('checkCatalogues', () => {
 	test('answers every message by dotted key, with the kind of each argument', () => {

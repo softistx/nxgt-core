@@ -76,7 +76,7 @@
 	},
 	"dependencies": {
 		"@formatjs/icu-messageformat-parser": "3.5.20",
-		"intl-messageformat": "^12.1.2"
+		"intl-messageformat": "12.1.2"
 	},
 	"devDependencies": {
 		"@nuxt/kit": "4.5.2",

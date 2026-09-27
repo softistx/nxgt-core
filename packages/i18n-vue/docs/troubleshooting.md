@@ -16,6 +16,9 @@ How the messages are shaped:
 - **A call to `t` that cannot be right is an `Error` starting `t:`** — or a
   `TypeError` when an argument has the wrong type. With the generated types,
   the type checker reports each of these first.
+- **Called directly, `checkArguments` and `createFormatter` start their
+  messages with your own `where` or `prefix`** where these entries show `t:`:
+  `checkArguments('notify', …)` throws `notify: home.greeting needs {name}`.
 - **No message holds a value you passed**: a key, a locale code from the
   catalogues and an argument's name, never an argument's value or a locale
   that came from a request.
@@ -37,7 +40,13 @@ as `home.greeting`.
 - [`pickLocale: supported must hold at least one locale`](#picklocale-supported-must-hold-at-least-one-locale)
 - [`pickLocale: fallback must be one of supported`](#picklocale-fallback-must-be-one-of-supported)
 - [`detectLocale: storageKey must be a localStorage key, or false to read none`](#detectlocale-storagekey-must-be-a-localstorage-key-or-false-to-read-none)
-- [`i18nTypes: …` and `nxgtI18n: …` — the options of the Vite plugin and the Nuxt module](#i18ntypes--and-nxgti18n---the-options-of-the-vite-plugin-and-the-nuxt-module)
+- [`<i18nTypes|nxgtI18n>: options must be an object, as { locales: ['en', 'fr'] }`](#i18ntypesnxgti18n-options-must-be-an-object-as--locales-en-fr-)
+- [`<i18nTypes|nxgtI18n>: locales must hold at least one locale, as ['en', 'fr']`](#i18ntypesnxgti18n-locales-must-hold-at-least-one-locale-as-en-fr)
+- [`<i18nTypes|nxgtI18n>: locales holds something that is not a locale — write each as a BCP 47 tag, as en or pt-BR`](#i18ntypesnxgti18n-locales-holds-something-that-is-not-a-locale--write-each-as-a-bcp-47-tag-as-en-or-pt-br)
+- [`<i18nTypes|nxgtI18n>: locales holds the same locale twice`](#i18ntypesnxgti18n-locales-holds-the-same-locale-twice)
+- [`<i18nTypes|nxgtI18n>: fallbackLocale must be one of locales`](#i18ntypesnxgti18n-fallbacklocale-must-be-one-of-locales)
+- [`<i18nTypes|nxgtI18n>: dir must be a folder of the project`](#i18ntypesnxgti18n-dir-must-be-a-folder-of-the-project)
+- [`<i18nTypes|nxgtI18n>: catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]`](#i18ntypesnxgti18n-catalogues-must-be-a-list-of-catalogues-by-locale-as--en--fr--)
 - [`i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts`](#i18ntypes-out-must-be-the-path-of-a-dts-file-as-srcgeneratedi18ndts)
 - [`nxgtI18n: cookie must be a cookie name, as 'language'`](#nxgti18n-cookie-must-be-a-cookie-name-as-language)
 
@@ -65,6 +74,9 @@ as `home.greeting`.
 - [`t: <locale>: <key> could not be formatted`](#t-locale-key-could-not-be-formatted)
 - [`t: <locale>: <key> is not a key`](#t-locale-key-is-not-a-key)
 - [`t: the language is not a locale of the catalogues — pick one with pickLocale`](#t-the-language-is-not-a-locale-of-the-catalogues--pick-one-with-picklocale)
+- [`t: the key must be a string, as t('home.title')`](#t-the-key-must-be-a-string-as-thometitle)
+- [`t: the language must be a string — a locale, or a function that answers one`](#t-the-language-must-be-a-string--a-locale-or-a-function-that-answers-one)
+- [`setLocale: the locale must be a string, as fr`](#setlocale-the-locale-must-be-a-string-as-fr)
 - [`setLocale: the locale is not a locale of the catalogues — pick one with pickLocale`](#setlocale-the-locale-is-not-a-locale-of-the-catalogues--pick-one-with-picklocale)
 - [`useI18n: no i18n is installed — …`](#usei18n-no-i18n-is-installed--appusecreatei18n-catalogues--first-in-a-component-or-where-inject-works)
 
@@ -156,24 +168,46 @@ With literal lists this is a type error first.
 `storageKey` is `''` or not a string. Leave it out for `'language'`, or pass
 `false` to skip the stored preference.
 
-### `i18nTypes: …` and `nxgtI18n: …` — the options of the Vite plugin and the Nuxt module
+The Vite plugin and the Nuxt module take the same options and refuse them with the same messages, prefixed by who is refusing: `i18nTypes` in `vite.config.ts`, `nxgtI18n` in `nuxt.config.ts`. The entries below write the prefix as `<i18nTypes|nxgtI18n>`.
 
-Both take the same options, and refuse them with the same messages, prefixed
-by who is refusing: `i18nTypes` in `vite.config.ts`, `nxgtI18n` in
-`nuxt.config.ts`.
+### `<i18nTypes|nxgtI18n>: options must be an object, as { locales: ['en', 'fr'] }`
 
-| Message, after the prefix | Fix |
-| --- | --- |
-| `options must be an object, as { locales: ['en', 'fr'] }` | Pass an object; under Nuxt, set `nxgtI18n` |
-| `locales must hold at least one locale, as ['en', 'fr']` | `locales: ['en', 'fr']` — a list, never `'en'` |
-| `locales holds something that is not a locale — write each as a BCP 47 tag, as en or pt-BR` | `en`, `pt-BR`; never `EN` or `pt_BR` |
-| `locales holds the same locale twice` | Remove the duplicate |
-| `fallbackLocale must be one of locales` | Name one of `locales`, or leave it out for the first |
-| `dir must be a folder of the project` | A non-empty path, as `'locales'` or `'src/locales'` |
-| `catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]` | Wrap one package's catalogues in a list: `catalogues: [uiCatalogues]` |
+`i18nTypes()` was called with nothing or with something that is not an object. Under Nuxt this does not happen: a missing `nxgtI18n` arrives as `{}`, and the next entry is what you see.
 
 ```ts
-i18nTypes({ locales: ['en', 'fr'], fallbackLocale: 'en', dir: 'src/locales' });
+i18nTypes({ locales: ['en', 'fr'] });
+```
+
+### `<i18nTypes|nxgtI18n>: locales must hold at least one locale, as ['en', 'fr']`
+
+`locales` is missing, empty, or a string. Under Nuxt, a missing `nxgtI18n` in `nuxt.config.ts` lands here.
+
+```ts
+nxgtI18n: { locales: ['en', 'fr'] }
+```
+
+### `<i18nTypes|nxgtI18n>: locales holds something that is not a locale — write each as a BCP 47 tag, as en or pt-BR`
+
+A locale is not a lower-case language tag: `EN`, `pt_BR`, `English`. Write `en`, `pt-BR`.
+
+### `<i18nTypes|nxgtI18n>: locales holds the same locale twice`
+
+Remove the duplicate from `locales`.
+
+### `<i18nTypes|nxgtI18n>: fallbackLocale must be one of locales`
+
+Name one of `locales`, or leave `fallbackLocale` out for the first.
+
+### `<i18nTypes|nxgtI18n>: dir must be a folder of the project`
+
+`dir` is empty or not a string. Give a path from the root, as `'locales'` or `'src/locales'`.
+
+### `<i18nTypes|nxgtI18n>: catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]`
+
+One package's catalogues were passed without the list, or a value is not an object by locale. Wrap them:
+
+```ts
+i18nTypes({ locales: ['en', 'fr'], catalogues: [uiCatalogues] });
 ```
 
 ### `i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts`
@@ -280,8 +314,9 @@ fallback locale has `{at, date}`, say. Use it as the fallback locale does.
 
 ### `i18n: <path> was not written by @nxgt/i18n-vue — point the types at a file of their own`
 
-The Vite plugin's `out` is a file that exists and does not start with the
-plugin's header, so it is yours. The plugin never replaces it. Point `out`
+The Vite plugin's `out` is a file that exists and was not written by
+`typesSource`: its first two lines are not a generated file's header, so it
+is yours. The plugin never replaces it. Point `out`
 elsewhere, or delete the file if it is a stale copy.
 
 ## At run time
@@ -358,6 +393,30 @@ From `createTranslator`: the language — fixed, per call, or answered by
 
 ```ts
 createTranslator({ en, fr }, () => pickLocale(user.locale, ['en', 'fr'], 'en'));
+```
+
+### `t: the key must be a string, as t('home.title')`
+
+A `TypeError`: `t` got a number, `undefined` or an object as its key — usually a key read from data that was not there. With the generated types this is a type error first.
+
+```ts
+t(String(key)); // only if the value is a key; ask has(key) first
+```
+
+### `t: the language must be a string — a locale, or a function that answers one`
+
+A `TypeError`, from `createTranslator`: the language — fixed, per call, or answered by `getLanguage` — is not a string, often a function that answers `undefined` for a user with no locale. Match it first:
+
+```ts
+createTranslator({ en, fr }, () => pickLocale(user.locale, ['en', 'fr'], 'en'));
+```
+
+### `setLocale: the locale must be a string, as fr`
+
+A `TypeError`: `setLocale` got something that is not a string — an event instead of its value, say. The locale is unchanged.
+
+```ts
+setLocale((event.target as HTMLSelectElement).value as Locale);
 ```
 
 ### `setLocale: the locale is not a locale of the catalogues — pick one with pickLocale`

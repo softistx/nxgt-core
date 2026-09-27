@@ -10,6 +10,8 @@ import type { Catalogues } from '../../core/catalogues';
 import { parseAcceptLanguage, pickLocale } from '../../core/locale';
 import { createI18n, type I18n } from '../../vue';
 
+export { STATE_KEY } from '../state-key';
+
 /** What `setupNuxtI18n` needs from Nuxt. */
 export interface NuxtI18nContext {
 	/** The merged, checked catalogues, by locale. */

@@ -7,6 +7,7 @@ import {
 	layerCatalogues,
 	type Messages,
 } from '../core/catalogues';
+import { isObject, LOCALE } from '../core/guards';
 
 /** Where the catalogues of a project are, for the Vite plugin and the Nuxt module. */
 export interface CatalogueSource {
@@ -35,11 +36,6 @@ export interface LoadedCatalogues {
 	/** The fallback locale's messages, which declare every argument. */
 	readonly reference: Messages;
 }
-
-const LOCALE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Refuses options that are not a {@link CatalogueSource}, with a `TypeError` starting `<name>:`. */
 export function checkCatalogueSource(

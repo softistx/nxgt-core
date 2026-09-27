@@ -12,6 +12,7 @@ import {
 	checkCatalogues,
 	type Messages,
 } from './core/catalogues';
+import { isObject, LOCALE } from './core/guards';
 import { createFormatter, type Formatter } from './core/translator';
 import type {
 	Locale,
@@ -55,35 +56,51 @@ interface Prepared {
 	readonly format: Formatter;
 }
 
+interface CacheEntry {
+	readonly fallbackLocale: string;
+	readonly catalogues: Catalogues;
+	readonly prepared: Prepared;
+}
+
 /**
- * The checked messages and the compiled formats, per catalogues object and
- * fallback locale. A server creates an i18n per request from the same
- * imported catalogues: they are checked and compiled once, not per request.
+ * The checked messages and the compiled formats, keyed on the fallback
+ * locale's catalogue object, then matched on every locale's object by
+ * identity. A server creates an i18n per request, often as
+ * `createI18n({ catalogues: { en, fr } })` — a new wrapper each time around
+ * the same imported catalogues: they are checked and compiled once, not per
+ * request.
  */
-const prepared = new WeakMap<Catalogues, Map<string, Prepared>>();
+const cache = new WeakMap<object, CacheEntry[]>();
+
+const sameCatalogues = (a: Catalogues, b: Catalogues) => {
+	const keys = Object.keys(a);
+	return (
+		keys.length === Object.keys(b).length &&
+		keys.every((locale) => Object.hasOwn(b, locale) && a[locale] === b[locale])
+	);
+};
 
 function prepare(
 	catalogues: Catalogues,
 	locales: readonly string[],
 	fallbackLocale: string,
 ): Prepared {
-	const byFallback = prepared.get(catalogues) ?? new Map<string, Prepared>();
-	prepared.set(catalogues, byFallback);
-	let entry = byFallback.get(fallbackLocale);
-	if (entry === undefined) {
-		entry = {
-			messages: checkCatalogues(catalogues, locales, fallbackLocale),
-			format: createFormatter('t'),
-		};
-		byFallback.set(fallbackLocale, entry);
-	}
-	return entry;
+	const key = catalogues[fallbackLocale] as object;
+	const entries = cache.get(key) ?? [];
+	const hit = entries.find(
+		(entry) =>
+			entry.fallbackLocale === fallbackLocale &&
+			sameCatalogues(entry.catalogues, catalogues),
+	);
+	if (hit !== undefined) return hit.prepared;
+	const prepared: Prepared = {
+		messages: checkCatalogues(catalogues, locales, fallbackLocale),
+		format: createFormatter('t'),
+	};
+	entries.push({ fallbackLocale, catalogues: { ...catalogues }, prepared });
+	cache.set(key, entries);
+	return prepared;
 }
-
-const LOCALE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function checkOptions(options: I18nOptions): {
 	locales: string[];
@@ -145,7 +162,8 @@ function checkOptions(options: I18nOptions): {
  * A wrong option is a `TypeError`; a catalogue that cannot be right an
  * `Error` starting `i18n:`, naming the locale and the key. Create one per
  * request when rendering on a server: the locale is the i18n's own. The
- * catalogues are checked once per object, so treat them as immutable.
+ * catalogues are checked once per set of catalogue objects, so treat them as
+ * immutable.
  */
 export function createI18n(options: I18nOptions): I18n {
 	const checked = checkOptions(options);
@@ -164,7 +182,10 @@ export function createI18n(options: I18nOptions): I18n {
 		locales,
 		fallbackLocale,
 		setLocale(next) {
-			if (typeof next !== 'string' || !locales.includes(next)) {
+			if (typeof next !== 'string') {
+				throw new TypeError('setLocale: the locale must be a string, as fr');
+			}
+			if (!locales.includes(next)) {
 				throw new Error(
 					'setLocale: the locale is not a locale of the catalogues — pick one with pickLocale',
 				);
@@ -174,9 +195,12 @@ export function createI18n(options: I18nOptions): I18n {
 		t(key: string, args: unknown = {}) {
 			// Read first, so a template that throws below still re-renders on a switch.
 			const current = locale.value;
-			const declared = typeof key === 'string' ? reference.get(key) : undefined;
+			if (typeof key !== 'string') {
+				throw new TypeError("t: the key must be a string, as t('home.title')");
+			}
+			const declared = reference.get(key);
 			if (declared === undefined) {
-				throw new Error(`t: ${String(key)} is not a key of the catalogues`);
+				throw new Error(`t: ${key} is not a key of the catalogues`);
 			}
 			checkArguments('t', key, declared, args);
 			const message = messages.get(current)?.get(key) ?? declared;

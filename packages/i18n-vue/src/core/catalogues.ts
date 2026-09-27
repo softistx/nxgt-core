@@ -3,6 +3,7 @@ import {
 	parse,
 	TYPE,
 } from '@formatjs/icu-messageformat-parser';
+import { isObject } from './guards';
 
 /**
  * A catalogue as written: nested objects whose leaves are ICU messages, the
@@ -37,9 +38,6 @@ export interface Message {
 export type Messages = ReadonlyMap<string, Message>;
 
 const SEGMENT = /^[a-z][a-zA-Z0-9]*$/;
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** `over` merged into `under` key by key: an object is merged, anything else replaces. */
 function mergeCatalogue(under: Catalogue, over: Catalogue): Catalogue {

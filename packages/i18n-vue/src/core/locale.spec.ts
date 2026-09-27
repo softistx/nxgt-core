@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import { expectThrow } from '../../test/expect-throw';
 import { detectLocale, parseAcceptLanguage, pickLocale } from './locale';
 
 const supported = ['en', 'fr'] as const;
@@ -37,11 +38,15 @@ describe('pickLocale', () => {
 	});
 
 	it('refuses a wiring mistake with a TypeError', () => {
-		expect(() => pickLocale('fr', [], 'en' as never)).toThrow(
-			new TypeError('pickLocale: supported must hold at least one locale'),
+		expectThrow(
+			() => pickLocale('fr', [], 'en' as never),
+			TypeError,
+			'pickLocale: supported must hold at least one locale',
 		);
-		expect(() => pickLocale('fr', supported, 'de' as never)).toThrow(
-			new TypeError('pickLocale: fallback must be one of supported'),
+		expectThrow(
+			() => pickLocale('fr', supported, 'de' as never),
+			TypeError,
+			'pickLocale: fallback must be one of supported',
 		);
 	});
 });
@@ -151,10 +156,10 @@ describe('detectLocale', () => {
 	});
 
 	it('refuses a storage key that is not one', () => {
-		expect(() => detectLocale(supported, 'en', { storageKey: '' })).toThrow(
-			new TypeError(
-				'detectLocale: storageKey must be a localStorage key, or false to read none',
-			),
+		expectThrow(
+			() => detectLocale(supported, 'en', { storageKey: '' }),
+			TypeError,
+			'detectLocale: storageKey must be a localStorage key, or false to read none',
 		);
 	});
 });

@@ -41,8 +41,9 @@ Vue:
 import { checkArguments, checkCatalogues } from '@nxgt/i18n-vue/core';
 
 const messages = checkCatalogues({ en, fr }, ['en', 'fr'], 'en');
-const reference = messages.get('en');
-checkArguments('notify', 'home.greeting', reference.get('home.greeting'), { name: 'Ada' });
+const reference = messages.get('en')!;
+checkArguments('notify', 'home.greeting', reference.get('home.greeting')!, { name: 'Ada' });
+// throws `notify: home.greeting needs {name}` when name is left out
 ```
 
 ## Its keys

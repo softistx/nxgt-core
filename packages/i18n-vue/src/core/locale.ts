@@ -10,19 +10,19 @@ const normalise = (locale: string) =>
 const languageOf = (locale: string) => normalise(locale).split('-')[0] ?? '';
 
 /**
- * The locale to render an e-mail in: the first wanted locale this build
- * supports, or `fallback`.
+ * The locale to render in: the first wanted locale `supported` holds, or
+ * `fallback`.
  *
- * `wanted` is in order of preference — typically the recipient's stored
- * locale, then their `Accept-Language` (see {@link parseAcceptLanguage}).
+ * `wanted` is in order of preference — typically a stored preference, then
+ * the visitor's `Accept-Language` (see {@link parseAcceptLanguage}) or
+ * `navigator.languages`.
  * For each wanted locale in turn, an exact match wins (case and `_` or `-`
  * do not matter), then a match on the language alone: `fr-CA` picks `fr`,
  * and `fr` picks `fr-CA` when that is the only French supported. Nothing
  * matching, or nothing wanted, answers `fallback`.
  *
- * Pure, with no request context: **the locale of an e-mail is the
- * recipient's**, usually a field of the user, and not the language of the
- * request that triggered the send.
+ * Pure, with no request context: pass what you have — a cookie, a user's
+ * field, a header.
  *
  * Throws a `TypeError` when `supported` is empty or does not hold `fallback`.
  * That is a wiring mistake, not a request's.

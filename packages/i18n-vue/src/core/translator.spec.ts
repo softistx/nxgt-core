@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { expectThrow } from '../../test/expect-throw';
 import { createTranslator } from './translator';
 
 const catalogues = {
@@ -30,21 +31,21 @@ describe('createTranslator', () => {
 
 	test('throws on a key the catalogue does not have — never answers the key', () => {
 		const t = createTranslator(catalogues, 'fr');
-		expect(() => t('common.greting')).toThrow(
-			new Error('t: fr: common.greting is not a key'),
+		expectThrow(
+			() => t('common.greting'),
+			Error,
+			't: fr: common.greting is not a key',
 		);
-		expect(() => t('common')).toThrow(new Error('t: fr: common is not a key'));
-		expect(() => t('toString')).toThrow(
-			new Error('t: fr: toString is not a key'),
-		);
+		expectThrow(() => t('common'), Error, 't: fr: common is not a key');
+		expectThrow(() => t('toString'), Error, 't: fr: toString is not a key');
 	});
 
 	test('throws on a language with no catalogue, without naming it', () => {
 		const t = createTranslator(catalogues, () => 'de');
-		expect(() => t('items', { count: 1 })).toThrow(
-			new Error(
-				't: the language is not a locale of the catalogues — pick one with pickLocale',
-			),
+		expectThrow(
+			() => t('items', { count: 1 }),
+			Error,
+			't: the language is not a locale of the catalogues — pick one with pickLocale',
 		);
 		expect(() =>
 			createTranslator(catalogues, () => 'constructor')('items'),
@@ -66,16 +67,29 @@ describe('createTranslator', () => {
 		expect((caught as Error).cause).toBeInstanceOf(Error);
 	});
 
-	test('refuses a wiring mistake with a TypeError', () => {
-		expect(() => createTranslator(null as never, 'en')).toThrow(
-			new TypeError(
-				'createTranslator: catalogues must be an object of catalogues by locale, as { en, fr }',
-			),
+	test('refuses a language or a key that is not a string with a TypeError', () => {
+		expectThrow(
+			() => createTranslator(catalogues, () => 1 as never)('items'),
+			TypeError,
+			't: the language must be a string — a locale, or a function that answers one',
 		);
-		expect(() => createTranslator(catalogues, 1 as never)).toThrow(
-			new TypeError(
-				'createTranslator: getLanguage must be a locale or a function that answers one',
-			),
+		expectThrow(
+			() => createTranslator(catalogues, 'en')(1 as never),
+			TypeError,
+			"t: the key must be a string, as t('home.title')",
+		);
+	});
+
+	test('refuses a wiring mistake with a TypeError', () => {
+		expectThrow(
+			() => createTranslator(null as never, 'en'),
+			TypeError,
+			'createTranslator: catalogues must be an object of catalogues by locale, as { en, fr }',
+		);
+		expectThrow(
+			() => createTranslator(catalogues, 1 as never),
+			TypeError,
+			'createTranslator: getLanguage must be a locale or a function that answers one',
 		);
 	});
 });

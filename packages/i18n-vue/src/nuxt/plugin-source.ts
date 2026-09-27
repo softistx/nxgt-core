@@ -1,7 +1,7 @@
 import type { Catalogue } from '../core/catalogues';
+import { STATE_KEY } from './state-key';
 
-/** The key of the locale in Nuxt's payload: the server's choice, which the browser hydrates with. */
-export const STATE_KEY = '@nxgt/i18n-vue:locale';
+export { STATE_KEY } from './state-key';
 
 /** A year, in seconds: how long the cookie of a chosen locale lasts. */
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;

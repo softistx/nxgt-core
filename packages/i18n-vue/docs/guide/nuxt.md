@@ -1,5 +1,8 @@
 # Nuxt
 
+How the Nuxt module installs the i18n, resolves the locale on the server, and
+types `t`.
+
 ```sh
 bun add @nxgt/i18n-vue @nxgt/i18n
 ```
@@ -58,13 +61,13 @@ checks the catalogues again.
 
 Under `nxgtI18n`:
 
-| Option | Default | Effect |
-| --- | --- | --- |
-| `locales` | — (required) | Every locale, as BCP 47 tags |
-| `fallbackLocale` | the first locale | The reference catalogue, and the answer when nothing matches |
-| `dir` | `'locales'` | The folder of `<locale>.json`, from the project's root (`rootDir`, not `app/`) |
-| `catalogues` | `[]` | Catalogues a package ships, merged under yours key by key |
-| `cookie` | `'language'` | The cookie that stores a chosen locale |
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `locales` | `readonly string[]` | — (required) | Every locale, as BCP 47 tags |
+| `fallbackLocale` | `string` | the first locale | The reference catalogue, and the answer when nothing matches |
+| `dir` | `string` | `'locales'` | The folder of `<locale>.json`, from the project's root (`rootDir`, not `app/`) |
+| `catalogues` | `readonly Catalogues[]` | `[]` | Catalogues a package ships, merged under yours key by key |
+| `cookie` | `string` | `'language'` | The cookie that stores a chosen locale |
 
 A wrong option is a `TypeError` starting `nxgtI18n:` when Nuxt starts.
 
@@ -111,6 +114,46 @@ has run:
 ```sh
 nuxt prepare && vue-tsc -b
 ```
+
+## Writing the plugin yourself
+
+The module's plugin is generated (`pluginSource`); it only passes Nuxt's
+composables to `setupNuxtI18n`, from `@nxgt/i18n-vue/nuxt/runtime`. To change
+what it does — another cookie option, another source of the requested
+locale — write the same plugin without the module:
+
+```ts
+// app/plugins/i18n.ts
+import { STATE_KEY, setupNuxtI18n } from '@nxgt/i18n-vue/nuxt/runtime';
+import en from '~~/locales/en.json';
+import fr from '~~/locales/fr.json';
+
+export default defineNuxtPlugin({
+	name: 'i18n',
+	enforce: 'pre',
+	setup(nuxtApp) {
+		const i18n = setupNuxtI18n({
+			catalogues: { en, fr },
+			fallbackLocale: 'en',
+			cookie: useCookie('language', { path: '/', sameSite: 'lax', maxAge: 31536000 }),
+			state: useState<string | undefined>(STATE_KEY),
+			requested: () =>
+				import.meta.server
+					? useRequestHeaders(['accept-language'])['accept-language']
+					: navigator.languages,
+		});
+		nuxtApp.vueApp.use(i18n);
+		useHead({ htmlAttrs: { lang: i18n.locale } });
+	},
+});
+```
+
+`setupNuxtI18n` resolves the locale (the state, then the cookie, then
+`requested`, then the fallback), creates the i18n, and writes the state and
+the cookie on each `setLocale`. Without the module, the types of `t` come from
+`i18nTypes()` or a script ([Types](types.md#another-build)). Import from
+`/nuxt/runtime` in a plugin, never from `/nuxt`: that one is the module, and
+it imports `@nuxt/kit`.
 
 ## What it does not do
 

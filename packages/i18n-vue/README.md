@@ -186,7 +186,7 @@ and writes `src/generated/i18n.d.ts`. A catalogue that cannot be right
 | --- | --- | --- |
 | `locales` | — (required) | Every locale, as BCP 47 tags |
 | `fallbackLocale` | the first locale | The reference catalogue, and the one the types are written from |
-| `dir` | `'locales'` | The folder of `<locale>.json`, from the project's root |
+| `dir` | `'locales'` | The folder of `<locale>.json`, from Vite's `root` |
 | `catalogues` | `[]` | Catalogues a package ships, merged **under** yours key by key — pass the same to `layerCatalogues` at run time |
 | `out` | `'src/generated/i18n.d.ts'` | The file written. A file there that the plugin did not write is never replaced: that throws |
 
@@ -260,9 +260,9 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 | `createFormatter`, `Formatter`, `lookup` | The ICU formatting `t` uses, with its cache; a message by dotted key, or `null` |
 | `Catalogue`, `Catalogues`, `ArgumentKind`, `Message`, `Messages`, `MessageArgs` | A catalogue as written, catalogues by locale, and a checked message |
 | `I18nMessages`, `I18nLocales`, `MessageKey`, `Locale`, `MessageArgsOf`, `KeyOf`, `ArgsOf`, `CatalogueKey` | The types the generated file fills, and the ones built on them |
-| `/vite`: `i18nTypes`, `TYPES_FILE`, `loadCatalogues`, `readCatalogues`, `checkCatalogueSource`, `typesSource`, `writeTypes`, `writeIfChanged` | The Vite plugin, and the pieces for another build |
-| `/nuxt`: default, `ModuleOptions`, `checkModuleOptions`, `pluginSource`, `STATE_KEY`, `TYPES_TEMPLATE`, `PLUGIN_TEMPLATE` | The Nuxt module |
-| `/nuxt/runtime`: `setupNuxtI18n`, `NuxtI18nContext` | What the module's plugin runs |
+| `/vite`: `i18nTypes`, `I18nTypesOptions`, `TYPES_FILE`, `loadCatalogues`, `readCatalogues`, `checkCatalogueSource`, `CatalogueSource`, `LoadedCatalogues`, `typesSource`, `TypesSourceOptions`, `writeTypes`, `writeIfChanged` | The Vite plugin, and the pieces for another build |
+| `/nuxt`: default, `ModuleOptions`, `checkModuleOptions`, `pluginSource`, `PluginSourceOptions`, `STATE_KEY`, `TYPES_TEMPLATE`, `PLUGIN_TEMPLATE` | The Nuxt module |
+| `/nuxt/runtime`: `setupNuxtI18n`, `NuxtI18nContext`, `STATE_KEY` | What the module's plugin runs |
 
 ## Things that bite
 
@@ -279,18 +279,13 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
   arguments to `v-html`.
 - **Create one i18n per request on a server.** The locale is the i18n's own;
   one shared across requests would switch every visitor. The Nuxt module does
-  this for you. The catalogues are checked once per object, so treat them as
-  immutable.
+  this for you. The catalogues are checked once per set of catalogue objects —
+  `{ en, fr }` wrapped anew is the same set — so treat them as immutable.
 - **Any component with its own `t`** (a prop, a `setup` binding) hides the
   global one in its template — which is how `const { t } = useI18n()` works.
-
-## Type safety is measured
-
-`test/types/refusals.ts` holds **20** mistakes the types refuse, and
-`test/types/refusals.vue` **7** in a template, each an `@ts-expect-error` or
-`@vue-expect-error` that fails the typecheck the day it stops being refused;
-the Nuxt fixture adds **3** under Nuxt's own `tsconfig`. The calls that must
-keep compiling sit beside them.
+- **What the types refuse is measured**: 20 cases in TypeScript, 7 in a
+  template and 3 under Nuxt, each failing the typecheck the day it stops
+  being refused. See [Types](docs/guide/types.md#type-safety-is-measured).
 
 ## Documentation
 

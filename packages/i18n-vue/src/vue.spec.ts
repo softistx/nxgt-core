@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { computed, createSSRApp, defineComponent, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
+import { expectThrow } from '../test/expect-throw';
 import { createI18n, useI18n } from './vue';
 
 const catalogues = {
@@ -55,49 +56,59 @@ describe('createI18n', () => {
 
 	test('throws on a key the catalogues do not have — never answers the key', () => {
 		const t = loose(createI18n({ catalogues }));
-		expect(() => t('home.titel')).toThrow(
-			new Error('t: home.titel is not a key of the catalogues'),
+		expectThrow(
+			() => t('home.titel'),
+			Error,
+			't: home.titel is not a key of the catalogues',
 		);
-		expect(() => t('home')).toThrow(
-			new Error('t: home is not a key of the catalogues'),
+		expectThrow(
+			() => t('home'),
+			Error,
+			't: home is not a key of the catalogues',
 		);
 		expect(() => t('toString')).toThrow('is not a key of the catalogues');
-		expect(() => t(1)).toThrow(
-			new Error('t: 1 is not a key of the catalogues'),
+		expectThrow(
+			() => t(1),
+			TypeError,
+			"t: the key must be a string, as t('home.title')",
 		);
 	});
 
 	test('throws on an argument left out, or one the message does not use', () => {
 		const t = loose(createI18n({ catalogues }));
-		expect(() => t('home.greeting')).toThrow(
-			new Error('t: home.greeting needs {name}'),
+		expectThrow(
+			() => t('home.greeting'),
+			Error,
+			't: home.greeting needs {name}',
 		);
-		expect(() => t('home.title', { name: 'Ada' })).toThrow(
-			new Error('t: home.title does not use {name}'),
+		expectThrow(
+			() => t('home.title', { name: 'Ada' }),
+			Error,
+			't: home.title does not use {name}',
 		);
 	});
 
 	test('refuses arguments of the wrong type with a TypeError naming no value', () => {
 		const t = loose(createI18n({ catalogues }));
-		expect(() => t('home.greeting', 'Ada')).toThrow(
-			new TypeError(
-				"t: home.greeting takes its arguments as an object, as { name: 'Ada' }",
-			),
+		expectThrow(
+			() => t('home.greeting', 'Ada'),
+			TypeError,
+			"t: home.greeting takes its arguments as an object, as { name: 'Ada' }",
 		);
-		expect(() => t('home.items', { count: '2' })).toThrow(
-			new TypeError(
-				't: home.items is given {count} as a string — the message uses it as a number',
-			),
+		expectThrow(
+			() => t('home.items', { count: '2' }),
+			TypeError,
+			't: home.items is given {count} as a string — the message uses it as a number',
 		);
-		expect(() => t('home.sentOn', { at: 'today' })).toThrow(
-			new TypeError(
-				't: home.sentOn is given {at} as a string — the message uses it as a date',
-			),
+		expectThrow(
+			() => t('home.sentOn', { at: 'today' }),
+			TypeError,
+			't: home.sentOn is given {at} as a string — the message uses it as a date',
 		);
-		expect(() => t('home.greeting', { name: null })).toThrow(
-			new TypeError(
-				't: home.greeting is given {name} as a null — the message uses it as a string',
-			),
+		expectThrow(
+			() => t('home.greeting', { name: null }),
+			TypeError,
+			't: home.greeting is given {name} as a null — the message uses it as a string',
 		);
 	});
 
@@ -110,21 +121,27 @@ describe('createI18n', () => {
 
 	test('throws on a locale the catalogues do not have, without naming it', () => {
 		const i18n = createI18n({ catalogues });
-		expect(() => i18n.setLocale('de')).toThrow(
-			new Error(
-				'setLocale: the locale is not a locale of the catalogues — pick one with pickLocale',
-			),
+		expectThrow(
+			() => i18n.setLocale('de'),
+			Error,
+			'setLocale: the locale is not a locale of the catalogues — pick one with pickLocale',
+		);
+		expectThrow(
+			() => i18n.setLocale(1 as never),
+			TypeError,
+			'setLocale: the locale must be a string, as fr',
 		);
 		expect(i18n.locale.value).toBe('en');
 	});
 
 	test('checks the catalogues, naming the locale and the key', () => {
-		expect(() =>
-			createI18n({
-				catalogues: { en: { a: 'Hi {name}' }, fr: { b: 'Salut' } },
-			}),
-		).toThrow(
-			new Error('i18n: fr: a is missing — en, the fallback locale, has it'),
+		expectThrow(
+			() =>
+				createI18n({
+					catalogues: { en: { a: 'Hi {name}' }, fr: { b: 'Salut' } },
+				}),
+			Error,
+			'i18n: fr: a is missing — en, the fallback locale, has it',
 		);
 		expect(() =>
 			createI18n({
@@ -134,20 +151,29 @@ describe('createI18n', () => {
 		).not.toThrow();
 	});
 
-	test('checks catalogues once per object, so each request costs nothing', () => {
-		const shared = { en: { a: 'Hi {name}' } };
-		const first = createI18n({ catalogues: shared });
-		const second = createI18n({ catalogues: shared });
-		expect(second.t('a', { name: 'Ada' })).toBe('Hi Ada');
-		second.setLocale('en');
-		expect(first.t('a', { name: 'Bo' })).toBe('Hi Bo');
+	test('checks a set of catalogues once, even wrapped anew for each request', () => {
+		const en: Record<string, string> = { a: 'Hi {name}' };
+		const fr: Record<string, string> = { a: 'Salut {name}' };
+		const first = createI18n({ catalogues: { en, fr } });
+		// Seen only if the catalogues were checked again: the cache hides it.
+		en.b = 'Late';
+		fr.b = 'Tard';
+		const second = createI18n({ catalogues: { en, fr }, locale: 'fr' });
+		expect(second.has('b')).toBe(false);
+		expect(second.t('a', { name: 'Ada' })).toBe('Salut Ada');
+		expect(first.locale.value).toBe('en');
+		// Another object, or another fallback locale, is another set: checked.
+		expect(createI18n({ catalogues: { en: { ...en }, fr } }).has('b')).toBe(
+			true,
+		);
+		expect(
+			createI18n({ catalogues: { en, fr }, fallbackLocale: 'fr' }).has('b'),
+		).toBe(true);
 	});
 
 	test('refuses a wiring mistake with a TypeError', () => {
 		const fails = (options: unknown, message: string) =>
-			expect(() => createI18n(options as never)).toThrow(
-				new TypeError(message),
-			);
+			expectThrow(() => createI18n(options as never), TypeError, message);
 		fails(
 			null,
 			'createI18n: options must be an object, as { catalogues: { en, fr } }',

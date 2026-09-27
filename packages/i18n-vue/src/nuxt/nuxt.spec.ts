@@ -1,19 +1,20 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { expectThrow } from '../../test/expect-throw';
 import { checkModuleOptions, pluginSource } from './index';
 
 describe('checkModuleOptions', () => {
 	test('refuses a wiring mistake with a TypeError starting nxgtI18n:', () => {
-		expect(() => checkModuleOptions(undefined)).toThrow(
-			new TypeError(
-				"nxgtI18n: options must be an object, as { locales: ['en', 'fr'] }",
-			),
+		expectThrow(
+			() => checkModuleOptions(undefined),
+			TypeError,
+			"nxgtI18n: options must be an object, as { locales: ['en', 'fr'] }",
 		);
-		expect(() =>
-			checkModuleOptions({ locales: ['en'], cookie: 'a b' }),
-		).toThrow(
-			new TypeError("nxgtI18n: cookie must be a cookie name, as 'language'"),
+		expectThrow(
+			() => checkModuleOptions({ locales: ['en'], cookie: 'a b' }),
+			TypeError,
+			"nxgtI18n: cookie must be a cookie name, as 'language'",
 		);
 		expect(() =>
 			checkModuleOptions({ locales: ['en'], cookie: 'i18n_locale' }),
