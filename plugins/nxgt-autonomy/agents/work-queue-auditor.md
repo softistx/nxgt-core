@@ -85,6 +85,7 @@ Four findings are worth more than a summary, and each has a fixed shape:
 | **crossed off but not merged** | `- [x]` with no merged PR, or a PR still open |
 | **half-landed** | merged in one repository, missing in a sibling it names |
 | **silently abandoned** | a branch with commits, no PR, and nothing in flight |
+| **withdrawn** — *not a finding* | `- [x] … withdrawn — <reason>` under *Done*, its PR closed without merging (or no PR, if none was opened). `plan-the-roadmap` step 5 writes it on purpose when an accepted entry is let go after its branch was cut. Not **crossed off but not merged**, and not a roadmap finding below |
 
 An item that says "PR #216" is checked by **reading that PR**, not by trusting
 the number. A PR that merged with a failing check is not done.
@@ -93,6 +94,26 @@ Run these across **every repository the entry names**, not just the current one.
 The queue is cross-repo; most of its lies live at the seams — a package published
 but not consumed, a skill enabled in one repository and not its sibling, a
 container name changed on one side of a call.
+
+### The roadmaps against the queue
+
+`plan-the-roadmap` keeps each package's `docs/roadmap.md` and the queue in
+step: an entry moves to **Now** when its queue item's branch is cut. For every
+repository the queue names, compare the two:
+
+```bash
+grep -n -A20 '^## Now' packages/*/docs/roadmap.md docs/roadmap.md 2>/dev/null
+grep -n -A20 '^## Next' packages/*/docs/roadmap.md docs/roadmap.md 2>/dev/null
+```
+
+| finding | what it means |
+| --- | --- |
+| **Now, nothing in flight** | an entry under **Now** that no *In flight* or *Blocked on the user* item names by its bold name — work started and was dropped. The one exemption: a *Done* item names it as `slice k of n` and the next slice is queued. A *Done* `last slice` or unsliced item is not exempt, and is not reported here: it is the **done, not Shipped** finding, reported once, under that row |
+| **in flight, still Next** | an *In flight* item whose entry is still under **Next** (or **Later**) although its branch exists — the move to **Now** was skipped |
+| **done, not Shipped** | an item under *Done* whose PR completed the entry — marked `last slice`, or an unsliced item — while the entry is still under **Now**, released or not: the move to **Shipped** belonged in that PR |
+
+Report each with the roadmap file and line and the queue line. You do not move
+the entry yourself; `roadmap-keeper` does, in the item's PR.
 
 ## 3. Distinguish three kinds of "left"
 
@@ -115,6 +136,8 @@ Actionable now
   1. <item> — <repo> — first command: <cmd>
 Wrong in the file
   - <item>: crossed off, but PR #<n> is still open
+Roadmap out of step
+  - <package> docs/roadmap.md:<line> "<entry>" under Now — no item in flight
 Blocked on the user
   - <exact thing>
 Verified done since the last audit

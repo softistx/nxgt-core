@@ -28,7 +28,7 @@ The page is published, and it is a direction, not a commitment:
 - **No private names** — no application, monorepo, customer, person, or
   "the parc" / "the estate". "Consumers that page by cursor", not the app
   that asked.
-- **No internal tasks.** "Refactor the pipeline" is not a roadmap item;
+- **No internal tasks.** "Refactor the pipeline" is not a roadmap entry;
   "retries with backoff on the OTLP exporter" is, if that is what the
   refactor is for.
 
@@ -36,7 +36,7 @@ The page is published, and it is a direction, not a commitment:
 
 For each package:
 
-1. **The page as it is.** Items move between sections; they are not
+1. **The page as it is.** Entries move between sections; they are not
    rewritten for style.
 2. **What is in progress** — the current branch and effort:
 
@@ -49,9 +49,12 @@ For each package:
    An integration branch `feat/<slug>` whose slices touch this package is
    **Now**.
 3. **What shipped** — pending changesets (`.changeset/*.md` naming the
-   package) and the top of `CHANGELOG.md`. A changeset in the current
-   branch means the item moves to **Shipped** in this PR, with the version
-   `changeset status` says it will produce:
+   package) and the top of `CHANGELOG.md`. An entry moves to **Shipped**
+   in the PR whose changeset **completes** it, with the version
+   `changeset status` says it will produce. A changeset for one slice of
+   a larger entry does not promote it — the entry stays under **Now**
+   until the caller says the slice is the last one, by the queue item's
+   marker: `slice k of n` leaves it under **Now**, `last slice` moves it:
 
    ```bash
    bun run changeset:status -- --verbose
@@ -78,8 +81,10 @@ For each package:
 
 ## Write
 
-- One bullet per item: **bold name** — what a consumer gets, one sentence.
-  A public issue link when there is one.
+- One bullet per **roadmap entry**: **bold name** — what a consumer gets,
+  one sentence. A public issue link when there is one. The bold name is the
+  entry's identity: `nxgt-autonomy:plan-the-roadmap` queue items and
+  `nxgt-crew` plan announcements (`--entry`) match it exactly.
 - **Now** is what has a branch. **Next** is what the caller or `AGENTS.md`
   says follows it. **Later** is the rest that is wanted. Keep each short:
   a long **Now** is not a plan.
@@ -87,8 +92,9 @@ For each package:
   this is the most useful section; fill it from settled decisions.
 - **Shipped** keeps the last ten, newest first, each with its version.
   `CHANGELOG.md` holds the rest; link it.
-- A troubleshooting entry for a known bug may link a roadmap item; keep the
-  item's name stable so the link holds.
+- A troubleshooting entry for a known bug may link a roadmap entry; keep the
+  entry's bold name stable so the link, and every queue item naming it,
+  holds.
 
 ## Report
 
@@ -97,10 +103,10 @@ For each package:
 packages: <names>
 
 ### <package>
-- moved: <item: from → to>
-- added: <items, and their source>
-- removed: <items, and why>
-- unsure: <items you could not place, for the caller to decide>
+- moved: <entry: from → to>
+- added: <entries, and their source>
+- removed: <entries, and why>
+- unsure: <entries you could not place, for the caller to decide>
 ```
 
 Remind the caller that `docs/` ships, so the change needs a patch changeset.
