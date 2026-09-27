@@ -1,0 +1,10 @@
+{
+	"home": {
+		"title": "Bienvenue",
+		"action": "Continuer",
+		"greeting": "Bonjour {name}",
+		"welcome": "Bon retour, {name}",
+		"items": "{count, plural, one {# article} other {# articles}}",
+		"sentOn": "Envoyé le {at, date, short}"
+	}
+}
