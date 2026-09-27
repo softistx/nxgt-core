@@ -7,7 +7,7 @@ Its sibling `softistx/self-learning` is the same product shape **after** the mig
 ## Measure
 
 ```bash
-git ls-files 'apps/*/src/**/*.ts' 'apps/*/app/**/*.ts*' | xargs wc -l | sort -n | tail -30
+git ls-files ':(glob)apps/*/src/**/*.ts' ':(glob)apps/*/app/**/*.ts*' | xargs wc -l | sort -n | tail -30
 ```
 
 The green bar. CI runs the first four:

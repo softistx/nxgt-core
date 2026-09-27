@@ -5,8 +5,8 @@
 ## Measure
 
 ```bash
-git ls-files 'apps/*/src/**/*.ts' 'apps/*/app/**/*.ts*' | xargs wc -l | sort -n | tail -30
-git ls-files 'apps/*/*.graphqls' 'apps/*/**/*.graphqls' | xargs wc -l | sort -n | tail
+git ls-files ':(glob)apps/*/src/**/*.ts' ':(glob)apps/*/app/**/*.ts*' | xargs wc -l | sort -n | tail -30
+git ls-files ':(glob)apps/*/**/*.graphqls' | xargs wc -l | sort -n | tail
 ```
 
 The green bar. CI runs the first four:
