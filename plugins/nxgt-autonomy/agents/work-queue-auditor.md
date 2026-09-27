@@ -107,9 +107,9 @@ grep -n -A20 '^## Next' packages/*/docs/roadmap.md docs/roadmap.md 2>/dev/null
 
 | finding | what it means |
 | --- | --- |
-| **Now, nothing in flight** | an entry under **Now** that no *In flight* item names by its bold name, and no *Done* item awaiting its release either — work started and was dropped, or the item was crossed off after its release without the entry moving on. A *Done* item whose changeset is merged but not yet released keeps its entry under **Now** legitimately: not a finding |
+| **Now, nothing in flight** | an entry under **Now** that no *In flight* item names by its bold name, and no *Done* item names as a slice that is not the last one — work started and was dropped. An entry under **Now** is in step while an *In flight* item names it, or while a *Done* item names it as an earlier slice: not a finding |
 | **in flight, still Next** | an *In flight* item whose entry is still under **Next** (or **Later**) although its branch exists — the move to **Now** was skipped |
-| **done, not Shipped** | an item under *Done* whose release has happened while its entry is still under **Now** |
+| **done, not Shipped** | an item under *Done* whose PR completed the entry — the last slice's changeset — while the entry is still under **Now**, released or not: the move to **Shipped** belonged in that PR |
 
 Report each with the roadmap file and line and the queue line. You do not move
 the entry yourself; `roadmap-keeper` does, in the item's PR.
