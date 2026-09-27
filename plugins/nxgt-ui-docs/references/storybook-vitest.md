@@ -59,6 +59,16 @@ padding, scales to `maxWidth`, encodes WebP in the browser, and writes
 the title. A story needing a provider (router, i18n, store) gets it from a
 decorator in `preview.ts`, exactly as in Storybook.
 
+`preview.ts` imports the library's **stylesheet** (`import '../lib/styles.css'`
+in React, the equivalent in Vue). Without it a story is styled only if one of
+its imports happens to pull the CSS in, and its preview comes out as bare
+HTML — the story looks fine in a Storybook session where another story
+loaded the CSS first.
+
+A preview story that should be narrower than the viewport sets
+`parameters: { previewCapture: { width: 420 } }` (needs
+`@nxgt/playwright` ≥ 0.1.0), or wraps itself in a fixed-width element.
+
 A test that times out under a full run usually passes alone: the full run
 renders every chart, editor and PDF reader in one browser. Re-run the file
 before debugging the story.
