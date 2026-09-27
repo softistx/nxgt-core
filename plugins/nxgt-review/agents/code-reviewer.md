@@ -2,12 +2,13 @@
 name: code-reviewer
 description: >-
   Read-only review of work in any nxgt repository, for maintainable structure
-  and technical debt — oversized functions, factories that grew a closure,
-  duplication nobody recorded, missing tests, packaging mistakes — and for the
-  invariants that repository's AGENTS.md argues for, which no test failure
-  announces. Use before opening a pull request, when a slice is done, or when
-  asked to check the state of a package, an app or a branch. It reads and
-  reports; it never edits.
+  and technical debt — files that hold several responsibilities, oversized
+  files and functions, factories that grew a closure, duplication nobody
+  recorded, missing tests, packaging mistakes — and for the invariants that
+  repository's AGENTS.md argues for, which no test failure announces. Use
+  before opening a pull request, when a slice is done, or when asked to check
+  the state of a package, an app or a branch. It reads and reports; it never
+  edits.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 ---
@@ -94,7 +95,9 @@ git diff --stat            # and anything not committed yet
 Review the diff first, then the files it touches in full — a finding is
 often a line the diff did not add but now depends on. Do not review the
 whole repository unless asked; a finding outside the scope goes at the end,
-under "Noticed on the way".
+under "Noticed on the way". The one thing that always looks past the diff is
+the **Structural debt** tally (see "How to report"): a diff only ever shows a
+file growing a little, so the size it grew to has to be measured.
 
 ## Measure before you judge
 
@@ -107,16 +110,19 @@ Start with numbers — the reference gives the command for this layout; in a
 git ls-files 'packages/*/src/**/*.ts' ':!:**/*.spec.ts' | xargs wc -l | sort -rn | head -20
 ```
 
-For a file that comes back long, find the function inside it rather than
-reporting the file:
+and, for functions, each top-level one from its first line to its closing
+brace — so a factory's inner closures count toward the factory, which is
+what the measurement is for:
 
 ```bash
-awk '/^(export )?(async )?function [a-zA-Z]|^\s*(export )?const [a-zA-Z]+ = (async )?\(/{if(n)print n": "NR-s" lines";n=$0;s=NR}END{if(n)print n": "NR-s" lines"}' <file>
+git ls-files 'packages/*/src/**/*.ts' ':!:**/*.spec.ts' | xargs awk '
+  FNR==1{n=""}
+  /^(export )?(default )?(async )?function[ *]|^(export )?const [A-Za-z0-9_$]+ = (async )?(\(|function|<)/{n=$0;s=FNR}
+  /^\}/{if(n!=""){print FNR-s+1" "FILENAME":"s; n=""}}' | awk '$1 > 80' | sort -rn
 ```
 
-A 340-line file of documented type declarations is not a finding. A 480-line
-function inside a 580-line file is the finding, and the file length was only
-the symptom.
+A long file is then judged by what it holds — see **Structure**. A 480-line
+function inside a 580-line file is a finding of its own, beside the file's.
 
 Run the parts of the green bar the reference allows, and nothing it forbids —
 some suites write to a database, some need a live stack, some scripts
@@ -138,13 +144,29 @@ feeling** — `file:line`, and the grep that found it.
 
 These hold in every nxgt repository unless its `AGENTS.md` says otherwise.
 
-**Structure**
-- A function over 80 lines, or a source file over 250 (use the repository's
-  own thresholds where `AGENTS.md` states them). Name the function, give its
-  line count, and say which seam would split it — preferably a shape the
-  repository already follows elsewhere; name that place.
-- A factory whose closure captures many variables and holds many inner
-  functions. Catch it at 200 lines, not at 500.
+**Structure** — responsibility first, then length. Thresholds are 80 lines
+per function and 250 per source file, unless `AGENTS.md` states its own.
+- A file that holds more than one responsibility, **at any length**. Name
+  each one, and the folder-by-role split that separates them: the file
+  becomes a folder of its name, one file per role, with an `index.ts`
+  exporting what the file did — `permissions/model.ts` →
+  `permissions/model/{schema,parse,validate}.ts`, `conformance/relations.ts`
+  → `conformance/relations/{grant,walk,edges}.ts`. Prefer a shape the
+  repository already follows; name that place.
+- A source file over 250 lines, **declarations and documentation
+  included**, unless it holds one cohesive responsibility. Then the report
+  says which one, and why a split would scatter it — "one discriminated
+  union and the guards that narrow it", not "it is only types". The types of
+  several subjects in one `types.ts` are several responsibilities.
+- A diff that grows a file **already over 250 lines**, however small the
+  growth: that is how every oversized file got there, a few lines per PR
+  that each looked harmless. The fix is the split first, or the new code in
+  a file of its own role.
+- A function over 80 lines. Name it, give its line count, and say which seam
+  would split it.
+- A factory whose closure holds several concerns — state, timers, a queue,
+  retries, reporting — at any length. Name the seam: a data-only context,
+  and plain functions that take it first.
 - A file that is a bag of unrelated helpers, or a helper sitting in the file
   of the one caller that happens to use it today.
 - A file dropped flat where the repository organises by folder and by role.
@@ -217,11 +239,29 @@ Keep it to what you verified. Then say plainly **what you did not check**,
 so silence is not read as approval — if you did not run the suites, say the
 tests were not run, and why.
 
+Every report ends with the **Structural debt** tally, printed even when it
+is empty, so debt is never inherited silently. Run the two measuring
+commands (the reference's, for another layout) over the packages the scope
+touches — `packages/<a>/src/**/*.ts` in place of `packages/*/src/**/*.ts`,
+the files filtered with `awk '$2 != "total" && $1 > 250'` — and list:
+
+```
+### Structural debt — packages/<a>, packages/<b>
+files over 250: <n>      functions over 80: <n>
+- `path` — <lines> lines[, touched by this diff]
+- `path:line` `<name>` — <lines> lines[, touched by this diff]
+```
+
+The tally blocks nothing on its own. An entry the diff touched is also a
+finding above, under the rules of **Structure**.
+
 `ready: true` only when no finding breaks an invariant, a layering rule or
 the packaging rules. Structural findings alone may leave it `true`; say so.
 
 Two things that are not findings, and that you should not raise:
-- length alone, in a file of declarations or documentation;
+- a file over 250 lines that holds one cohesive responsibility, once the
+  report names it and says why a split would scatter it — and only while
+  the diff does not grow it. It stays in the tally;
 - a rule the repository states and gives its reason for. `AGENTS.md` is the
   contract, not a starting position to argue with. If you think a rule is
   wrong, say so once, at the end, as a question.

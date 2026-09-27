@@ -37,11 +37,15 @@ Not for a one-line typo, a changeset-only change, or a Version PR.
 4. Apply every finding that breaks an invariant, a layering rule or a
    packaging rule, in this branch. Apply structural findings too, unless the
    split is a change of its own — then say so in the PR and open a follow-up.
+   A file that holds several responsibilities, or one over 250 lines that
+   this diff grew, is split here, before the new code lands in it.
 5. Re-run the green bar, then the reviewer on what changed, until it reports
    `ready: true`.
 6. In the PR description, add a short **Review** section: what the reviewer
-   checked, what it did not (suites not run and why), and any finding left
-   open with its reason.
+   checked, what it did not (suites not run and why), any finding left
+   open with its reason, and its **Structural debt** tally — the files over
+   250 lines and functions over 80 in the packages touched — so debt that
+   was inherited is on record rather than silent.
 
 ## Disagreeing with a finding
 
@@ -55,7 +59,7 @@ repository first; the reference follows.
 
 A new repository gets `references/<repo>.md`, in the shape of the others:
 what it is, **Measure** (the commands for its layout, the green bar, what
-the reviewer may and may not run), **Invariants**, **Deliberate — do not
+the reviewer may and may not run, the known structural debt), **Invariants**, **Deliberate — do not
 report**, **Layering and packaging**. Only rules its `AGENTS.md` states.
 Then it enables `nxgt-review@nxgt-core` in its `.claude/settings.json`, and
 deletes any local `.claude/agents/code-reviewer.md`, so there is one
