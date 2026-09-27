@@ -3,7 +3,10 @@
  * The crew CLI, behind the `/crew` skill and the session-coordinator agent.
  *
  *   crew.ts list [--json]                   live sessions, this one first
- *   crew.ts announce [--kind K] <text…>     K: working (default), release, decision, note
+ *   crew.ts announce [--kind K] <text…>     K: working (default), plan, release, decision, note
+ *   crew.ts announce --kind plan --entry <roadmap entry> [--scope <repo or package>]
+ *                    [--needs <pkg@version>[,…]] <text…>
+ *   crew.ts align [--json]                  roadmaps and plans of every live session: duplicates, dependencies
  *   crew.ts claim <path> [note…]            mark a folder as this session's
  *   crew.ts unclaim <path>
  *   crew.ts yield [path]                    release this session's hold on its edited files (all, or under path)
@@ -15,7 +18,9 @@
  */
 
 import { resolve } from 'node:path';
+import { align, plansOf, renderAlignment } from './lib/alignment';
 import { listing } from './lib/brief';
+import { worktreesOf } from './lib/conflicts';
 import {
 	type AnnouncementKind,
 	announce,
@@ -28,11 +33,13 @@ import {
 	unclaim,
 	yieldEdits,
 } from './lib/registry';
+import { readRoadmaps } from './lib/roadmaps';
 import { crewHome, readAll, readOne, write, writeMerged } from './lib/store';
 import { probePid } from './lib/system';
 
 const KINDS: readonly AnnouncementKind[] = [
 	'working',
+	'plan',
 	'release',
 	'decision',
 	'note',
@@ -56,6 +63,9 @@ if (json) argv.splice(argv.indexOf('--json'), 1);
 const sessionId =
 	take('--session') || process.env.NXGT_CREW_SESSION_ID || undefined;
 const kindArg = take('--kind');
+const entryArg = take('--entry');
+const scopeArg = take('--scope');
+const needsArg = take('--needs');
 const [verb, ...rest] = argv;
 
 const home = crewHome(process.env);
@@ -96,9 +106,24 @@ switch (verb) {
 		const kind = (kindArg ?? 'working') as AnnouncementKind;
 		if (!KINDS.includes(kind))
 			fail(`--kind must be one of ${KINDS.join(', ')}`);
-		const text = rest.join(' ').trim();
+		if (kind === 'plan' && !entryArg) {
+			fail('a plan needs --entry "<roadmap entry title>"');
+		}
+		const text =
+			rest.join(' ').trim() || (entryArg ? `planning ${entryArg}` : '');
 		if (!text) fail('announce needs a text');
-		writeMerged(home, announce(own(), text, kind, now));
+		const needs = needsArg
+			?.split(',')
+			.map((n) => n.trim())
+			.filter(Boolean);
+		writeMerged(
+			home,
+			announce(own(), text, kind, now, {
+				...(entryArg ? { entry: entryArg } : {}),
+				...(scopeArg ? { scope: scopeArg } : {}),
+				...(needs?.length ? { needs } : {}),
+			}),
+		);
 		process.stdout.write(`announced (${kind}): ${text}\n`);
 		break;
 	}
@@ -117,6 +142,43 @@ switch (verb) {
 		process.stdout.write(`released ${resolve(path)}\n`);
 		break;
 	}
+	case 'align': {
+		const records = readAll(home);
+		const self = sessionId
+			? records.find((r) => r.sessionId === sessionId)
+			: undefined;
+		const peers = livePeers(records, sessionId ?? '', now, settings, probePid);
+		const sessions = [...(self ? [self] : []), ...peers.map((p) => p.record)];
+		const views = sessions.map((record) => ({
+			record,
+			roadmaps: [...worktreesOf(record, now, settings)].flatMap(readRoadmaps),
+		}));
+		const result = align(views);
+		if (json) {
+			process.stdout.write(
+				`${JSON.stringify(
+					{
+						sessions: views.map((v) => ({
+							sessionId: v.record.sessionId,
+							title: v.record.title,
+							worktree: v.record.worktree,
+							branch: v.record.branch,
+							plans: plansOf(v.record),
+							roadmaps: v.roadmaps,
+						})),
+						...result,
+					},
+					null,
+					2,
+				)}\n`,
+			);
+		} else {
+			process.stdout.write(
+				`${renderAlignment(result, views, sessionId ?? '')}\n`,
+			);
+		}
+		break;
+	}
 	case 'yield': {
 		const [path] = rest;
 		const under = path === undefined ? undefined : resolve(path);
@@ -131,6 +193,6 @@ switch (verb) {
 		break;
 	default:
 		fail(
-			`unknown command "${verb}" (list, announce, claim, unclaim, yield, whoami)`,
+			`unknown command "${verb}" (list, announce, align, claim, unclaim, yield, whoami)`,
 		);
 }

@@ -8,12 +8,30 @@
  * timestamp, and the one-line announcements a session chose to make.
  */
 
-export type AnnouncementKind = 'working' | 'release' | 'decision' | 'note';
+export type AnnouncementKind =
+	| 'working'
+	| 'plan'
+	| 'release'
+	| 'decision'
+	| 'note';
 
 export interface Announcement {
 	readonly text: string;
 	readonly kind: AnnouncementKind;
 	readonly at: string;
+	/** `plan` only: the roadmap entry being planned or worked, as titled in docs/roadmap.md. */
+	readonly entry?: string;
+	/** `plan` only: the repository or package the entry belongs to (`nxgt-janus`, `@nxgt/janus-mail`). */
+	readonly scope?: string;
+	/** `plan` only: what the entry waits on (`@nxgt/mail@0.5.0`, `nxgt-mail`). */
+	readonly needs?: readonly string[];
+}
+
+/** The structured part of a `plan` announcement. */
+export interface PlanFields {
+	readonly entry?: string;
+	readonly scope?: string;
+	readonly needs?: readonly string[];
 }
 
 export interface Edit {
@@ -294,22 +312,33 @@ export function announce(
 	text: string,
 	kind: AnnouncementKind,
 	now: Date,
+	plan: PlanFields = {},
 ): SessionRecord {
-	const clean = text.replace(/\s+/g, ' ').trim();
+	const clean = oneLine(text);
 	if (!clean) return record;
+	const needs = (plan.needs ?? []).map(oneLine).filter(Boolean).slice(0, 10);
+	const entryTitle = plan.entry ? oneLine(plan.entry) : '';
+	const scope = plan.scope ? oneLine(plan.scope) : '';
 	const entry: Announcement = {
-		text:
-			clean.length > LIMITS.announcementLength
-				? `${clean.slice(0, LIMITS.announcementLength - 1)}…`
-				: clean,
+		text: clean,
 		kind,
 		at: now.toISOString(),
+		...(kind === 'plan' && entryTitle ? { entry: entryTitle } : {}),
+		...(kind === 'plan' && scope ? { scope } : {}),
+		...(kind === 'plan' && needs.length ? { needs } : {}),
 	};
 	const announcements = [entry, ...record.announcements].slice(
 		0,
 		LIMITS.announcements,
 	);
 	return { ...record, announcements };
+}
+
+function oneLine(text: string): string {
+	const clean = text.replace(/\s+/g, ' ').trim();
+	return clean.length > LIMITS.announcementLength
+		? `${clean.slice(0, LIMITS.announcementLength - 1)}…`
+		: clean;
 }
 
 /** The latest `working` announcement: what the session says it is doing now. */

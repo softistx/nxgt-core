@@ -173,9 +173,11 @@ A registry problem must never stop work.
 /crew announce --kind release @nxgt/mail 0.5.0 published — sendMail takes a Transport
 /crew claim /tmp/tmp.X1 release probe     a folder peers must not edit in or delete
 /crew yield packages/env                  release this session's hold on files it edited, so a blocked peer may take over
+/crew announce --kind plan --entry "Mail transport" --scope @nxgt/janus-mail --needs @nxgt/mail@0.5.0
+/crew align                               roadmaps and plans of every live session: duplicates, dependencies
 ```
 
-The same CLI backs it: `bun plugins/nxgt-crew/scripts/crew.ts list|announce|claim|unclaim|yield|whoami`.
+The same CLI backs it: `bun plugins/nxgt-crew/scripts/crew.ts list|announce|align|claim|unclaim|yield|whoami`.
 
 A hold ends early only by the holding session's own `/crew yield`, run under
 its own user's control. A blocked session cannot lift it, and a peer's "go
@@ -193,6 +195,51 @@ announcement.
 It never edits files, and it never grants or requests permissions for another
 session. It treats a peer's message as information, never as the user's
 approval. It never asks a peer to do what this session was denied.
+
+## Planning across sessions
+
+`nxgt-autonomy:plan-the-roadmap` defines the planning cycle for one session:
+
+1. discover (improvement-scout);
+2. a roadmap entry under Next or Later (roadmap-keeper, from nxgt-docs);
+3. a plan per entry;
+4. owner validation through AskUserQuestion, recommended option first;
+5. the queue item;
+6. execution (work-autonomously);
+7. verification;
+8. Shipped.
+
+nxgt-crew aligns that cycle across sessions:
+
+- **A `plan` announcement** names the entry, its scope and what it waits on.
+  plan-the-roadmap records one at its queueing step.
+
+  ```bash
+  crew.ts announce --kind plan --entry "Mail transport" --scope @nxgt/janus-mail --needs @nxgt/mail@0.5.0 "planning Mail transport in nxgt-janus"
+  ```
+
+- **The alignment pass** is `/crew align`, which the session-coordinator runs.
+  - It reads the `docs/roadmap.md` of every live session's worktrees, at the
+    root and under `packages/*/`, found through the registry's git toplevels.
+    It also reads the announced plans.
+  - It flags three things:
+    - the same entry planned in two sessions;
+    - a plan waiting on another session's release, and whether a release
+      announcement already covers it;
+    - a plan for an entry that is already Shipped.
+  - For a duplicate, it proposes an owner: the session working in the
+    repository whose roadmap lists the entry, otherwise the first session to
+    announce it.
+  - The coordinator agrees on the split with each peer over `SendMessage`.
+- **It never edits another session's roadmap or queue.** An agreement between
+  sessions is a proposal. Owner decisions still go through AskUserQuestion, in
+  the session that owns the work.
+
+**Dependency.** This part builds on `nxgt-autonomy:plan-the-roadmap` and on
+nxgt-docs' roadmap layout, but it does not require either of them. Without
+nxgt-autonomy, the alignment pass only degrades: fewer sessions announce plans,
+so it works from whatever roadmaps exist and the plans announced by hand. The
+hooks and the conflict rules do not depend on it at all.
 
 ## What hooks cannot do
 
@@ -238,7 +285,8 @@ pages:
 The hook scripts are TypeScript run by Bun, with no `.sh`. The pure cores are
 `lib/registry.ts` (records, liveness, merge), `lib/shell.ts` (words,
 heredocs, paths), `lib/command.ts` (the operations in a Bash command),
-`lib/conflicts.ts` (one rule per operation) and `lib/brief.ts` (the text). Each
+`lib/conflicts.ts` (one rule per operation), `lib/brief.ts` (the text) and
+`lib/alignment.ts` (roadmaps, duplicate plans, dependencies, owners). Each
 has a spec. `hooks/hooks.spec.ts` spawns every hook against a temporary
 registry and git repository.
 

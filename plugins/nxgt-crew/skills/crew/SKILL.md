@@ -7,7 +7,7 @@ description: >-
   /crew, asks what the other sessions are doing, before starting work in a
   repository another session may be in, when starting a release, or when a
   crew guard blocked a tool call.
-argument-hint: "[announce [--kind working|release|decision|note] <text> | claim <path> [note] | unclaim <path> | yield [path]]"
+argument-hint: "[align | announce [--kind working|plan|release|decision|note] <text> | claim <path> [note] | unclaim <path> | yield [path]]"
 allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts *)
 ---
 
@@ -37,10 +37,32 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID
 ```
 
 Kinds: `working` (what this session is doing now — shown next to its name
-everywhere), `release` (a version published or about to be), `decision` (a
-choice peers should follow), `note`. Keep it to one line a peer can act on:
+everywhere), `plan` (a roadmap entry this session is planning or working),
+`release` (a version published or about to be), `decision` (a choice peers
+should follow), `note`. Keep it to one line a peer can act on:
 "working on packages/janus-mail in /tmp/…/wt, branch feat/janus-mail",
 "published @nxgt/mail 0.5.0 — sendMail now takes a Transport".
+
+A **`plan`** names its roadmap entry, so the alignment pass can match it —
+`nxgt-autonomy:plan-the-roadmap` records one at its queueing step:
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID} --kind plan --entry "<entry title as in docs/roadmap.md>" --scope "<repo or package>" --needs "<pkg@version>,…" "planning <entry> in <repo>"
+```
+
+**`align`** — the alignment pass across sessions: every live session's
+`docs/roadmap.md` (root and `packages/*/`) and announced plans, the same entry
+planned twice (with a proposed owner), and plans waiting on another session's
+release:
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts align --session ${CLAUDE_SESSION_ID}
+```
+
+Present it; for anything that needs agreeing, delegate to the
+`session-coordinator` agent. Agreement between sessions is a proposal — taking
+or dropping an entry is the owner's decision, asked with AskUserQuestion in
+the session that owns the work. Never edit another session's roadmap or queue.
 
 When a peer is **directly affected** — it depends on the release, it works in
 the same repository — also tell it with `SendMessage` (its name comes from

@@ -226,6 +226,44 @@ describe('a session’s life', () => {
 		]);
 	});
 
+	test('plans and roadmaps align across sessions through the CLI', async () => {
+		await $`mkdir -p ${join(repo, 'docs')}`.quiet();
+		writeFileSync(
+			join(repo, 'docs', 'roadmap.md'),
+			'## Next\n\n- **Mail transport** — send mail\n',
+		);
+		const envA = {
+			...process.env,
+			NXGT_CREW_HOME: home,
+			NXGT_CREW_SESSION_ID: 'aaaaaaaa-1',
+		};
+		const envB = { ...envA, NXGT_CREW_SESSION_ID: 'bbbbbbbb-2' };
+		const noEntry = await $`bun ${CREW} announce --kind plan something`
+			.env(envA)
+			.quiet()
+			.nothrow();
+		expect(noEntry.exitCode).toBe(1);
+		await $`bun ${CREW} announce --kind plan --entry ${'Mail transport'} --needs ${'@nxgt/mail@0.5.0'}`
+			.env(envA)
+			.quiet();
+		await $`bun ${CREW} announce --kind plan --entry ${'mail transport'}`
+			.env(envB)
+			.quiet();
+		const text = (
+			await $`bun ${CREW} align`.env(envB).quiet()
+		).stdout.toString();
+		expect(text).toContain('Roadmaps read (');
+		expect(text).toContain('Same entry in two sessions:');
+		expect(text).toContain('needs @nxgt/mail@0.5.0: not yet released');
+		const json = JSON.parse(
+			(await $`bun ${CREW} align --json`.env(envB).quiet()).stdout.toString(),
+		);
+		expect(json.duplicates).toHaveLength(1);
+		expect(json.sessions[0].roadmaps[0].entries).toEqual([
+			{ section: 'Next', title: 'Mail transport' },
+		]);
+	});
+
 	test('A yields its hold with the CLI, and B may then edit the file', async () => {
 		const env = {
 			...process.env,

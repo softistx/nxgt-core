@@ -197,6 +197,28 @@ describe('record changes', () => {
 		expect(long.announcements[0]?.text.length).toBe(LIMITS.announcementLength);
 	});
 
+	test('a plan keeps its entry, scope and needs; other kinds drop them', () => {
+		const r = announce(record('s'), 'planning X', 'plan', NOW, {
+			entry: ' X  entry ',
+			scope: '@nxgt/a',
+			needs: ['@nxgt/mail@0.5.0', ' '],
+		});
+		expect(r.announcements[0]).toEqual({
+			text: 'planning X',
+			kind: 'plan',
+			at: NOW.toISOString(),
+			entry: 'X entry',
+			scope: '@nxgt/a',
+			needs: ['@nxgt/mail@0.5.0'],
+		});
+		const n = announce(record('s'), 'n', 'note', NOW, { entry: 'X' });
+		expect(n.announcements[0]).toEqual({
+			text: 'n',
+			kind: 'note',
+			at: NOW.toISOString(),
+		});
+	});
+
 	test('currentWork is the latest working announcement', () => {
 		let r = announce(record('s'), 'first', 'working', NOW);
 		r = announce(r, 'a release', 'release', NOW);
