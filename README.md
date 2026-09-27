@@ -32,11 +32,10 @@ this table, before importing.
 ## Layering
 
 ```
-shared-logging   shared-openapi   shared-events   i18n   (no internal dependencies)
+shared-logging   shared-openapi   shared-events   i18n   i18n-vue   (no internal dependencies)
 
 package             depends on
 shared-exceptions   i18n
-i18n-vue            i18n (peer)
 shared              shared-logging, shared-events
 shared-mongo        shared, shared-exceptions, i18n, shared-logging
 security            shared, shared-exceptions, shared-logging

@@ -1,4 +1,18 @@
-import type { Path } from '@nxgt/i18n';
+/**
+ * The dotted-path keys of a nested object: `Path<{ a: { b: string } }>` is
+ * `'a.b'`. A copy of `@nxgt/i18n`'s own `Path`, inlined rather than imported:
+ * it is the only thing this package ever took from `@nxgt/i18n`, and a
+ * required peer over one pure-type utility forced every consumer — including
+ * `@nxgt/mail-i18n` — to install `@nxgt/i18n` and its `hono` dependency for
+ * nothing their code ever runs.
+ */
+type PathImpl<T, K extends keyof T> = K extends string
+	? T[K] extends Record<string, any>
+		? `${K}.${Path<T[K]>}`
+		: K
+	: never;
+
+type Path<T> = PathImpl<T, keyof T>;
 
 /** The values a message's arguments take: `{ name: 'Ada', count: 3 }`. */
 export type MessageArgs = Readonly<Record<string, string | number | Date>>;
