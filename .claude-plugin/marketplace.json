@@ -50,6 +50,10 @@
 			"source": "./plugins/nxgt-base"
 		},
 		{
+			"name": "nxgt-crew",
+			"source": "./plugins/nxgt-crew"
+		},
+		{
 			"name": "nxgt-ui-docs",
 			"source": "./plugins/nxgt-ui-docs"
 		}

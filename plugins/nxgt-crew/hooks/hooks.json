@@ -1,0 +1,65 @@
+{
+	"description": "nxgt-crew: register each session, heartbeat on prompts and tool use, guard edits and git operations against other live sessions, and deregister on exit. Every hook fails open.",
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.ts"],
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/prompt.ts"],
+						"timeout": 5
+					}
+				]
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/guard.ts"],
+						"timeout": 5
+					}
+				]
+			}
+		],
+		"PostToolUse": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/activity.ts"],
+						"async": true
+					}
+				]
+			}
+		],
+		"SessionEnd": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-end.ts"]
+					}
+				]
+			}
+		]
+	}
+}
