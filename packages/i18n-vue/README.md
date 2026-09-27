@@ -67,9 +67,13 @@ Peers:
 
 ## Catalogues
 
-One JSON file per locale, nested, `camelCase` keys. The fallback locale (the
-first, by default) is the reference: every other locale has exactly its keys,
-and may leave an argument out but never add one.
+One JSON file per locale, nested, kebab-case keys — the convention
+`@nxgt/i18n` uses. camelCase is still accepted, for a catalogue written
+before this; the two are equivalent, on either side: a key `sign-in` is also
+found by `t('auth.signIn')`, and the generated types complete and check both
+spellings. The fallback locale (the first, by default) is the reference:
+every other locale has exactly its keys, and may leave an argument out but
+never add one.
 
 ```json
 // locales/en.json — locales/fr.json has the same keys
@@ -78,7 +82,7 @@ and may leave an argument out but never add one.
 		"title": "Welcome",
 		"greeting": "Hello {name}",
 		"items": "{count, plural, one {# item} other {# items}}",
-		"sentOn": "Sent on {at, date, short}"
+		"sent-on": "Sent on {at, date, short}"
 	}
 }
 ```
@@ -270,10 +274,11 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
   out, one the message does not use, or one of the wrong kind is an error in
   your code, and the type checker reports it first. For a key computed at run
   time, ask `has(key)` before `t`.
-- **Every key is `camelCase`**, nested rather than dotted:
-  `{ "home": { "sentOn": … } }`, never `"sent_on"` or `"home.sentOn"` as one
-  key. `@nxgt/i18n`'s own catalogues use kebab-case keys, so they cannot be
-  checked here as they are.
+- **Every key is kebab-case or camelCase**, nested rather than dotted:
+  `{ "home": { "sent-on": … } }` or `{ "home": { "sentOn": … } }`, never
+  `"sent_on"` or `"home.sentOn"` as one key. The two conventions are
+  equivalent on a key's segments only — an ICU argument name (`{firstName}`)
+  is still camelCase-only.
 - **A message is text.** Tags are not parsed (`<b>{name}</b>` formats to those
   characters), and Vue's `{{ }}` escapes the result. Never pass a message with
   arguments to `v-html`.

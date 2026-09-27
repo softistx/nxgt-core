@@ -20,6 +20,7 @@ const key = 'home.greeting' as MessageKey;
 	<p>{{ t('home.greeting', { name: 'Ada' }) }}</p>
 	<p>{{ t('home.items', { count: 2 }) }}</p>
 	<p>{{ t('home.sentOn', { at: new Date(0) }) }}</p>
+	<p>{{ t('home.sent-on', { at: new Date(0) }) }}</p>
 	<p>{{ t(locale === 'fr' ? 'home.title' : 'home.action') }}</p>
 	<p>{{ t(key, { name: 'Ada' }) }}</p>
 	<button type="button" @click="setLocale('fr')">fr</button>

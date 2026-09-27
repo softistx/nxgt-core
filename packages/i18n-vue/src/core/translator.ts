@@ -1,5 +1,6 @@
 import { IntlMessageFormat } from 'intl-messageformat';
 import type { Catalogue, Catalogues } from './catalogues';
+import { normalizeSegment } from './keys';
 import type {
 	ArgsOf,
 	I18nMessages,
@@ -18,12 +19,24 @@ export type Translate<K extends string = MessageKey> = <Key extends K>(
 	...rest: [...ArgsOf<I18nMessages, Key>, language?: LanguageProvider]
 ) => string;
 
-/** The message at dotted `key` in `catalogue`, or `null` when there is none. */
+/**
+ * The message at dotted `key` in `catalogue`, or `null` when there is none.
+ * Each segment matches exactly first, and falls back to matching regardless
+ * of camelCase or kebab-case: `key`'s `sign-in` finds a catalogue's `signIn`
+ * and vice versa.
+ */
 export function lookup(catalogue: Catalogue, key: string): string | null {
 	let node: string | Catalogue | undefined = catalogue;
 	for (const segment of key.split('.')) {
-		if (typeof node !== 'object' || !Object.hasOwn(node, segment)) return null;
-		node = node[segment];
+		if (typeof node !== 'object' || node === null) return null;
+		const found = Object.hasOwn(node, segment)
+			? segment
+			: Object.keys(node).find(
+					(candidate) =>
+						normalizeSegment(candidate) === normalizeSegment(segment),
+				);
+		if (found === undefined) return null;
+		node = node[found];
 	}
 	return typeof node === 'string' ? node : null;
 }

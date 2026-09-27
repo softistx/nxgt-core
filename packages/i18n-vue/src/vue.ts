@@ -13,6 +13,7 @@ import {
 	type Messages,
 } from './core/catalogues';
 import { isObject, LOCALE } from './core/guards';
+import { normalizeKey } from './core/keys';
 import { createFormatter, type Formatter } from './core/translator';
 import type {
 	Locale,
@@ -54,6 +55,8 @@ const I18N: InjectionKey<I18n> = Symbol('@nxgt/i18n-vue');
 interface Prepared {
 	readonly messages: ReadonlyMap<string, Messages>;
 	readonly format: Formatter;
+	/** Every fallback-locale key, normalized (camelCase and kebab-case fold together), to the key as the catalogue actually spells it. */
+	readonly canonical: ReadonlyMap<string, string>;
 }
 
 interface CacheEntry {
@@ -93,9 +96,15 @@ function prepare(
 			sameCatalogues(entry.catalogues, catalogues),
 	);
 	if (hit !== undefined) return hit.prepared;
+	const messages = checkCatalogues(catalogues, locales, fallbackLocale);
+	const canonical = new Map<string, string>();
+	for (const messageKey of (messages.get(fallbackLocale) as Messages).keys()) {
+		canonical.set(normalizeKey(messageKey), messageKey);
+	}
 	const prepared: Prepared = {
-		messages: checkCatalogues(catalogues, locales, fallbackLocale),
+		messages,
 		format: createFormatter('t'),
+		canonical,
 	};
 	entries.push({ fallbackLocale, catalogues: { ...catalogues }, prepared });
 	cache.set(key, entries);
@@ -169,7 +178,7 @@ export function createI18n(options: I18nOptions): I18n {
 	const checked = checkOptions(options);
 	const locales = checked.locales as Locale[];
 	const fallbackLocale = checked.fallbackLocale as Locale;
-	const { messages, format } = prepare(
+	const { messages, format, canonical } = prepare(
 		options.catalogues,
 		locales,
 		fallbackLocale,
@@ -198,16 +207,27 @@ export function createI18n(options: I18nOptions): I18n {
 			if (typeof key !== 'string') {
 				throw new TypeError("t: the key must be a string, as t('home.title')");
 			}
-			const declared = reference.get(key);
+			// Exact first — a catalogue's own spelling always matches itself — then
+			// falling back across camelCase and kebab-case: `t('sign-in')` finds a
+			// catalogue's `signIn`, and the other way round.
+			const actualKey = reference.has(key)
+				? key
+				: canonical.get(normalizeKey(key));
+			const declared =
+				actualKey !== undefined ? reference.get(actualKey) : undefined;
 			if (declared === undefined) {
 				throw new Error(`t: ${key} is not a key of the catalogues`);
 			}
 			checkArguments('t', key, declared, args);
-			const message = messages.get(current)?.get(key) ?? declared;
+			const message =
+				messages.get(current)?.get(actualKey as string) ?? declared;
 			return format(current, key, message.text, args as MessageArgs);
 		},
 		has(key): key is MessageKey {
-			return typeof key === 'string' && reference.has(key);
+			return (
+				typeof key === 'string' &&
+				(reference.has(key) || canonical.has(normalizeKey(key)))
+			);
 		},
 		install(app) {
 			app.provide(I18N, i18n);

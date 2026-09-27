@@ -68,15 +68,26 @@ describe('checkCatalogues', () => {
 		);
 	});
 
-	test('refuses a key that is not camelCase, or dotted', () => {
+	test('accepts a key segment in camelCase or kebab-case, the same message either way', () => {
+		const messages = check(
+			{ en: { 'verify-email': { title: 'x' }, verifyEmail: 'y' } },
+			['en'],
+		);
+		expect([...(messages.get('en')?.keys() ?? [])]).toEqual([
+			'verify-email.title',
+			'verifyEmail',
+		]);
+	});
+
+	test('refuses a key that is not camelCase or kebab-case, or dotted', () => {
 		fails(
-			{ en: { 'verify-email': { title: 'x' } } },
-			'i18n: en: verify-email is not camelCase — every segment of a key is camelCase, and nested rather than dotted, as verifyEmail.title',
+			{ en: { verify_email: { title: 'x' } } },
+			'i18n: en: verify_email is not camelCase or kebab-case — every segment of a key is one or the other, and nested rather than dotted, as verifyEmail.title or verify-email.title',
 			['en'],
 		);
 		fails(
 			{ en: { 'verifyEmail.title': 'x' } },
-			'i18n: en: verifyEmail.title is not camelCase — every segment of a key is camelCase, and nested rather than dotted, as verifyEmail.title',
+			'i18n: en: verifyEmail.title is not camelCase or kebab-case — every segment of a key is one or the other, and nested rather than dotted, as verifyEmail.title or verify-email.title',
 			['en'],
 		);
 	});

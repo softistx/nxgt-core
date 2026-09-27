@@ -25,14 +25,18 @@ locales/
 
 A message's key is its path, dotted: `home.greeting`.
 
-## Keys are `camelCase`, and nested
+## Keys are kebab-case or camelCase, and nested
 
-Every segment of a key matches `^[a-z][a-zA-Z0-9]*$`, and a dot means a
-level, never a character of a key:
+The convention is kebab-case — `sign-in`, the one `@nxgt/i18n` uses; camelCase
+is still accepted, for a catalogue written before this. A dot means a level,
+never a character of a key, and the two conventions are equivalent: a
+catalogue written `sign-in` is found by `t('auth.signIn')`, and the other way
+round.
 
 ```json
-{ "home": { "sentOn": "…" } }      // home.sentOn — right
-{ "home": { "sent_on": "…" } }     // refused: not camelCase
+{ "home": { "sent-on": "…" } }     // home.sent-on — right, and so is t('home.sentOn')
+{ "home": { "sentOn": "…" } }      // home.sentOn — right, and so is t('home.sent-on')
+{ "home": { "sent_on": "…" } }     // refused: not kebab-case or camelCase
 { "home.sentOn": "…" }             // refused: a dot is not a segment's
 { "Home": { "title": "…" } }       // refused: starts with a capital
 ```
@@ -132,7 +136,8 @@ nothing else.
 
 ## Differences from `@nxgt/i18n`
 
-`@nxgt/i18n`'s own catalogues are nested the same way, but their keys are
-kebab-case (`errors.not-found`) and nothing checks them. This package refuses
-a kebab-case key, so those catalogues cannot be passed to `createI18n` as they
-are.
+`@nxgt/i18n`'s own catalogues are nested the same way, kebab-case
+(`errors.not-found`), and nothing checks them. This package's catalogues use
+the same convention and can be layered with them directly — the only
+difference left is that this package checks them: the same keys in every
+locale, ICU messages that parse, and arguments that agree.
