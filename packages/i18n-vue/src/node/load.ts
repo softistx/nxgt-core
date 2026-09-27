@@ -141,17 +141,26 @@ function collision(
 	);
 }
 
-/** Records `origin` as the owner of every path `catalogue` defines, leaves and objects alike. */
+/**
+ * Records `origin` as the owner of every path `catalogue` defines, leaves
+ * and objects alike, and seals every object node it defines — the flat
+ * file's own nesting is sealed exactly like a folder file's terminal
+ * placement, so a folder file cannot graft a sibling into it either.
+ */
 function recordOwners(
 	catalogue: Catalogue,
 	path: string,
 	origin: string,
 	owners: Map<string, string>,
+	sealed: Set<string>,
 ): void {
 	for (const [segment, value] of Object.entries(catalogue)) {
 		const key = dotted(path, segment);
 		owners.set(key, origin);
-		if (isObject(value)) recordOwners(value, key, origin, owners);
+		if (isObject(value)) {
+			sealed.add(key);
+			recordOwners(value, key, origin, owners, sealed);
+		}
 	}
 }
 
@@ -301,7 +310,7 @@ export function readCatalogues(
 				throw new Error(`i18n: ${flatName} must be an object of messages`);
 			}
 			tree = { ...parsed };
-			recordOwners(parsed as Catalogue, '', flatName, owners);
+			recordOwners(parsed as Catalogue, '', flatName, owners, sealed);
 		}
 		if (relFiles.length > 0) {
 			const localeDir = join(dir, locale);
@@ -338,7 +347,13 @@ export function readCatalogues(
 				);
 				// Every key the file's own content defines, not only its root, so
 				// a later file's prefix reaching inside it is caught too.
-				recordOwners(parsed as Catalogue, segments.join('.'), name, owners);
+				recordOwners(
+					parsed as Catalogue,
+					segments.join('.'),
+					name,
+					owners,
+					sealed,
+				);
 			}
 		}
 		out[locale] = tree as Catalogue;

@@ -174,10 +174,10 @@ must have the same files, at the same paths, as the fallback locale: a file
 `en/mails.json` with no `fr/mails.json` **fails the build**, naming the
 locale and the file — the same parity a missing flat key already had.
 
-A file's own prefix is its alone: the flat file and a folder file agreeing
-on the same prefix, or a second file reaching inside a first one's own
-prefix — even to add a sibling key the first file does not itself have —
-**fails the build**, naming both files: pick one place to write it.
+A file's own prefix is its alone — the flat file's included: whichever file
+first declares an object at a key, that key stays that file's, and no other
+file may add to it, even a sibling the first file does not itself have.
+**Fails the build**, naming both files: pick one place to write it.
 
 ```json
 // locales/en.json
@@ -185,7 +185,12 @@ prefix — even to add a sibling key the first file does not itself have —
 ```
 ```json
 // locales/en/mails.json — refused: mails is locales/en.json's already
-{ "subject": "…" }
+{ "title": "…" }
+```
+```json
+// locales/en/mails/subject.json — refused too: mails is locales/en.json's,
+// down to every key nested under it
+{ "line1": "…" }
 ```
 
 ## Messages from a module

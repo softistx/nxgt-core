@@ -284,6 +284,22 @@ describe('loadCatalogues', () => {
 		);
 	});
 
+	test('throws on a folder file reaching inside an object the flat file itself declared', async () => {
+		// locales/en.json's own `mails` object is sealed exactly like a folder
+		// file's: locales/en/mails/subject.json may not add a sibling to it.
+		const root = project({
+			'locales/en.json': '{ "mails": { "title": "Flat mail title" } }',
+			'locales/fr.json': '{ "mails": { "title": "Titre du courriel" } }',
+			'locales/en/mails/subject.json': '{ "line1": "Subject line" }',
+			'locales/fr/mails/subject.json': '{ "line1": "Ligne de sujet" }',
+		});
+		await expectThrowAsync(
+			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
+			Error,
+			'i18n: en: mails is defined by both locales/en.json and locales/en/mails/subject.json',
+		);
+	});
+
 	test('throws on a file present in a locale but not the fallback locale', async () => {
 		const root = project({
 			'locales/en.json': '{}',
