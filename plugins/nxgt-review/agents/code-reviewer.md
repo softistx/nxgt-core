@@ -107,17 +107,21 @@ Start with numbers — the reference gives the command for this layout; in a
 `packages/*/src` workspace it is:
 
 ```bash
-git ls-files 'packages/*/src/**/*.ts' ':!:**/*.spec.ts' | xargs wc -l | sort -rn | head -20
+git ls-files ':(glob)packages/*/src/**/*.ts' ':(glob,exclude)packages/*/src/**/*.spec.ts' \
+  | xargs wc -l | sort -rn | head -20
 ```
 
 and, for functions, each top-level one from its first line to its closing
 brace — so a factory's inner closures count toward the factory, which is
-what the measurement is for:
+what the measurement is for. A one-line function, and a type, interface,
+enum or class declaration, closes whatever was open:
 
 ```bash
-git ls-files 'packages/*/src/**/*.ts' ':!:**/*.spec.ts' | xargs awk '
+git ls-files ':(glob)packages/*/src/**/*.ts' ':(glob,exclude)packages/*/src/**/*.spec.ts' | xargs awk '
   FNR==1{n=""}
-  /^(export )?(default )?(async )?function[ *]|^(export )?const [A-Za-z0-9_$]+ = (async )?(\(|function|<)/{n=$0;s=FNR}
+  /^(export )?(declare )?(default )?(abstract )?(interface|type|enum|class) /{n=""}
+  /^(export )?(default )?(async )?function[ *]|^(export )?const [A-Za-z0-9_$]+(: [^=]+)? = (async )?(\(|function|<)/{
+    n=$0; s=FNR; if ($0 ~ /[;}][ \t]*$/) n=""; next }
   /^\}/{if(n!=""){print FNR-s+1" "FILENAME":"s; n=""}}' | awk '$1 > 80' | sort -rn
 ```
 
@@ -144,8 +148,9 @@ feeling** — `file:line`, and the grep that found it.
 
 These hold in every nxgt repository unless its `AGENTS.md` says otherwise.
 
-**Structure** — responsibility first, then length. Thresholds are 80 lines
-per function and 250 per source file, unless `AGENTS.md` states its own.
+**Structure** — responsibility first, then length. The function threshold
+is 80 lines and the file threshold 250, unless the repository sets its own
+(stx-sdk: about 200); every rule below means that number.
 - A file that holds more than one responsibility, **at any length**. Name
   each one, and the folder-by-role split that separates them: the file
   becomes a folder of its name, one file per role, with an `index.ts`
@@ -153,16 +158,18 @@ per function and 250 per source file, unless `AGENTS.md` states its own.
   `permissions/model/{schema,parse,validate}.ts`, `conformance/relations.ts`
   → `conformance/relations/{grant,walk,edges}.ts`. Prefer a shape the
   repository already follows; name that place.
-- A source file over 250 lines, **declarations and documentation
+- A source file over the file threshold, **declarations and documentation
   included**, unless it holds one cohesive responsibility. Then the report
   says which one, and why a split would scatter it — "one discriminated
   union and the guards that narrow it", not "it is only types". The types of
   several subjects in one `types.ts` are several responsibilities.
-- A diff that grows a file **already over 250 lines**, however small the
-  growth: that is how every oversized file got there, a few lines per PR
-  that each looked harmless. The fix is the split first, or the new code in
-  a file of its own role.
-- A function over 80 lines. Name it, give its line count, and say which seam
+- A diff that grows a file **already over the file threshold**, however
+  small the growth: that is how every oversized file got there, a few lines
+  per PR that each looked harmless. The fix is one of two: split first — its
+  own PR or commit, with no spec touched — or put the new code in a file of
+  its own role. Only when neither is done is it a finding left open, with a
+  follow-up.
+- A function over the function threshold. Name it, give its line count, and say which seam
   would split it.
 - A factory whose closure holds several concerns — state, timers, a queue,
   retries, reporting — at any length. Name the seam: a data-only context,
@@ -242,12 +249,13 @@ tests were not run, and why.
 Every report ends with the **Structural debt** tally, printed even when it
 is empty, so debt is never inherited silently. Run the two measuring
 commands (the reference's, for another layout) over the packages the scope
-touches — `packages/<a>/src/**/*.ts` in place of `packages/*/src/**/*.ts`,
-the files filtered with `awk '$2 != "total" && $1 > 250'` — and list:
+touches — `packages/<a>/src/…` in place of `packages/*/src/…` in both
+pathspecs, the files filtered with `awk '$2 != "total" && $1 > <file
+threshold>'` — and list:
 
 ```
 ### Structural debt — packages/<a>, packages/<b>
-files over 250: <n>      functions over 80: <n>
+files over <file threshold>: <n>      functions over <function threshold>: <n>
 - `path` — <lines> lines[, touched by this diff]
 - `path:line` `<name>` — <lines> lines[, touched by this diff]
 ```
@@ -259,7 +267,7 @@ finding above, under the rules of **Structure**.
 the packaging rules. Structural findings alone may leave it `true`; say so.
 
 Two things that are not findings, and that you should not raise:
-- a file over 250 lines that holds one cohesive responsibility, once the
+- a file over the file threshold that holds one cohesive responsibility, once the
   report names it and says why a split would scatter it — and only while
   the diff does not grow it. It stays in the tally;
 - a rule the repository states and gives its reason for. `AGENTS.md` is the
