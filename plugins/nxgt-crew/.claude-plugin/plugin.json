@@ -1,0 +1,7 @@
+{
+	"name": "nxgt-crew",
+	"displayName": "nxgt crew",
+	"version": "1.0.0",
+	"description": "Keeps parallel Claude Code sessions from stepping on each other: a shared registry of live sessions, hooks that block an edit to a file another session holds or a checkout in a worktree it uses, a /crew skill to list sessions and announce work, and a session-coordinator agent that aligns releases and shared changes over SendMessage.",
+	"author": { "name": "softistx" }
+}

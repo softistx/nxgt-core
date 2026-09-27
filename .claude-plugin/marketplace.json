@@ -48,6 +48,10 @@
 		{
 			"name": "nxgt-base",
 			"source": "./plugins/nxgt-base"
+		},
+		{
+			"name": "nxgt-crew",
+			"source": "./plugins/nxgt-crew"
 		}
 	]
 }

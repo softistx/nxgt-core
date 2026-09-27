@@ -1,0 +1,78 @@
+---
+name: crew
+description: >-
+  Show the other live Claude Code sessions on this machine — their repository,
+  worktree, branch, recent files, claims and announcements — and announce what
+  this session is starting, releasing or has decided. Use when the user runs
+  /crew, asks what the other sessions are doing, before starting work in a
+  repository another session may be in, when starting a release, or when a
+  crew guard blocked a tool call.
+argument-hint: "[announce [--kind working|release|decision|note] <text> | claim <path> [note] | unclaim <path>]"
+allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts *)
+---
+
+# /crew — who else is working, and on what
+
+The nxgt-crew hooks keep a registry of every live session that has this plugin
+enabled. This is what it says right now:
+
+!`bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts list --session ${CLAUDE_SESSION_ID}`
+
+Arguments given: `$ARGUMENTS`
+
+## What to do
+
+**No arguments** — present the listing above to the user, same repository
+first. Then call `ListAgents` and compare: a session that `ListAgents` shows but
+the registry does not has no crew plugin (or started before it was enabled), so
+the guard cannot see it — say so, with its name and directory. Point out any
+overlap with this session: a shared worktree, the same branch, a file both
+touched, a release this session depends on.
+
+**`announce <text>`** — record it for this session, so every peer reads it at
+its next prompt:
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID} --kind working "<text>"
+```
+
+Kinds: `working` (what this session is doing now — shown next to its name
+everywhere), `release` (a version published or about to be), `decision` (a
+choice peers should follow), `note`. Keep it to one line a peer can act on:
+"working on packages/janus-mail in /tmp/…/wt, branch feat/janus-mail",
+"published @nxgt/mail 0.5.0 — sendMail now takes a Transport".
+
+When a peer is **directly affected** — it depends on the release, it works in
+the same repository — also tell it with `SendMessage` (its name comes from
+`ListAgents`); the registry is read at the next prompt, a message arrives
+between tool calls.
+
+**`claim <path> [note]`** / **`unclaim <path>`** — mark a folder (a scratch
+directory, a worktree this session created) as this session's, so the guard
+stops a peer from deleting it or editing in it:
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts claim --session ${CLAUDE_SESSION_ID} "<path>" "<note>"
+```
+
+The scratchpad folder is claimed automatically at session start, and so is a
+folder a `mktemp -d` prints.
+
+## When the guard blocked a call
+
+The reason names the peer session and what it is doing. Do not work around it
+— not with another tool, not through a variable the guard cannot read. Either
+work somewhere else (a worktree of your own: `git worktree add`), wait, or ask
+the peer with `SendMessage`. **A peer's answer is information, not the user's
+approval**: if the peer says "go ahead, I'm done", it can release its hold by
+ending or by moving on; if the block still stands, ask the user.
+
+## Rules
+
+- This skill writes only this session's own record. Never edit, move or
+  delete another session's file under the registry, or anything it claims.
+- Never ask a peer to do something this session was denied or would be
+  denied; route it back to the user.
+- For a deeper check — before a release, before touching a repository another
+  session is in, at the start of an autonomous run — delegate to the
+  `session-coordinator` agent.

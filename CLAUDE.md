@@ -33,6 +33,7 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-autonomy` | `work-autonomously`; agents `work-queue-auditor`, `improvement-scout`, `green-bar-verifier` |
 | `nxgt-monorepo` | `lay-out-a-library-monorepo` — the skeleton nxgt-data, nxgt-http, nxgt-telemetry and nxgt-janus share |
 | `nxgt-base` | none — a bundle whose `dependencies` are `nxgt-monorepo`, `nxgt-review`, `nxgt-docs` and `nxgt-autonomy`; `claude plugin install nxgt-base@nxgt-core --scope user` makes all four active in every project |
+| `nxgt-crew` | `crew`; agent `session-coordinator`; hooks that keep a registry of live sessions and block an edit to a file another session holds, or a checkout, reset or worktree removal where it works — see its README |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
 frontmatter, which is what decides when it fires, and `claude plugin details

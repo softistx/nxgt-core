@@ -62,6 +62,10 @@ jobs:
         env:
           MONGODB_URI: mongodb://localhost:27017/shared-mongo-test?replicaSet=rs0
         run: bun run test
+      # The plugins' own specs — nxgt-crew's hook scripts. Outside the
+      # workspaces, so `bun run test` above never reaches them.
+      - name: Run plugin tests
+        run: bun run test:plugins
       # The build exits 0 on packages that throw the instant they are imported —
       # it happened three times. This packs them, installs them as a consumer
       # does and imports every declared subpath.
