@@ -1,0 +1,10 @@
+{
+	"name": "nxgt-ui-docs",
+	"displayName": "nxgt UI documentation",
+	"version": "1.0.0",
+	"description": "Documents a UI component library the same way in React and Vue: one twelve-category taxonomy shared by the README, docs/components/ and the Storybook sidebar, a WebP preview per component captured by Vitest browser mode, and the guides every component library owes its users — forms first.",
+	"author": {
+		"name": "softistx"
+	},
+	"dependencies": ["nxgt-docs"]
+}
