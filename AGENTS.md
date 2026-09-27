@@ -603,11 +603,9 @@ packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
 real `nuxt build`), then 16 in `scripts/`. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
-`bun test` for the whole workspace — followed by `bun test ./scripts/`, the
-repository scripts' own specs, which no package's run reaches. The `./` and
-the trailing slash matter: a bare `bun test scripts` is a substring filter,
-and it also runs every plugin spec under a `scripts/` folder. Running them together produced 6 failures
-and 3 errors, and not one of them belonged to the test that reported it:
+`bun test` for the whole workspace. Running the packages together in one
+process produced 6 failures and 3 errors, and not one of them belonged to the
+test that reported it:
 
 | symptom | actual cause |
 | --- | --- |
@@ -620,6 +618,11 @@ So each package with specs carries `"test": "bun test src"`, `shared-mongo`
 keeps its `--env-file=.env.test`, the `Migration` model reuses an already
 compiled one, and the S3 suites skip themselves unless all four `S3_*`
 variables are set — infrastructure that is absent is not a failing test.
+
+Then `bun test ./scripts/` runs the repository scripts' own specs, which no
+package's run reaches. The `./` and the trailing slash matter: a bare
+`bun test scripts` is a substring filter, and on 2026-09-27 it ran 254 tests
+across 30 files, every plugin spec under a `scripts/` folder included.
 
 CI starts a single-node MongoDB **replica set** (the migration suite asserts on
 transactions) and passes `MONGODB_URI` in the environment, which beats
