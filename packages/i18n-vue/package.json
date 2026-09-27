@@ -1,0 +1,108 @@
+{
+	"name": "@nxgt/i18n-vue",
+	"version": "0.0.0",
+	"description": "i18n for a Vue or Nuxt app on @nxgt/i18n's conventions: ICU catalogues checked for missing keys and argument kinds, t() typed and completed in templates, reactive locale switching, and a Nuxt module that resolves the locale on the server.",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist",
+		"docs",
+		"README.md",
+		"package.json",
+		"LICENSE"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		},
+		"./core": {
+			"types": "./dist/core/index.d.ts",
+			"import": "./dist/core/index.js",
+			"default": "./dist/core/index.js"
+		},
+		"./vite": {
+			"types": "./dist/vite/index.d.ts",
+			"import": "./dist/vite/index.js",
+			"default": "./dist/vite/index.js"
+		},
+		"./nuxt": {
+			"types": "./dist/nuxt/index.d.ts",
+			"import": "./dist/nuxt/index.js",
+			"default": "./dist/nuxt/index.js"
+		},
+		"./nuxt/runtime": {
+			"types": "./dist/nuxt/runtime/index.d.ts",
+			"import": "./dist/nuxt/runtime/index.js",
+			"default": "./dist/nuxt/runtime/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"keywords": [
+		"i18n",
+		"icu",
+		"messageformat",
+		"vue",
+		"nuxt",
+		"vite"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/softistx/nxgt-core.git",
+		"directory": "packages/i18n-vue"
+	},
+	"publishConfig": {
+		"registry": "https://registry.npmjs.org",
+		"access": "public"
+	},
+	"scripts": {
+		"build": "bun run ../../build.ts",
+		"test": "bun test src",
+		"typecheck": "tsc --noEmit && bun run typecheck:types && bun run typecheck:nuxt",
+		"typecheck:types": "bun run test/types/prepare.ts && vue-tsc --noEmit -p test/types/tsconfig.json",
+		"typecheck:nuxt": "bun run test/nuxt-app/link.ts && cd test/nuxt-app && nuxt prepare && vue-tsc -b"
+	},
+	"nxgt": {
+		"entrypoints": [
+			"src/index.ts",
+			"src/core/index.ts",
+			"src/vite/index.ts",
+			"src/nuxt/index.ts",
+			"src/nuxt/runtime/index.ts"
+		]
+	},
+	"dependencies": {
+		"@formatjs/icu-messageformat-parser": "3.5.20",
+		"intl-messageformat": "^12.1.2"
+	},
+	"devDependencies": {
+		"@nuxt/kit": "4.5.2",
+		"@nxgt/i18n": "workspace:^",
+		"@types/bun": "^1.4.0",
+		"nuxt": "4.5.2",
+		"vue": "3.5.43",
+		"vue-tsc": "^3.3.11"
+	},
+	"peerDependencies": {
+		"@nuxt/kit": "^4.0.0",
+		"@nxgt/i18n": "workspace:^",
+		"nuxt": "^4.0.0",
+		"typescript": "^6.0.3",
+		"vite": ">=5.0.0",
+		"vue": "^3.5.0"
+	},
+	"peerDependenciesMeta": {
+		"@nuxt/kit": {
+			"optional": true
+		},
+		"nuxt": {
+			"optional": true
+		},
+		"vite": {
+			"optional": true
+		}
+	}
+}

@@ -15,6 +15,7 @@ repository is the single copy.
 | `@nxgt/shared-logging` | Winston logger, Hono request logging |
 | `@nxgt/shared-openapi` | Shared OpenAPI 3.2 components and codegen |
 | `@nxgt/i18n` | Message catalogues, ICU formatting, `LocaleKey` |
+| `@nxgt/i18n-vue` | Checked ICU catalogues, `t` typed in Vue templates, a reactive locale, a Vite plugin and a Nuxt module |
 | `@nxgt/shared` | Domain types, the two principal shapes, helpers |
 | `@nxgt/shared-exceptions` | `CustomException` and `ErrorCode` |
 | `@nxgt/shared-mongo` | Mongoose, CRUD, migrations, audit, pagination |
@@ -35,6 +36,7 @@ shared-logging   shared-openapi   shared-events   i18n   (no internal dependenci
 
 package             depends on
 shared-exceptions   i18n
+i18n-vue            i18n (peer)
 shared              shared-logging, shared-events
 shared-mongo        shared, shared-exceptions, i18n, shared-logging
 security            shared, shared-exceptions, shared-logging

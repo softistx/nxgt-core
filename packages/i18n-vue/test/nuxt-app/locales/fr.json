@@ -1,0 +1,7 @@
+{
+	"home": {
+		"title": "Bienvenue",
+		"greeting": "Bonjour {name}",
+		"items": "{count, plural, one {# article} other {# articles}}"
+	}
+}
