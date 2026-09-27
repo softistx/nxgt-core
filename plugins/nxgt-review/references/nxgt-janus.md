@@ -163,7 +163,8 @@ running them in parallel races the caches.
   `<package>: the tarball ships test code: dist/x.fixtures.d.ts`. The
   pattern is `TEST_CODE` in `scripts/artifacts/tarball.ts`, the same files as
   sources are `NOT_A_BUILD_INPUT` in `scripts/artifacts/stale.ts`: a new
-  kind of test file added to one and not the other is a finding.
+  kind of test file added to one and not the other is a finding — the
+  pairing *observed in their doc comments, not stated in `AGENTS.md`*.
 - **A fixture that ships is a plain `fixtures.ts`**, with no dotted prefix
   (`janus/src/conformance/fixtures.ts`, `conformance/relations/fixtures.ts`,
   `janus-webhooks/src/conformance/fixtures.ts`). A `*.fixtures.ts` imported
@@ -182,9 +183,9 @@ grows one is a finding.
 - Files over 250: **none** under `packages/*/src`. Closest to the line:
   `janus-redis/src/scripts.ts` 249, `janus/src/permissions/list.fixtures.ts`
   247, `janus/src/permissions/reverse.ts` 245, `janus-mail/src/options.ts`
-  236, `janus-mail/src/types.ts` 234, `janus/src/auth/second-factor/lifecycle.ts`
-  231 (192 before the second factor's events, #125) — a diff that pushes
-  one over is the finding.
+  236, `janus-mail/src/types.ts` 234,
+  `janus/src/auth/second-factor/lifecycle.ts` 231 (192 before the second
+  factor's events, #125) — a diff that pushes one over is the finding.
 - Functions over 80, by the agent's `awk`: **none**. Longest:
   `confirmChallenge` (`janus/src/auth/second-factor/challenge.ts:64`) 71,
   `memorySessionStore` (`janus/src/auth/port/memory/sessions.ts:11`) 71.
@@ -264,11 +265,14 @@ drift the table does not describe.
   a type added in `@nxgt/janus` fails their build until it is listed, as
   `user.secondFactorEnabled` and `user.secondFactorDisabled` did in #125. The
   same change lists it in both, round-trips it in the queue conformance case
-  (`janus-webhooks/src/conformance/cases/queue.ts`), moves the three peer
-  ranges together, and says in both READMEs how to upgrade: the receiver
-  before the sender, and the new types held back from an endpoint until every
-  process sharing the queue is upgraded. A new event type without the note,
-  or a list widened to `string` to dodge the `satisfies`, is a finding.
+  (`janus-webhooks/src/conformance/cases/queue.ts`), carries a minor
+  changeset for `@nxgt/janus`, `janus-webhooks` and `janus-webhooks-redis`
+  together (the peers are `workspace:^`, so their ranges move with it), and
+  says in both READMEs how to upgrade: the receiver before the sender, and
+  the new types held back from an endpoint until every process sharing the
+  queue is upgraded. A new event type without the note, or a list widened to
+  `string` to dodge the `satisfies`, is a finding — *observed in the READMEs
+  and #125, not stated in `AGENTS.md`*.
 - `janus-mail`'s Maizzle, Vue, Tailwind and `@nxgt/mail-*` build packages are
   devDependencies, Maizzle pinned exact and direct; no `postinstall`. What a
   build writes outside `dist/` goes beside it (`packages/janus-mail/mails/`),
@@ -286,4 +290,5 @@ drift the table does not describe.
 - Commits are `<type>(<package>): <Capitalized summary>`, the scope a
   package's directory name, no scope for the repository; the types are
   `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `build` (build
-  configuration: tsconfig, bundler, packaging), and `revert`, once. Pull requests merge with a merge commit, never squashed or rebased.
+  configuration: tsconfig, bundler, packaging), and `revert`, once. Pull
+  requests merge with a merge commit, never squashed or rebased.
