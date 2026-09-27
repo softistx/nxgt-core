@@ -56,10 +56,14 @@ as `home.greeting`.
 - [`i18n: <dir>/<locale>.json is missing — every locale has a catalogue`](#i18n-dirlocalejson-is-missing--every-locale-has-a-catalogue)
 - [`i18n: <dir>/<locale>.json is not valid JSON`](#i18n-dirlocalejson-is-not-valid-json)
 - [`i18n: <locale>: the catalogue must be an object of messages`](#i18n-locale-the-catalogue-must-be-an-object-of-messages)
+- [`i18n: <dir>/<locale>.json must be an object of messages`](#i18n-dirlocalejson-must-be-an-object-of-messages)
+- [`i18n: <dir>/<locale>/<file> must be an object of messages`](#i18n-dirlocalefile-must-be-an-object-of-messages)
 - [`i18n: <dir>/<locale>/<file>: <segment> is not camelCase or kebab-case — a file path segment is a key segment too, as mails or sign-in`](#i18n-dirlocalefile-segment-is-not-camelcase-or-kebab-case--a-file-path-segment-is-a-key-segment-too-as-mails-or-sign-in)
 - [`i18n: <locale>: <key> is defined by both <file> and <file>`](#i18n-locale-key-is-defined-by-both-file-and-file)
 - [`i18n: <dir>/<locale>/<file> is missing — <dir>/<fallback>/<file> exists`](#i18n-dirlocalefile-is-missing--dirfallbackfile-exists)
 - [`i18n: <dir>/<locale>/<file> exists, and <dir>/<fallback>/<file> does not — every locale has the same files`](#i18n-dirlocalefile-exists-and-dirfallbackfile-does-not--every-locale-has-the-same-files)
+- [`i18n: <path> could not be loaded (<reason>)`](#i18n-path-could-not-be-loaded-reason)
+- [`i18n: <path>'s default export could not be run (<reason>)`](#i18n-paths-default-export-could-not-be-run-reason)
 - [`i18n: <path> has no default export — export the resources object, or a function that returns it`](#i18n-path-has-no-default-export--export-the-resources-object-or-a-function-that-returns-it)
 - [`i18n: <path>'s default export must be a resources object ({ en: {...}, fr: {...} }) or a function that returns one`](#i18n-paths-default-export-must-be-a-resources-object--en--fr---or-a-function-that-returns-one)
 - [`i18n: <path> is missing the <locale> locale`](#i18n-path-is-missing-the-locale-locale)
@@ -265,6 +269,17 @@ through any JSON validator.
 
 The catalogue of `<locale>` is not a JSON object: an array, a string, `null`.
 
+### `i18n: <dir>/<locale>.json must be an object of messages`
+
+The flat file parses, but its top level is not a JSON object — an array, a
+string, `null`. Same rule as above, caught earlier, naming the file rather
+than the locale.
+
+### `i18n: <dir>/<locale>/<file> must be an object of messages`
+
+A folder file parses, but its top level is not a JSON object. The whole file
+becomes the prefix's content, so it must be one.
+
 ### `i18n: <dir>/<locale>/<file>: <segment> is not camelCase or kebab-case — a file path segment is a key segment too, as mails or sign-in`
 
 A folder file's path (`<dir>/<locale>/**/*.json`) has a segment with `_`, a
@@ -280,9 +295,10 @@ locales/en/sign-in.json    // right — becomes sign-in.*
 
 Two sources define the same key: `locales/en.json` already has `mails` and
 `locales/en/mails.json` also exists, or two folder files reach the same
-prefix (`locales/en/mails.json`'s own `welcome` key and
-`locales/en/mails/welcome.json`). Keep the message in one place. See
-[Splitting catalogues](catalogues.md#splitting-catalogues).
+prefix (`locales/en/mails.json` and `locales/en/mails/welcome.json`, whether
+or not `welcome` also happens to be one of `mails.json`'s own keys). A file's
+own prefix is its alone — nothing else may add to it. Keep the message in one
+place. See [Splitting catalogues](catalogues.md#splitting-catalogues).
 
 ### `i18n: <dir>/<locale>/<file> is missing — <dir>/<fallback>/<file> exists`
 
@@ -294,6 +310,18 @@ for parity the way a key already was.
 
 A locale has a folder file the fallback locale does not. Add the same file
 to the fallback locale, or remove it here.
+
+### `i18n: <path> could not be loaded (<reason>)`
+
+The `messages` module itself failed to import — a syntax error, a missing
+import of its own, or a path that does not resolve. `<reason>` is the
+underlying error's message; the module is also the `cause`.
+
+### `i18n: <path>'s default export could not be run (<reason>)`
+
+The `messages` module's default export is a function, and calling it threw
+or its promise rejected. `<reason>` is the underlying error's message; it is
+also the `cause`.
 
 ### `i18n: <path> has no default export — export the resources object, or a function that returns it`
 

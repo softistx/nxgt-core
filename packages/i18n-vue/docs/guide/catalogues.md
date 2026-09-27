@@ -174,9 +174,10 @@ must have the same files, at the same paths, as the fallback locale: a file
 `en/mails.json` with no `fr/mails.json` **fails the build**, naming the
 locale and the file — the same parity a missing flat key already had.
 
-A key defined twice — the flat file and a folder file agreeing on the same
-prefix, or two folder files reaching the same key — **fails the build**,
-naming both files: pick one place to write it.
+A file's own prefix is its alone: the flat file and a folder file agreeing
+on the same prefix, or a second file reaching inside a first one's own
+prefix — even to add a sibling key the first file does not itself have —
+**fails the build**, naming both files: pick one place to write it.
 
 ```json
 // locales/en.json

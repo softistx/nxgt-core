@@ -159,7 +159,12 @@ function recordOwners(
  * Places `content` — a whole file's catalogue — at `segments` under `tree`,
  * creating the intermediate objects a folder path needs. **Throws**, naming
  * both origins, the moment `segments` reaches a key another source already
- * defined — the file's own prefix is its alone.
+ * defined, or descends into a path a file already placed whole — the file's
+ * own prefix is its alone: nothing else may add a sibling inside it, even
+ * where the exact leaf name does not itself collide. `sealed` is exactly the
+ * set of paths a file placed this way; a plain object an intermediate
+ * segment created, or one the flat file's own nesting contributed, stays
+ * open for another file to extend.
  */
 function place(
 	tree: Record<string, unknown>,
@@ -168,6 +173,7 @@ function place(
 	origin: string,
 	locale: string,
 	owners: Map<string, string>,
+	sealed: Set<string>,
 ): void {
 	let cursor = tree;
 	let path = '';
@@ -181,7 +187,7 @@ function place(
 			cursor[segment] = child;
 			owners.set(path, origin);
 			cursor = child;
-		} else if (isObject(existing)) {
+		} else if (isObject(existing) && !sealed.has(path)) {
 			cursor = existing as Record<string, unknown>;
 		} else {
 			throw collision(locale, path, owners.get(path), origin);
@@ -194,6 +200,7 @@ function place(
 	}
 	cursor[last] = content;
 	owners.set(finalPath, origin);
+	sealed.add(finalPath);
 }
 
 /**
@@ -280,6 +287,7 @@ export function readCatalogues(
 			);
 		}
 		const owners = new Map<string, string>();
+		const sealed = new Set<string>();
 		let tree: Record<string, unknown> = {};
 		if (flatExists) {
 			files.push(flatFile);
@@ -319,7 +327,15 @@ export function readCatalogues(
 				if (!isObject(parsed)) {
 					throw new Error(`i18n: ${name} must be an object of messages`);
 				}
-				place(tree, segments, parsed as Catalogue, name, locale, owners);
+				place(
+					tree,
+					segments,
+					parsed as Catalogue,
+					name,
+					locale,
+					owners,
+					sealed,
+				);
 				// Every key the file's own content defines, not only its root, so
 				// a later file's prefix reaching inside it is caught too.
 				recordOwners(parsed as Catalogue, segments.join('.'), name, owners);
@@ -344,29 +360,45 @@ export async function loadMessages(
 	locales: readonly string[],
 ): Promise<ReadCatalogues> {
 	const file = resolve(root, path);
-	const loaded: unknown = await import(pathToFileURL(file).href);
+	let loaded: unknown;
+	try {
+		loaded = await import(pathToFileURL(file).href);
+	} catch (cause) {
+		const reason = cause instanceof Error ? cause.message : String(cause);
+		throw new Error(`i18n: ${path} could not be loaded (${reason})`, {
+			cause,
+		});
+	}
 	if (!isObject(loaded) || !('default' in loaded)) {
 		throw new Error(
 			`i18n: ${path} has no default export — export the resources object, or a function that returns it`,
 		);
 	}
 	let resources = loaded.default;
-	if (typeof resources === 'function') resources = await resources();
+	if (typeof resources === 'function') {
+		try {
+			resources = await resources();
+		} catch (cause) {
+			const reason = cause instanceof Error ? cause.message : String(cause);
+			throw new Error(
+				`i18n: ${path}'s default export could not be run (${reason})`,
+				{ cause },
+			);
+		}
+	}
 	if (!isObject(resources) || !Object.values(resources).every(isObject)) {
 		throw new Error(
 			`i18n: ${path}'s default export must be a resources object ({ en: {...}, fr: {...} }) or a function that returns one`,
 		);
 	}
+	const catalogues: Record<string, Catalogue> = {};
 	for (const locale of locales) {
 		if (!Object.hasOwn(resources, locale)) {
 			throw new Error(`i18n: ${path} is missing the ${locale} locale`);
 		}
+		catalogues[locale] = resources[locale] as Catalogue;
 	}
-	return {
-		catalogues: resources as Record<string, Catalogue>,
-		files: [file],
-		folders: [],
-	};
+	return { catalogues, files: [file], folders: [] };
 }
 
 /**

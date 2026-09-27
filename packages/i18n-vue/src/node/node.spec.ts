@@ -262,7 +262,25 @@ describe('loadCatalogues', () => {
 		await expectThrowAsync(
 			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
 			Error,
-			'i18n: en: mails.welcome is defined by both locales/en/mails.json and locales/en/mails/welcome.json',
+			'i18n: en: mails is defined by both locales/en/mails.json and locales/en/mails/welcome.json',
+		);
+	});
+
+	test('throws on a second file reaching inside a first file, even without a matching leaf name', async () => {
+		// en/mails.json placed { welcome: 'Hi' } whole at `mails`: a sibling key
+		// from another file is still a collision, not a silent addition.
+		const root = project({
+			'locales/en.json': '{}',
+			'locales/fr.json': '{}',
+			'locales/en/mails.json': '{ "welcome": "Hi" }',
+			'locales/en/mails/subject.json': '{ "line1": "Hello" }',
+			'locales/fr/mails.json': '{ "welcome": "Salut" }',
+			'locales/fr/mails/subject.json': '{ "line1": "Bonjour" }',
+		});
+		await expectThrowAsync(
+			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
+			Error,
+			'i18n: en: mails is defined by both locales/en/mails.json and locales/en/mails/subject.json',
 		);
 	});
 
@@ -362,6 +380,42 @@ describe('loadMessages', () => {
 			() => loadMessages(root, 'i18n/incomplete.ts', ['en', 'fr']),
 			Error,
 			'i18n: i18n/incomplete.ts is missing the fr locale',
+		);
+	});
+
+	test('ignores a locale the resources object has that locales does not ask for', async () => {
+		const root = project({
+			'i18n/messages.ts': [
+				"export default { en: { a: 'A' }, fr: { a: 'A' }, de: { a: 'A' } };",
+			].join('\n'),
+		});
+		const loaded = await loadMessages(root, 'i18n/messages.ts', ['en', 'fr']);
+		expect(Object.keys(loaded.catalogues).sort()).toEqual(['en', 'fr']);
+		const full = await loadCatalogues(root, {
+			locales: ['en', 'fr'],
+			messages: 'i18n/messages.ts',
+		});
+		expect(Object.keys(full.catalogues).sort()).toEqual(['en', 'fr']);
+	});
+
+	test('names the module when it cannot be imported, or its function throws', async () => {
+		const root = project({
+			'i18n/broken.ts': 'export default {{{',
+			'i18n/throws.ts': [
+				"export default () => { throw new Error('nope'); };",
+			].join('\n'),
+		});
+		const brokenError = await loadMessages(root, 'i18n/broken.ts', [
+			'en',
+		]).catch((error: unknown) => error);
+		expect(brokenError).toBeInstanceOf(Error);
+		expect((brokenError as Error).message).toStartWith(
+			'i18n: i18n/broken.ts could not be loaded (',
+		);
+		await expectThrowAsync(
+			() => loadMessages(root, 'i18n/throws.ts', ['en']),
+			Error,
+			"i18n: i18n/throws.ts's default export could not be run (nope)",
 		);
 	});
 });

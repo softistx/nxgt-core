@@ -46,9 +46,10 @@ package: install Nuxt as you normally would.
 
 When Nuxt starts — `nuxt dev`, `nuxt build`, `nuxt prepare`:
 
-1. reads `locales/<locale>.json` from the project's root, merges any
-   `catalogues` under them, and **checks** them. A catalogue that cannot be
-   right fails the command, naming the locale and the key.
+1. reads `locales/<locale>.json` and `locales/<locale>/**/*.json` from the
+   project's root — or the resources object a `messages` module exports —
+   merges any `catalogues` under them, and **checks** them. A catalogue that
+   cannot be right fails the command, naming the locale and the key.
 2. adds a plugin that installs the i18n in every request and in the browser.
 3. writes `.nuxt/types/nxgt-i18n-vue.d.ts`, which types `t` in every
    template and `useI18n()` in every component ([Types](types.md)).
