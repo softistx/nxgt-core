@@ -37,10 +37,11 @@ biome ci                   # `bun run check` locally; holds the casing rule
 bun run changeset:private  # no changeset names a private or unknown package
 bun run build              # before typecheck: siblings resolve through dist/
 git diff --exit-code -- 'packages/*/src/generated'   # the committed generated code is current
+test -z "$(git status --porcelain -- 'packages/*/src/generated')"   # and none is left uncommitted
 bun run typecheck          # includes every test/types/ — the type-safety measurement
 bun run test               # per package, then `bun test scripts`
 bun run verify:artifacts   # loads every subpath; one JanusError, one StoreFailure
-bun run changeset:status   # skipped on changeset-release/develop
+bun run changeset:status   # pull requests only, not on changeset-release/develop
 ```
 
 CI also runs `janus-drizzle` over node-postgres, postgres.js and PGlite, and
@@ -49,7 +50,8 @@ Redis 7.0 and Valkey 7.2. A floor that fails there means the README is wrong;
 a change that makes it green by testing a newer version is a finding.
 
 You may run all of it; none of it publishes. Run the suites **one package
-at a time** — `(cd packages/<name> && bun test src)`. The Redis,
+at a time** — `(cd packages/<name> && bun run test)`, which is
+`bun test src` but for `janus-mail`'s `bun test src scripts`. The Redis,
 mongod and PostgreSQL suites start their own servers (Redis built once into
 `.cache/redis`, mongod from `.cache/mongodb`, PGlite in process unless
 `JANUS_POSTGRES_URL` points at a server), so no live stack is needed, but
@@ -103,8 +105,9 @@ running them in parallel races the caches.
   a type parameter's constraint, so an editor completes it; the specs
   `src/permissions/completions.*.spec.ts` measure that.
 - **No `any` in the public surface** — `noExplicitAny` stays on, as do
-  `noUncheckedIndexedAccess` and, in `packages/janus`,
-  `exactOptionalPropertyTypes`.
+  `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. `AGENTS.md`
+  names the last for `packages/janus`; every package's `tsconfig.json` sets
+  it — *observed*, and a package that drops it is a question.
 - **Two sides, each usable alone.** `.` never loads `src/permissions/`,
   `./permissions` never loads `src/auth/`; `src/entries.spec.ts` walks the
   runtime graph. Something both need goes in a shared directory
@@ -136,8 +139,9 @@ running them in parallel races the caches.
   `janus-mongo/src/{stores,relations}/`, `janus-telemetry/src/flows/`,
   `janus-webhooks/src/worker/`. `permissions/model/` and
   `permissions/resolve/` were split without an `index.ts` and are imported
-  by file. *Observed (the owner's rule for the split, and the agent's), not
-  stated in `AGENTS.md`.*
+  by file: they are in the known debt below, not a new finding each pass.
+  *Observed (the owner's rule for the split, and the agent's), not stated in
+  `AGENTS.md`.*
 - **A spec split by behaviour becomes siblings**,
   `<subject>.<behaviour>.spec.ts` beside the module it tests
   (`engine.keto.spec.ts`, `list.pagination.spec.ts`), each case keeping its
@@ -180,10 +184,14 @@ grows one is a finding.
   (`janus/src/permissions/reverse.ts:35`) 211 lines and `class Walk`
   (`janus/src/permissions/walk.ts:22`) 142 — each one traversal's state and
   its steps, no method over 80 (measured with TypeScript's parser).
+- Folders split without an `index.ts`: `janus/src/permissions/model/` and
+  `janus/src/permissions/resolve/`. Adding one is a move with no spec touched.
+- No spec under `packages/*/src` is over 250 (the longest,
+  `auth/sessions/index.spec.ts`, 229).
 - Outside the pathspecs: `scripts/verify-artifacts.ts` 554 lines, its
-  `main()` (`:331`) 220 — the skeleton copied from nxgt-data (446 lines
-  there), so a split lands in both copies or is recorded as a drift.
-- No spec file is over 250 (the longest, `auth/sessions/index.spec.ts`, 229).
+  `main()` (`:331`) 220, and `scripts/verify-artifacts.spec.ts` 255 — the
+  skeleton copied from nxgt-data (446 lines there), so a split lands in both
+  copies or is recorded as a drift.
 
 ## Deliberate — do not report
 
@@ -198,8 +206,11 @@ grows one is a finding.
   `janus-webhooks-redis` — byte-identical, and both CI jobs key their Redis
   cache on all three.
 - The Redis script runner and reply reader in `janus-redis/src/{stores,replies}.ts`
-  and `janus-webhooks-redis/src/{queue,replies}.ts`, with the differences the
-  table lists (message, `count` handling, `type`/`failure`).
+  and `janus-webhooks-redis/src/{queue,replies}.ts`, with every difference
+  the table in `AGENTS.md` lists — the failure's message, a `runner` with no
+  `slot`, a lazy `argsOf(operation)` for an eager `args`, the two `count`
+  readings, `type`/`failure` and `unreadable`. A difference it does not list
+  is drift.
 - `test/case.ts` in `janus-redis`, adapted in `janus-webhooks-redis`; both
   end with `redisPerFile()`.
 - The mongod helper in `janus-mongo/test/server.ts` and `janus-kit/test/mongo.ts`;
@@ -224,7 +235,11 @@ drift the table does not describe.
   `@nxgt/redis`, `@nxgt/mail`, `@nxgt/telemetry`), and the driver beneath it
   too; a caret on a `0.x` is a finding. The one sibling dependency is
   `@nxgt/janus-redis` inside `janus-kit`, which the application never
-  imports.
+  imports. The sibling peers, *observed in the manifests*:
+  `janus-webhooks-redis` peers `@nxgt/janus-webhooks` (required), and
+  `janus-kit` peers `@nxgt/janus-drizzle`, `@nxgt/janus-mongo` and
+  `@nxgt/janus-telemetry` (optional). Any other edge between siblings, or a
+  cycle, is a finding.
 - `./conformance` is product surface, not a test helper: a change to a suite
   is a change to the public contract.
 - `janus-mail`'s Maizzle, Vue, Tailwind and `@nxgt/mail-*` build packages are
@@ -235,8 +250,8 @@ drift the table does not describe.
   (CI installs frozen); a lock-only bump of an `@nxgt/*` devDependency gets an
   empty changeset.
 - `bunfig.toml` carries the token, never `.npmrc`. Every package MIT with
-  its own `LICENSE`, and `typescript` `^6.0.3` everywhere — *observed, not
-  stated in `AGENTS.md`*.
+  its own `LICENSE`, and `typescript` `^6.0.3` as a peer in every package (the
+  root pins `~6.0.3`) — *observed, not stated in `AGENTS.md`*.
 - A README is the npm page, with the six sections *Install*, *API*,
   *Traps*, *Documentation*, *Type safety, counted*, *Licence*, and the
   refusal count; the detail lives in the package's `docs/`, and the words
