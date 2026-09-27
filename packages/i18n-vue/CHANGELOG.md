@@ -1,5 +1,20 @@
 # @nxgt/i18n-vue
 
+## 0.1.2
+
+### Patch Changes
+
+- [#146](https://github.com/softistx/nxgt-core/pull/146) [`52705b9`](https://github.com/softistx/nxgt-core/commit/52705b9c04aa92d4ec4258ab66453353471c38bb) Thanks [@SteveGT96](https://github.com/SteveGT96)! - No longer requires installing `@nxgt/i18n`
+  
+  `Path` — the only thing this package ever imported from `@nxgt/i18n` — is now
+  carried here instead of imported, so `@nxgt/i18n` is gone from
+  `peerDependencies` and `devDependencies`. `CatalogueKey` behaves exactly the
+  same; nothing about the public surface changes.
+  
+  Installing `@nxgt/i18n-vue` no longer pulls in `@nxgt/i18n` and, through it,
+  `hono` — a difference a consumer that only wants the Vue layer, such as
+  `@nxgt/mail-i18n`, will notice in their install.
+
 ## 0.1.1
 
 ### Patch Changes
