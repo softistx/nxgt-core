@@ -40,7 +40,7 @@ git diff --exit-code -- 'packages/*/src/generated'   # the committed generated c
 test -z "$(git status --porcelain -- 'packages/*/src/generated')"   # and none is left uncommitted
 bun run typecheck          # includes every test/types/ — the type-safety measurement
 bun run test               # per package, then `bun test scripts`
-bun run verify:artifacts   # loads every subpath; one JanusError, one StoreFailure
+bun run verify:artifacts   # loads every subpath; one JanusError, one StoreFailure; no test code shipped
 bun run changeset:status   # pull requests only, not on changeset-release/develop
 ```
 
@@ -158,6 +158,13 @@ running them in parallel races the caches.
   `**/*.spec.ts`, so no fixture ships, and `verify:artifacts` does not count
   one as a build input. A new package without the exclude is a finding;
   `grep -L 'fixtures' packages/*/tsconfig.build.json` answers nothing.
+  `verify:artifacts` measures it too: a packed tarball holding a `*.spec.*`,
+  a `*.test.*`, a snapshot or a `<subject>.fixtures.*` fails as
+  `<package>: the tarball ships test code: dist/x.fixtures.d.ts`. The
+  pattern is `TEST_CODE` in `scripts/artifacts/tarball.ts`, the same files as
+  sources are `NOT_A_BUILD_INPUT` in `scripts/artifacts/stale.ts`: a new
+  kind of test file added to one and not the other is a finding — the
+  pairing *observed in their doc comments, not stated in `AGENTS.md`*.
 - **A fixture that ships is a plain `fixtures.ts`**, with no dotted prefix
   (`janus/src/conformance/fixtures.ts`, `conformance/relations/fixtures.ts`,
   `janus-webhooks/src/conformance/fixtures.ts`). A `*.fixtures.ts` imported
@@ -169,14 +176,16 @@ running them in parallel races the caches.
   the cases runs across the folder. `test/types/refusals.ts` stays the
   top-level list.
 
-**Known debt to split** (measured on `develop` at `0efa4ac`, 2026-09-27,
-after the split) — each stays in the tally until it is gone, and a diff that
+**Known debt to split** (measured on `develop` at `1cc6934`, 2026-09-27,
+after 0.9.0) — each stays in the tally until it is gone, and a diff that
 grows one is a finding.
 
 - Files over 250: **none** under `packages/*/src`. Closest to the line:
   `janus-redis/src/scripts.ts` 249, `janus/src/permissions/list.fixtures.ts`
   247, `janus/src/permissions/reverse.ts` 245, `janus-mail/src/options.ts`
-  234 — a diff that pushes one over is the finding.
+  236, `janus-mail/src/types.ts` 234,
+  `janus/src/auth/second-factor/lifecycle.ts` 231 (192 before the second
+  factor's events, #125) — a diff that pushes one over is the finding.
 - Functions over 80, by the agent's `awk`: **none**. Longest:
   `confirmChallenge` (`janus/src/auth/second-factor/challenge.ts:64`) 71,
   `memorySessionStore` (`janus/src/auth/port/memory/sessions.ts:11`) 71.
@@ -188,10 +197,11 @@ grows one is a finding.
   `janus/src/permissions/resolve/`. Adding one is a move with no spec touched.
 - No spec under `packages/*/src` is over 250 (the longest,
   `auth/sessions/index.spec.ts`, 229).
-- Outside the pathspecs: `scripts/verify-artifacts.ts` 554 lines (446 in
-  nxgt-data), its `main()` (`:331`) 220, and `scripts/verify-artifacts.spec.ts`
-  255 — the skeleton copied from nxgt-data, so a split lands in both
-  copies or is recorded as a drift.
+- Outside the pathspecs: **none**. `scripts/verify-artifacts.ts` is 90 lines
+  since #124 split it into `scripts/artifacts/` (the longest,
+  `manifest.ts`, 136); the longest file under `scripts/` is
+  `check-nxgt-versions.spec.ts`, 221, the longest function `publish.ts:112`,
+  65, and `janus-mail/scripts/build-mail.ts` is 148.
 
 ## Deliberate — do not report
 
@@ -201,7 +211,12 @@ grows one is a finding.
 - `null` rather than `undefined`, Standard Schema rather than Zod, a
   redefined `CursorPage`/`pageLimit` and `Clock`/`fixedClock` (`fixedClock`
   shipped, not test-only).
-- The skeleton copied from nxgt-data (the fourth copy).
+- The skeleton copied from nxgt-data (the fourth copy), but for
+  `scripts/artifacts/`: this copy of `verify-artifacts.ts` is split there,
+  a divergence `AGENTS.md` declares beside the skeleton rule and in its
+  duplication table. nxgt-data's copy is still one file; the test-code check
+  is the part to carry back, so a fix to a check in one copy and not the
+  other is still reported.
 - The Redis `test/server.ts` in `janus-redis`, `janus-kit` and
   `janus-webhooks-redis` — byte-identical, and both CI jobs key their Redis
   cache on all three.
@@ -243,6 +258,21 @@ drift the table does not describe.
   a finding, since `AGENTS.md` forbids factoring across packages.
 - `./conformance` is product surface, not a test helper: a change to a suite
   is a change to the public contract.
+- **A new `UserEvent` touches `janus-webhooks` and `janus-webhooks-redis`,
+  with an upgrade-order note.** Their lists of event types
+  (`janus-webhooks/src/event-types.ts`, `janus-webhooks-redis/src/replies.ts`)
+  are held to `UserEventType` by `satisfies Record<UserEventType, true>`, so
+  a type added in `@nxgt/janus` fails their build until it is listed, as
+  `user.secondFactorEnabled` and `user.secondFactorDisabled` did in #125. The
+  same change lists it in both, round-trips it in the queue conformance case
+  (`janus-webhooks/src/conformance/cases/queue.ts`), carries a minor
+  changeset for `@nxgt/janus`, `janus-webhooks` and `janus-webhooks-redis`
+  together (the peers are `workspace:^`, so their ranges move with it), and
+  says in both READMEs how to upgrade: the receiver before the sender, and
+  the new types held back from an endpoint until every process sharing the
+  queue is upgraded. A new event type without the note, or a list widened to
+  `string` to dodge the `satisfies`, is a finding — *observed in the READMEs
+  and #125, not stated in `AGENTS.md`*.
 - `janus-mail`'s Maizzle, Vue, Tailwind and `@nxgt/mail-*` build packages are
   devDependencies, Maizzle pinned exact and direct; no `postinstall`. What a
   build writes outside `dist/` goes beside it (`packages/janus-mail/mails/`),
@@ -259,5 +289,6 @@ drift the table does not describe.
   follow `packages/janus/docs/guide/vocabulary.md`.
 - Commits are `<type>(<package>): <Capitalized summary>`, the scope a
   package's directory name, no scope for the repository; the types are
-  `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci` (and `revert`,
-  once). Pull requests merge with a merge commit, never squashed or rebased.
+  `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `build` (build
+  configuration: tsconfig, bundler, packaging), and `revert`, once. Pull
+  requests merge with a merge commit, never squashed or rebased.
