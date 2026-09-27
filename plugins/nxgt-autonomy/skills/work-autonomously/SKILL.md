@@ -84,10 +84,13 @@ Per item, in this order, and nothing skipped:
    default branch. **Merges and releases follow the repository's `AGENTS.md`**
    (who may merge, merge commits or squash, when a Version PR lands); where it
    is silent, open the PR and ask.
-7. **Cross the item off the queue with the PR number.** When the item comes
+7. **Cross the item off the queue with the PR number**, keeping its slice
+   marker (`slice k of n`, `last slice`) when it has one. When the item comes
    from a roadmap entry, `roadmap-keeper` moves that entry to **Shipped**, with
    its version, **in the PR whose changeset completes the entry** — never on
-   the changeset of one slice of it (see `plan-the-roadmap`, steps 6 and 8).
+   the changeset of one slice of it: a `slice k of n` item leaves the entry
+   under **Now**, a `last slice` item moves it (see `plan-the-roadmap`,
+   steps 5, 6 and 8).
 
 A PR that cannot merge (a blocked check, a permission the owner must grant) moves
 to **Blocked on the user** with the exact blocker — it does not stay in flight

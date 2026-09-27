@@ -126,6 +126,13 @@ first: one line with the repository, the package, the roadmap entry's bold
 name, the decisions the owner took, and the first step. Remove it from
 *Proposed, not approved* if it was there.
 
+**A sliced entry** — one the plan splits over several PRs — gets one queue
+item per slice, each carrying a marker: `slice k of n` for every slice but
+the last, and `last slice` for the one whose changeset completes the entry.
+The marker is what tells `roadmap-keeper` whether a changeset promotes the
+entry to **Shipped**, and what the auditor reads to tell an entry in step from
+one left behind.
+
 **When `nxgt-crew` is enabled**, run `/crew align` again — the other sessions
 may have moved while the owner answered — then record each queued entry, so
 other sessions read it as taken:
@@ -147,10 +154,17 @@ other sessions stop reading it as taken:
 /crew announce --kind plan --entry "<bold name>" --scope <repo|package> --drop
 ```
 
-Remove its queue item too. When the owner let it go, have `roadmap-keeper`
-move the entry back to **Next** or **Later**, or to **Not planned** with his
-reason. When another session took it, leave the roadmap to that session.
-Without `nxgt-crew`, skip the announcement.
+with the same entry and scope it was announced with. Then the queue:
+
+- **Before its branch is cut**, remove the queue item.
+- **After its branch is cut**, close its PR, delete the branch, and move the
+  item under *Done* as `withdrawn — <reason>` rather than deleting it, so the
+  branch and the PR number stay traceable.
+
+When the owner let it go, have `roadmap-keeper` move the entry back to
+**Next** or **Later**, or to **Not planned** with his reason. When another
+session took it, leave the roadmap to that session. Without `nxgt-crew`, skip
+the announcement.
 
 ### 6. Execute
 
@@ -162,8 +176,11 @@ docs, merged per the repository's `AGENTS.md`. When the item's branch is cut,
 
 - **`green-bar-verifier`** on what landed;
 - **`work-queue-auditor`** to reconcile the queue — including the roadmap
-  against it (an entry under **Now** with no item in flight, or an item in
-  flight whose entry is still under **Next**).
+  against it. An entry under **Now** is in step while an item in flight names
+  it, or while a *Done* item names it as `slice k of n` **and the next slice
+  is queued**. An entry under **Now** whose `last slice` is done is the other
+  finding: it belonged under **Shipped** in that PR. An item in flight whose
+  entry is still under **Next** skipped the move to **Now**.
 
 ### 8. Ship
 
@@ -182,6 +199,11 @@ grep -n '^## ' packages/*/docs/roadmap.md                # every roadmap has its
 grep -c '^- \[ \]' <queue>                                # approved and not done
 ```
 
-An entry under **Now** with no queue item in flight, or a queue item naming an
-entry that is still under **Next**, is a cycle that skipped a step —
-`work-queue-auditor` reports it; fix whichever side is wrong.
+A cycle that skipped a step shows as one of three things, and
+`work-queue-auditor` reports each; fix whichever side is wrong:
+
+- an entry under **Now** with no item in flight naming it, and no *Done*
+  `slice k of n` whose next slice is queued;
+- an entry under **Now** whose `last slice` is under *Done* — it belonged
+  under **Shipped**;
+- a queue item naming an entry that is still under **Next**.
