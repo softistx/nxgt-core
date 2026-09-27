@@ -139,6 +139,19 @@ release the entry waits on, and is left out when there is none. **Record only
 after the owner has accepted** — an announcement made before his answer is a
 claim nobody approved. Without `nxgt-crew`, skip this.
 
+**When an accepted entry is let go** — the owner drops or defers it later, or
+it goes to another session after an alignment — withdraw its announcement, so
+other sessions stop reading it as taken:
+
+```bash
+/crew announce --kind plan --entry "<bold name>" --scope <repo|package> --drop
+```
+
+Remove its queue item too. When the owner let it go, have `roadmap-keeper`
+move the entry back to **Next** or **Later**, or to **Not planned** with his
+reason. When another session took it, leave the roadmap to that session.
+Without `nxgt-crew`, skip the announcement.
+
 ### 6. Execute
 
 `work-autonomously` takes each queue item: one branch, one PR, review then
