@@ -444,8 +444,9 @@ for (const { subpath, file } of entries) {
 			}));
 		},
 	};
+	let buildError = null;
 	try {
-		await Bun.build({
+		const result = await Bun.build({
 			entrypoints: [file],
 			conditions: ['browser', 'import'],
 			target: 'browser',
@@ -453,13 +454,22 @@ for (const { subpath, file } of entries) {
 			plugins: [guard],
 			write: false,
 		});
+		if (!result.success) {
+			buildError = result.logs.map(String).join('; ');
+		}
 	} catch (e) {
 		// A resolve hit is recorded before the stubbed module can fail to
-		// build against it, so a throw here changes nothing below.
+		// build against it, so this still reports the hit below — but a
+		// throw for any OTHER reason must fail too, or a broken browser
+		// subpath silently reports "ok".
+		buildError = e && e.message ? e.message : String(e);
 	}
 	if (hits.size > 0) {
 		failed++;
 		console.log("  FAIL    " + subpath.padEnd(40) + "reaches " + [...hits].join(', '));
+	} else if (buildError) {
+		failed++;
+		console.log("  FAIL    " + subpath.padEnd(40) + buildError.split("\\n")[0]);
 	} else {
 		console.log("  ok      " + subpath.padEnd(40));
 	}
