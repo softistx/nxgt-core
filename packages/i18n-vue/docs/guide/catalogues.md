@@ -134,6 +134,102 @@ createI18n({ catalogues: layerCatalogues([uiCatalogues], { en, fr }) });
 The Nuxt module merges them itself: pass `catalogues` in `nxgtI18n` and
 nothing else.
 
+## Splitting catalogues
+
+`locales/<locale>.json` does not have to hold every message. Under `dir`
+(default `locales`), a file at `<dir>/<locale>/**/*.json` is read too, and its
+**path is a key prefix**: the folder names and the file's own basename, each a
+key segment, dotted.
+
+```text
+locales/
+  en.json               # the keys it always had
+  en/
+    mails.json           # mails.*
+    auth/
+      sign-in.json        # auth.sign-in.*
+```
+
+```json
+// locales/en/mails.json
+{ "welcome": { "subject": "Welcome to the app" } }
+```
+
+is exactly
+
+```json
+// as if locales/en.json held it
+{ "mails": { "welcome": { "subject": "Welcome to the app" } } }
+```
+
+The file's own content is nested under the prefix as written — kebab-case or
+camelCase keys inside it work exactly as in the flat file. A segment of the
+path (a folder name or the file's basename) is a key segment too, so it must
+be camelCase or kebab-case as well: `en/sign_in.json` is refused, naming the
+file.
+
+Only files: `dir` still names one folder, read both ways, for the Vite
+plugin and the Nuxt module alike — nothing else to configure. Every locale
+must have the same files, at the same paths, as the fallback locale: a file
+`en/mails.json` with no `fr/mails.json` **fails the build**, naming the
+locale and the file — the same parity a missing flat key already had.
+
+A file's own prefix is its alone — the flat file's included: whichever file
+first declares an object at a key, that key stays that file's, and no other
+file may add to it, even a sibling the first file does not itself have.
+**Fails the build**, naming both files: pick one place to write it.
+
+```json
+// locales/en.json
+{ "mails": { "subject": "…" } }
+```
+```json
+// locales/en/mails.json — refused: mails is locales/en.json's already
+{ "title": "…" }
+```
+```json
+// locales/en/mails/subject.json — refused too: mails is locales/en.json's,
+// down to every key nested under it
+{ "line1": "…" }
+```
+
+## Messages from a module
+
+Instead of `dir`, `messages` names a module — a path from the project's
+root — whose default export is the resources object (`{ en: {...}, fr: {...}
+}`), or a function that returns one:
+
+```ts
+// i18n/messages.ts
+import en from './locales/en.json';
+import fr from './locales/fr.json';
+
+export default { en, fr };
+```
+
+```ts
+// vite.config.ts
+i18nTypes({ locales: ['en', 'fr'], messages: './i18n/messages.ts' });
+```
+
+Import the **same** module in the app, so `createI18n` runs on exactly what
+the types were written from:
+
+```ts
+// main.ts
+import messages from '../i18n/messages';
+
+createI18n({ catalogues: messages });
+```
+
+`messages` is loaded with a plain dynamic `import()` — it must be something
+your runtime can run directly: a built `.js`/`.mjs` file always works, and so
+does `.ts` under Bun or a Node build with native TypeScript support. Neither
+Vite nor Nuxt transforms it first, unlike a `dir` catalogue's JSON. Only the
+module's own file is watched in `vite dev`; a JSON file it imports does not
+trigger a rebuild on its own — put that file directly under `dir` if you want
+that, or save the module again once it settles.
+
 ## Differences from `@nxgt/i18n`
 
 `@nxgt/i18n`'s own catalogues are nested the same way, kebab-case

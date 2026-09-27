@@ -20,6 +20,9 @@ server and hydrates from the payload.
 
 - **Formats shared by every message** — named number, date and time formats
   declared once, as `intl-messageformat` allows.
+- **Watching what a `messages` module imports**, not only its own file — so
+  editing a JSON file it reads triggers `vite dev`'s regeneration the way a
+  `dir` catalogue's file already does.
 
 ## Not planned
 
@@ -38,3 +41,8 @@ server and hydrates from the payload.
   written `sign-in` or `signIn`, either one, and `t()` finds the message
   whichever spelling the call uses. `@nxgt/i18n`'s own catalogues, kebab-case
   from the start, can now be checked and layered here as they are.
+- **Splitting a catalogue across files, or generating it in code** —
+  `locales/<locale>/**/*.json`, a file's path a key prefix, alongside the
+  flat `locales/<locale>.json`; or a `messages` module the resources object
+  comes from instead, shared by the app and the type generator. The shared
+  loader is `@nxgt/i18n-vue/node`, for a build that is neither Vite nor Nuxt.

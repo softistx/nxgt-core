@@ -10,6 +10,7 @@ export {
 	type Catalogue,
 	type Catalogues,
 	checkCatalogues,
+	isKeySegment,
 	layerCatalogues,
 	type Message,
 	type Messages,

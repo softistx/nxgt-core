@@ -96,15 +96,16 @@ describe('a Nuxt app built with the module', () => {
 		expect(buildLog).not.toContain('Could not resolve');
 	});
 
-	test('writes the types of t under .nuxt/, from the catalogues', () => {
+	test('writes the types of t under .nuxt/, from the catalogues, folder layout included', () => {
 		const types = join(
 			app,
 			'node_modules/.cache/nuxt/.nuxt/types/nxgt-i18n-vue.d.ts',
 		);
 		expect(existsSync(types)).toBe(true);
-		expect(readFileSync(types, 'utf8')).toContain(
-			"\t\t'home.greeting': { name: string | number };",
-		);
+		const source = readFileSync(types, 'utf8');
+		expect(source).toContain("\t\t'home.greeting': { name: string | number };");
+		// locales/en/extra.json: the file's path is a key prefix.
+		expect(source).toContain("\t\t'extra.title': { };");
 	});
 
 	test('renders on the server in the locale Accept-Language asks for', async () => {

@@ -46,16 +46,18 @@ package: install Nuxt as you normally would.
 
 When Nuxt starts — `nuxt dev`, `nuxt build`, `nuxt prepare`:
 
-1. reads `locales/<locale>.json` from the project's root, merges any
-   `catalogues` under them, and **checks** them. A catalogue that cannot be
-   right fails the command, naming the locale and the key.
+1. reads `locales/<locale>.json` and `locales/<locale>/**/*.json` from the
+   project's root — or the resources object a `messages` module exports —
+   merges any `catalogues` under them, and **checks** them. A catalogue that
+   cannot be right fails the command, naming the locale and the key.
 2. adds a plugin that installs the i18n in every request and in the browser.
 3. writes `.nuxt/types/nxgt-i18n-vue.d.ts`, which types `t` in every
    template and `useI18n()` in every component ([Types](types.md)).
 4. auto-imports `useI18n`.
 
-In `nuxt dev`, a change to a `<locale>.json` restarts Nuxt, which reads and
-checks the catalogues again.
+In `nuxt dev`, a change to a file the module read restarts Nuxt, which reads
+and checks the catalogues again — every `<locale>.json` and, with `dir`,
+every `<locale>/**/*.json` too, whether it changed or is new.
 
 ## Options
 
@@ -65,9 +67,13 @@ Under `nxgtI18n`:
 | --- | --- | --- | --- |
 | `locales` | `readonly string[]` | — (required) | Every locale, as BCP 47 tags |
 | `fallbackLocale` | `string` | the first locale | The reference catalogue, and the answer when nothing matches |
-| `dir` | `string` | `'locales'` | The folder of `<locale>.json`, from the project's root (`rootDir`, not `app/`) |
+| `dir` | `string` | `'locales'` | The folder of `<locale>.json`, from the project's root (`rootDir`, not `app/`) — and of `<locale>/**/*.json`, a folder file's path a key prefix. Not with `messages` |
+| `messages` | `string` | — | A module whose default export is the resources object, or a function that returns it — instead of `dir`. Not with `dir` |
 | `catalogues` | `readonly Catalogues[]` | `[]` | Catalogues a package ships, merged under yours key by key |
 | `cookie` | `string` | `'language'` | The cookie that stores a chosen locale |
+
+See [Splitting catalogues](catalogues.md#splitting-catalogues) for the folder
+layout and `messages`.
 
 A wrong option is a `TypeError` starting `nxgtI18n:` when Nuxt starts.
 

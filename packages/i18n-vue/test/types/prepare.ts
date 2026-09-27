@@ -9,7 +9,7 @@ import { loadCatalogues, typesSource, writeTypes } from '../../src/vite';
 
 const root = import.meta.dir;
 const out = 'generated/i18n.d.ts';
-const loaded = loadCatalogues(root, { locales: ['en', 'fr'] });
+const loaded = await loadCatalogues(root, { locales: ['en', 'fr'] });
 writeTypes(
 	join(root, out),
 	out,

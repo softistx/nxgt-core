@@ -50,6 +50,16 @@ const ARGUMENT_NAME = /^[a-z][a-zA-Z0-9]*$/;
  */
 const KEY_SEGMENT = /^[a-z][a-zA-Z0-9]*$|^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
 
+/**
+ * Whether `segment` is a valid key segment — camelCase or kebab-case, the
+ * same rule `flatten` checks a catalogue's own keys with. The Node loader
+ * reuses it for a folder or a file name segment, since a file path under
+ * `locales/<locale>/` is a key prefix.
+ */
+export function isKeySegment(segment: string): boolean {
+	return KEY_SEGMENT.test(segment);
+}
+
 /** `over` merged into `under` key by key: an object is merged, anything else replaces. */
 function mergeCatalogue(under: Catalogue, over: Catalogue): Catalogue {
 	const out: Record<string, string | Catalogue> = { ...under };

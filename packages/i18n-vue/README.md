@@ -58,7 +58,8 @@ Peers:
 | --- | --- | --- |
 | `@nxgt/i18n-vue` | `createI18n`, `useI18n`, and everything of `/core` | browser, server |
 | `@nxgt/i18n-vue/core` | Catalogue checks, `createTranslator`, `pickLocale`, `parseAcceptLanguage`, `detectLocale`, the types — no `vue` import | anywhere |
-| `@nxgt/i18n-vue/vite` | `i18nTypes()`, the Vite plugin that checks the catalogues and writes the types; the loaders and the generator it is made of | Node, at build |
+| `@nxgt/i18n-vue/node` | `loadCatalogues`, the shared loader — `dir` (files, folder layout included) or `messages` (a module) — for a build that is neither Vite nor Nuxt | Node, at build |
+| `@nxgt/i18n-vue/vite` | `i18nTypes()`, the Vite plugin that checks the catalogues and writes the types; re-exports `/node` and the generator it is made of | Node, at build |
 | `@nxgt/i18n-vue/nuxt` | The Nuxt module | Node, at build |
 | `@nxgt/i18n-vue/nuxt/runtime` | `setupNuxtI18n`, what the module's plugin runs | browser, server |
 
@@ -187,11 +188,16 @@ and writes `src/generated/i18n.d.ts`. A catalogue that cannot be right
 | --- | --- | --- |
 | `locales` | — (required) | Every locale, as BCP 47 tags |
 | `fallbackLocale` | the first locale | The reference catalogue, and the one the types are written from |
-| `dir` | `'locales'` | The folder of `<locale>.json`, from Vite's `root` |
+| `dir` | `'locales'` | The folder of `<locale>.json`, from Vite's `root` — and of `<locale>/**/*.json`, a folder file's path a key prefix. Not with `messages` |
+| `messages` | — | A module whose default export is the resources object, or a function that returns it — instead of `dir`. Not with `dir` |
 | `catalogues` | `[]` | Catalogues a package ships, merged **under** yours key by key — pass the same to `layerCatalogues` at run time |
 | `out` | `'src/generated/i18n.d.ts'` | The file written. A file there that the plugin did not write is never replaced: that throws |
 
-See [Types](docs/guide/types.md).
+Splitting `locales/<locale>.json` into `locales/<locale>/*.json` — one file
+per feature, say — needs nothing but the files: `locales/en/mails.json` is
+`mails.*`, `locales/en/auth/sign-in.json` is `auth.sign-in.*`. See
+[Splitting catalogues](docs/guide/catalogues.md#splitting-catalogues) and
+[Types](docs/guide/types.md).
 
 ## Nuxt
 
@@ -227,9 +233,10 @@ and auto-imports `useI18n`. On each request the locale is:
 It travels in the payload, so the browser hydrates in the same locale, and it
 sets `<html lang>`. `setLocale` writes the cookie, so the next page is
 rendered in the new locale; a locale only guessed from `Accept-Language`
-never sets one. Options: `locales`, `fallbackLocale`, `dir` and `catalogues`
-as for Vite, and `cookie` (default `'language'`). A change to a catalogue
-restarts `nuxt dev`. See [Nuxt](docs/guide/nuxt.md).
+never sets one. Options: `locales`, `fallbackLocale`, `dir` (folder layout
+included) or `messages`, and `catalogues` as for Vite, and `cookie` (default
+`'language'`). A change to a file the module read restarts `nuxt dev`. See
+[Nuxt](docs/guide/nuxt.md).
 
 ## Outside Vue
 
@@ -261,7 +268,8 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 | `createFormatter`, `Formatter`, `lookup` | The ICU formatting `t` uses, with its cache; a message by dotted key, or `null` |
 | `Catalogue`, `Catalogues`, `ArgumentKind`, `Message`, `Messages`, `MessageArgs` | A catalogue as written, catalogues by locale, and a checked message |
 | `I18nMessages`, `I18nLocales`, `MessageKey`, `Locale`, `MessageArgsOf`, `KeyOf`, `ArgsOf`, `CatalogueKey` | The types the generated file fills, and the ones built on them |
-| `/vite`: `i18nTypes`, `I18nTypesOptions`, `TYPES_FILE`, `loadCatalogues`, `readCatalogues`, `checkCatalogueSource`, `CatalogueSource`, `LoadedCatalogues`, `typesSource`, `TypesSourceOptions`, `writeTypes`, `writeIfChanged` | The Vite plugin, and the pieces for another build |
+| `/node`: `loadCatalogues`, `loadMessages`, `readCatalogues`, `ReadCatalogues`, `checkCatalogueSource`, `CatalogueSource`, `LoadedCatalogues`, `typesSource`, `TypesSourceOptions`, `writeTypes`, `writeIfChanged` | The shared loader, Node-only, for a build that is neither Vite nor Nuxt |
+| `/vite`: everything of `/node`, plus `i18nTypes`, `I18nTypesOptions`, `TYPES_FILE` | The Vite plugin |
 | `/nuxt`: default, `ModuleOptions`, `checkModuleOptions`, `pluginSource`, `PluginSourceOptions`, `STATE_KEY`, `TYPES_TEMPLATE`, `PLUGIN_TEMPLATE` | The Nuxt module |
 | `/nuxt/runtime`: `setupNuxtI18n`, `NuxtI18nContext`, `STATE_KEY` | What the module's plugin runs |
 
@@ -285,7 +293,7 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
   `{ en, fr }` wrapped anew is the same set — so treat them as immutable.
 - **Any component with its own `t`** (a prop, a `setup` binding) hides the
   global one in its template — which is how `const { t } = useI18n()` works.
-- **What the types refuse is measured**: 20 cases in TypeScript, 7 in a
+- **What the types refuse is measured**: 21 cases in TypeScript, 7 in a
   template and 3 under Nuxt, each failing the typecheck the day it stops
   being refused. See [Types](docs/guide/types.md#type-safety-is-measured).
 

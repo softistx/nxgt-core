@@ -24,6 +24,11 @@
 			"import": "./dist/core/index.js",
 			"default": "./dist/core/index.js"
 		},
+		"./node": {
+			"types": "./dist/node/index.d.ts",
+			"import": "./dist/node/index.js",
+			"default": "./dist/node/index.js"
+		},
 		"./vite": {
 			"types": "./dist/vite/index.d.ts",
 			"import": "./dist/vite/index.js",
@@ -69,6 +74,7 @@
 		"entrypoints": [
 			"src/index.ts",
 			"src/core/index.ts",
+			"src/node/index.ts",
 			"src/vite/index.ts",
 			"src/nuxt/index.ts",
 			"src/nuxt/runtime/index.ts"
