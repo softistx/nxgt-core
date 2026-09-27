@@ -149,6 +149,16 @@ subpaths from the manifests, so it cannot go stale against them, and it is
 already wired into `changeset:publish`, which runs
 `build && verify:artifacts && publish.ts`. A release cannot skip it.
 
+`scripts/verify-artifacts.ts` only runs the stages in order and stops at the
+first that fails; each lives in `scripts/artifacts/`, one module per
+responsibility, with a spec beside each pure one: `packages.ts` reads the
+workspace, `tarball.ts` a tarball's entries, `manifest.ts` its dependency
+fields, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
+`browser.ts` (the `browser` condition, which only this repository has) and
+`classes.ts`. The split follows nxgt-janus's copy module for module, as
+nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
+port to the others.
+
 This is also the only check that exercises `files`, `exports` and the
 `workspace:*` -> version rewrite that `bun pm pack` performs.
 
@@ -588,12 +598,15 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **396 pass, 9 skip, 0 fail** in CI on 2026-09-27 (the 9 are
-`shared-storage`'s S3 suites; `i18n-vue`'s 83 include a real `nuxt build`).
-Treat any failure as yours.
+`bun run test` is **450 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
+packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
+real `nuxt build`), then 16 in `scripts/`. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
-`bun test` for the whole workspace. Running them together produced 6 failures
+`bun test` for the whole workspace — followed by `bun test ./scripts/`, the
+repository scripts' own specs, which no package's run reaches. The `./` and
+the trailing slash matter: a bare `bun test scripts` is a substring filter,
+and it also runs every plugin spec under a `scripts/` folder. Running them together produced 6 failures
 and 3 errors, and not one of them belonged to the test that reported it:
 
 | symptom | actual cause |
