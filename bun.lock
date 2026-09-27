@@ -52,7 +52,6 @@
       },
       "devDependencies": {
         "@nuxt/kit": "4.5.2",
-        "@nxgt/i18n": "workspace:^",
         "@types/bun": "^1.4.0",
         "nuxt": "4.5.2",
         "vue": "3.5.43",
@@ -60,7 +59,6 @@
       },
       "peerDependencies": {
         "@nuxt/kit": "^4.0.0",
-        "@nxgt/i18n": "workspace:^",
         "nuxt": "^4.0.0",
         "typescript": "^6.0.3",
         "vite": ">=5.0.0",

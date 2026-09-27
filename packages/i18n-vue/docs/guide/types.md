@@ -126,7 +126,9 @@ checks them when it runs.
 ## Without generated types
 
 `createTranslator` can take its keys from the catalogue's own type, with
-`CatalogueKey`, built on `@nxgt/i18n`'s `Path`. That types the keys, not
+`CatalogueKey`, built on a `Path` utility this package carries itself — the
+one thing it ever took from `@nxgt/i18n`, inlined so installing
+`@nxgt/i18n-vue` never requires `@nxgt/i18n` too. That types the keys, not
 the arguments:
 
 ```ts

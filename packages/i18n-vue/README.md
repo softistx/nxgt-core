@@ -40,15 +40,12 @@ createApp(App).use(i18n).mount('#app');
 ## Install
 
 ```sh
-bun add @nxgt/i18n-vue @nxgt/i18n vue
+bun add @nxgt/i18n-vue vue
 ```
 
 Peers:
 
-- `vue` (`^3.5`) and `@nxgt/i18n`, required. `@nxgt/i18n` gives the
-  conventions and `Path`, which `CatalogueKey` is built on; nothing of its
-  runtime is imported, so its server-only dependencies never reach a browser
-  bundle.
+- `vue` (`^3.5`), required.
 - `typescript` (6), required — `^6.0.3`, as every `@nxgt/*` package. Bundler
   resolution (`"moduleResolution": "bundler"`) is what is supported and tested.
 - `vite` (`>=5`), optional — for `@nxgt/i18n-vue/vite`.

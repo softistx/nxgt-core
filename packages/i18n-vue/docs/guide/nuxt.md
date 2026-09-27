@@ -4,7 +4,7 @@ How the Nuxt module installs the i18n, resolves the locale on the server, and
 types `t`.
 
 ```sh
-bun add @nxgt/i18n-vue @nxgt/i18n
+bun add @nxgt/i18n-vue
 ```
 
 ```ts
