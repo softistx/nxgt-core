@@ -66,8 +66,9 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID
 
 A plan is keyed by its scope and its entry, case and markdown ignored — the
 same title in two packages is two plans. Each session keeps its latest ten
-plans (tombstones included) on top of its twenty other announcements, and
-its latest `working` and releases are never crowded out.
+live plans, and apart from them its latest five tombstones, so withdrawals
+never evict a plan that still stands. Both come on top of its twenty other
+announcements, and its latest `working` and releases are never crowded out.
 
 **`align`** — the alignment pass across sessions: every live session's
 `docs/roadmap.md` (root and `packages/*/`) and announced plans, the same entry

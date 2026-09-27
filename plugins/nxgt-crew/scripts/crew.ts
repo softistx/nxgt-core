@@ -57,6 +57,9 @@ const take = (flag: string): string | undefined => {
 	const i = argv.indexOf(flag);
 	if (i === -1) return undefined;
 	const value = argv[i + 1];
+	if (value === undefined || value.startsWith('--')) {
+		fail(`${flag} needs a value`);
+	}
 	argv.splice(i, 2);
 	return value;
 };

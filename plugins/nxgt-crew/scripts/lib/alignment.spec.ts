@@ -2,9 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { align, proposeOwner } from './alignment';
 import { janus, janusRoadmap, mail, plan } from './alignment.fixtures';
 import { announce } from './announcements';
-import { minutesAgo, NOW, record } from './fixtures';
-import { plansOf } from './plans';
-import type { Announcement } from './record';
+import { minutesAgo, NOW } from './fixtures';
 import { entryKey, parseRoadmap, type SessionView } from './roadmap';
 
 describe('align', () => {
@@ -77,6 +75,20 @@ describe('align', () => {
 			{ record: dropped, roadmaps: [] },
 		];
 		expect(align(views).duplicates).toEqual([]);
+	});
+
+	test('a session planning an entry in two scopes still meets a peer in one', () => {
+		let a = plan(janus, 'mail', { scope: 'nxgt-janus' });
+		a = plan(a, 'mail', { scope: 'nxgt-http' });
+		const b = plan(mail, 'mail', { scope: 'nxgt-janus' });
+		const { duplicates } = align([
+			{ record: a, roadmaps: [] },
+			{ record: b, roadmaps: [] },
+		]);
+		expect(duplicates).toHaveLength(1);
+		expect(
+			duplicates[0]?.claimants.map((c) => `${c.sessionId} ${c.scope}`).sort(),
+		).toEqual(['janus-1111 nxgt-janus', 'mail-2222 nxgt-janus']);
 	});
 
 	test('one session planning its entry twice is not a duplicate', () => {
@@ -170,32 +182,6 @@ describe('proposeOwner', () => {
 		expect(
 			proposeOwner(claimants, views, entryKey('janus-mail transport')).owner,
 		).toBe('janus-1111');
-	});
-});
-
-describe('plansOf', () => {
-	test('drops a plan whose entry is not a string, and cleans scope and needs', () => {
-		const bad = {
-			text: 't',
-			kind: 'plan',
-			at: NOW.toISOString(),
-			entry: 42,
-		} as unknown as Announcement;
-		const odd = {
-			text: 't',
-			kind: 'plan',
-			at: NOW.toISOString(),
-			entry: 'E',
-			scope: 7,
-			needs: ['@nxgt/a', 3, null],
-		} as unknown as Announcement;
-		const r = record('s', { announcements: [bad, odd] });
-		expect(plansOf(r)).toEqual([
-			{ entry: 'E', at: NOW.toISOString(), text: 't', needs: ['@nxgt/a'] },
-		]);
-		expect(
-			align([{ record: r, roadmaps: [] }]).dependencies.map((d) => d.need),
-		).toEqual(['@nxgt/a']);
 	});
 });
 

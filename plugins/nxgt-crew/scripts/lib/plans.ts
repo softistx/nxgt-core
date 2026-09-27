@@ -56,7 +56,7 @@ export function planOf(a: Announcement): Plan | undefined {
  * `NXGT-Janus` are one plan, and the same title in two packages is two.
  */
 export function planKey(plan: Pick<Plan, 'entry' | 'scope'>): string {
-	return `${scopeKey(plan.scope ?? '')} ${entryKey(plan.entry)}`;
+	return JSON.stringify([scopeKey(plan.scope ?? ''), entryKey(plan.entry)]);
 }
 
 /** Newest first; the `at` of every plan is readable, `planOf` saw to it. */

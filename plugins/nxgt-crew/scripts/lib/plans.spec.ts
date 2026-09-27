@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { align } from './alignment';
 import { announce } from './announcements';
 import { minutesAgo, NOW, record } from './fixtures';
 import { planKey, planOf, plansOf } from './plans';
@@ -144,5 +145,31 @@ describe('plansOf', () => {
 			dropped: true,
 		});
 		expect(plansOf(r).map((p) => p.scope)).toEqual(['nxgt-mail']);
+	});
+});
+
+describe('plansOf, read by align', () => {
+	test('drops a plan whose entry is not a string, and cleans scope and needs', () => {
+		const bad = {
+			text: 't',
+			kind: 'plan',
+			at: NOW.toISOString(),
+			entry: 42,
+		} as unknown as Announcement;
+		const odd = {
+			text: 't',
+			kind: 'plan',
+			at: NOW.toISOString(),
+			entry: 'E',
+			scope: 7,
+			needs: ['@nxgt/a', 3, null],
+		} as unknown as Announcement;
+		const r = record('s', { announcements: [bad, odd] });
+		expect(plansOf(r)).toEqual([
+			{ entry: 'E', at: NOW.toISOString(), text: 't', needs: ['@nxgt/a'] },
+		]);
+		expect(
+			align([{ record: r, roadmaps: [] }]).dependencies.map((d) => d.need),
+		).toEqual(['@nxgt/a']);
 	});
 });

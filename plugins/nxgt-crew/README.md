@@ -114,8 +114,9 @@ The folder is `$NXGT_CREW_HOME` when set, else `$CLAUDE_CONFIG_DIR/nxgt-crew`.
   pid from another machine or container is never probed. A gone record is
   swept at the next `SessionStart`.
 - **Announcements** have two budgets. Plans keep their own: the latest `plan`
-  per entry and scope (case and markdown ignored, a withdrawal included), up
-  to 10, however many notes follow them; an older plan for the same entry and
+  per entry and scope (case and markdown ignored), up to 10 live plans and,
+  apart from them, 5 withdrawals — so withdrawals never evict a standing plan
+  — however many notes follow them; an older plan for the same entry and
   scope is superseded. Everything else keeps the 20 newest, of which the
   latest `working` and the latest releases are always kept.
 - **Recent edits** hold their file for 60 minutes, or until the holding
@@ -327,7 +328,8 @@ The I/O lives in `lib/system.ts` (git, processes, the one `originOf`),
 `lib/store.ts` and `lib/roadmaps.ts` (the roadmap files of a worktree). Each
 core has a spec. `hooks/session-life.spec.ts` and `hooks/fail-open.spec.ts`
 spawn every hook against a temporary registry and git repository
-(`hooks/hooks.harness.ts`).
+(`hooks/hooks.harness.ts`); `hooks/crew-cli.spec.ts` spawns the CLI the same
+way.
 
 ```bash
 bun run test:plugins        # bun test ./plugins/

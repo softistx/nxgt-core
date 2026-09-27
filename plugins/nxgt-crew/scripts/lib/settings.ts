@@ -24,6 +24,8 @@ export const LIMITS = {
 	announcements: 20,
 	/** Plans have their own budget, on top of `announcements`. */
 	plans: 10,
+	/** Withdrawn plans, capped apart so they never evict a live one. */
+	tombstones: 5,
 	/** Of `announcements`, the latest releases always kept. */
 	releases: 5,
 	announcementLength: 280,

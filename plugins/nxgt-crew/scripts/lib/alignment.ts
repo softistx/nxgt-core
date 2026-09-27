@@ -15,7 +15,7 @@
  * user. It never edits a roadmap or a queue.
  */
 
-import { plansOf } from './plans';
+import { type Plan, plansOf } from './plans';
 import { label } from './record';
 import { releaseCovering, splitNeed } from './releases';
 import { entryKey, isClosed, type SessionView } from './roadmap';
@@ -50,6 +50,7 @@ export interface Dependency {
 export interface ClosedPlan {
 	readonly sessionId: string;
 	readonly entry: string;
+	readonly scope?: string;
 	readonly roadmap: string;
 	readonly section: string;
 }
@@ -119,62 +120,61 @@ function producerOf(
 	);
 }
 
-export function align(views: readonly SessionView[]): Alignment {
-	const byKey = new Map<string, { entry: string; claimants: Claimant[] }>();
-	const closed: ClosedPlan[] = [];
-	const dependencies: Dependency[] = [];
+/** One claimant per session and scope: the same session may plan an entry in two scopes. */
+const claimantKey = (sessionId: string, scope?: string) =>
+	JSON.stringify([sessionId, scopeKey(scope ?? '')]);
 
-	for (const view of views) {
-		const r = view.record;
-		for (const plan of plansOf(r)) {
-			const entry = plan.entry;
-			const key = entryKey(entry);
-			const claimant: Claimant = {
-				sessionId: r.sessionId,
-				label: label(r),
-				at: plan.at,
+/** The first closed roadmap entry a plan points at, across every session's roadmaps. */
+function closedFor(
+	plan: Plan,
+	sessionId: string,
+	views: readonly SessionView[],
+): ClosedPlan | undefined {
+	const key = entryKey(plan.entry);
+	for (const roadmap of views.flatMap((v) => v.roadmaps)) {
+		if (!scopesMeet(plan.scope, roadmap.scope)) continue;
+		const hit = roadmap.entries.find(
+			(e) => isClosed(e.section) && entryKey(e.title) === key,
+		);
+		if (hit) {
+			return {
+				sessionId,
+				entry: plan.entry,
 				...(plan.scope ? { scope: plan.scope } : {}),
+				roadmap: roadmap.path,
+				section: hit.section,
 			};
-			const slot = byKey.get(key) ?? { entry, claimants: [] };
-			if (!slot.claimants.some((c) => c.sessionId === r.sessionId)) {
-				slot.claimants.push(claimant);
-			}
-			byKey.set(key, slot);
-
-			for (const roadmap of views.flatMap((v) => v.roadmaps)) {
-				if (!scopesMeet(plan.scope, roadmap.scope)) continue;
-				const hit = roadmap.entries.find(
-					(e) => isClosed(e.section) && entryKey(e.title) === key,
-				);
-				if (
-					hit &&
-					!closed.some((c) => c.sessionId === r.sessionId && c.entry === entry)
-				) {
-					closed.push({
-						sessionId: r.sessionId,
-						entry,
-						roadmap: roadmap.path,
-						section: hit.section,
-					});
-				}
-			}
-
-			for (const need of plan.needs ?? []) {
-				const { name, version } = splitNeed(need);
-				const release = releaseCovering(name, version, views, r.sessionId);
-				const producer = release?.view ?? producerOf(name, views, r.sessionId);
-				dependencies.push({
-					waiting: r.sessionId,
-					entry,
-					need,
-					satisfied: release !== undefined,
-					...(producer ? { producer: producer.record.sessionId } : {}),
-					...(release ? { evidence: release.text } : {}),
-				});
-			}
 		}
 	}
+	return undefined;
+}
 
+/** What a plan waits on, each need matched to a release or a producer. */
+function dependenciesOf(
+	plan: Plan,
+	sessionId: string,
+	views: readonly SessionView[],
+): Dependency[] {
+	return (plan.needs ?? []).map((need) => {
+		const { name, version } = splitNeed(need);
+		const release = releaseCovering(name, version, views, sessionId);
+		const producer = release?.view ?? producerOf(name, views, sessionId);
+		return {
+			waiting: sessionId,
+			entry: plan.entry,
+			need,
+			satisfied: release !== undefined,
+			...(producer ? { producer: producer.record.sessionId } : {}),
+			...(release ? { evidence: release.text } : {}),
+		};
+	});
+}
+
+/** Claimants in one entry slot whose scopes meet a claimant of another session. */
+function duplicatesOf(
+	byKey: ReadonlyMap<string, { entry: string; claimants: Claimant[] }>,
+	views: readonly SessionView[],
+): Duplicate[] {
 	const duplicates: Duplicate[] = [];
 	for (const [key, { entry, claimants }] of byKey) {
 		const conflicting = claimants.filter((c) =>
@@ -182,12 +182,40 @@ export function align(views: readonly SessionView[]): Alignment {
 				(o) => o.sessionId !== c.sessionId && scopesMeet(o.scope, c.scope),
 			),
 		);
-		if (conflicting.length < 2) continue;
+		if (new Set(conflicting.map((c) => c.sessionId)).size < 2) continue;
 		duplicates.push({
 			entry,
 			claimants: conflicting,
 			proposal: proposeOwner(conflicting, views, key),
 		});
 	}
-	return { duplicates, dependencies, closed };
+	return duplicates;
+}
+
+export function align(views: readonly SessionView[]): Alignment {
+	const byKey = new Map<string, { entry: string; claimants: Claimant[] }>();
+	const seen = new Set<string>();
+	const closed: ClosedPlan[] = [];
+	const dependencies: Dependency[] = [];
+	for (const view of views) {
+		const r = view.record;
+		for (const plan of plansOf(r)) {
+			const key = entryKey(plan.entry);
+			const once = `${key}\u0000${claimantKey(r.sessionId, plan.scope)}`;
+			if (seen.has(once)) continue;
+			seen.add(once);
+			const slot = byKey.get(key) ?? { entry: plan.entry, claimants: [] };
+			slot.claimants.push({
+				sessionId: r.sessionId,
+				label: label(r),
+				at: plan.at,
+				...(plan.scope ? { scope: plan.scope } : {}),
+			});
+			byKey.set(key, slot);
+			const hit = closedFor(plan, r.sessionId, views);
+			if (hit) closed.push(hit);
+			dependencies.push(...dependenciesOf(plan, r.sessionId, views));
+		}
+	}
+	return { duplicates: duplicatesOf(byKey, views), dependencies, closed };
 }

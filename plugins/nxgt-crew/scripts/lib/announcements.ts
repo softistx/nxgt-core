@@ -91,17 +91,26 @@ function newestFirst(list: readonly Announcement[]): Announcement[] {
 	return [...list].sort((x, y) => time(y) - time(x));
 }
 
-/** The latest plan (or tombstone) per `planKey`, newest first, at most `LIMITS.plans`. */
+/**
+ * The latest plan or tombstone per `planKey`, newest first. Live plans and
+ * tombstones have separate caps — `LIMITS.plans` and `LIMITS.tombstones` — so
+ * a run of withdrawals never evicts a plan that still stands.
+ */
 function standingPlans(sorted: readonly Announcement[]): Set<Announcement> {
 	const kept = new Set<Announcement>();
 	const seen = new Set<string>();
+	const counts = { plans: 0, tombstones: 0 };
 	for (const a of sorted) {
 		const plan = planOf(a);
 		if (!plan) continue;
 		const key = planKey(plan);
 		if (seen.has(key)) continue;
 		seen.add(key);
-		if (kept.size < LIMITS.plans) kept.add(a);
+		const count = plan.dropped ? 'tombstones' : 'plans';
+		if (counts[count] < LIMITS[count]) {
+			counts[count]++;
+			kept.add(a);
+		}
 	}
 	return kept;
 }
@@ -121,8 +130,8 @@ function reserved(sorted: readonly Announcement[]): Set<Announcement> {
 
 /**
  * Newest first, with two budgets. Plans have their own: the latest per entry
- * and scope (`planKey`), a tombstone included, up to `LIMITS.plans` — a plan
- * is a standing claim, and twenty chatty notes must not erase it. Everything
+ * and scope (`planKey`), up to `LIMITS.plans` live plans and, apart from them,
+ * `LIMITS.tombstones` withdrawals — a plan is a standing claim, and twenty chatty notes must not erase it. Everything
  * else shares `LIMITS.announcements`, of which the latest `working` and the
  * latest releases are always kept, so a full plan budget never silences what
  * a session is doing now or what it shipped.

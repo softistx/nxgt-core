@@ -73,6 +73,23 @@ describe('keepAnnouncements', () => {
 		expect(r.announcements.map((a) => a.text)).toEqual(['mail', 'janus']);
 	});
 
+	test('tombstones never evict a live plan', () => {
+		let r = announce(record('s'), 'planning Live', 'plan', at(100), {
+			entry: 'Live',
+		});
+		for (let i = 0; i < 10; i++) {
+			r = announce(r, `dropped E${i}`, 'plan', at(90 - i), {
+				entry: `E${i}`,
+				dropped: true,
+			});
+		}
+		const plans = r.announcements.filter((a) => a.kind === 'plan');
+		expect(plans.filter((a) => !a.dropped).map((a) => a.entry)).toEqual([
+			'Live',
+		]);
+		expect(plans.filter((a) => a.dropped)).toHaveLength(LIMITS.tombstones);
+	});
+
 	test('a tombstone replaces the plan it withdraws', () => {
 		let r = announce(record('s'), 'planning X', 'plan', at(10), {
 			entry: 'X',
