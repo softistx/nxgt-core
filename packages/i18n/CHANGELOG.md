@@ -1,5 +1,21 @@
 # @nxgt/i18n
 
+## 1.1.0
+
+### Minor Changes
+
+- [#144](https://github.com/softistx/nxgt-core/pull/144) [`9dcd56d`](https://github.com/softistx/nxgt-core/commit/9dcd56d9c9c4155a2e7384c65210dc2110ca4cfd) Thanks [@SteveGT96](https://github.com/SteveGT96)! - A `browser` export condition, for a client bundle
+  
+  `import { translate } from '@nxgt/i18n'` is unchanged, but a bundler that
+  resolves the `browser` condition (Vite, Nuxt's client build) now gets an
+  entry that never imports `hono/context-storage` — the only thing here that
+  is Node-only. `getLanguage()` behaves the same either way: it just drops the
+  Hono request-context step there is no request to read in a browser, and
+  falls straight to `localStorage`, then `FALLBACK_LANGUAGE`.
+  
+  Also moves `intl-messageformat` to `^12.1.2`, to match the version
+  `@nxgt/i18n-vue` pins.
+
 ## 1.0.4
 
 ### Patch Changes

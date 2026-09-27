@@ -10,9 +10,11 @@ depend on. Until 2026-09-06 each monorepo carried its own copy under
 `shared` by ~260. This repository is the single copy, published to the public
 npm registry.
 
-It holds twelve packages: the nine extracted from `sellix-monorepo`, the two
-that existed only in `nxgt-federation` — `shared-events`, `shared-graphql` — and
-`env`, written here on 2026-09-22 and the first with a `bin`. A
+It holds thirteen packages: the nine extracted from `sellix-monorepo`, the two
+that existed only in `nxgt-federation` — `shared-events`, `shared-graphql` —
+`env`, written here on 2026-09-22 and the first with a `bin`, and `i18n-vue`,
+written here on 2026-09-27 from the Vue layer of nxgt-mail's
+`@nxgt/mail-i18n`, and the first with `.vue` files and a Nuxt module. A
 third from `nxgt-federation`, `datasource-rest`, moved to `softistx/nxgt-http`
 on 2026-09-14, with its history. `openapi-codegen`, written here and published
 from here at 0.1.0, followed it there the same day: its releases from 0.2.0 on
@@ -28,6 +30,7 @@ shared-logging   shared-openapi   shared-events   i18n   env   (no internal depe
 
 package             depends on
 shared-exceptions   i18n
+i18n-vue            i18n (peer)
 shared              shared-logging, shared-events
 shared-mongo        shared, shared-exceptions, i18n, shared-logging
 security            shared, shared-exceptions, shared-logging
@@ -223,6 +226,13 @@ sibling's built output.
 Locally this never happens, because a stale `dist/` is always lying around. It
 appears only in CI, which is why the workflow builds first. `bun run --filter`
 builds in dependency order, so building from nothing works.
+
+**A sibling that is only a peer is not an order.** `bun run --filter` reads
+`dependencies` and `devDependencies`, not `peerDependencies`: when
+`@nxgt/i18n-vue` declared `@nxgt/i18n` as a peer alone, the two built at once,
+`i18n`'s `rm -rf dist` landed first, and `i18n-vue`'s declarations failed on
+`Module '"@nxgt/i18n"' has no exported member 'Path'`. A sibling peer is also
+a `devDependency` (`workspace:^`), which is what orders the build.
 
 If you see a wall of TS2307 on `@nxgt/*`, run `bun run build` before believing
 any of it.
@@ -438,7 +448,7 @@ beside it, which is the check that would have caught it.
 
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 
-All eleven declare `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
+Every package declares `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
 `~7.0.2`, which is not a preference difference — the ranges are mutually
 unsatisfiable, so a consumer installing the set gets a peer conflict, and if
 TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
@@ -458,7 +468,7 @@ CI enforces two things a green build does not:
   changeset is a change that never reaches a consumer, because the release
   workflow has nothing to version. Use `bun changeset --empty` when that is
   genuinely intended, and say why.
-- **`bun run verify:artifacts`** — packs the eleven, installs them the way a
+- **`bun run verify:artifacts`** — packs every package, installs them the way a
   consumer does, imports every subpath each package declares, and rejects a
   manifest that would break an install — a `link:` or `file:` in a field a
   consumer resolves, or a **required** peer that is on no registry — and a
@@ -478,9 +488,10 @@ and it is not a package of this repository.
 ### Bins and optional peers
 
 `@nxgt/openapi-codegen` was the first package here with a `bin` and with
-optional peers; it now lives in `softistx/nxgt-http`, and no package here has
-either today. The checks stay, for the next one, and both run on the
-artifact, not the source:
+optional peers; it now lives in `softistx/nxgt-http`. Today `@nxgt/env`
+carries the one bin, and `@nxgt/security` (`@nxgt/ory-sdk`) and
+`@nxgt/i18n-vue` (`vite`, `nuxt`, `@nuxt/kit`) the optional peers. Both
+checks run on the artifact, not the source:
 
 - **A bin runs as a file.** `build.ts` refuses a `bin` target that is missing
   or lacks its `#!` line, and marks each one executable; `verify:artifacts`
@@ -493,7 +504,8 @@ artifact, not the source:
   happened to hoist it. Code that needs an optional peer must import it
   only on the path that uses it (codegen's `lint` imported
   `@redocly/openapi-core` dynamically), so the rest of the package loads
-  without it.
+  without it. `@nxgt/i18n-vue` does it by subpath instead: only `/vite` and
+  `/nuxt` import an optional peer, and its main entry never imports them.
 
 Publishing goes through **`bun publish`**, never `npm publish` — Bun is the
 package manager for this repo, and `bun pm pack` is what rewrites `workspace:*`
@@ -539,7 +551,10 @@ Inherited from both monorepos and unchanged:
   exception: it declares `mongoose` directly and is the layer `shared-mongo`
   builds on.
 - Biome for formatting and linting: tabs, single quotes. `bun biome check
-  --write` before committing.
+  --write` before committing. In a `.vue` file Biome reads the `<script>` and
+  not the `<template>`, so it reports a binding used only in the template as
+  unused: `biome.json` turns `noUnusedVariables` and `noUnusedImports` off for
+  `**/*.vue`, and `vue-tsc` is what checks them.
 - Commit messages: `<type>: <Capitalized summary>`, types `feat`, `fix`,
   `update`, `chore`, `docs`, `typo`.
 
@@ -565,7 +580,7 @@ Established here, and applying to all four repositories:
   private applications that consume it. Organize by section, each with a
   concise copy-paste example; never name a private app, a private monorepo,
   or "the parc" there — those names belong in this file. The long version
-  is the package's `docs/` folder, named in `files` — none has one yet;
+  is the package's `docs/` folder, named in `files` — `env` and `i18n-vue` have one;
   the `nxgt-docs` agents write it: guide pages with the
   detail and an example for each point, `troubleshooting.md` headed by the
   exact error a consumer sees, and `roadmap.md`, with no dates. The bar is
@@ -574,7 +589,9 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **442 pass, 0 fail**. Treat any failure as yours.
+`bun run test` is **396 pass, 9 skip, 0 fail** in CI on 2026-09-27 (the 9 are
+`shared-storage`'s S3 suites; `i18n-vue`'s 83 include a real `nuxt build`).
+Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running them together produced 6 failures
