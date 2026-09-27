@@ -8,60 +8,18 @@
  * - **Duplicate** — the same roadmap entry planned by two sessions.
  * - **Dependency** — a plan waits on something (`@nxgt/mail@0.5.0`) that another
  *   session produces, released already or not.
- * - **Shipped** — a plan for an entry the roadmap already lists as Shipped.
+ * - **Closed** — a plan for an entry the roadmap lists as Shipped or Not planned.
  *
  * For each duplicate it proposes an owner. Proposing is all it does: the
  * sessions agree over SendMessage, and each owner decides through its own
  * user. It never edits a roadmap or a queue.
  */
 
-import { type Plan, planOf } from './announcements';
-import { type GitPlace, label, type SessionRecord } from './registry';
-import { entryKey, isClosed, type Roadmap } from './roadmap';
-
-/** One session as the alignment pass sees it. */
-export interface SessionView {
-	readonly record: SessionRecord;
-	/** The roadmaps of the worktrees it works in. */
-	readonly roadmaps: readonly Roadmap[];
-}
-
-/**
- * A repository or package name in one shape: `@nxgt/mail`, `nxgt-mail` and
- * `softistx/nxgt-mail` all become `nxgt-mail`.
- */
-export function scopeKey(scope: string): string {
-	const s = scope
-		.trim()
-		.toLowerCase()
-		.replace(/\.git$/, '');
-	if (s.startsWith('@')) return s.slice(1).replace('/', '-');
-	return s.split('/').pop() ?? s;
-}
-
-/** `@nxgt/mail@0.5.0` → name `@nxgt/mail`, version `0.5.0`. */
-export function splitNeed(need: string): { name: string; version?: string } {
-	const at = need.lastIndexOf('@');
-	if (at > 0) return { name: need.slice(0, at), version: need.slice(at + 1) };
-	return { name: need };
-}
-
-/** The repository name of a session: its remote's last segment, else its worktree's folder. */
-export function repoName(
-	place: Pick<GitPlace, 'remote' | 'worktree'>,
-): string | undefined {
-	const source = place.remote ?? place.worktree;
-	if (!source) return undefined;
-	return scopeKey(source.replace(/\/+$/, '').split(/[/:]/).pop() ?? source);
-}
-
-/** The well-formed plans a session announced; malformed ones are dropped, never trusted. */
-export function plansOf(record: SessionRecord): Plan[] {
-	return record.announcements.flatMap((a) => {
-		const plan = planOf(a);
-		return plan ? [plan] : [];
-	});
-}
+import { plansOf } from './plans';
+import { label } from './record';
+import { releaseCovering, splitNeed } from './releases';
+import { entryKey, isClosed, type SessionView } from './roadmap';
+import { repoName, scopeKey } from './scope';
 
 export interface Claimant {
 	readonly sessionId: string;
@@ -159,50 +117,6 @@ function producerOf(
 				v.roadmaps.some((r) => scopeKey(r.scope) === key) ||
 				plansOf(v.record).some((p) => p.scope && scopeKey(p.scope) === key)),
 	);
-}
-
-/** A release announcement's words, lower-cased, with surrounding punctuation dropped. */
-export function releaseTokens(text: string): string[] {
-	return text
-		.toLowerCase()
-		.split(/[\s,;()[\]]+/)
-		.map((t) => t.replace(/^[`'"]+/, '').replace(/[`'".:!?]+$/, ''))
-		.filter(Boolean);
-}
-
-/**
- * Whether a release announcement covers a need. Name and version must each be
- * a whole word — `@nxgt/mail 0.5.0`, `@nxgt/mail@0.5.0` or `v0.5.0` — so
- * `@nxgt/mail-config 10.5.0` covers neither `@nxgt/mail` nor `0.5.0`.
- */
-export function releaseCovers(
-	text: string,
-	name: string,
-	version?: string,
-): boolean {
-	const tokens = releaseTokens(text);
-	const n = name.toLowerCase();
-	const v = version?.toLowerCase().replace(/^v/, '');
-	if (v !== undefined && tokens.includes(`${n}@${v}`)) return true;
-	if (!tokens.includes(n)) return false;
-	return v === undefined || tokens.includes(v) || tokens.includes(`v${v}`);
-}
-
-function releaseCovering(
-	name: string,
-	version: string | undefined,
-	views: readonly SessionView[],
-	except: string,
-): { view: SessionView; text: string } | undefined {
-	for (const view of views) {
-		if (view.record.sessionId === except) continue;
-		for (const a of view.record.announcements) {
-			if (a.kind === 'release' && releaseCovers(a.text, name, version)) {
-				return { view, text: a.text };
-			}
-		}
-	}
-	return undefined;
 }
 
 export function align(views: readonly SessionView[]): Alignment {

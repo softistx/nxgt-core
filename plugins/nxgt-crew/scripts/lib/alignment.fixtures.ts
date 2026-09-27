@@ -2,7 +2,7 @@
 
 import { announce } from './announcements';
 import { NOW, record } from './fixtures';
-import type { PlanFields, SessionRecord } from './registry';
+import type { PlanFields, SessionRecord } from './record';
 import { parseRoadmap } from './roadmap';
 
 export const ROADMAP = `# Roadmap

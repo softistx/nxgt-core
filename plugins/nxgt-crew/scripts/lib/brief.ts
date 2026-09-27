@@ -6,16 +6,14 @@
  */
 
 import type { Unseen } from './announcements';
-import { sameRepository, worktreesOf } from './conflicts';
-import {
-	ago,
-	isInside,
-	label,
-	type Peer,
-	recentEdits,
-	type SessionRecord,
-} from './registry';
+import { worktreesOf } from './conflicts';
+import { recentEdits } from './holds';
+import type { Peer } from './liveness';
+import { isInside } from './paths';
+import { label, type SessionRecord } from './record';
+import { sameRepository } from './scope';
 import type { Settings } from './settings';
+import { ago } from './time';
 
 /** Peers in this session's repository first, then the rest. */
 export function partition(

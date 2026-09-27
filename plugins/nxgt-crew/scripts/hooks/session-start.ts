@@ -8,7 +8,8 @@
 import { appendFileSync } from 'node:fs';
 import { brief } from '../lib/brief';
 import { runHook } from '../lib/hook';
-import { register, sweepable } from '../lib/registry';
+import { sweepable } from '../lib/liveness';
+import { register } from '../lib/record';
 import { load } from '../lib/session';
 import { readAll, remove, write } from '../lib/store';
 import { claudeProcess, gitPlace, probePid } from '../lib/system';

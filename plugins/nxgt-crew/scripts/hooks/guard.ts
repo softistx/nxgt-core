@@ -12,11 +12,12 @@
 
 import { homedir } from 'node:os';
 import { announce, markSeen, unseenAnnouncements } from '../lib/announcements';
+import { evaluateBash } from '../lib/bash-rules';
 import { digest } from '../lib/brief';
 import { directoriesToResolve, parseCommand } from '../lib/command';
-import { evaluateBash, evaluateEdit, type Verdict } from '../lib/conflicts';
+import { evaluateEdit, type Verdict } from '../lib/conflicts';
+import { markWarned } from '../lib/holds';
 import { runHook } from '../lib/hook';
-import { markWarned } from '../lib/registry';
 import { load } from '../lib/session';
 import { writeMerged } from '../lib/store';
 import { gitPlace, placeResolver, probePid } from '../lib/system';

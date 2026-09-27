@@ -46,12 +46,28 @@ should follow), `note`. Keep it to one line a peer can act on:
 A **`plan`** names its roadmap entry, so the alignment pass can match it.
 Record one **only after the owner accepted the entry** through
 AskUserQuestion — the queue step of `nxgt-autonomy:plan-the-roadmap`, which
-records one there from nxgt-autonomy 1.1.0. Other sessions read a plan as
-"this entry is taken", so an early one is a claim nobody approved:
+records one there from nxgt-autonomy 1.1.0. Until this session runs that
+version, record it by hand here, at the same moment: right after the owner
+accepted. Other sessions read a plan as "this entry is taken", so an early one
+is a claim nobody approved:
 
 ```bash
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID} --kind plan --entry "<entry title as in docs/roadmap.md>" --scope "<repo or package>" --needs "<pkg@version>,…" "planning <entry> in <repo>"
 ```
+
+A plan stands until this session withdraws it — when the owner drops the entry,
+or another session takes it after the alignment pass. Withdraw it with the
+same entry and scope and `--drop`; this records a tombstone that replaces the
+plan, so peers stop reading the entry as taken:
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID} --kind plan --entry "<entry title>" --scope "<repo or package>" --drop
+```
+
+A plan is keyed by its scope and its entry, case and markdown ignored — the
+same title in two packages is two plans. Each session keeps its latest ten
+plans (tombstones included) on top of its twenty other announcements, and
+its latest `working` and releases are never crowded out.
 
 **`align`** — the alignment pass across sessions: every live session's
 `docs/roadmap.md` (root and `packages/*/`) and announced plans, the same entry

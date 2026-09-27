@@ -8,7 +8,8 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { $ } from 'bun';
-import type { GitPlace, PidProbe } from './registry';
+import type { PidProbe } from './liveness';
+import type { GitPlace } from './record';
 
 /**
  * The nearest existing directory at or above `path`: the folder of a file, or
@@ -24,6 +25,16 @@ export function existingDir(path: string): string {
 	return dir;
 }
 
+/** `remote.origin.url` of a worktree, or `undefined`: the one reader of a remote. */
+export function originOf(worktree: string): string | undefined {
+	const out = Bun.spawnSync(
+		['git', '-C', worktree, 'config', '--get', 'remote.origin.url'],
+		{ stdout: 'pipe', stderr: 'ignore' },
+	);
+	const url = out.exitCode === 0 ? out.stdout.toString().trim() : '';
+	return url || undefined;
+}
+
 export async function gitPlace(dir: string): Promise<GitPlace> {
 	const at = existingDir(dir);
 	const rev =
@@ -34,17 +45,15 @@ export async function gitPlace(dir: string): Promise<GitPlace> {
 	const [worktree, repo] = rev.stdout.toString().trim().split('\n');
 	// `symbolic-ref`, not `rev-parse --abbrev-ref HEAD`: it also names the
 	// unborn branch of a repository with no commit, and fails on a detached HEAD.
-	const [head, remote] = await Promise.all([
-		$`git -C ${at} symbolic-ref --short -q HEAD`.quiet().nothrow(),
-		$`git -C ${at} config --get remote.origin.url`.quiet().nothrow(),
-	]);
+	const head = await $`git -C ${at} symbolic-ref --short -q HEAD`
+		.quiet()
+		.nothrow();
 	const branch = head.exitCode === 0 ? head.stdout.toString().trim() : '';
-	const url = remote.exitCode === 0 ? remote.stdout.toString().trim() : '';
 	return {
 		worktree: worktree || undefined,
 		repo: repo || undefined,
 		branch: branch || undefined,
-		remote: url || undefined,
+		remote: originOf(at),
 	};
 }
 

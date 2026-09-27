@@ -22,6 +22,10 @@ export const LIMITS = {
 	edits: 50,
 	claims: 20,
 	announcements: 20,
+	/** Plans have their own budget, on top of `announcements`. */
+	plans: 10,
+	/** Of `announcements`, the latest releases always kept. */
+	releases: 5,
 	announcementLength: 280,
 } as const;
 

@@ -10,7 +10,7 @@
 import { markSeen, unseenAnnouncements } from '../lib/announcements';
 import { digest } from '../lib/brief';
 import { runHook } from '../lib/hook';
-import { gitIsStale, heartbeat } from '../lib/registry';
+import { gitIsStale, heartbeat } from '../lib/record';
 import { load } from '../lib/session';
 import { writeMerged } from '../lib/store';
 import { gitPlace, probePid } from '../lib/system';

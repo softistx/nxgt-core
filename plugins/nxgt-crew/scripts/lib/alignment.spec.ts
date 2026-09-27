@@ -1,42 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import {
-	align,
-	plansOf,
-	proposeOwner,
-	releaseCovers,
-	repoName,
-	type SessionView,
-	scopeKey,
-	splitNeed,
-} from './alignment';
+import { align, proposeOwner } from './alignment';
 import { janus, janusRoadmap, mail, plan } from './alignment.fixtures';
 import { announce } from './announcements';
 import { minutesAgo, NOW, record } from './fixtures';
-import type { Announcement } from './registry';
-import { entryKey, parseRoadmap } from './roadmap';
-
-describe('keys', () => {
-	test('scopeKey makes packages, repos and slugs comparable', () => {
-		expect(scopeKey('@nxgt/mail')).toBe('nxgt-mail');
-		expect(scopeKey('softistx/nxgt-mail')).toBe('nxgt-mail');
-		expect(scopeKey('nxgt-mail.git')).toBe('nxgt-mail');
-	});
-
-	test('splitNeed separates a version, keeping a scoped name whole', () => {
-		expect(splitNeed('@nxgt/mail@0.5.0')).toEqual({
-			name: '@nxgt/mail',
-			version: '0.5.0',
-		});
-		expect(splitNeed('@nxgt/mail')).toEqual({ name: '@nxgt/mail' });
-		expect(splitNeed('nxgt-mail')).toEqual({ name: 'nxgt-mail' });
-	});
-
-	test('repoName from the remote, else the worktree', () => {
-		expect(repoName(janus)).toBe('nxgt-janus');
-		expect(repoName(record('x', { worktree: '/w/nxgt-ory' }))).toBe('nxgt-ory');
-		expect(repoName(record('y'))).toBeUndefined();
-	});
-});
+import { plansOf } from './plans';
+import type { Announcement } from './record';
+import { entryKey, parseRoadmap, type SessionView } from './roadmap';
 
 describe('align', () => {
 	test('the same entry planned in two sessions is a duplicate, owned by the repo that lists it', () => {
@@ -80,6 +49,32 @@ describe('align', () => {
 				roadmaps: [],
 			},
 			{ record: plan(mail, 'docs', { scope: '@nxgt/mail' }), roadmaps: [] },
+		];
+		expect(align(views).duplicates).toEqual([]);
+	});
+
+	test('markdown and case variants of one entry are a duplicate', () => {
+		const views: SessionView[] = [
+			{ record: plan(janus, '**Mail** transport'), roadmaps: [] },
+			{ record: plan(mail, '`mail` Transport'), roadmaps: [] },
+		];
+		expect(align(views).duplicates).toHaveLength(1);
+	});
+
+	test('a withdrawn plan is no longer a duplicate', () => {
+		const dropped = announce(
+			plan(mail, 'shared'),
+			'dropped shared',
+			'plan',
+			NOW,
+			{
+				entry: 'Shared',
+				dropped: true,
+			},
+		);
+		const views: SessionView[] = [
+			{ record: plan(janus, 'shared'), roadmaps: [] },
+			{ record: dropped, roadmaps: [] },
 		];
 		expect(align(views).duplicates).toEqual([]);
 	});
@@ -175,57 +170,6 @@ describe('proposeOwner', () => {
 		expect(
 			proposeOwner(claimants, views, entryKey('janus-mail transport')).owner,
 		).toBe('janus-1111');
-	});
-});
-
-describe('releaseCovers', () => {
-	test('name and version as whole words, in the usual shapes', () => {
-		expect(
-			releaseCovers('published @nxgt/mail 0.5.0', '@nxgt/mail', '0.5.0'),
-		).toBe(true);
-		expect(
-			releaseCovers('released @nxgt/mail@0.5.0.', '@nxgt/mail', '0.5.0'),
-		).toBe(true);
-		expect(
-			releaseCovers('@nxgt/mail v0.5.0 is out', '@nxgt/mail', '0.5.0'),
-		).toBe(true);
-		expect(releaseCovers('published @nxgt/mail 0.6.0', '@nxgt/mail')).toBe(
-			true,
-		);
-	});
-
-	test('a longer package name does not cover a shorter one', () => {
-		expect(
-			releaseCovers('published @nxgt/mail-config 0.5.0', '@nxgt/mail', '0.5.0'),
-		).toBe(false);
-	});
-
-	test('a version inside a longer version does not count', () => {
-		expect(
-			releaseCovers('published @nxgt/mail 10.5.0', '@nxgt/mail', '0.5.0'),
-		).toBe(false);
-		expect(
-			releaseCovers(
-				'published @nxgt/mail-config 10.5.0',
-				'@nxgt/mail',
-				'0.5.0',
-			),
-		).toBe(false);
-	});
-
-	test('in align, @nxgt/mail-config 10.5.0 leaves @nxgt/mail@0.5.0 waiting', () => {
-		const waiting = plan(janus, 'x', { needs: ['@nxgt/mail@0.5.0'] });
-		const other = announce(
-			mail,
-			'published @nxgt/mail-config 10.5.0',
-			'release',
-			NOW,
-		);
-		const dep = align([
-			{ record: waiting, roadmaps: [] },
-			{ record: other, roadmaps: [] },
-		]).dependencies[0];
-		expect(dep?.satisfied).toBe(false);
 	});
 });
 

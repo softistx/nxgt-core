@@ -6,6 +6,8 @@
  *   crew.ts announce [--kind K] <text…>     K: working (default), plan, release, decision, note
  *   crew.ts announce --kind plan --entry <roadmap entry> [--scope <repo or package>]
  *                    [--needs <pkg@version>[,…]] <text…>
+ *   crew.ts announce --kind plan --entry <roadmap entry> [--scope …] --drop [text…]
+ *                                           withdraw this session's plan for that entry
  *   crew.ts align [--json]                  roadmaps and plans of every live session: duplicates, dependencies
  *   crew.ts claim <path> [note…]            mark a folder as this session's
  *   crew.ts unclaim <path>
@@ -18,21 +20,20 @@
  */
 
 import { resolve } from 'node:path';
-import { align, plansOf } from './lib/alignment';
+import { align } from './lib/alignment';
 import { renderAlignment } from './lib/alignment-text';
 import { announce } from './lib/announcements';
 import { listing } from './lib/brief';
 import { worktreesOf } from './lib/conflicts';
+import { claim, unclaim, yieldEdits } from './lib/holds';
+import { livePeers } from './lib/liveness';
+import { plansOf } from './lib/plans';
 import {
 	type AnnouncementKind,
-	claim,
 	heartbeat,
-	livePeers,
 	register,
 	type SessionRecord,
-	unclaim,
-	yieldEdits,
-} from './lib/registry';
+} from './lib/record';
 import { readRoadmaps } from './lib/roadmaps';
 import { readSettings } from './lib/settings';
 import { crewHome, readAll, readOne, write, writeMerged } from './lib/store';
@@ -67,6 +68,8 @@ const kindArg = take('--kind');
 const entryArg = take('--entry');
 const scopeArg = take('--scope');
 const needsArg = take('--needs');
+const drop = argv.includes('--drop');
+if (drop) argv.splice(argv.indexOf('--drop'), 1);
 const [verb, ...rest] = argv;
 
 const home = crewHome(process.env);
@@ -107,11 +110,16 @@ switch (verb) {
 		const kind = (kindArg ?? 'working') as AnnouncementKind;
 		if (!KINDS.includes(kind))
 			fail(`--kind must be one of ${KINDS.join(', ')}`);
-		if (kind === 'plan' && !entryArg) {
+		const entry = entryArg?.trim();
+		if (entryArg !== undefined && !entry) fail('--entry cannot be empty');
+		if (kind === 'plan' && !entry) {
 			fail('a plan needs --entry "<roadmap entry title>"');
 		}
+		if (drop && kind !== 'plan')
+			fail('--drop withdraws a plan: use --kind plan');
 		const text =
-			rest.join(' ').trim() || (entryArg ? `planning ${entryArg}` : '');
+			rest.join(' ').trim() ||
+			(entry ? `${drop ? 'dropped' : 'planning'} ${entry}` : '');
 		if (!text) fail('announce needs a text');
 		const needs = needsArg
 			?.split(',')
@@ -120,12 +128,15 @@ switch (verb) {
 		writeMerged(
 			home,
 			announce(own(), text, kind, now, {
-				...(entryArg ? { entry: entryArg } : {}),
-				...(scopeArg ? { scope: scopeArg } : {}),
-				...(needs?.length ? { needs } : {}),
+				...(entry ? { entry } : {}),
+				...(scopeArg?.trim() ? { scope: scopeArg.trim() } : {}),
+				...(needs?.length && !drop ? { needs } : {}),
+				...(drop ? { dropped: true } : {}),
 			}),
 		);
-		process.stdout.write(`announced (${kind}): ${text}\n`);
+		process.stdout.write(
+			`announced (${drop ? 'plan withdrawn' : kind}): ${text}\n`,
+		);
 		break;
 	}
 	case 'claim': {

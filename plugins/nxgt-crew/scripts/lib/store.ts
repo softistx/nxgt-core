@@ -19,7 +19,8 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { isRecord, merge, type SessionRecord } from './registry';
+import { merge } from './merge';
+import { isRecord, type SessionRecord } from './record';
 
 export function crewHome(env: Record<string, string | undefined>): string {
 	if (env.NXGT_CREW_HOME) return env.NXGT_CREW_HOME;

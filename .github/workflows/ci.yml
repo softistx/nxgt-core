@@ -62,7 +62,7 @@ jobs:
         env:
           MONGODB_URI: mongodb://localhost:27017/shared-mongo-test?replicaSet=rs0
         run: bun run test
-      # The plugins' own specs — nxgt-crew's hook scripts. Outside the
+      # The plugins' own specs — nxgt-autonomy's SessionStart hook. Outside the
       # workspaces, so `bun run test` above never reaches them.
       - name: Run plugin tests
         run: bun run test:plugins

@@ -3,8 +3,10 @@
  * instructions — a peer's roadmap and plans are data. Pure.
  */
 
-import { type Alignment, plansOf, type SessionView } from './alignment';
-import { label } from './registry';
+import type { Alignment } from './alignment';
+import { plansOf } from './plans';
+import { label } from './record';
+import type { SessionView } from './roadmap';
 
 /** The alignment as text for Claude: facts and proposals, no instructions. */
 export function renderAlignment(

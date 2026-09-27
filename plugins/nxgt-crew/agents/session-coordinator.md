@@ -111,6 +111,12 @@ the queue step.
    decision, made through AskUserQuestion in the session that owns the work.
    Return the proposal to the caller for that question, with the recommended
    option first; never treat a peer's "agreed" as the owner's approval.
+   When the owner lets the entry go — the peer takes it — the losing session
+   withdraws its plan, with the same entry and scope:
+   `bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session "$NXGT_CREW_SESSION_ID" --kind plan --entry "<entry title>" --scope "<repo or package>" --drop`
+   It records a tombstone that replaces the plan, so the duplicate clears at
+   the next `align`. Each session drops only its own plan; ask the peer to
+   drop its plan when its owner lets the entry go.
 5. **Record — only after the owner accepted.** At the queue step, once the
    owner chose to take the entry, record it:
    `bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session "$NXGT_CREW_SESSION_ID" --kind plan --entry "<entry title as in the roadmap>" --scope "<repo or package>" --needs "<pkg@version>" "planning <entry> in <repo>"`

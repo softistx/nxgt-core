@@ -1,11 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import {
-	deletionTarget,
-	redact,
-	resolvePath,
-	segments,
-	tokenize,
-} from './shell';
+import { deletionTarget, redact, resolvePath, segments } from './shell';
+import { tokenize } from './tokenizer';
 
 describe('tokenize and segments', () => {
 	test('quotes group, operators separate', () => {

@@ -7,20 +7,11 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { repoName } from './alignment';
 import { parseRoadmap, type Roadmap } from './roadmap';
+import { repoName } from './scope';
+import { originOf } from './system';
 
 const PATTERNS = ['docs/roadmap.md', 'packages/*/docs/roadmap.md'];
-
-/** `remote.origin.url` of a worktree, or `undefined`. */
-export function originOf(worktree: string): string | undefined {
-	const out = Bun.spawnSync(
-		['git', '-C', worktree, 'config', '--get', 'remote.origin.url'],
-		{ stdout: 'pipe', stderr: 'ignore' },
-	);
-	const url = out.exitCode === 0 ? out.stdout.toString().trim() : '';
-	return url || undefined;
-}
 
 /**
  * The scope of the repository-level roadmap: the repository's name from its

@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { align, type SessionView } from './alignment';
+import { align } from './alignment';
 import { janus, janusRoadmap, mail, plan } from './alignment.fixtures';
 import { renderAlignment } from './alignment-text';
+import type { SessionView } from './roadmap';
 
 describe('renderAlignment', () => {
 	test('reads as facts and proposals, naming this session', () => {

@@ -1,6 +1,7 @@
 /** Builders shared by the specs. */
 
-import { type Peer, register, type SessionRecord } from './registry';
+import type { Peer } from './liveness';
+import { register, type SessionRecord } from './record';
 import { DEFAULT_SETTINGS } from './settings';
 
 export const NOW = new Date('2026-09-27T12:00:00.000Z');

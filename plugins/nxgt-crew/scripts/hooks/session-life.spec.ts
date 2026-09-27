@@ -1,77 +1,21 @@
-/**
- * The hooks end to end: each script is spawned the way Claude Code spawns it,
- * with the event on stdin, against a registry and a git repository that live
- * in a temporary folder. `NXGT_CREW_HOME` points the registry there, so no
- * spec ever touches ~/.claude.
- */
+/** The hooks end to end, over one session's life and a peer's (see `hooks.harness.ts`). */
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import {
-	mkdtempSync,
-	readdirSync,
-	readFileSync,
-	rmSync,
-	writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { describe, expect, test } from 'bun:test';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { $ } from 'bun';
+import {
+	CREW,
+	decision,
+	home,
+	pre,
+	repo,
+	run,
+	sandbox,
+	scratch,
+} from './hooks.harness';
 
-const HOOKS = import.meta.dir;
-const CREW = join(HOOKS, '..', 'crew.ts');
-
-let scratch: string;
-let home: string;
-let repo: string;
-
-interface Run {
-	readonly code: number;
-	readonly out: Record<string, any> | undefined;
-}
-
-async function run(
-	script: string,
-	input: Record<string, unknown>,
-	env: Record<string, string> = {},
-): Promise<Run> {
-	const proc = Bun.spawn(['bun', join(HOOKS, script)], {
-		stdin: new Blob([JSON.stringify(input)]),
-		stdout: 'pipe',
-		stderr: 'pipe',
-		env: { ...process.env, NXGT_CREW_HOME: home, ...env },
-	});
-	const text = (await new Response(proc.stdout).text()).trim();
-	const code = await proc.exited;
-	return { code, out: text ? JSON.parse(text) : undefined };
-}
-
-const pre = (
-	session: string,
-	tool: string,
-	toolInput: Record<string, unknown>,
-	cwd = repo,
-) =>
-	run('guard.ts', {
-		session_id: session,
-		cwd,
-		hook_event_name: 'PreToolUse',
-		tool_name: tool,
-		tool_input: toolInput,
-	});
-
-const decision = (r: Run) => r.out?.hookSpecificOutput?.permissionDecision;
-
-beforeAll(async () => {
-	scratch = mkdtempSync(join(tmpdir(), 'nxgt-crew-spec-'));
-	home = join(scratch, 'crew');
-	repo = join(scratch, 'repo');
-	await $`git init -q -b develop ${repo} && git -C ${repo} -c user.email=t@t -c user.name=t commit -q --allow-empty -m init`.quiet();
-	writeFileSync(join(repo, 'a.ts'), 'a');
-});
-
-afterAll(() => {
-	rmSync(scratch, { recursive: true, force: true });
-});
+sandbox();
 
 describe('a session’s life', () => {
 	test('SessionStart registers A, exports its id, and briefs it', async () => {
@@ -296,54 +240,5 @@ describe('a session’s life', () => {
 				await pre('bbbbbbbb-2', 'Edit', { file_path: join(repo, 'a.ts') }),
 			),
 		).toBeUndefined();
-	});
-});
-
-describe('fail open', () => {
-	test('an unusable registry warns and blocks nothing', async () => {
-		const file = join(scratch, 'not-a-dir');
-		writeFileSync(file, 'x');
-		const r = await run(
-			'guard.ts',
-			{
-				session_id: 'cccccccc-3',
-				cwd: repo,
-				tool_name: 'Edit',
-				tool_input: { file_path: join(repo, 'a.ts') },
-			},
-			{ NXGT_CREW_HOME: file },
-		);
-		expect(r.code).toBe(0);
-		expect(decision(r)).toBeUndefined();
-		expect(r.out?.systemMessage).toContain('registry unavailable');
-	});
-
-	test('unparseable input warns and blocks nothing', async () => {
-		const proc = Bun.spawn(['bun', join(HOOKS, 'guard.ts')], {
-			stdin: new Blob(['not json']),
-			stdout: 'pipe',
-			env: { ...process.env, NXGT_CREW_HOME: home },
-		});
-		const out = JSON.parse(await new Response(proc.stdout).text());
-		expect(await proc.exited).toBe(0);
-		expect(out.systemMessage).toContain('nxgt-crew');
-	});
-
-	test('a corrupt record is skipped', async () => {
-		writeFileSync(join(home, 'sessions', 'junk.json'), '{ nope');
-		const r = await pre('bbbbbbbb-2', 'Edit', {
-			file_path: join(repo, 'a.ts'),
-		});
-		expect(r.code).toBe(0);
-		expect(r.out?.systemMessage).toBeUndefined();
-	});
-
-	test('NXGT_CREW_DISABLE=1 turns every hook into a no-op', async () => {
-		const r = await run(
-			'session-start.ts',
-			{ session_id: 'dddddddd-4', cwd: repo },
-			{ NXGT_CREW_DISABLE: '1' },
-		);
-		expect(r).toEqual({ code: 0, out: undefined });
 	});
 });

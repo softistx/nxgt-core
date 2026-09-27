@@ -4,6 +4,8 @@
  * identity only. Pure.
  */
 
+import type { SessionRecord } from './record';
+
 export interface RoadmapEntry {
 	/** The `##` section it sits under: Now, Next, Later, Not planned, Shipped. */
 	readonly section: string;
@@ -65,4 +67,11 @@ export function entryKey(title: string): string {
 		.replace(/[`*_]/g, '')
 		.replace(/[^a-z0-9@/.]+/g, ' ')
 		.trim();
+}
+
+/** One session as the alignment pass sees it. */
+export interface SessionView {
+	readonly record: SessionRecord;
+	/** The roadmaps of the worktrees it works in. */
+	readonly roadmaps: readonly Roadmap[];
 }

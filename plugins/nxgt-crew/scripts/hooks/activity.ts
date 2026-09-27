@@ -8,14 +8,10 @@
  */
 
 import { statSync } from 'node:fs';
+import { claim, recordEdit } from '../lib/holds';
 import { runHook } from '../lib/hook';
-import {
-	claim,
-	gitIsStale,
-	heartbeat,
-	isInside,
-	recordEdit,
-} from '../lib/registry';
+import { isInside } from '../lib/paths';
+import { gitIsStale, heartbeat } from '../lib/record';
 import { load, type Session } from '../lib/session';
 import { writeMerged } from '../lib/store';
 import { gitPlace, probePid } from '../lib/system';

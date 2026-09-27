@@ -5,13 +5,8 @@
  */
 
 import type { SessionInput } from './hook';
-import {
-	livePeers,
-	type Peer,
-	type PidProbe,
-	register,
-	type SessionRecord,
-} from './registry';
+import { livePeers, type Peer, type PidProbe } from './liveness';
+import { register, type SessionRecord } from './record';
 import { readSettings, type Settings } from './settings';
 import { crewHome, readAll } from './store';
 

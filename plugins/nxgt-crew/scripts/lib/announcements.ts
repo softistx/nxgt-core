@@ -1,16 +1,17 @@
 /**
  * What a session says to its peers: one-line announcements, the structured
- * `plan` kind, which ones a session has not seen yet, and which ones survive
- * the cap. Pure.
+ * `plan` kind (read back in `plans.ts`), which ones a session has not seen
+ * yet, and which ones survive the caps. Pure.
  */
 
+import type { Peer } from './liveness';
+import { planKey, planOf } from './plans';
 import type {
 	Announcement,
 	AnnouncementKind,
-	Peer,
 	PlanFields,
 	SessionRecord,
-} from './registry';
+} from './record';
 import { LIMITS } from './settings';
 
 export function announce(
@@ -25,13 +26,15 @@ export function announce(
 	const needs = (plan.needs ?? []).map(oneLine).filter(Boolean).slice(0, 10);
 	const entryTitle = plan.entry ? oneLine(plan.entry) : '';
 	const scope = plan.scope ? oneLine(plan.scope) : '';
+	const isPlan = kind === 'plan' && entryTitle !== '';
 	const entry: Announcement = {
 		text: clean,
 		kind,
 		at: now.toISOString(),
-		...(kind === 'plan' && entryTitle ? { entry: entryTitle } : {}),
-		...(kind === 'plan' && scope ? { scope } : {}),
-		...(kind === 'plan' && needs.length ? { needs } : {}),
+		...(isPlan ? { entry: entryTitle } : {}),
+		...(isPlan && scope ? { scope } : {}),
+		...(isPlan && needs.length && !plan.dropped ? { needs } : {}),
+		...(isPlan && plan.dropped ? { dropped: true as const } : {}),
 	};
 	return {
 		...record,
@@ -79,71 +82,60 @@ export function markSeen(record: SessionRecord, now: Date): SessionRecord {
 	return { ...record, seenUntil: now.toISOString() };
 }
 
-/** A validated plan: an announcement's `plan` fields, when they have the right shape. */
-export interface Plan {
-	readonly entry: string;
-	readonly scope?: string;
-	readonly needs?: readonly string[];
-	readonly at: string;
-	readonly text: string;
-}
-
-/**
- * The plan an announcement carries, or `undefined`. Records are written by
- * other sessions and read as untrusted data: an `entry` that is not a
- * non-empty string drops the plan, a `scope` that is not a string is ignored,
- * and `needs` keeps only its strings.
- */
-export function planOf(a: Announcement): Plan | undefined {
-	const raw = a as unknown as Record<string, unknown>;
-	if (raw.kind !== 'plan') return undefined;
-	const entry = raw.entry;
-	if (typeof entry !== 'string' || !entry.trim()) return undefined;
-	const scope =
-		typeof raw.scope === 'string' && raw.scope.trim() ? raw.scope : undefined;
-	const needs = Array.isArray(raw.needs)
-		? raw.needs.filter(
-				(n): n is string => typeof n === 'string' && n.trim() !== '',
-			)
-		: [];
-	return {
-		entry,
-		at: typeof raw.at === 'string' ? raw.at : '',
-		text: typeof raw.text === 'string' ? raw.text : '',
-		...(scope ? { scope } : {}),
-		...(needs.length ? { needs } : {}),
+/** Newest first; an unreadable `at` sorts last. */
+function newestFirst(list: readonly Announcement[]): Announcement[] {
+	const time = (a: Announcement) => {
+		const t = Date.parse(a.at);
+		return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
 	};
+	return [...list].sort((x, y) => time(y) - time(x));
 }
 
-/**
- * Newest first, capped at `LIMITS.announcements` — except that the latest plan
- * for each roadmap entry is kept however many announcements came after it. A
- * plan is a standing claim on an entry; twenty chatty notes must not erase it.
- * Older plans for the same entry are superseded and dropped first.
- */
-export function keepAnnouncements(
-	list: readonly Announcement[],
-): Announcement[] {
-	const sorted = [...list].sort((x, y) => Date.parse(y.at) - Date.parse(x.at));
-	const latestPlan = new Set<Announcement>();
+/** The latest plan (or tombstone) per `planKey`, newest first, at most `LIMITS.plans`. */
+function standingPlans(sorted: readonly Announcement[]): Set<Announcement> {
+	const kept = new Set<Announcement>();
 	const seen = new Set<string>();
 	for (const a of sorted) {
 		const plan = planOf(a);
 		if (!plan) continue;
-		const key = plan.entry.toLowerCase();
+		const key = planKey(plan);
 		if (seen.has(key)) continue;
 		seen.add(key);
-		latestPlan.add(a);
-	}
-	const kept: Announcement[] = [];
-	let others = 0;
-	const room = Math.max(0, LIMITS.announcements - latestPlan.size);
-	for (const a of sorted) {
-		if (latestPlan.has(a)) kept.push(a);
-		else if (a.kind !== 'plan' && others < room) {
-			kept.push(a);
-			others++;
-		}
+		if (kept.size < LIMITS.plans) kept.add(a);
 	}
 	return kept;
+}
+
+/** The latest `working` and the latest `LIMITS.releases` releases: never crowded out. */
+function reserved(sorted: readonly Announcement[]): Set<Announcement> {
+	const kept = new Set<Announcement>();
+	const working = sorted.find((a) => a.kind === 'working');
+	if (working) kept.add(working);
+	for (const a of sorted
+		.filter((a) => a.kind === 'release')
+		.slice(0, LIMITS.releases)) {
+		kept.add(a);
+	}
+	return kept;
+}
+
+/**
+ * Newest first, with two budgets. Plans have their own: the latest per entry
+ * and scope (`planKey`), a tombstone included, up to `LIMITS.plans` — a plan
+ * is a standing claim, and twenty chatty notes must not erase it. Everything
+ * else shares `LIMITS.announcements`, of which the latest `working` and the
+ * latest releases are always kept, so a full plan budget never silences what
+ * a session is doing now or what it shipped.
+ */
+export function keepAnnouncements(
+	list: readonly Announcement[],
+): Announcement[] {
+	const sorted = newestFirst(list);
+	const plans = standingPlans(sorted);
+	const others = reserved(sorted);
+	for (const a of sorted) {
+		if (others.size >= LIMITS.announcements) break;
+		if (a.kind !== 'plan') others.add(a);
+	}
+	return sorted.filter((a) => plans.has(a) || others.has(a));
 }

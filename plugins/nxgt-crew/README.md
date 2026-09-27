@@ -113,9 +113,11 @@ The folder is `$NXGT_CREW_HOME` when set, else `$CLAUDE_CONFIG_DIR/nxgt-crew`.
   start time (on Linux) and its host, so a reused pid does not count, and a
   pid from another machine or container is never probed. A gone record is
   swept at the next `SessionStart`.
-- **Announcements** keep the 20 newest. The latest `plan` for each roadmap
-  entry is kept on top of those 20, however many notes follow it; an older
-  plan for the same entry is superseded.
+- **Announcements** have two budgets. Plans keep their own: the latest `plan`
+  per entry and scope (case and markdown ignored, a withdrawal included), up
+  to 10, however many notes follow them; an older plan for the same entry and
+  scope is superseded. Everything else keeps the 20 newest, of which the
+  latest `working` and the latest releases are always kept.
 - **Recent edits** hold their file for 60 minutes, or until the holding
   session releases them with `/crew yield`.
 
@@ -177,6 +179,7 @@ A registry problem must never stop work.
 /crew claim /tmp/tmp.X1 release probe     a folder peers must not edit in or delete
 /crew yield packages/env                  release this session's hold on files it edited, so a blocked peer may take over
 /crew announce --kind plan --entry "Mail transport" --scope @nxgt/janus-mail --needs @nxgt/mail@0.5.0
+/crew announce --kind plan --entry "Mail transport" --scope @nxgt/janus-mail --drop   withdraw that plan
 /crew align                               roadmaps and plans of every live session: duplicates, dependencies
 ```
 
@@ -220,10 +223,20 @@ nxgt-crew aligns that cycle across sessions:
   entry is taken", so an announcement made before the owner's answer would
   be a claim nobody approved. plan-the-roadmap records one at its queue step
   from nxgt-autonomy 1.1.0 (PR #140, which pairs with this plugin). Until
-  then, plans are recorded by hand or by the session-coordinator.
+  then, record it by hand, at the same moment, or through the
+  session-coordinator.
 
   ```bash
   crew.ts announce --kind plan --entry "Mail transport" --scope @nxgt/janus-mail --needs @nxgt/mail@0.5.0 "planning Mail transport in nxgt-janus"
+  ```
+
+- **A plan stands until it is withdrawn.** When the owner drops the entry, or
+  lets a peer take it after the alignment pass, the session records a
+  tombstone with the same entry and scope. It replaces the plan, so the entry
+  stops reading as taken:
+
+  ```bash
+  crew.ts announce --kind plan --entry "Mail transport" --scope @nxgt/janus-mail --drop
   ```
 
 - **The alignment pass** is `/crew align`, which the session-coordinator runs.
@@ -293,16 +306,28 @@ pages:
 
 ## Development
 
-The hook scripts are TypeScript run by Bun, with no `.sh`. The pure cores are
-`lib/registry.ts` (records, liveness, merge), `lib/shell.ts` (words,
-heredocs, paths), `lib/command.ts` (the operations in a Bash command),
-`lib/conflicts.ts` (one rule per operation), `lib/brief.ts` (the text) and
-`lib/announcements.ts` (announcements, plans, the cap), `lib/settings.ts`,
-`lib/roadmap.ts` (parsing a roadmap), `lib/alignment.ts` (duplicate plans,
-dependencies, owners) and `lib/alignment-text.ts` (its report). `lib/roadmaps.ts`
-reads the roadmap files from a worktree. Each
-has a spec. `hooks/hooks.spec.ts` spawns every hook against a temporary
-registry and git repository.
+The hook scripts are TypeScript run by Bun, with no `.sh`, split by
+responsibility — at most 250 lines a file and 80 a function. The pure cores:
+
+- the record: `lib/record.ts` (the record, register, heartbeat),
+  `lib/holds.ts` (edits, claims, yield, the warning throttle),
+  `lib/liveness.ts`, `lib/merge.ts`, `lib/settings.ts`, `lib/time.ts`,
+  `lib/paths.ts`;
+- the guard: `lib/tokenizer.ts` (words, quotes, heredocs), `lib/shell.ts`
+  (simple commands, paths), `lib/command.ts` and `lib/git-ops.ts` (the
+  operations in a Bash command), `lib/conflicts.ts` (edits) and
+  `lib/bash-rules.ts` (one rule per operation), `lib/brief.ts` (the text);
+- planning: `lib/announcements.ts` (announcements and their budgets),
+  `lib/plans.ts` (plans, their key, withdrawals), `lib/roadmap.ts` (parsing a
+  roadmap), `lib/scope.ts` (repository and package names), `lib/releases.ts`
+  (needs and releases), `lib/alignment.ts` (duplicates, dependencies, owners)
+  and `lib/alignment-text.ts` (its report).
+
+The I/O lives in `lib/system.ts` (git, processes, the one `originOf`),
+`lib/store.ts` and `lib/roadmaps.ts` (the roadmap files of a worktree). Each
+core has a spec. `hooks/session-life.spec.ts` and `hooks/fail-open.spec.ts`
+spawn every hook against a temporary registry and git repository
+(`hooks/hooks.harness.ts`).
 
 ```bash
 bun run test:plugins        # bun test ./plugins/
