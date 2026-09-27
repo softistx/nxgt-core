@@ -122,8 +122,12 @@ git ls-files ':(glob)packages/*/src/**/*.ts' ':(glob,exclude)packages/*/src/**/*
   /^(export )?(declare )?(default )?(abstract )?(interface|type|enum|class) /{n=""}
   /^(export )?(default )?(async )?function[ *]|^(export )?const [A-Za-z0-9_$]+(: [^=]+)? = (async )?(\(|function|<)/{
     n=$0; s=FNR; if ($0 ~ /[;}][ \t]*$/) n=""; next }
-  /^\}/{if(n!=""){print FNR-s+1" "FILENAME":"s; n=""}}' | awk '$1 > 80' | sort -rn
+  /^\}/{if(n!=""){print FNR-s+1" "FILENAME":"s; n=""}}' | awk '$1 > <function threshold>' | sort -rn
 ```
+
+It does not measure a `const` whose type annotation contains `=>`, a
+factory wrapped in a call (`defineThing({…})`), or a class body: check those
+by hand.
 
 A long file is then judged by what it holds — see **Structure**. A 480-line
 function inside a 580-line file is a finding of its own, beside the file's.
@@ -149,8 +153,8 @@ feeling** — `file:line`, and the grep that found it.
 These hold in every nxgt repository unless its `AGENTS.md` says otherwise.
 
 **Structure** — responsibility first, then length. The function threshold
-is 80 lines and the file threshold 250, unless the repository sets its own
-(stx-sdk: about 200); every rule below means that number.
+is 80 lines and the file threshold 250; a repository's `AGENTS.md` or
+reference may set its own. Every rule below means that number.
 - A file that holds more than one responsibility, **at any length**. Name
   each one, and the folder-by-role split that separates them: the file
   becomes a folder of its name, one file per role, with an `index.ts`
@@ -169,8 +173,8 @@ is 80 lines and the file threshold 250, unless the repository sets its own
   own PR or commit, with no spec touched — or put the new code in a file of
   its own role. Only when neither is done is it a finding left open, with a
   follow-up.
-- A function over the function threshold. Name it, give its line count, and say which seam
-  would split it.
+- A function over the function threshold. Name it, give its line count,
+  and say which seam would split it.
 - A factory whose closure holds several concerns — state, timers, a queue,
   retries, reporting — at any length. Name the seam: a data-only context,
   and plain functions that take it first.
@@ -265,11 +269,13 @@ finding above, under the rules of **Structure**.
 
 `ready: true` only when no finding breaks an invariant, a layering rule or
 the packaging rules. Structural findings alone may leave it `true`; say so.
+A rule a reference marks *observed* — not stated in `AGENTS.md` — is
+reported as a question, never counted against `ready`.
 
 Two things that are not findings, and that you should not raise:
-- a file over the file threshold that holds one cohesive responsibility, once the
-  report names it and says why a split would scatter it — and only while
-  the diff does not grow it. It stays in the tally;
+- a file over the file threshold that holds one cohesive responsibility,
+  once the report names it and says why a split would scatter it — and only
+  while the diff does not grow it. It stays in the tally;
 - a rule the repository states and gives its reason for. `AGENTS.md` is the
   contract, not a starting position to argue with. If you think a rule is
   wrong, say so once, at the end, as a question.

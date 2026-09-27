@@ -7,7 +7,7 @@
 List hand-written source by size. The limit is about 200 lines per file; a type-only file may go over it only as one cohesive responsibility (see "Deliberate"). `lib/generated/**` is gitignored, and `git ls-files` leaves it out already.
 
 ```bash
-git ls-files 'lib/**/*.ts' 'lib/**/*.tsx' 'scripts/*.ts' codegen.ts vite.config.ts \
+git ls-files ':(glob)lib/**/*.ts' ':(glob)lib/**/*.tsx' 'scripts/*.ts' codegen.ts vite.config.ts \
   | grep -v '__tests__/' | xargs wc -l | sort -rn | head -30
 ```
 

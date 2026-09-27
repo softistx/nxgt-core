@@ -8,7 +8,7 @@ List the source files by size, largest first (specs excluded, then specs only):
 
 ```bash
 git ls-files ':(glob)packages/*/src/**/*.ts' ':(glob,exclude)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -30
-git ls-files 'packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
+git ls-files ':(glob)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
 git ls-files 'scripts/*.ts' build.ts | xargs wc -l | sort -rn
 ```
 

@@ -6,7 +6,7 @@ nxgt-data is the Bun workspace behind the public `@nxgt/*` data-access packages,
 
 ```bash
 find packages/*/src scripts -name '*.ts' ! -name '*.spec.ts' -exec wc -l {} + | sort -rn | head -20
-git ls-files 'packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
+git ls-files ':(glob)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
 ```
 
 The green bar, as CI runs it (build first, because `exports` points at `dist/`):
