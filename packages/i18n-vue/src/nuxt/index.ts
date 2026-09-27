@@ -10,7 +10,6 @@
  * ```
  */
 
-import { join, resolve } from 'node:path';
 import {
 	addImports,
 	addPluginTemplate,
@@ -63,7 +62,8 @@ export function checkModuleOptions(
 }
 
 /**
- * The module: it checks `locales/<locale>.json` when Nuxt starts, adds a
+ * The module: it checks the project's resources — `locales/<locale>.json`
+ * and `locales/<locale>/**\/*.json`, or `messages` — when Nuxt starts, adds a
  * plugin that installs `createI18n` with the locale resolved **on the
  * server** — the cookie, then `Accept-Language`, then the fallback locale —
  * and hydrated from the payload, writes `.nuxt/types/nxgt-i18n-vue.d.ts` so
@@ -78,19 +78,19 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 		configKey: 'nxgtI18n',
 		compatibility: { nuxt: '>=4.0.0' },
 	},
-	setup(options, nuxt) {
+	async setup(options, nuxt) {
 		checkModuleOptions(options);
 		const root = nuxt.options.rootDir;
-		const loaded = loadCatalogues(root, options);
-		const dir = resolve(root, options.dir ?? 'locales');
+		const loaded = await loadCatalogues(root, options);
 
 		// One copy of the package in the app, so `useI18n` injects what the
 		// plugin provided.
 		nuxt.options.build.transpile.push('@nxgt/i18n-vue');
-		// The catalogues are read when the module runs: a change restarts it.
-		nuxt.options.watch.push(
-			...loaded.locales.map((locale) => join(dir, `${locale}.json`)),
-		);
+		// The catalogues are read when the module runs: a change restarts it —
+		// every file read (a folder's included, not only `<locale>.json`), and
+		// the folder itself so a new one restarts it too. `messages` gives only
+		// its own file: see docs/guide/catalogues.md#splitting-catalogues.
+		nuxt.options.watch.push(...loaded.files, ...loaded.folders);
 
 		addPluginTemplate({
 			filename: PLUGIN_TEMPLATE,

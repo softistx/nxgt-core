@@ -22,3 +22,21 @@ export function expectThrow(
 	expect((caught as Error).message).toBe(message);
 	return caught as Error;
 }
+
+/** {@link expectThrow}, for a `run` that answers a promise — `loadCatalogues`, `loadMessages`. */
+export async function expectThrowAsync(
+	run: () => Promise<unknown>,
+	kind: ErrorConstructor | TypeErrorConstructor,
+	message: string,
+): Promise<Error> {
+	let caught: unknown;
+	try {
+		await run();
+	} catch (error) {
+		caught = error;
+	}
+	expect(caught).toBeInstanceOf(Error);
+	expect((caught as Error).constructor).toBe(kind);
+	expect((caught as Error).message).toBe(message);
+	return caught as Error;
+}

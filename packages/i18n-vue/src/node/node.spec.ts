@@ -9,9 +9,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expectThrow } from '../../test/expect-throw';
+import { expectThrow, expectThrowAsync } from '../../test/expect-throw';
 import { checkCatalogues } from '../core/catalogues';
-import { checkCatalogueSource, loadCatalogues } from './load';
+import { checkCatalogueSource, loadCatalogues, loadMessages } from './load';
 import { typesSource, writeIfChanged, writeTypes } from './types-source';
 
 const dirs: string[] = [];
@@ -125,12 +125,12 @@ describe('writeTypes', () => {
 });
 
 describe('loadCatalogues', () => {
-	test("reads each locale's file, merges the packages' under it, and checks", () => {
+	test("reads each locale's file, merges the packages' under it, and checks", async () => {
 		const root = project({
 			'locales/en.json': '{ "home": { "title": "Home" } }',
 			'locales/fr.json': '{ "home": { "title": "Accueil" } }',
 		});
-		const loaded = loadCatalogues(root, {
+		const loaded = await loadCatalogues(root, {
 			locales: ['en', 'fr'],
 			catalogues: [
 				{
@@ -146,14 +146,19 @@ describe('loadCatalogues', () => {
 			fr: { common: { ok: "D'accord" }, home: { title: 'Accueil' } },
 		});
 		expect([...loaded.reference.keys()]).toEqual(['common.ok', 'home.title']);
+		expect(loaded.files).toEqual([
+			join(root, 'locales/en.json'),
+			join(root, 'locales/fr.json'),
+		]);
+		expect(loaded.folders).toEqual([join(root, 'locales')]);
 	});
 
-	test('reads another folder, and another fallback locale', () => {
+	test('reads another folder, and another fallback locale', async () => {
 		const root = project({
 			'src/locales/en.json': '{ "a": "A" }',
 			'src/locales/fr.json': '{ "a": "A" }',
 		});
-		const loaded = loadCatalogues(root, {
+		const loaded = await loadCatalogues(root, {
 			locales: ['en', 'fr'],
 			fallbackLocale: 'fr',
 			dir: 'src/locales',
@@ -161,26 +166,202 @@ describe('loadCatalogues', () => {
 		expect(loaded.fallbackLocale).toBe('fr');
 	});
 
-	test('throws on a missing file, a file that is not JSON, and a catalogue that cannot be right', () => {
+	test('throws on a missing file, a file that is not JSON, and a catalogue that cannot be right', async () => {
 		const root = project({
 			'locales/en.json': '{ "a": "A {name}" }',
 			'locales/fr.json': '{ "a": "A {nom}" }',
 			'locales/de.json': '{ "a": ',
 		});
-		expectThrow(
+		await expectThrowAsync(
 			() => loadCatalogues(root, { locales: ['en', 'it'] }),
 			Error,
 			'i18n: locales/it.json is missing — every locale has a catalogue',
 		);
-		expectThrow(
+		await expectThrowAsync(
 			() => loadCatalogues(root, { locales: ['en', 'de'] }),
 			Error,
 			'i18n: locales/de.json is not valid JSON',
 		);
-		expectThrow(
+		await expectThrowAsync(
 			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
 			Error,
 			'i18n: fr: a uses {nom}, which en does not declare',
+		);
+	});
+
+	test('reads a folder layout, mixed with a flat file, and nested paths', async () => {
+		const root = project({
+			'locales/en.json': '{ "home": { "title": "Home" } }',
+			'locales/fr.json': '{ "home": { "title": "Accueil" } }',
+			'locales/en/mails.json': '{ "welcome": { "subject": "Welcome" } }',
+			'locales/fr/mails.json': '{ "welcome": { "subject": "Bienvenue" } }',
+			'locales/en/auth/sign-in.json': '{ "title": "Sign in" }',
+			'locales/fr/auth/sign-in.json': '{ "title": "Se connecter" }',
+		});
+		const loaded = await loadCatalogues(root, { locales: ['en', 'fr'] });
+		expect(loaded.catalogues.en).toEqual({
+			home: { title: 'Home' },
+			mails: { welcome: { subject: 'Welcome' } },
+			auth: { 'sign-in': { title: 'Sign in' } },
+		});
+		expect([...loaded.reference.keys()].sort()).toEqual([
+			'auth.sign-in.title',
+			'home.title',
+			'mails.welcome.subject',
+		]);
+		expect(loaded.files).toEqual([
+			join(root, 'locales/en.json'),
+			join(root, 'locales/en/auth/sign-in.json'),
+			join(root, 'locales/en/mails.json'),
+			join(root, 'locales/fr.json'),
+			join(root, 'locales/fr/auth/sign-in.json'),
+			join(root, 'locales/fr/mails.json'),
+		]);
+		expect(loaded.folders).toEqual([
+			join(root, 'locales'),
+			join(root, 'locales/en'),
+			join(root, 'locales/fr'),
+		]);
+	});
+
+	test('reads a folder-only locale, with no flat file at all', async () => {
+		const root = project({
+			'locales/en/mails.json': '{ "title": "Mail" }',
+			'locales/fr/mails.json': '{ "title": "Courriel" }',
+		});
+		const loaded = await loadCatalogues(root, { locales: ['en', 'fr'] });
+		expect(loaded.catalogues).toEqual({
+			en: { mails: { title: 'Mail' } },
+			fr: { mails: { title: 'Courriel' } },
+		});
+	});
+
+	test('throws on a key from the flat file colliding with a file prefix', async () => {
+		const root = project({
+			'locales/en.json': '{ "mails": { "title": "Mail" } }',
+			'locales/fr.json': '{ "mails": { "title": "Courriel" } }',
+			'locales/en/mails.json': '{ "title": "Mail again" }',
+			'locales/fr/mails.json': '{ "title": "Courriel encore" }',
+		});
+		await expectThrowAsync(
+			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
+			Error,
+			'i18n: en: mails is defined by both locales/en.json and locales/en/mails.json',
+		);
+	});
+
+	test('throws on two files defining the same prefix', async () => {
+		const root = project({
+			'locales/en.json': '{}',
+			'locales/fr.json': '{}',
+			'locales/en/mails.json': '{ "welcome": "Welcome" }',
+			'locales/en/mails/welcome.json': '{ "title": "Hi" }',
+			'locales/fr/mails.json': '{ "welcome": "Bienvenue" }',
+			'locales/fr/mails/welcome.json': '{ "title": "Salut" }',
+		});
+		await expectThrowAsync(
+			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
+			Error,
+			'i18n: en: mails.welcome is defined by both locales/en/mails.json and locales/en/mails/welcome.json',
+		);
+	});
+
+	test('throws on a file present in a locale but not the fallback locale', async () => {
+		const root = project({
+			'locales/en.json': '{}',
+			'locales/fr.json': '{}',
+			'locales/fr/extra.json': '{ "title": "Titre" }',
+		});
+		await expectThrowAsync(
+			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
+			Error,
+			'i18n: locales/fr/extra.json exists, and locales/en/extra.json does not — every locale has the same files',
+		);
+	});
+
+	test('throws on a file the fallback locale has that another locale does not', async () => {
+		const root = project({
+			'locales/en.json': '{}',
+			'locales/fr.json': '{}',
+			'locales/en/extra.json': '{ "title": "Title" }',
+		});
+		await expectThrowAsync(
+			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
+			Error,
+			'i18n: locales/fr/extra.json is missing — locales/en/extra.json exists',
+		);
+	});
+
+	test('throws on a bad path segment, naming the file', async () => {
+		const root = project({
+			'locales/en.json': '{}',
+			'locales/fr.json': '{}',
+			'locales/en/sign_in.json': '{ "title": "Sign in" }',
+			'locales/fr/sign_in.json': '{ "title": "Se connecter" }',
+		});
+		await expectThrowAsync(
+			() => loadCatalogues(root, { locales: ['en', 'fr'] }),
+			Error,
+			'i18n: locales/en/sign_in.json: sign_in is not camelCase or kebab-case — a file path segment is a key segment too, as mails or sign-in',
+		);
+	});
+});
+
+describe('loadMessages', () => {
+	test('runs the default export, or the function it exports, and answers it as a resources object', async () => {
+		const root = project({
+			'i18n/messages.ts': [
+				"export default { en: { a: 'A' }, fr: { a: 'A' } };",
+			].join('\n'),
+			'i18n/factory.ts': [
+				"export default () => ({ en: { a: 'A' }, fr: { a: 'A' } });",
+			].join('\n'),
+		});
+		const direct = await loadMessages(root, 'i18n/messages.ts', ['en', 'fr']);
+		expect(direct.catalogues).toEqual({ en: { a: 'A' }, fr: { a: 'A' } });
+		expect(direct.files).toEqual([join(root, 'i18n/messages.ts')]);
+		expect(direct.folders).toEqual([]);
+		const factory = await loadMessages(root, 'i18n/factory.ts', ['en', 'fr']);
+		expect(factory.catalogues).toEqual({ en: { a: 'A' }, fr: { a: 'A' } });
+	});
+
+	test('loadCatalogues reads the same source as the app would import', async () => {
+		const root = project({
+			'i18n/messages.ts': [
+				"export default { en: { a: 'A {name}' }, fr: { a: 'A {nom}' } };",
+			].join('\n'),
+		});
+		await expectThrowAsync(
+			() =>
+				loadCatalogues(root, {
+					locales: ['en', 'fr'],
+					messages: 'i18n/messages.ts',
+				}),
+			Error,
+			'i18n: fr: a uses {nom}, which en does not declare',
+		);
+	});
+
+	test('throws naming the module for no default export, a bad shape, or a missing locale', async () => {
+		const root = project({
+			'i18n/none.ts': 'export const a = 1;',
+			'i18n/bad.ts': 'export default 1;',
+			'i18n/incomplete.ts': "export default { en: { a: 'A' } };",
+		});
+		await expectThrowAsync(
+			() => loadMessages(root, 'i18n/none.ts', ['en']),
+			Error,
+			'i18n: i18n/none.ts has no default export — export the resources object, or a function that returns it',
+		);
+		await expectThrowAsync(
+			() => loadMessages(root, 'i18n/bad.ts', ['en']),
+			Error,
+			"i18n: i18n/bad.ts's default export must be a resources object ({ en: {...}, fr: {...} }) or a function that returns one",
+		);
+		await expectThrowAsync(
+			() => loadMessages(root, 'i18n/incomplete.ts', ['en', 'fr']),
+			Error,
+			'i18n: i18n/incomplete.ts is missing the fr locale',
 		);
 	});
 });
@@ -222,12 +403,30 @@ describe('checkCatalogueSource', () => {
 			{ locales: ['en'], catalogues: { en: {} } },
 			'i18nTypes: catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]',
 		);
+		fails(
+			{ locales: ['en'], messages: '' },
+			"i18nTypes: messages must be a module path, as './i18n/messages.ts'",
+		);
+		fails(
+			{ locales: ['en'], messages: 1 },
+			"i18nTypes: messages must be a module path, as './i18n/messages.ts'",
+		);
+		fails(
+			{ locales: ['en'], dir: 'locales', messages: './i18n/messages.ts' },
+			'i18nTypes: dir and messages cannot both be set — messages replaces the folder',
+		);
 		expect(() =>
 			checkCatalogueSource('i18nTypes', {
 				locales: ['en', 'pt-BR'],
 				fallbackLocale: 'pt-BR',
 				dir: 'src/locales',
 				catalogues: [{ en: {} }],
+			}),
+		).not.toThrow();
+		expect(() =>
+			checkCatalogueSource('i18nTypes', {
+				locales: ['en'],
+				messages: './i18n/messages.ts',
 			}),
 		).not.toThrow();
 	});

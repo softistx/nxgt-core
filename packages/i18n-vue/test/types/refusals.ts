@@ -11,7 +11,7 @@
  * The calls that **must keep compiling** are here too, unmarked: a refusal
  * that refuses the correct call is a bug.
  *
- * **Twenty plausible mistakes, twenty refused.**
+ * **Twenty-one plausible mistakes, twenty-one refused.**
  */
 
 import {
@@ -50,6 +50,9 @@ i18n.t('home.sentOn', { at: Date.now() });
 i18n.t('home.sent-on', { at: new Date() });
 i18n.t(ok ? 'home.title' : 'home.action');
 i18n.t(ok ? 'home.greeting' : 'home.welcome', { name: 'Ada' });
+// A key from a folder catalogue (locales/en/mails.json): the file's path is
+// a key prefix, typed exactly like a key from the flat locales/en.json.
+i18n.t('mails.welcome.title');
 if (i18n.has(computed)) i18n.t(computed, {});
 i18n.setLocale('fr');
 const current: 'en' | 'fr' = i18n.locale.value;
@@ -154,5 +157,9 @@ i18nTypes({ locales: 'en' });
 // 20. A cookie that is not a name.
 // @ts-expect-error — cookie: 'language'.
 const badCookie: ModuleOptions = { locales: ['en'], cookie: 1 };
+
+// 21. A key a folder catalogue does not have, either.
+// @ts-expect-error — 'mails.welcome.title'.
+i18n.t('mails.welcome.titel');
 
 export { badCookie, current, locale, options, picked };

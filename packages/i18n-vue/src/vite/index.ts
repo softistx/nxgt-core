@@ -4,7 +4,7 @@
  * made of, for a build that is not Vite.
  */
 
-import { relative, resolve, sep } from 'node:path';
+import { relative, resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import {
 	type CatalogueSource,
@@ -18,6 +18,8 @@ export {
 	checkCatalogueSource,
 	type LoadedCatalogues,
 	loadCatalogues,
+	loadMessages,
+	type ReadCatalogues,
 	readCatalogues,
 } from '../node/load';
 export {
@@ -62,8 +64,8 @@ export function i18nTypes(options: I18nTypesOptions): Plugin {
 		);
 	}
 	let root = process.cwd();
-	const generate = () => {
-		const loaded = loadCatalogues(root, options);
+	const generate = async () => {
+		const loaded = await loadCatalogues(root, options);
 		writeTypes(
 			resolve(root, out),
 			out,
@@ -77,30 +79,41 @@ export function i18nTypes(options: I18nTypesOptions): Plugin {
 		configResolved(config) {
 			root = config.root;
 		},
-		buildStart() {
-			generate();
+		async buildStart() {
+			await generate();
 		},
 		configureServer(server) {
-			const dir = resolve(root, options.dir ?? 'locales');
-			server.watcher.add(dir);
-			const regenerate = (file: string) => {
-				const path = relative(dir, file);
-				if (
-					path.startsWith('..') ||
-					path.includes(sep) ||
-					!path.endsWith('.json')
-				)
-					return;
+			const regenerate = async () => {
 				try {
-					generate();
+					await generate();
 				} catch (error) {
 					server.config.logger.error(
 						error instanceof Error ? error.message : String(error),
 					);
 				}
 			};
-			server.watcher.on('add', regenerate);
-			server.watcher.on('change', regenerate);
+			// `messages`: only its own file is watched — not what it imports.
+			// See docs/guide/catalogues.md#splitting-catalogues.
+			if (options.messages !== undefined) {
+				const file = resolve(root, options.messages);
+				server.watcher.add(file);
+				server.watcher.on('change', (changed) => {
+					if (changed === file) void regenerate();
+				});
+				return;
+			}
+			// `dir`: every `.json` under it, at any depth — a folder file's path
+			// is a key prefix, so a change anywhere below counts. Watching `dir`
+			// itself, not only its current files, also catches a new one.
+			const dir = resolve(root, options.dir ?? 'locales');
+			server.watcher.add(dir);
+			const onFsEvent = (file: string) => {
+				const path = relative(dir, file);
+				if (path.startsWith('..') || !path.endsWith('.json')) return;
+				void regenerate();
+			};
+			server.watcher.on('add', onFsEvent);
+			server.watcher.on('change', onFsEvent);
 		},
 	};
 }

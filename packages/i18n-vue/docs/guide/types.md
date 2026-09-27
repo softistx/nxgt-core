@@ -150,7 +150,7 @@ that is not Vite:
 import { loadCatalogues, typesSource, writeTypes } from '@nxgt/i18n-vue/vite';
 
 const root = process.cwd();
-const loaded = loadCatalogues(root, { locales: ['en', 'fr'] });
+const loaded = await loadCatalogues(root, { locales: ['en', 'fr'] });
 writeTypes(
 	`${root}/src/generated/i18n.d.ts`,
 	'src/generated/i18n.d.ts',
@@ -165,7 +165,7 @@ its own.
 ## Type safety is measured
 
 The package's own tests hold what the types refuse:
-`test/types/refusals.ts` has **20** mistakes in TypeScript and
+`test/types/refusals.ts` has **21** mistakes in TypeScript and
 `test/types/refusals.vue` **7** in a template, checked by `vue-tsc` against a
 generated file; the Nuxt fixture adds **3** under Nuxt's own `tsconfig`. Each
 is an `@ts-expect-error` or `@vue-expect-error`, so a refusal that stops

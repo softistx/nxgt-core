@@ -46,6 +46,8 @@ as `home.greeting`.
 - [`<i18nTypes|nxgtI18n>: locales holds the same locale twice`](#i18ntypesnxgti18n-locales-holds-the-same-locale-twice)
 - [`<i18nTypes|nxgtI18n>: fallbackLocale must be one of locales`](#i18ntypesnxgti18n-fallbacklocale-must-be-one-of-locales)
 - [`<i18nTypes|nxgtI18n>: dir must be a folder of the project`](#i18ntypesnxgti18n-dir-must-be-a-folder-of-the-project)
+- [`<i18nTypes|nxgtI18n>: messages must be a module path, as './i18n/messages.ts'`](#i18ntypesnxgti18n-messages-must-be-a-module-path-as-i18nmessagests)
+- [`<i18nTypes|nxgtI18n>: dir and messages cannot both be set — messages replaces the folder`](#i18ntypesnxgti18n-dir-and-messages-cannot-both-be-set--messages-replaces-the-folder)
 - [`<i18nTypes|nxgtI18n>: catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]`](#i18ntypesnxgti18n-catalogues-must-be-a-list-of-catalogues-by-locale-as--en--fr--)
 - [`i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts`](#i18ntypes-out-must-be-the-path-of-a-dts-file-as-srcgeneratedi18ndts)
 - [`nxgtI18n: cookie must be a cookie name, as 'language'`](#nxgti18n-cookie-must-be-a-cookie-name-as-language)
@@ -54,6 +56,13 @@ as `home.greeting`.
 - [`i18n: <dir>/<locale>.json is missing — every locale has a catalogue`](#i18n-dirlocalejson-is-missing--every-locale-has-a-catalogue)
 - [`i18n: <dir>/<locale>.json is not valid JSON`](#i18n-dirlocalejson-is-not-valid-json)
 - [`i18n: <locale>: the catalogue must be an object of messages`](#i18n-locale-the-catalogue-must-be-an-object-of-messages)
+- [`i18n: <dir>/<locale>/<file>: <segment> is not camelCase or kebab-case — a file path segment is a key segment too, as mails or sign-in`](#i18n-dirlocalefile-segment-is-not-camelcase-or-kebab-case--a-file-path-segment-is-a-key-segment-too-as-mails-or-sign-in)
+- [`i18n: <locale>: <key> is defined by both <file> and <file>`](#i18n-locale-key-is-defined-by-both-file-and-file)
+- [`i18n: <dir>/<locale>/<file> is missing — <dir>/<fallback>/<file> exists`](#i18n-dirlocalefile-is-missing--dirfallbackfile-exists)
+- [`i18n: <dir>/<locale>/<file> exists, and <dir>/<fallback>/<file> does not — every locale has the same files`](#i18n-dirlocalefile-exists-and-dirfallbackfile-does-not--every-locale-has-the-same-files)
+- [`i18n: <path> has no default export — export the resources object, or a function that returns it`](#i18n-path-has-no-default-export--export-the-resources-object-or-a-function-that-returns-it)
+- [`i18n: <path>'s default export must be a resources object ({ en: {...}, fr: {...} }) or a function that returns one`](#i18n-paths-default-export-must-be-a-resources-object--en--fr---or-a-function-that-returns-one)
+- [`i18n: <path> is missing the <locale> locale`](#i18n-path-is-missing-the-locale-locale)
 - [`i18n: <locale>: <key> is not camelCase or kebab-case — …`](#i18n-locale-key-is-not-camelcase-or-kebab-case--every-segment-of-a-key-is-one-or-the-other-and-nested-rather-than-dotted-as-verifyemailtitle-or-verify-emailtitle)
 - [`i18n: <locale>: <key> must be a message (a string) or an object of messages`](#i18n-locale-key-must-be-a-message-a-string-or-an-object-of-messages)
 - [`i18n: <locale>: <key> is not a valid ICU message (<reason>)`](#i18n-locale-key-is-not-a-valid-icu-message-reason)
@@ -202,6 +211,16 @@ Name one of `locales`, or leave `fallbackLocale` out for the first.
 
 `dir` is empty or not a string. Give a path from the root, as `'locales'` or `'src/locales'`.
 
+### `<i18nTypes|nxgtI18n>: messages must be a module path, as './i18n/messages.ts'`
+
+`messages` is `''` or not a string. Give a path from the root, as
+`'./i18n/messages.ts'`.
+
+### `<i18nTypes|nxgtI18n>: dir and messages cannot both be set — messages replaces the folder`
+
+Both `dir` and `messages` were passed. Pick one: `messages` reads the
+resources object a module exports, and does not also read a folder.
+
 ### `<i18nTypes|nxgtI18n>: catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]`
 
 One package's catalogues were passed without the list, or a value is not an object by locale. Wrap them:
@@ -230,9 +249,11 @@ nxgtI18n: { locales: ['en', 'fr'], cookie: 'app_locale' }
 ### `i18n: <dir>/<locale>.json is missing — every locale has a catalogue`
 
 The Vite plugin or the Nuxt module looked for `locales/fr.json` (or your
-`dir`) from the project's root and found nothing. Under Nuxt the root is
-`rootDir`, next to `nuxt.config.ts`, not `app/`. Create the file, or remove
-the locale from `locales`.
+`dir`) from the project's root and found neither it nor any
+`locales/fr/**/*.json`. Under Nuxt the root is `rootDir`, next to
+`nuxt.config.ts`, not `app/`. Create a file, or remove the locale from
+`locales`. Folder files alone are enough — the flat file is not required
+once at least one exists.
 
 ### `i18n: <dir>/<locale>.json is not valid JSON`
 
@@ -243,6 +264,55 @@ through any JSON validator.
 ### `i18n: <locale>: the catalogue must be an object of messages`
 
 The catalogue of `<locale>` is not a JSON object: an array, a string, `null`.
+
+### `i18n: <dir>/<locale>/<file>: <segment> is not camelCase or kebab-case — a file path segment is a key segment too, as mails or sign-in`
+
+A folder file's path (`<dir>/<locale>/**/*.json`) has a segment with `_`, a
+leading capital, or a hyphen that is leading, trailing or doubled — a folder
+name or the file's own basename, same rule as a catalogue key:
+
+```text
+locales/en/sign_in.json    // wrong: underscore
+locales/en/sign-in.json    // right — becomes sign-in.*
+```
+
+### `i18n: <locale>: <key> is defined by both <file> and <file>`
+
+Two sources define the same key: `locales/en.json` already has `mails` and
+`locales/en/mails.json` also exists, or two folder files reach the same
+prefix (`locales/en/mails.json`'s own `welcome` key and
+`locales/en/mails/welcome.json`). Keep the message in one place. See
+[Splitting catalogues](catalogues.md#splitting-catalogues).
+
+### `i18n: <dir>/<locale>/<file> is missing — <dir>/<fallback>/<file> exists`
+
+The fallback locale has a folder file another locale does not. Add it there,
+even if only to leave the message untranslated for now — a file is checked
+for parity the way a key already was.
+
+### `i18n: <dir>/<locale>/<file> exists, and <dir>/<fallback>/<file> does not — every locale has the same files`
+
+A locale has a folder file the fallback locale does not. Add the same file
+to the fallback locale, or remove it here.
+
+### `i18n: <path> has no default export — export the resources object, or a function that returns it`
+
+A `messages` module has no `default` export. Export the resources object, or
+a function that answers one:
+
+```ts
+export default { en, fr };
+```
+
+### `i18n: <path>'s default export must be a resources object ({ en: {...}, fr: {...} }) or a function that returns one`
+
+The default export (or what the function answered) is not an object of
+catalogues by locale — `null`, a single catalogue, an array.
+
+### `i18n: <path> is missing the <locale> locale`
+
+A `messages` module's resources object has no key for one of `locales`. Add
+it there, or remove the locale from `locales`.
 
 ### `i18n: <locale>: <key> is not camelCase or kebab-case — every segment of a key is one or the other, and nested rather than dotted, as verifyEmail.title or verify-email.title`
 
