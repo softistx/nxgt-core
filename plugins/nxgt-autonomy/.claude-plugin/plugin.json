@@ -1,6 +1,6 @@
 {
 	"name": "nxgt-autonomy",
-	"description": "Autonomy as the default mode of every session in the nxgt repositories: a SessionStart hook that puts the mandate in context, the loop that works the queue to completion, the planning cycle that refills it from the roadmap, an auditor that reconciles the queue with git and gh, a scout that proposes improvements without applying them, and a verifier that refuses to call unmeasured work done.",
+	"description": "Autonomy as the default mode of every session in a git repository: a SessionStart hook that puts the mandate in context, the loop that works the queue to completion, the planning cycle that refills it from the roadmap, an auditor that reconciles the queue with git and gh, a scout that proposes improvements without applying them, and a verifier that refuses to call unmeasured work done.",
 	"version": "1.1.0",
 	"author": {
 		"name": "softistx"

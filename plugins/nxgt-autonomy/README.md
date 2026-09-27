@@ -1,15 +1,15 @@
 # nxgt-autonomy
 
-Autonomy as the default operating mode of every Claude Code session in the nxgt
-repositories: work the queue to completion, plan the roadmap when it runs dry,
+Autonomy as the default operating mode of every Claude Code session in a git
+repository: work the queue to completion, plan the roadmap when it runs dry,
 and ask the owner only what only the owner can decide.
 
 | part | what it is for |
 | --- | --- |
 | `SessionStart` hook | puts the mandate below in context at the start of every session in a git repository |
 | skill `work-autonomously` | the loop: one item, one branch, one PR — reviewed, documented, merged |
-| skill `plan-the-roadmap` | the planning cycle that refills the queue from candidates and roadmap entries |
-| agent `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, says what remains |
+| skill `plan-the-roadmap` | the planning cycle that refills the queue from candidates and roadmap entries, in eight steps; with `nxgt-crew` enabled, it aligns with other sessions (`/crew align`) and records accepted entries (`/crew announce --kind plan`) |
+| agent `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and the roadmaps with the queue; says what remains |
 | agent `improvement-scout` | proposes improvements into the queue, applies none |
 | agent `green-bar-verifier` | refuses to call anything done that was not measured |
 
@@ -67,7 +67,7 @@ available; they are just no longer the default.
 
 | what | where |
 | --- | --- |
-| the queue | `~/.claude/projects/<project>/memory/work-queue.md` — one file across every repository |
+| the queue | `~/.claude/projects/<project>/memory/work-queue.md` — one per project, the owner's memory file for the project the session runs in; an item may name several repositories |
 | a roadmap | `docs/roadmap.md` of each published package, kept by `nxgt-docs`'s `roadmap-keeper` |
 
 ## Developing it

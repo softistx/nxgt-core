@@ -10,7 +10,7 @@ import { runHook } from '../lib/hook';
 import { buildMandate, insideGitRepo } from '../lib/mandate';
 
 await runHook('SessionStart', (input) => {
-	const cwd = input.cwd ?? process.cwd();
+	const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
 	if (!insideGitRepo(cwd, existsSync)) return undefined;
 	return {
 		hookSpecificOutput: {

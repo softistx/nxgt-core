@@ -28,7 +28,7 @@ queue items, and `work-autonomously` does the rest.
 | **roadmap entry** | a candidate phrased as what a consumer of the package gets | `docs/roadmap.md` of that package, under Now, Next, Later, Not planned or Shipped |
 | **plan** | how an entry gets done: steps, files, public API, tests, docs | the Plan agent's output, summarised in the queue item |
 | **owner decision** | a choice in a plan that only the owner can make | an `AskUserQuestion`, recommended option first |
-| **queue item** | an approved plan, ready to execute | the work queue, under *In flight* |
+| **queue item** | an accepted plan, ready to execute | the work queue, under *In flight* |
 
 The two files, and why there are two:
 
@@ -37,17 +37,22 @@ The two files, and why there are two:
   of a single-package repository. They ship to npm, so the rules of
   `nxgt-docs:keep-docs-current` apply: no dates, no private names, phrased for
   a consumer.
-- **The queue is one private file across every repository**: the owner's
-  memory file `~/.claude/projects/<project>/memory/work-queue.md`, the same one
-  `work-autonomously` works — found from anywhere with
-  `ls ~/.claude/projects/*/memory/work-queue.md`, sections *In flight*,
-  *Blocked on the user*, *Proposed, not approved*, *Done*.
+- **The queue is private and per project**: the owner's memory file
+  `~/.claude/projects/<project>/memory/work-queue.md` of the project the
+  session runs in — the same file `work-autonomously` works, with the
+  sections *In flight*, *Blocked on the user*, *Proposed, not approved*,
+  *Done*. `ls ~/.claude/projects/*/memory/work-queue.md` lists every
+  project's; the one whose project matches the checkout is this session's.
+  An item may name several repositories; it still lives in this one file.
 
 A roadmap entry says *what* a consumer gets; the queue item says *how, where,
 and which PR*. Each names the other: the queue item names the package and the
 entry's bold name; the entry never names the queue.
 
 ## The cycle
+
+Eight steps — the same numbering `nxgt-crew`'s README uses when it aligns this
+cycle across sessions.
 
 ### 1. Discover
 
@@ -91,7 +96,14 @@ one.
 
 ### 4. Validate with the owner
 
-Ask the owner decisions with `AskUserQuestion`, as `work-autonomously`
+**When `nxgt-crew` is enabled**, run `/crew align` first: it reads the
+roadmaps and announced plans of every live session, and flags an entry another
+session already planned, a plan waiting on another session's release, or an
+entry already Shipped or Not planned. What it finds goes into the question, so
+the owner decides knowing what the other sessions do. Without `nxgt-crew`,
+skip this.
+
+Then ask the owner decisions with `AskUserQuestion`, as `work-autonomously`
 section 4 says: in the owner's language, the recommended option first and
 labelled `(Recommended)` / `(Recommandé)`, what each option costs, a preview
 when the options are shapes. Group up to four per call, most consequential
@@ -102,41 +114,59 @@ data, force-pushing, the first publish of a package, spending money, messaging
 anyone off this machine — is labelled `(Irreversible)` and waits for an
 explicit answer. Keep planning the other entries meanwhile.
 
-- **Approved** → step 5.
+- **Accepted** → step 5.
 - **Refused** → `roadmap-keeper` moves the entry to **Not planned**, with the
   owner's reason.
 - **Deferred** → the entry stays in Next or Later; nothing is queued.
 
-### 5. Queue the approved items
+### 5. Queue the accepted entries
 
-Write each approved plan into *In flight*, most-blocking first: one line with
-the repository, the package, the roadmap entry's bold name, the decisions the
-owner took, and the first step. Remove it from *Proposed, not approved* if it
-was there.
+Write each accepted plan into *In flight* as a queue item, most-blocking
+first: one line with the repository, the package, the roadmap entry's bold
+name, the decisions the owner took, and the first step. Remove it from
+*Proposed, not approved* if it was there.
 
-When work on an item starts — its branch is cut — `roadmap-keeper` moves the
-entry to **Now**, in that item's first PR.
+**When `nxgt-crew` is enabled**, run `/crew align` again — the other sessions
+may have moved while the owner answered — then record each queued entry, so
+other sessions read it as taken:
 
-### 6. Execute, verify, ship
+```bash
+/crew announce --kind plan --entry "<bold name>" --scope <repo|package> --needs <pkg@version> "<text>"
+```
 
-`work-autonomously` takes it from here: one item, one branch, one PR, review
-then docs, merged per the repository's `AGENTS.md`. Then:
+`--entry` is the bold name exactly as in `docs/roadmap.md`; `--needs` names a
+release the entry waits on, and is left out when there is none. **Record only
+after the owner has accepted** — an announcement made before his answer is a
+claim nobody approved. Without `nxgt-crew`, skip this.
+
+### 6. Execute
+
+`work-autonomously` takes each queue item: one branch, one PR, review then
+docs, merged per the repository's `AGENTS.md`. When the item's branch is cut,
+`roadmap-keeper` moves the entry to **Now**, in that item's first PR.
+
+### 7. Verify
 
 - **`green-bar-verifier`** on what landed;
-- **`work-queue-auditor`** to reconcile the queue;
-- **on release**, `roadmap-keeper` moves the entry to **Shipped**, with the
-  version the changeset produced, in the PR that ships it.
+- **`work-queue-auditor`** to reconcile the queue — including the roadmap
+  against it (an entry under **Now** with no item in flight, or an item in
+  flight whose entry is still under **Next**).
+
+### 8. Ship
+
+On release, `roadmap-keeper` moves the entry to **Shipped**, with the version
+the changeset produced, in the PR that ships it.
 
 When the queue runs dry again, the cycle starts over at step 1.
 
 ## Checking the cycle
 
 ```bash
-ls ~/.claude/projects/*/memory/work-queue.md             # one queue
+ls ~/.claude/projects/*/memory/work-queue.md             # one queue per project
 grep -n '^## ' packages/*/docs/roadmap.md                # every roadmap has its sections
 grep -c '^- \[ \]' <queue>                                # approved and not done
 ```
 
 An entry under **Now** with no queue item in flight, or a queue item naming an
-entry that is still under **Next**, is a cycle that skipped a step — the
-auditor reports it; fix whichever side is wrong.
+entry that is still under **Next**, is a cycle that skipped a step —
+`work-queue-auditor` reports it; fix whichever side is wrong.

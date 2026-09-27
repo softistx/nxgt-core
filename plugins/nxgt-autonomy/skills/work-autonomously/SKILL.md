@@ -1,7 +1,7 @@
 ---
 name: work-autonomously
 description: >-
-  The default operating mode of every session in the nxgt repositories, put in
+  The default operating mode of every session in a git repository, put in
   context at session start by the nxgt-autonomy hook: work the standing queue
   to completion — branch, verify, review, document, PR and merge each item —
   then run the verifier, the auditor and the scout, and plan the roadmap when
@@ -16,8 +16,8 @@ description: >-
 
 ## Purpose
 
-**This is the default mode of every session, not something a phrase switches
-on.** The owner's standing instruction, which does not need repeating: **carry on
+**This is the default mode of every session in a git repository, not something
+a phrase switches on.** The owner's standing instruction, which does not need repeating: **carry on
 without me, merge as you go, finish everything queued.** This skill is what that
 means in practice, so it stops being re-negotiated every session.
 
@@ -36,13 +36,17 @@ Three agents do the parts that must not be done by whoever did the work:
 
 ---
 
-## 1. The queue is a file, and it is the only queue
+## 1. The queue is a file, one per project
 
-`~/.claude/projects/<project>/memory/work-queue.md`, found from anywhere with:
+`~/.claude/projects/<project>/memory/work-queue.md` — the owner's memory file
+for the project the session runs in. Every project's is listed with:
 
 ```bash
 ls ~/.claude/projects/*/memory/work-queue.md
 ```
+
+The one whose project matches the checkout is this session's queue. An item may
+name several repositories; it still lives in that one file.
 
 Four sections, and each one earns its place:
 
@@ -62,7 +66,9 @@ file does not exist, create it from what the conversation establishes and say so
 Per item, in this order, and nothing skipped:
 
 1. **Branch off the default branch** (`develop` everywhere in this parc), named
-   for what it does: `feat/…`, `fix/…`, `chore/…`, `docs/…`.
+   for what it does: `feat/…`, `fix/…`, `chore/…`, `docs/…`. When the item
+   comes from a roadmap entry, `roadmap-keeper` moves that entry to **Now** in
+   this first PR.
 2. **Do the work**, smallest coherent slice first.
 3. **Measure it** — the repo's own green bar (`bun run check`, `typecheck`,
    `build`, the tests CI cannot run), and the behaviour itself where behaviour
@@ -78,11 +84,12 @@ Per item, in this order, and nothing skipped:
    default branch. **Merges and releases follow the repository's `AGENTS.md`**
    (who may merge, merge commits or squash, when a Version PR lands); where it
    is silent, open the PR and ask.
-7. **Cross the item off the queue with the PR number**, and when the item came
-   from a roadmap entry, have `roadmap-keeper` move that entry (see
-   `plan-the-roadmap`).
+7. **Cross the item off the queue with the PR number.** When the item comes
+   from a roadmap entry, `roadmap-keeper` moves that entry to **Shipped**, with
+   its version, in the PR that ships it — the release, not the merge of a
+   slice (see `plan-the-roadmap`, steps 6 and 8).
 
-A PR that cannot merge (a blocked check, a permission the user must grant) moves
+A PR that cannot merge (a blocked check, a permission the owner must grant) moves
 to **Blocked on the user** with the exact blocker — it does not stay in flight
 looking like progress.
 
@@ -98,10 +105,10 @@ looking like progress.
 - **Never widen a destructive action.** A live machine, a running stack, a
   registry, someone else's repository: confirm first, every time, even mid-flow.
   Approval for one delete is not approval for the next.
-- **Never work around a denied permission.** A classifier refusal or a user "no"
+- **Never work around a denied permission.** A classifier refusal or an owner's "no"
   is an answer. Record it in the queue as a blocker and move on.
 - **Never invent a secret's value.** A missing credential is a blocker on the
-  user, not a placeholder to generate — unless the tool for generating it says
+  owner, not a placeholder to generate — unless the tool for generating it says
   otherwise (`@nxgt/env` marks `*_TOKEN` manual for exactly this reason).
 
 ## 4. Owner decisions are interactive questions
@@ -111,7 +118,7 @@ unsafe or would make the work useless if wrong, **do everything that does not
 depend on the answer first, then ask** — and while the question is open, the
 answer is the only thing that waits.
 
-Ask with `AskUserQuestion`, in the user's language, and:
+Ask with `AskUserQuestion`, in the owner's language, and:
 
 - **Recommend.** Put the recommended option first and label it
   `(Recommended)` — `(Recommandé)` when asking in French.
@@ -148,9 +155,9 @@ waiting**: a turn ends on work done and questions asked, not on "let me know".
 
 ## 6. What the report says
 
-Short, and in the user's language. For each item: what landed, the PR number,
+Short, and in the owner's language. For each item: what landed, the PR number,
 and the one thing that was surprising. Then blockers, one line each, phrased as
-what the user must do. Then the questions.
+what the owner must do. Then the questions.
 
 Never report a step as done that was skipped, and never describe a check as
 passing without having run it in that state. If tests fail, say so with the

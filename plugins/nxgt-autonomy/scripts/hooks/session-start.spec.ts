@@ -29,8 +29,13 @@ afterAll(() => {
 	rmSync(scratch, { recursive: true, force: true });
 });
 
-async function run(stdin: string, env: Record<string, string> = {}) {
+async function run(
+	stdin: string,
+	env: Record<string, string> = {},
+	cwd?: string,
+) {
 	const proc = Bun.spawn(['bun', SCRIPT], {
+		cwd,
 		stdin: new Blob([stdin]),
 		stdout: 'pipe',
 		stderr: 'pipe',
@@ -69,6 +74,12 @@ describe('session-start.ts', () => {
 			code: 0,
 			out: undefined,
 		});
+	});
+
+	test('a cwd that is not a string falls back to the process directory', async () => {
+		const input = JSON.stringify({ session_id: 's1', cwd: 42 });
+		expect((await run(input, {}, outside)).out).toBeUndefined();
+		expect((await run(input, {}, repo)).out?.hookSpecificOutput).toBeDefined();
 	});
 
 	test('fails open on input it cannot read: exit 0 and a warning only', async () => {
