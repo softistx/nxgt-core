@@ -29,7 +29,7 @@
     },
     "packages/i18n": {
       "name": "@nxgt/i18n",
-      "version": "1.0.4",
+      "version": "1.1.0",
       "dependencies": {
         "hono": "^4.13.4",
         "intl-messageformat": "^12.1.2",
@@ -45,7 +45,7 @@
     },
     "packages/i18n-vue": {
       "name": "@nxgt/i18n-vue",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@formatjs/icu-messageformat-parser": "3.5.20",
         "intl-messageformat": "12.1.2",
