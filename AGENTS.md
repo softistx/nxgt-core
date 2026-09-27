@@ -165,7 +165,9 @@ snapshot, or a `<subject>.fixtures.*` — with
 passes: the dotted prefix is what marks the fixtures specs share. Every
 `tsconfig.build.json` excludes `test/` and `**/*.spec.ts`, and no `src/`
 holds any other kind, so no tarball holds any today; this check is what holds
-that. And a package with no `dist/` stops it before packing with
+that. `TEST_CODE` in `tarball.ts` and `NOT_A_BUILD_INPUT` in `stale.ts` name
+the same files, so a spec's fixtures cannot make `dist/` stale either; a new
+kind of test file belongs in both. And a package with no `dist/` stops it before packing with
 `<package>: no dist/` and "Run `bun run build` first" — until 2026-09-27 it
 crashed on a raw `ENOENT` instead, because on Bun 1.4.2 `Bun.Glob().scan`
 throws on a missing `cwd`.
