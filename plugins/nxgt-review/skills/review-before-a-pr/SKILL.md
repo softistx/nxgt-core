@@ -35,13 +35,19 @@ Not for a one-line typo, a changeset-only change, or a Version PR.
    `documentation-auditor` (plugin `nxgt-docs`). The reviewer does not audit
    documentation.
 4. Apply every finding that breaks an invariant, a layering rule or a
-   packaging rule, in this branch. Apply structural findings too, unless the
-   split is a change of its own — then say so in the PR and open a follow-up.
+   packaging rule, in this branch. Apply structural findings too. For a
+   file with several responsibilities, or one over the file threshold (250
+   unless the repository sets its own) that this diff grows, do one of two:
+   split first — its own PR or commit, with no spec touched — or put the new
+   code in a file of its own role. Only when neither is done is the finding
+   left open, said in the PR, with a follow-up.
 5. Re-run the green bar, then the reviewer on what changed, until it reports
    `ready: true`.
 6. In the PR description, add a short **Review** section: what the reviewer
-   checked, what it did not (suites not run and why), and any finding left
-   open with its reason.
+   checked, what it did not (suites not run and why), any finding left
+   open with its reason, and its **Structural debt** tally — the files and
+   functions over the thresholds in the packages touched — so debt that was
+   inherited is on record rather than silent.
 
 ## Disagreeing with a finding
 
@@ -55,8 +61,9 @@ repository first; the reference follows.
 
 A new repository gets `references/<repo>.md`, in the shape of the others:
 what it is, **Measure** (the commands for its layout, the green bar, what
-the reviewer may and may not run), **Invariants**, **Deliberate — do not
-report**, **Layering and packaging**. Only rules its `AGENTS.md` states.
+the reviewer may and may not run, the known structural debt),
+**Invariants**, **Deliberate — do not report**, **Layering and
+packaging**. Only rules its `AGENTS.md` states.
 Then it enables `nxgt-review@nxgt-core` in its `.claude/settings.json`, and
 deletes any local `.claude/agents/code-reviewer.md`, so there is one
 reviewer rather than two copies drifting apart.

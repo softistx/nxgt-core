@@ -6,7 +6,7 @@ nxgt-data is the Bun workspace behind the public `@nxgt/*` data-access packages,
 
 ```bash
 find packages/*/src scripts -name '*.ts' ! -name '*.spec.ts' -exec wc -l {} + | sort -rn | head -20
-git ls-files 'packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
+git ls-files ':(glob)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
 ```
 
 The green bar, as CI runs it (build first, because `exports` points at `dist/`):
@@ -79,7 +79,7 @@ You may run the measure commands, `biome ci`, `build`, `typecheck` and `verify:a
 
 ## Structure
 
-- A function over **80** lines, or a source file over **250**. A long file of declarations is not a finding (`mongo/src/collection/types.ts` is one). For a grown factory, the seam is the shape `packages/mongo/src/collection/` follows: a data-only `context.ts`, then plain functions taking it first — `filters.ts`, `documents.ts`, `operations/reads.ts`, `operations/writes.ts`, `operations/paginate.ts`. `@nxgt/drizzle`'s `pg/repository/` is the second one cut that way and the one to compare a third against: `context.ts` (six fields, `actor` the last, no closures, and a `builders(ctx)` that **reads** the loosely typed handles rather than holding a second copy of the database), `filters.ts`, `stamp-writes.ts`, `operations/{reads,writes,upsert,paginate}.ts`, and a `create-repository.ts` whose `build()` only names the methods. A split like this is its own PR with **no spec touched** — the unchanged test count is the only evidence nothing moved — so a spec change in the same diff is a finding.
+- A function over **80** lines, or a source file over **250**. A long file of declarations is measured like any other: it passes only as one cohesive responsibility, named in the report. A diff that grows a file over 250 either splits it first — its own PR or commit, with no spec touched — or puts the new code in a file of its own role; only when neither is done is it a finding left open, with a follow-up. For a grown factory, the seam is the shape `packages/mongo/src/collection/` follows: a data-only `context.ts`, then plain functions taking it first — `filters.ts`, `documents.ts`, `operations/reads.ts`, `operations/writes.ts`, `operations/paginate.ts`. `@nxgt/drizzle`'s `pg/repository/` is the second one cut that way and the one to compare a third against: `context.ts` (six fields, `actor` the last, no closures, and a `builders(ctx)` that **reads** the loosely typed handles rather than holding a second copy of the database), `filters.ts`, `stamp-writes.ts`, `operations/{reads,writes,upsert,paginate}.ts`, and a `create-repository.ts` whose `build()` only names the methods. A split like this is its own PR with **no spec touched** — the unchanged test count is the only evidence nothing moved — so a spec change in the same diff is a finding.
 - A folder past a dozen source files, or files that need a prefix to tell apart, is several subjects.
 - Specs are split by subject and live next to the code; `AGENTS.md` lists `@nxgt/mongo`'s. A new subject with no spec of its own is a finding.
 - An import carrying a `.js` or `.ts` extension is a finding.
