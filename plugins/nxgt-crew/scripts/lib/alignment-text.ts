@@ -20,6 +20,8 @@ export function renderAlignment(
 		const base = v ? `${label(v.record)} [${id.slice(0, 8)}]` : id.slice(0, 8);
 		return id === selfId ? `${base} (this session)` : base;
 	};
+	const scoped = (id: string, scope?: string) =>
+		scope ? `${name(id)} (${scope})` : name(id);
 	const lines: string[] = [];
 	const roadmaps = views.flatMap((v) =>
 		v.roadmaps.map(
@@ -47,7 +49,7 @@ export function renderAlignment(
 			? `Same entry in two sessions:\n${result.duplicates
 					.map(
 						(d) =>
-							`- "${d.entry}": ${d.claimants.map((c) => name(c.sessionId)).join(' and ')}. Proposed owner: ${name(d.proposal.owner)} — ${d.proposal.why}.`,
+							`- "${d.entry}": ${d.claimants.map((c) => scoped(c.sessionId, c.scope)).join(' and ')}. Proposed owner: ${name(d.proposal.owner)} — ${d.proposal.why}.`,
 					)
 					.join('\n')}`
 			: 'Same entry in two sessions: none.',
@@ -67,7 +69,7 @@ export function renderAlignment(
 			`Plans for entries the roadmap closed (Shipped or Not planned):\n${result.closed
 				.map(
 					(c) =>
-						`- ${name(c.sessionId)}: "${c.entry}" is ${c.section} in ${c.roadmap}`,
+						`- ${scoped(c.sessionId, c.scope)}: "${c.entry}" is ${c.section} in ${c.roadmap}`,
 				)
 				.join('\n')}`,
 		);

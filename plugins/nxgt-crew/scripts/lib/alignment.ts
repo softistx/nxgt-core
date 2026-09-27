@@ -92,7 +92,8 @@ export function proposeOwner(
 		const view = views.find((v) => v.record.sessionId === c.sessionId);
 		return view !== undefined && owns(view, key, c.scope);
 	});
-	if (home.length === 1) {
+	// One session can claim the entry in two scopes: count sessions, not claimants.
+	if (new Set(home.map((c) => c.sessionId)).size === 1) {
 		const h = home[0] as Claimant;
 		return {
 			owner: h.sessionId,
@@ -119,10 +120,6 @@ function producerOf(
 				plansOf(v.record).some((p) => p.scope && scopeKey(p.scope) === key)),
 	);
 }
-
-/** One claimant per session and scope: the same session may plan an entry in two scopes. */
-const claimantKey = (sessionId: string, scope?: string) =>
-	JSON.stringify([sessionId, scopeKey(scope ?? '')]);
 
 /** The first closed roadmap entry a plan points at, across every session's roadmaps. */
 function closedFor(
@@ -201,7 +198,12 @@ export function align(views: readonly SessionView[]): Alignment {
 		const r = view.record;
 		for (const plan of plansOf(r)) {
 			const key = entryKey(plan.entry);
-			const once = `${key}\u0000${claimantKey(r.sessionId, plan.scope)}`;
+			// One claimant per session and scope: a session may plan an entry in two scopes.
+			const once = JSON.stringify([
+				key,
+				r.sessionId,
+				scopeKey(plan.scope ?? ''),
+			]);
 			if (seen.has(once)) continue;
 			seen.add(once);
 			const slot = byKey.get(key) ?? { entry: plan.entry, claimants: [] };

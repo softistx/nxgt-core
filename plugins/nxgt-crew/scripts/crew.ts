@@ -92,125 +92,147 @@ function own(): SessionRecord {
 	);
 }
 
-switch (verb) {
-	case undefined:
-	case 'list': {
-		const records = readAll(home);
-		const self = sessionId
-			? records.find((r) => r.sessionId === sessionId)
-			: undefined;
-		const peers = livePeers(records, sessionId ?? '', now, settings, probePid);
-		if (json) {
-			process.stdout.write(
-				`${JSON.stringify({ self: self ?? null, peers: peers.map((p) => ({ liveness: p.liveness, ...p.record })) }, null, 2)}\n`,
-			);
-		} else {
-			process.stdout.write(`${listing(self, peers, now, settings)}\n`);
-		}
-		break;
-	}
-	case 'announce': {
-		const kind = (kindArg ?? 'working') as AnnouncementKind;
-		if (!KINDS.includes(kind))
-			fail(`--kind must be one of ${KINDS.join(', ')}`);
-		const entry = entryArg?.trim();
-		if (entryArg !== undefined && !entry) fail('--entry cannot be empty');
-		if (kind === 'plan' && !entry) {
-			fail('a plan needs --entry "<roadmap entry title>"');
-		}
-		if (drop && kind !== 'plan')
-			fail('--drop withdraws a plan: use --kind plan');
-		const text =
-			rest.join(' ').trim() ||
-			(entry ? `${drop ? 'dropped' : 'planning'} ${entry}` : '');
-		if (!text) fail('announce needs a text');
-		const needs = needsArg
-			?.split(',')
-			.map((n) => n.trim())
-			.filter(Boolean);
-		writeMerged(
-			home,
-			announce(own(), text, kind, now, {
-				...(entry ? { entry } : {}),
-				...(scopeArg?.trim() ? { scope: scopeArg.trim() } : {}),
-				...(needs?.length && !drop ? { needs } : {}),
-				...(drop ? { dropped: true } : {}),
-			}),
-		);
-		process.stdout.write(
-			`announced (${drop ? 'plan withdrawn' : kind}): ${text}\n`,
-		);
-		break;
-	}
-	case 'claim': {
-		const [path, ...note] = rest;
-		if (!path) fail('claim needs a path');
-		const abs = resolve(path);
-		writeMerged(home, claim(own(), abs, note.join(' ') || undefined, now));
-		process.stdout.write(`claimed ${abs}\n`);
-		break;
-	}
-	case 'unclaim': {
-		const [path] = rest;
-		if (!path) fail('unclaim needs a path');
-		write(home, unclaim(own(), resolve(path)));
-		process.stdout.write(`released ${resolve(path)}\n`);
-		break;
-	}
-	case 'align': {
-		const records = readAll(home);
-		const self = sessionId
-			? records.find((r) => r.sessionId === sessionId)
-			: undefined;
-		const peers = livePeers(records, sessionId ?? '', now, settings, probePid);
-		const sessions = [...(self ? [self] : []), ...peers.map((p) => p.record)];
-		const views = sessions.map((record) => ({
-			record,
-			roadmaps: [...worktreesOf(record, now, settings)].flatMap((wt) =>
-				// The record's remote belongs to its own worktree only.
-				readRoadmaps(wt, wt === record.worktree ? record.remote : undefined),
-			),
-		}));
-		const result = align(views);
-		if (json) {
-			process.stdout.write(
-				`${JSON.stringify(
-					{
-						sessions: views.map((v) => ({
-							sessionId: v.record.sessionId,
-							title: v.record.title,
-							worktree: v.record.worktree,
-							branch: v.record.branch,
-							plans: plansOf(v.record),
-							roadmaps: v.roadmaps,
-						})),
-						...result,
-					},
-					null,
-					2,
-				)}\n`,
-			);
-		} else {
-			process.stdout.write(
-				`${renderAlignment(result, views, sessionId ?? '')}\n`,
-			);
-		}
-		break;
-	}
-	case 'yield': {
-		const [path] = rest;
-		const under = path === undefined ? undefined : resolve(path);
-		write(home, yieldEdits(own(), under));
-		process.stdout.write(
-			`released the hold on ${under ?? 'every file this session edited'}\n`,
-		);
-		break;
-	}
-	case 'whoami':
-		process.stdout.write(`${sessionId ?? 'unknown'}\n`);
-		break;
-	default:
-		fail(
-			`unknown command "${verb}" (list, announce, align, claim, unclaim, yield, whoami)`,
-		);
+/** This session's record, when it has one, and its live peers. */
+function selfAndPeers() {
+	const records = readAll(home);
+	const self = sessionId
+		? records.find((r) => r.sessionId === sessionId)
+		: undefined;
+	return {
+		self,
+		peers: livePeers(records, sessionId ?? '', now, settings, probePid),
+	};
 }
+
+/** `list`: live sessions, this one first. */
+function listSessions(): void {
+	const { self, peers } = selfAndPeers();
+	if (json) {
+		process.stdout.write(
+			`${JSON.stringify({ self: self ?? null, peers: peers.map((p) => ({ liveness: p.liveness, ...p.record })) }, null, 2)}\n`,
+		);
+	} else {
+		process.stdout.write(`${listing(self, peers, now, settings)}\n`);
+	}
+}
+
+/** `announce`: a working, plan, release, decision or note line; `--drop` withdraws a plan. */
+function announceLine(): void {
+	const kind = (kindArg ?? 'working') as AnnouncementKind;
+	if (!KINDS.includes(kind)) fail(`--kind must be one of ${KINDS.join(', ')}`);
+	const entry = entryArg?.trim();
+	if (entryArg !== undefined && !entry) fail('--entry cannot be empty');
+	if (kind === 'plan' && !entry) {
+		fail('a plan needs --entry "<roadmap entry title>"');
+	}
+	if (drop && kind !== 'plan') fail('--drop withdraws a plan: use --kind plan');
+	const text =
+		rest.join(' ').trim() ||
+		(entry ? `${drop ? 'dropped' : 'planning'} ${entry}` : '');
+	if (!text) fail('announce needs a text');
+	const needs = needsArg
+		?.split(',')
+		.map((n) => n.trim())
+		.filter(Boolean);
+	writeMerged(
+		home,
+		announce(own(), text, kind, now, {
+			...(entry ? { entry } : {}),
+			...(scopeArg?.trim() ? { scope: scopeArg.trim() } : {}),
+			...(needs?.length && !drop ? { needs } : {}),
+			...(drop ? { dropped: true } : {}),
+		}),
+	);
+	process.stdout.write(
+		`announced (${drop ? 'plan withdrawn' : kind}): ${text}\n`,
+	);
+}
+
+/** `claim <path> [note…]`: mark a folder as this session's. */
+function claimPath(): void {
+	const [path, ...note] = rest;
+	if (!path) fail('claim needs a path');
+	const abs = resolve(path);
+	writeMerged(home, claim(own(), abs, note.join(' ') || undefined, now));
+	process.stdout.write(`claimed ${abs}\n`);
+}
+
+/** `unclaim <path>`. */
+function unclaimPath(): void {
+	const [path] = rest;
+	if (!path) fail('unclaim needs a path');
+	write(home, unclaim(own(), resolve(path)));
+	process.stdout.write(`released ${resolve(path)}\n`);
+}
+
+/** `align`: roadmaps and plans of every live session. */
+function alignSessions(): void {
+	const { self, peers } = selfAndPeers();
+	const sessions = [...(self ? [self] : []), ...peers.map((p) => p.record)];
+	const views = sessions.map((record) => ({
+		record,
+		roadmaps: [...worktreesOf(record, now, settings)].flatMap((wt) =>
+			// The record's remote belongs to its own worktree only.
+			readRoadmaps(wt, wt === record.worktree ? record.remote : undefined),
+		),
+	}));
+	const result = align(views);
+	if (json) {
+		process.stdout.write(
+			`${JSON.stringify(
+				{
+					sessions: views.map((v) => ({
+						sessionId: v.record.sessionId,
+						title: v.record.title,
+						worktree: v.record.worktree,
+						branch: v.record.branch,
+						plans: plansOf(v.record),
+						roadmaps: v.roadmaps,
+					})),
+					...result,
+				},
+				null,
+				2,
+			)}\n`,
+		);
+	} else {
+		process.stdout.write(
+			`${renderAlignment(result, views, sessionId ?? '')}\n`,
+		);
+	}
+}
+
+/** `yield [path]`: release this session's hold on its edited files. */
+function yieldHolds(): void {
+	const [path] = rest;
+	const under = path === undefined ? undefined : resolve(path);
+	write(home, yieldEdits(own(), under));
+	process.stdout.write(
+		`released the hold on ${under ?? 'every file this session edited'}\n`,
+	);
+}
+
+/** `whoami`. */
+function whoami(): void {
+	process.stdout.write(`${sessionId ?? 'unknown'}\n`);
+}
+
+const COMMANDS: Readonly<Record<string, () => void>> = {
+	list: listSessions,
+	announce: announceLine,
+	claim: claimPath,
+	unclaim: unclaimPath,
+	align: alignSessions,
+	yield: yieldHolds,
+	whoami: whoami,
+};
+
+const name = verb ?? 'list';
+// `Object.hasOwn`: a verb such as `constructor` must not reach the prototype.
+const command = Object.hasOwn(COMMANDS, name) ? COMMANDS[name] : undefined;
+if (!command) {
+	fail(
+		`unknown command "${verb}" (list, announce, align, claim, unclaim, yield, whoami)`,
+	);
+}
+command();

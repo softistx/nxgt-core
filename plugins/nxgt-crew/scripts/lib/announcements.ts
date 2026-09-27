@@ -130,11 +130,12 @@ function reserved(sorted: readonly Announcement[]): Set<Announcement> {
 
 /**
  * Newest first, with two budgets. Plans have their own: the latest per entry
- * and scope (`planKey`), up to `LIMITS.plans` live plans and, apart from them,
- * `LIMITS.tombstones` withdrawals — a plan is a standing claim, and twenty chatty notes must not erase it. Everything
- * else shares `LIMITS.announcements`, of which the latest `working` and the
- * latest releases are always kept, so a full plan budget never silences what
- * a session is doing now or what it shipped.
+ * and scope (`planKey`), up to `LIMITS.plans` live plans and, apart from
+ * them, `LIMITS.tombstones` withdrawals — a plan is a standing claim, and
+ * twenty chatty notes must not erase it. Everything else shares
+ * `LIMITS.announcements`, of which the latest `working` and the latest
+ * releases are always kept, so a full plan budget never silences what a
+ * session is doing now or what it shipped.
  */
 export function keepAnnouncements(
 	list: readonly Announcement[],
