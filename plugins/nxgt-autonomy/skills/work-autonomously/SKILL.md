@@ -1,22 +1,30 @@
 ---
 name: work-autonomously
 description: >-
-  Work a standing queue of tasks across the nxgt repositories to completion —
-  branch, verify, PR and merge each item, then run the auditor, the scout and
-  the verifier before stopping. Use when the user says to carry on
-  autonomously, to merge until everything is finished, or leaves while work is
-  in flight; and at the end of any session that landed something, to leave the
-  queue true. It asks interactive questions with recommendations rather than
-  guessing, and never starts unapproved work.
+  The default operating mode of every session in the nxgt repositories, put in
+  context at session start by the nxgt-autonomy hook: work the standing queue
+  to completion — branch, verify, review, document, PR and merge each item —
+  then run the verifier, the auditor and the scout, and plan the roadmap when
+  the queue runs dry instead of stopping. Owner decisions go through
+  interactive questions, recommended option first; it never hands back, never
+  starts unapproved work, and never takes an irreversible step without an
+  explicit answer. Read it at the start of a session, when an item lands, and
+  before ending any turn.
 ---
 
 # Skill: Work autonomously
 
 ## Purpose
 
-The user's standing instruction, which does not need repeating: **carry on
+**This is the default mode of every session, not something a phrase switches
+on.** The owner's standing instruction, which does not need repeating: **carry on
 without me, merge as you go, finish everything queued.** This skill is what that
 means in practice, so it stops being re-negotiated every session.
+
+The plugin's `SessionStart` hook puts a short mandate in context at the start of
+every session in a git repository; this skill is its long form. The hook changes
+no permission and no mode — it only says how to work. `NXGT_AUTONOMY_DISABLE=1`
+in the environment turns it off for a session that must not run this way.
 
 Three agents do the parts that must not be done by whoever did the work:
 
@@ -36,7 +44,7 @@ Three agents do the parts that must not be done by whoever did the work:
 ls ~/.claude/projects/*/memory/work-queue.md
 ```
 
-Five sections, and each one earns its place:
+Four sections, and each one earns its place:
 
 ```markdown
 ## In flight              what to work on now, most-blocking first
@@ -62,9 +70,17 @@ Per item, in this order, and nothing skipped:
 4. **Commit with a message that carries what was learned** — the trap, the
    measurement, the reason a line exists. A reader of `git log` should not need
    the PR.
-5. **Open the PR**, wait for CI, **merge it**, delete the branch, pull the
-   default branch.
-6. **Cross the item off the queue with the PR number.**
+5. **Review, then document.** `nxgt-review:review-before-a-pr` on the branch,
+   apply what it finds; then `nxgt-docs:keep-docs-current` — the docs audit,
+   `docs/` troubleshooting and roadmap included. Both, on every PR, in that
+   order.
+6. **Open the PR**, wait for CI, **merge it**, delete the branch, pull the
+   default branch. **Merges and releases follow the repository's `AGENTS.md`**
+   (who may merge, merge commits or squash, when a Version PR lands); where it
+   is silent, open the PR and ask.
+7. **Cross the item off the queue with the PR number**, and when the item came
+   from a roadmap entry, have `roadmap-keeper` move that entry (see
+   `plan-the-roadmap`).
 
 A PR that cannot merge (a blocked check, a permission the user must grant) moves
 to **Blocked on the user** with the exact blocker — it does not stay in flight
@@ -75,6 +91,10 @@ looking like progress.
 - **No new scope.** An improvement found on the way goes to *Proposed, not
   approved*. It is written down, not done. The exception is a fix the queued work
   requires to be correct — then it is part of the item, and the commit says why.
+- **Never take an irreversible or outward-facing step on anything but an
+  explicit answer** — deleting data, force-pushing, the first publish of a
+  package, spending money, messaging anyone off this machine. Ask, and carry on
+  with other work until the owner answers; a recommendation is not an answer.
 - **Never widen a destructive action.** A live machine, a running stack, a
   registry, someone else's repository: confirm first, every time, even mid-flow.
   Approval for one delete is not approval for the next.
@@ -84,19 +104,23 @@ looking like progress.
   user, not a placeholder to generate — unless the tool for generating it says
   otherwise (`@nxgt/env` marks `*_TOKEN` manual for exactly this reason).
 
-## 4. When to stop and ask
+## 4. Owner decisions are interactive questions
 
-Stop mid-queue only when proceeding under any assumption would be unsafe or would
-make the work useless if wrong. Otherwise: **do everything that does not depend on
-the answer, and ask at the end.**
+Never stop mid-queue to wait. When proceeding under any assumption would be
+unsafe or would make the work useless if wrong, **do everything that does not
+depend on the answer first, then ask** — and while the question is open, the
+answer is the only thing that waits.
 
 Ask with `AskUserQuestion`, in the user's language, and:
 
-- **Recommend.** Put the recommended option first and mark it `(recommandé)`.
+- **Recommend.** Put the recommended option first and label it
+  `(Recommended)` — `(Recommandé)` when asking in French.
 - **Say what each option costs**, not what it is. "Two passes work but produce a
   history whose paths change mid-way" beats "use two passes".
 - **Use a preview** when the options are shapes — a tree, a snippet, a file
   layout. It is what makes a choice comparable at a glance.
+- **Label an irreversible or outward-facing question `(Irreversible)`**, so it
+  reads as one that waits for a real answer (section 3).
 - **Never ask what the code can answer.** Measure it instead.
 
 ## 5. The end of a run, in this order
@@ -110,12 +134,17 @@ When *In flight* is empty, or everything left in it is blocked:
    merged, is fixed in the file.
 3. **`improvement-scout`** — writes into *Proposed, not approved*, and applies
    nothing.
-4. **Report**, then stop: what landed with PR numbers, what is blocked and on
-   what exactly, what the scout proposes, and the interactive questions.
+4. **`plan-the-roadmap`** — when *In flight* is empty, the queue has run dry,
+   and that is not a reason to stop: run the planning cycle on the scout's
+   candidates and the owner's requests. It ends in interactive questions, and
+   what the owner approves goes back into *In flight*.
+5. **Report**: what landed with PR numbers, what is blocked and on what
+   exactly, what the scout proposes, and the interactive questions.
 
 **If the auditor finds remaining work, continue instead of stopping.** That is
 the continuation trigger, and it is the auditor's answer that decides it — not a
-feeling that there is more to do.
+feeling that there is more to do. **Never end a turn by handing back or
+waiting**: a turn ends on work done and questions asked, not on "let me know".
 
 ## 6. What the report says
 

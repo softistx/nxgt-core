@@ -7,9 +7,11 @@
 	],
 	"scripts": {
 		"build": "bun run --filter './packages/*' build",
-		"typecheck": "bun run typecheck:scripts && bun run --filter './packages/*' typecheck",
+		"typecheck": "bun run typecheck:scripts && bun run typecheck:plugins && bun run --filter './packages/*' typecheck",
 		"typecheck:scripts": "tsc --noEmit -p scripts/tsconfig.json",
+		"typecheck:plugins": "tsc --noEmit -p plugins/nxgt-autonomy/tsconfig.json",
 		"test": "bun run --filter '*' test",
+		"test:plugins": "bun test ./plugins/",
 		"check": "biome check",
 		"format": "biome format",
 		"lint": "biome lint",

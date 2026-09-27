@@ -1,0 +1,17 @@
+{
+	"description": "nxgt-autonomy: put the autonomy mandate in context at the start of every session in a git repository. Changes no permission or mode, fails open, and NXGT_AUTONOMY_DISABLE=1 turns it off.",
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.ts"],
+						"timeout": 10
+					}
+				]
+			}
+		]
+	}
+}
