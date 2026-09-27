@@ -1,6 +1,6 @@
 {
 	"name": "@nxgt/i18n-vue",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "i18n for a Vue or Nuxt app on @nxgt/i18n's conventions: ICU catalogues checked for missing keys and argument kinds, t() typed and completed in templates, reactive locale switching, and a Nuxt module that resolves the locale on the server.",
 	"license": "MIT",
 	"type": "module",
