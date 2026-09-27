@@ -214,9 +214,11 @@ grows one is a finding.
 - The skeleton copied from nxgt-data (the fourth copy), but for
   `scripts/artifacts/`: this copy of `verify-artifacts.ts` is split there,
   a divergence `AGENTS.md` declares beside the skeleton rule and in its
-  duplication table. nxgt-data's copy is still one file; the test-code check
-  is the part to carry back, so a fix to a check in one copy and not the
-  other is still reported.
+  duplication table. nxgt-data (#135) and nxgt-http (#53) have since split
+  theirs module for module, and both carry the test-code check. Still to
+  carry: `missingFiles` to both, and the `newestMtime` guard to nxgt-data
+  (nxgt-http has it, #55) — nxgt-data's #137, pending, brings both. A fix
+  to a check in one copy and not the others is still reported.
 - The Redis `test/server.ts` in `janus-redis`, `janus-kit` and
   `janus-webhooks-redis` — byte-identical, and both CI jobs key their Redis
   cache on all three.
