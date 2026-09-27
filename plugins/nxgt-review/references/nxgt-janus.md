@@ -188,9 +188,9 @@ grows one is a finding.
   `janus/src/permissions/resolve/`. Adding one is a move with no spec touched.
 - No spec under `packages/*/src` is over 250 (the longest,
   `auth/sessions/index.spec.ts`, 229).
-- Outside the pathspecs: `scripts/verify-artifacts.ts` 554 lines, its
-  `main()` (`:331`) 220, and `scripts/verify-artifacts.spec.ts` 255 — the
-  skeleton copied from nxgt-data (446 lines there), so a split lands in both
+- Outside the pathspecs: `scripts/verify-artifacts.ts` 554 lines (446 in
+  nxgt-data), its `main()` (`:331`) 220, and `scripts/verify-artifacts.spec.ts`
+  255 — the skeleton copied from nxgt-data, so a split lands in both
   copies or is recorded as a drift.
 
 ## Deliberate — do not report
@@ -238,8 +238,9 @@ drift the table does not describe.
   imports. The sibling peers, *observed in the manifests*:
   `janus-webhooks-redis` peers `@nxgt/janus-webhooks` (required), and
   `janus-kit` peers `@nxgt/janus-drizzle`, `@nxgt/janus-mongo` and
-  `@nxgt/janus-telemetry` (optional). Any other edge between siblings, or a
-  cycle, is a finding.
+  `@nxgt/janus-telemetry` (optional). A new edge between siblings is a
+  question; a sibling in `dependencies` other than the kit's `janus-redis` is
+  a finding, since `AGENTS.md` forbids factoring across packages.
 - `./conformance` is product surface, not a test helper: a change to a suite
   is a change to the public contract.
 - `janus-mail`'s Maizzle, Vue, Tailwind and `@nxgt/mail-*` build packages are

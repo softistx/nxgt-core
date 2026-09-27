@@ -159,7 +159,7 @@ reference may set its own. Every rule below means that number.
   each one, and the folder-by-role split that separates them: the file
   becomes a folder of its name, one file per role, with an `index.ts`
   exporting what the file did — nxgt-janus's `janus-drizzle/src/stores.ts`
-  → `stores/{index,users,logins,sessions,tokens,records}.ts`,
+  → `stores/{index,identity-tables,users,logins,sessions,tokens,records}.ts`,
   `janus-telemetry/src/flows.ts` → `flows/{index,call,events,fields,trace}.ts`.
   Prefer a shape the repository already follows; name that place.
 - A source file over the file threshold, **declarations and documentation
