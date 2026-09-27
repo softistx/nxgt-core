@@ -4,10 +4,10 @@
 
 ## Measure
 
-List hand-written source by size. The limit is about 200 lines per file, and type-only files may go over it. `lib/generated/**` is gitignored, and `git ls-files` leaves it out already.
+List hand-written source by size. The limit is about 200 lines per file; a type-only file may go over it only as one cohesive responsibility (see "Deliberate"). `lib/generated/**` is gitignored, and `git ls-files` leaves it out already.
 
 ```bash
-git ls-files 'lib/**/*.ts' 'lib/**/*.tsx' 'scripts/*.ts' codegen.ts vite.config.ts \
+git ls-files ':(glob)lib/**/*.ts' ':(glob)lib/**/*.tsx' 'scripts/*.ts' codegen.ts vite.config.ts \
   | grep -v '__tests__/' | xargs wc -l | sort -rn | head -30
 ```
 
@@ -52,7 +52,7 @@ The reviewer may run `bun tsc`, `bun run test`, `bunx biome check` (without `--w
 - **The `stx-sdk/oauth/react` name.** It is the relying party of the legacy `oauth-api`, not React utilities. Do not ask to rename it without the alias-migrate-remove shape.
 - **Two OAuth relying parties.** They are `stx-sdk/oauth/react` and `stx-sdk/ory/oauth2`.
 - **Vitest in the `node` environment, with stubbed `globalThis.localStorage` instead of jsdom.**
-- **Type-only files over 200 lines**, when the types are cohesive.
+- **Type-only files over 200 lines**, when the types are one cohesive responsibility the report names, and the diff does not grow them.
 
 ## Layering and packaging
 
