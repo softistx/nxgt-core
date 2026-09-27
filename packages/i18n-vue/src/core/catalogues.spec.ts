@@ -68,17 +68,46 @@ describe('checkCatalogues', () => {
 		);
 	});
 
-	test('refuses a key that is not camelCase, or dotted', () => {
+	test('accepts a key segment in camelCase or kebab-case, the same message either way', () => {
+		const messages = check(
+			{ en: { 'verify-email': { title: 'x' }, verifyEmail: 'y' } },
+			['en'],
+		);
+		expect([...(messages.get('en')?.keys() ?? [])]).toEqual([
+			'verify-email.title',
+			'verifyEmail',
+		]);
+	});
+
+	test('refuses a key that is not camelCase or kebab-case, or dotted', () => {
 		fails(
-			{ en: { 'verify-email': { title: 'x' } } },
-			'i18n: en: verify-email is not camelCase — every segment of a key is camelCase, and nested rather than dotted, as verifyEmail.title',
+			{ en: { verify_email: { title: 'x' } } },
+			'i18n: en: verify_email is not camelCase or kebab-case — every segment of a key is one or the other, and nested rather than dotted, as verifyEmail.title or verify-email.title',
 			['en'],
 		);
 		fails(
 			{ en: { 'verifyEmail.title': 'x' } },
-			'i18n: en: verifyEmail.title is not camelCase — every segment of a key is camelCase, and nested rather than dotted, as verifyEmail.title',
+			'i18n: en: verifyEmail.title is not camelCase or kebab-case — every segment of a key is one or the other, and nested rather than dotted, as verifyEmail.title or verify-email.title',
 			['en'],
 		);
+	});
+
+	test('refuses two keys that are the same key in two conventions', () => {
+		fails(
+			{ en: { signIn: 'a', 'sign-in': 'b' } },
+			'i18n: en: sign-in and signIn are the same key in two conventions — keep only one',
+			['en'],
+		);
+	});
+
+	test('accepts two keys that merely fold to the same string once hyphens are stripped', () => {
+		// `coop` and `co-op` are two different words, not one key in two
+		// conventions — a lossy fold must not treat them as a collision.
+		const messages = check({ en: { coop: 'a', 'co-op': 'b' } }, ['en']);
+		expect([...(messages.get('en')?.keys() ?? [])].sort()).toEqual([
+			'co-op',
+			'coop',
+		]);
 	});
 
 	test('refuses a message that does not parse, without its text', () => {

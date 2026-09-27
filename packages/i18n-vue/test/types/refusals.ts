@@ -45,6 +45,9 @@ i18n.t('home.greeting', { name: 42 });
 i18n.t('home.items', { count: 2 });
 i18n.t('home.sentOn', { at: new Date() });
 i18n.t('home.sentOn', { at: Date.now() });
+// The catalogue key is camelCase (sentOn); the kebab-case spelling of the
+// same key types too — completed and checked, not just accepted at runtime.
+i18n.t('home.sent-on', { at: new Date() });
 i18n.t(ok ? 'home.title' : 'home.action');
 i18n.t(ok ? 'home.greeting' : 'home.welcome', { name: 'Ada' });
 if (i18n.has(computed)) i18n.t(computed, {});

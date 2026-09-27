@@ -65,6 +65,7 @@ declare module '@nxgt/i18n-vue' {
 	interface I18nMessages {
 		'home.greeting': { name: string | number };
 		'home.items': { count: number };
+		'home.sent-on': { at: Date | number };
 		'home.sentOn': { at: Date | number };
 		'home.title': { };
 	}
@@ -74,6 +75,11 @@ declare module '@nxgt/i18n-vue' {
 	}
 }
 ```
+
+A key gets both spellings — a catalogue written `sentOn` also types
+`sent-on`, and one written `sent-on` also types `sentOn` — so `t()` completes
+and checks either, whichever convention the catalogue happens to use (see
+[Catalogues](catalogues.md#keys-are-kebab-case-or-camelcase-and-nested)).
 
 `I18nMessages` gives each key its arguments, `I18nLocales` the locales.
 From them:
@@ -92,6 +98,7 @@ In a template, as in code:
 <template>
 	{{ t('home.title') }}                          <!-- ok -->
 	{{ t('home.greeting', { name: 'Ada' }) }}      <!-- ok -->
+	{{ t('home.sent-on', { at: new Date() }) }}    <!-- ok — sentOn's other spelling -->
 	{{ t('home.titel') }}                          <!-- not a key -->
 	{{ t('home.greeting') }}                       <!-- { name } is missing -->
 	{{ t('home.title', { name: 'Ada' }) }}         <!-- home.title takes no argument -->

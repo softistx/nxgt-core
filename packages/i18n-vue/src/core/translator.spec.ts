@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { expectThrow } from '../../test/expect-throw';
-import { createTranslator } from './translator';
+import { createTranslator, lookup } from './translator';
 
 const catalogues = {
 	en: {
@@ -91,5 +91,38 @@ describe('createTranslator', () => {
 			TypeError,
 			'createTranslator: getLanguage must be a locale or a function that answers one',
 		);
+	});
+});
+
+describe('lookup', () => {
+	test('finds a camelCase catalogue key from a kebab-case call, and back', () => {
+		const catalogue = { common: { signIn: 'Sign in' } };
+		expect(lookup(catalogue, 'common.sign-in')).toBe('Sign in');
+		expect(lookup(catalogue, 'common.signIn')).toBe('Sign in');
+	});
+
+	test('finds a kebab-case catalogue key from a camelCase call, and back', () => {
+		const catalogue = { common: { 'sign-in': 'Sign in' } };
+		expect(lookup(catalogue, 'common.signIn')).toBe('Sign in');
+		expect(lookup(catalogue, 'common.sign-in')).toBe('Sign in');
+	});
+
+	test('still answers null for a key that is not there, in either convention', () => {
+		const catalogue = { common: { signIn: 'Sign in' } };
+		expect(lookup(catalogue, 'common.sign-out')).toBeNull();
+		expect(lookup(catalogue, 'toString')).toBeNull();
+	});
+
+	test('does not confuse two different words that happen to fold to the same string', () => {
+		// `coop` and `co-op` both pass KEY_SEGMENT and are unrelated words. A
+		// lossy hyphen/case fold would route 'coOp' to whichever won the fold;
+		// the exact-alternate check matches neither, since `coop` has no other
+		// convention distinct from itself.
+		const catalogue = {
+			settings: { coop: 'Chicken coop', 'co-op': 'Cooperative' },
+		};
+		expect(lookup(catalogue, 'settings.coop')).toBe('Chicken coop');
+		expect(lookup(catalogue, 'settings.co-op')).toBe('Cooperative');
+		expect(lookup(catalogue, 'settings.coOp')).toBe('Cooperative');
 	});
 });

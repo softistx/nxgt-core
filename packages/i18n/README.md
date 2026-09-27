@@ -63,6 +63,17 @@ and not the other.
 
 `SUPPORTED_LANGUAGES` is derived from the catalogue keys, not typed out.
 
+## In a browser bundle
+
+Nothing to change: `import { translate } from '@nxgt/i18n'` is the same import
+whether the code runs in Node, Bun, or a bundler that resolves the `browser`
+export condition (Vite, Nuxt's client build). Under `browser`, `getLanguage()`
+drops step 1 above — there is no Hono request to read from inside a browser —
+and answers from `localStorage`, then `FALLBACK_LANGUAGE`. Everything else,
+including `translate` and `createTranslator`, behaves the same. The point of
+the condition is what it leaves out of the bundle: no `hono/context-storage`,
+and nothing Node-only, ships to the client.
+
 ## Things that bite
 
 - **Messages are keys.** Rendering at the throw site (or translating in a

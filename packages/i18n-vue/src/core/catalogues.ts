@@ -4,13 +4,14 @@ import {
 	TYPE,
 } from '@formatjs/icu-messageformat-parser';
 import { isObject } from './guards';
+import { keyVariants } from './keys';
 
 /**
  * A catalogue as written: nested objects whose leaves are ICU messages, the
- * conventions of `@nxgt/i18n`.
+ * conventions of `@nxgt/i18n`. A key is kebab-case or camelCase, either one:
  *
  * ```json
- * { "verifyEmail": { "subject": "Confirm your e-mail address" } }
+ * { "verify-email": { "subject": "Confirm your e-mail address" } }
  * ```
  */
 export interface Catalogue {
@@ -37,7 +38,17 @@ export interface Message {
 /** Every message of one locale, by dotted key: `verifyEmail.subject`. */
 export type Messages = ReadonlyMap<string, Message>;
 
-const SEGMENT = /^[a-z][a-zA-Z0-9]*$/;
+/** An ICU argument name: `{firstName}`. Always camelCase, whichever convention the key around it uses. */
+const ARGUMENT_NAME = /^[a-z][a-zA-Z0-9]*$/;
+
+/**
+ * One segment of a message key: camelCase (`signIn`), kebab-case
+ * (`sign-in`), or a single lowercase word (both at once). The convention is
+ * kebab-case, the one `@nxgt/i18n` uses; camelCase is still accepted, for
+ * catalogues written before this was decided. Key path segments only — an
+ * ICU argument name is `ARGUMENT_NAME`.
+ */
+const KEY_SEGMENT = /^[a-z][a-zA-Z0-9]*$|^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
 
 /** `over` merged into `under` key by key: an object is merged, anything else replaces. */
 function mergeCatalogue(under: Catalogue, over: Catalogue): Catalogue {
@@ -89,9 +100,9 @@ function flatten(
 	}
 	for (const [segment, value] of Object.entries(catalogue)) {
 		const key = prefix === '' ? segment : `${prefix}.${segment}`;
-		if (!SEGMENT.test(segment)) {
+		if (!KEY_SEGMENT.test(segment)) {
 			throw new Error(
-				`i18n: ${locale}: ${key} is not camelCase — every segment of a key is camelCase, and nested rather than dotted, as verifyEmail.title`,
+				`i18n: ${locale}: ${key} is not camelCase or kebab-case — every segment of a key is one or the other, and nested rather than dotted, as verifyEmail.title or verify-email.title`,
 			);
 		}
 		if (typeof value === 'string') into.set(key, value);
@@ -144,7 +155,7 @@ function analyse(text: string, locale: string, key: string): Message {
 	const args = new Map<string, ArgumentKind>();
 	const selects = new Set<string>();
 	for (const [name, kinds] of uses) {
-		if (!SEGMENT.test(name)) {
+		if (!ARGUMENT_NAME.test(name)) {
 			throw new Error(
 				`i18n: ${locale}: ${key} uses {${name}}, which is not camelCase — an argument is a camelCase name, as {firstName}`,
 			);
@@ -209,10 +220,33 @@ function compare(
 }
 
 /**
+ * Refuses two keys of the same catalogue that are the same key in two
+ * conventions — `signIn` beside `sign-in` — which `t()` could not tell apart
+ * either: naming both, so the fix is to keep one.
+ */
+function checkNoConventionCollision(
+	locale: string,
+	keys: Iterable<string>,
+): void {
+	const owner = new Map<string, string>();
+	for (const key of keys) {
+		for (const variant of keyVariants(key)) {
+			const existing = owner.get(variant);
+			if (existing !== undefined && existing !== key) {
+				throw new Error(
+					`i18n: ${locale}: ${key} and ${existing} are the same key in two conventions — keep only one`,
+				);
+			}
+		}
+		for (const variant of keyVariants(key)) owner.set(variant, key);
+	}
+}
+
+/**
  * Checks the catalogues of every locale and answers their messages. A
- * catalogue that is not objects of camelCase keys, a message that does not
- * parse, and a locale that differs from the fallback locale in its keys or
- * its arguments **throw**, naming the locale and the key.
+ * catalogue that is not objects of camelCase or kebab-case keys, a message
+ * that does not parse, and a locale that differs from the fallback locale in
+ * its keys or its arguments **throw**, naming the locale and the key.
  */
 export function checkCatalogues(
 	catalogues: Catalogues,
@@ -223,6 +257,7 @@ export function checkCatalogues(
 	for (const locale of locales) {
 		const flat = new Map<string, string>();
 		flatten(catalogues[locale], locale, '', flat);
+		checkNoConventionCollision(locale, flat.keys());
 		out.set(
 			locale,
 			new Map(

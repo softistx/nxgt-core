@@ -119,6 +119,14 @@ describe('createI18n', () => {
 		expect(i18n.has('constructor')).toBe(false);
 	});
 
+	test('t and has accept kebab-case for a key the catalogue wrote camelCase', () => {
+		const i18n = createI18n({ catalogues });
+		expect(i18n.has('home.sent-on')).toBe(true);
+		expect(loose(i18n)('home.sent-on', { at: new Date(0) })).toBe(
+			i18n.t('home.sentOn', { at: new Date(0) }),
+		);
+	});
+
 	test('throws on a locale the catalogues do not have, without naming it', () => {
 		const i18n = createI18n({ catalogues });
 		expectThrow(

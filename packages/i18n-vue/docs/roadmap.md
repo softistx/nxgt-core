@@ -20,8 +20,6 @@ server and hydrates from the payload.
 
 - **Formats shared by every message** — named number, date and time formats
   declared once, as `intl-messageformat` allows.
-- **An option to accept the kebab-case keys `@nxgt/i18n` ships**, so its
-  catalogues can be layered under an app's.
 
 ## Not planned
 
@@ -36,4 +34,7 @@ server and hydrates from the payload.
 
 ## Shipped
 
-Nothing yet: see [Now](#now).
+- **Catalogue keys in kebab-case, `@nxgt/i18n`'s own convention** — a key is
+  written `sign-in` or `signIn`, either one, and `t()` finds the message
+  whichever spelling the call uses. `@nxgt/i18n`'s own catalogues, kebab-case
+  from the start, can now be checked and layered here as they are.

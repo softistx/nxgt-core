@@ -54,7 +54,7 @@ as `home.greeting`.
 - [`i18n: <dir>/<locale>.json is missing — every locale has a catalogue`](#i18n-dirlocalejson-is-missing--every-locale-has-a-catalogue)
 - [`i18n: <dir>/<locale>.json is not valid JSON`](#i18n-dirlocalejson-is-not-valid-json)
 - [`i18n: <locale>: the catalogue must be an object of messages`](#i18n-locale-the-catalogue-must-be-an-object-of-messages)
-- [`i18n: <locale>: <key> is not camelCase — …`](#i18n-locale-key-is-not-camelcase--every-segment-of-a-key-is-camelcase-and-nested-rather-than-dotted-as-verifyemailtitle)
+- [`i18n: <locale>: <key> is not camelCase or kebab-case — …`](#i18n-locale-key-is-not-camelcase-or-kebab-case--every-segment-of-a-key-is-one-or-the-other-and-nested-rather-than-dotted-as-verifyemailtitle-or-verify-emailtitle)
 - [`i18n: <locale>: <key> must be a message (a string) or an object of messages`](#i18n-locale-key-must-be-a-message-a-string-or-an-object-of-messages)
 - [`i18n: <locale>: <key> is not a valid ICU message (<reason>)`](#i18n-locale-key-is-not-a-valid-icu-message-reason)
 - [`i18n: <locale>: <key> uses {<name>}, which is not camelCase — …`](#i18n-locale-key-uses-name-which-is-not-camelcase--an-argument-is-a-camelcase-name-as-firstname)
@@ -244,18 +244,20 @@ through any JSON validator.
 
 The catalogue of `<locale>` is not a JSON object: an array, a string, `null`.
 
-### `i18n: <locale>: <key> is not camelCase — every segment of a key is camelCase, and nested rather than dotted, as verifyEmail.title`
+### `i18n: <locale>: <key> is not camelCase or kebab-case — every segment of a key is one or the other, and nested rather than dotted, as verifyEmail.title or verify-email.title`
 
-A key has a segment with `_`, `-`, a dot, or a leading capital:
+A key has a segment with `_`, a dot, a leading capital, or a hyphen that is
+leading, trailing or doubled:
 
 ```json
-{ "home": { "sent_on": "…" } }   // wrong
+{ "home": { "sent_on": "…" } }   // wrong: underscore
 { "home.sentOn": "…" }           // wrong: nest it
-{ "home": { "sentOn": "…" } }    // right
+{ "home": { "sentOn": "…" } }    // right — camelCase
+{ "home": { "sent-on": "…" } }   // right — kebab-case
 ```
 
-`@nxgt/i18n`'s own catalogues are kebab-case (`errors.not-found`), and are
-refused here for this reason.
+`@nxgt/i18n`'s own catalogues, kebab-case (`errors.not-found`), check clean
+here.
 
 ### `i18n: <locale>: <key> must be a message (a string) or an object of messages`
 
