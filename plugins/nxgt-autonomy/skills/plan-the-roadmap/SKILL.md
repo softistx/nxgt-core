@@ -154,8 +154,10 @@ docs, merged per the repository's `AGENTS.md`. When the item's branch is cut,
 
 ### 8. Ship
 
-On release, `roadmap-keeper` moves the entry to **Shipped**, with the version
-the changeset produced, in the PR that ships it.
+`roadmap-keeper` moves the entry to **Shipped**, with the version its
+changeset produces, **in the PR whose changeset completes the entry**. A
+changeset for one slice of a larger entry does not promote it; the entry stays
+under **Now** until the last slice's.
 
 When the queue runs dry again, the cycle starts over at step 1.
 

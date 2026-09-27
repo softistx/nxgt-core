@@ -74,10 +74,14 @@ available; they are just no longer the default.
 
 ```bash
 bun run test:plugins        # the specs: mandate.spec.ts and session-start.spec.ts
-bun run typecheck:plugins
+bun run typecheck:plugins   # plugins/tsconfig.json: every plugin's scripts at once
 claude plugin validate plugins/nxgt-autonomy
 claude --plugin-dir plugins/nxgt-autonomy -p "say what mode you are in"   # from inside a git repository
 ```
+
+`plugins/nxgt-autonomy/tsconfig.json` is not what `typecheck:plugins` runs —
+that is `plugins/tsconfig.json`, over `*/scripts/**/*.ts`. It is kept for
+editors, so opening a file here resolves Bun's types without the root config.
 
 The pure core — the mandate, the opt-out, the git-repository check — is in
 `scripts/lib/mandate.ts` and takes every input as an argument. The hook

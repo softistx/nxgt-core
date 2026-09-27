@@ -107,7 +107,7 @@ grep -n -A20 '^## Next' packages/*/docs/roadmap.md docs/roadmap.md 2>/dev/null
 
 | finding | what it means |
 | --- | --- |
-| **Now, nothing in flight** | an entry under **Now** that no *In flight* item names by its bold name — work started and was dropped, or the item was crossed off without the entry moving on |
+| **Now, nothing in flight** | an entry under **Now** that no *In flight* item names by its bold name, and no *Done* item awaiting its release either — work started and was dropped, or the item was crossed off after its release without the entry moving on. A *Done* item whose changeset is merged but not yet released keeps its entry under **Now** legitimately: not a finding |
 | **in flight, still Next** | an *In flight* item whose entry is still under **Next** (or **Later**) although its branch exists — the move to **Now** was skipped |
 | **done, not Shipped** | an item under *Done* whose release has happened while its entry is still under **Now** |
 

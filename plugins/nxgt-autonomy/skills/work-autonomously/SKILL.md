@@ -30,7 +30,7 @@ Three agents do the parts that must not be done by whoever did the work:
 
 | agent | what it is for |
 | --- | --- |
-| `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and says what remains |
+| `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and the roadmaps with the queue; says what remains |
 | `improvement-scout` | proposes improvements, applies none |
 | `green-bar-verifier` | refuses to call anything done that was not measured |
 
@@ -86,8 +86,8 @@ Per item, in this order, and nothing skipped:
    is silent, open the PR and ask.
 7. **Cross the item off the queue with the PR number.** When the item comes
    from a roadmap entry, `roadmap-keeper` moves that entry to **Shipped**, with
-   its version, in the PR that ships it — the release, not the merge of a
-   slice (see `plan-the-roadmap`, steps 6 and 8).
+   its version, **in the PR whose changeset completes the entry** — never on
+   the changeset of one slice of it (see `plan-the-roadmap`, steps 6 and 8).
 
 A PR that cannot merge (a blocked check, a permission the owner must grant) moves
 to **Blocked on the user** with the exact blocker — it does not stay in flight
@@ -136,7 +136,8 @@ When *In flight* is empty, or everything left in it is blocked:
 
 1. **`green-bar-verifier`** — on what this run landed. If it finds an unmeasured
    claim, that item goes back in flight.
-2. **`work-queue-auditor`** — reconciles the queue against the repositories.
+2. **`work-queue-auditor`** — reconciles the queue with `git log` and
+   `gh pr list`, and the roadmaps with the queue.
    Anything it finds that is done-but-not-crossed-off, or crossed-off-but-not-
    merged, is fixed in the file.
 3. **`improvement-scout`** — writes into *Proposed, not approved*, and applies

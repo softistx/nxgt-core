@@ -49,9 +49,11 @@ For each package:
    An integration branch `feat/<slug>` whose slices touch this package is
    **Now**.
 3. **What shipped** — pending changesets (`.changeset/*.md` naming the
-   package) and the top of `CHANGELOG.md`. A changeset in the current
-   branch means the entry moves to **Shipped** in this PR, with the version
-   `changeset status` says it will produce:
+   package) and the top of `CHANGELOG.md`. An entry moves to **Shipped**
+   in the PR whose changeset **completes** it, with the version
+   `changeset status` says it will produce. A changeset for one slice of
+   a larger entry does not promote it — the entry stays under **Now**
+   until the caller says the slice is the last one:
 
    ```bash
    bun run changeset:status -- --verbose
