@@ -57,7 +57,8 @@ jobs:
       # everything made three test files fail for reasons that were not theirs:
       # `crypto.subtle` replaced by another file's mock, a mongoose model
       # compiled twice, and `--env-file` never applied because only the package
-      # script carries it.
+      # script carries it. Then `bun test ./scripts/`: the repository scripts'
+      # own specs, which no package's run reaches.
       - name: Run tests
         env:
           MONGODB_URI: mongodb://localhost:27017/shared-mongo-test?replicaSet=rs0

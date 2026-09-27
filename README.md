@@ -78,7 +78,7 @@ tarball is public.
 bun install
 bun run build        # every package; `exports` points at dist/
 bun run typecheck
-bun run test         # one process per package, never `bun test` from the root
+bun run test         # one process per package, then the scripts/ specs; never bare `bun test`
 ```
 
 To try a change from a consuming repo without publishing, build the package and
