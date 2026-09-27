@@ -72,3 +72,25 @@ describe('crew announce', () => {
 		});
 	});
 });
+
+describe('crew verbs', () => {
+	test('constructor is an unknown command, not a prototype method', async () => {
+		const r = await crew('constructor');
+		expect(r.code).toBe(1);
+		expect(r.err).toContain('unknown command');
+	});
+
+	test('bogus is an unknown command', async () => {
+		const r = await crew('bogus');
+		expect(r.code).toBe(1);
+		expect(r.err).toContain('unknown command');
+	});
+
+	test('no verb lists the sessions', async () => {
+		expect((await crew()).code).toBe(0);
+	});
+
+	test('list exits 0', async () => {
+		expect((await crew('list')).code).toBe(0);
+	});
+});
