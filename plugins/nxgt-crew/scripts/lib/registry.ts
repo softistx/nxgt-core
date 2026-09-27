@@ -8,6 +8,9 @@
  * timestamp, and the one-line announcements a session chose to make.
  */
 
+import { keepAnnouncements } from './announcements';
+import { LIMITS, type Settings } from './settings';
+
 export type AnnouncementKind =
 	| 'working'
 	| 'plan'
@@ -83,28 +86,6 @@ export interface SessionRecord extends GitPlace {
 	/** Per peer, when this session was last told it shares a worktree with it. */
 	readonly warned?: Readonly<Record<string, string>>;
 }
-
-export interface Settings {
-	/** A session silent this long, with no live process to vouch for it, is stale. */
-	readonly staleMinutes: number;
-	/** An edit older than this no longer holds its file. */
-	readonly editWindowMinutes: number;
-	/** A silent session whose process is alive still counts, up to this long. */
-	readonly idleHours: number;
-}
-
-export const DEFAULT_SETTINGS: Settings = {
-	staleMinutes: 30,
-	editWindowMinutes: 60,
-	idleHours: 12,
-};
-
-export const LIMITS = {
-	edits: 50,
-	claims: 20,
-	announcements: 20,
-	announcementLength: 280,
-} as const;
 
 /**
  * `active`: seen within `staleMinutes`. `idle`: silent longer, but its process
@@ -307,73 +288,6 @@ export function unclaim(record: SessionRecord, path: string): SessionRecord {
 	return { ...record, claims: record.claims.filter((c) => c.path !== path) };
 }
 
-export function announce(
-	record: SessionRecord,
-	text: string,
-	kind: AnnouncementKind,
-	now: Date,
-	plan: PlanFields = {},
-): SessionRecord {
-	const clean = oneLine(text);
-	if (!clean) return record;
-	const needs = (plan.needs ?? []).map(oneLine).filter(Boolean).slice(0, 10);
-	const entryTitle = plan.entry ? oneLine(plan.entry) : '';
-	const scope = plan.scope ? oneLine(plan.scope) : '';
-	const entry: Announcement = {
-		text: clean,
-		kind,
-		at: now.toISOString(),
-		...(kind === 'plan' && entryTitle ? { entry: entryTitle } : {}),
-		...(kind === 'plan' && scope ? { scope } : {}),
-		...(kind === 'plan' && needs.length ? { needs } : {}),
-	};
-	const announcements = [entry, ...record.announcements].slice(
-		0,
-		LIMITS.announcements,
-	);
-	return { ...record, announcements };
-}
-
-function oneLine(text: string): string {
-	const clean = text.replace(/\s+/g, ' ').trim();
-	return clean.length > LIMITS.announcementLength
-		? `${clean.slice(0, LIMITS.announcementLength - 1)}…`
-		: clean;
-}
-
-/** The latest `working` announcement: what the session says it is doing now. */
-export function currentWork(record: SessionRecord): Announcement | undefined {
-	return record.announcements.find((a) => a.kind === 'working');
-}
-
-export interface Unseen {
-	readonly peer: SessionRecord;
-	readonly announcement: Announcement;
-}
-
-/** Peer announcements made after `seenUntil`, oldest first. */
-export function unseenAnnouncements(
-	self: SessionRecord,
-	peers: readonly Peer[],
-): Unseen[] {
-	const floor = self.seenUntil ? Date.parse(self.seenUntil) : 0;
-	const out: Unseen[] = [];
-	for (const { record } of peers) {
-		for (const announcement of record.announcements) {
-			if (Date.parse(announcement.at) > floor) {
-				out.push({ peer: record, announcement });
-			}
-		}
-	}
-	return out.sort(
-		(a, b) => Date.parse(a.announcement.at) - Date.parse(b.announcement.at),
-	);
-}
-
-export function markSeen(record: SessionRecord, now: Date): SessionRecord {
-	return { ...record, seenUntil: now.toISOString() };
-}
-
 /** Whether this session should be told again that it shares a worktree with `peerId`. */
 export function shouldWarn(
 	record: SessionRecord,
@@ -459,11 +373,13 @@ export function merge(
 		warned,
 		edits: unionBy(onDisk.edits, next.edits, (e) => e.path, LIMITS.edits),
 		claims: unionBy(onDisk.claims, next.claims, (c) => c.path, LIMITS.claims),
-		announcements: unionBy(
-			onDisk.announcements,
-			next.announcements,
-			(a) => `${a.at} ${a.text}`,
-			LIMITS.announcements,
+		announcements: keepAnnouncements(
+			unionBy(
+				onDisk.announcements,
+				next.announcements,
+				(a) => `${a.at} ${a.text}`,
+				Number.POSITIVE_INFINITY,
+			),
 		),
 	};
 }
@@ -504,23 +420,4 @@ export function isRecord(value: unknown): value is SessionRecord {
 		Array.isArray(v.claims) &&
 		Array.isArray(v.announcements)
 	);
-}
-
-export function readSettings(
-	env: Record<string, string | undefined>,
-): Settings {
-	const num = (key: string, fallback: number) => {
-		const raw = env[key];
-		if (raw === undefined || raw === '') return fallback;
-		const n = Number(raw);
-		return Number.isFinite(n) && n > 0 ? n : fallback;
-	};
-	return {
-		staleMinutes: num('NXGT_CREW_STALE_MINUTES', DEFAULT_SETTINGS.staleMinutes),
-		editWindowMinutes: num(
-			'NXGT_CREW_EDIT_WINDOW_MINUTES',
-			DEFAULT_SETTINGS.editWindowMinutes,
-		),
-		idleHours: num('NXGT_CREW_IDLE_HOURS', DEFAULT_SETTINGS.idleHours),
-	};
 }

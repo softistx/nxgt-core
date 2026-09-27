@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
+import { announce } from './announcements';
 import { brief, digest, listing, partition } from './brief';
 import { minutesAgo, NOW, peer, record, SETTINGS } from './fixtures';
-import { announce } from './registry';
 
 const self = record('self-000000', {
 	cwd: '/repo',

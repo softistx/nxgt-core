@@ -113,6 +113,9 @@ The folder is `$NXGT_CREW_HOME` when set, else `$CLAUDE_CONFIG_DIR/nxgt-crew`.
   start time (on Linux) and its host, so a reused pid does not count, and a
   pid from another machine or container is never probed. A gone record is
   swept at the next `SessionStart`.
+- **Announcements** keep the 20 newest. The latest `plan` for each roadmap
+  entry is kept on top of those 20, however many notes follow it; an older
+  plan for the same entry is superseded.
 - **Recent edits** hold their file for 60 minutes, or until the holding
   session releases them with `/crew yield`.
 
@@ -212,7 +215,12 @@ approval. It never asks a peer to do what this session was denied.
 nxgt-crew aligns that cycle across sessions:
 
 - **A `plan` announcement** names the entry, its scope and what it waits on.
-  plan-the-roadmap records one at its queueing step.
+  A session records one only after its owner has accepted the entry through
+  AskUserQuestion, at the queue step. Other sessions read a plan as "this
+  entry is taken", so an announcement made before the owner's answer would
+  be a claim nobody approved. plan-the-roadmap records one at its queue step
+  from nxgt-autonomy 1.1.0 (PR #140, which pairs with this plugin). Until
+  then, plans are recorded by hand or by the session-coordinator.
 
   ```bash
   crew.ts announce --kind plan --entry "Mail transport" --scope @nxgt/janus-mail --needs @nxgt/mail@0.5.0 "planning Mail transport in nxgt-janus"
@@ -226,17 +234,20 @@ nxgt-crew aligns that cycle across sessions:
     - the same entry planned in two sessions;
     - a plan waiting on another session's release, and whether a release
       announcement already covers it;
-    - a plan for an entry that is already Shipped.
+    - a plan for an entry the roadmap lists as Shipped or Not planned.
   - For a duplicate, it proposes an owner: the session working in the
-    repository whose roadmap lists the entry, otherwise the first session to
-    announce it.
+    repository whose roadmap lists the entry as open, otherwise the first
+    session to record an accepted plan.
+  - It runs before the owner is asked to accept an entry, so the question
+    already carries what the other sessions are doing.
   - The coordinator agrees on the split with each peer over `SendMessage`.
 - **It never edits another session's roadmap or queue.** An agreement between
   sessions is a proposal. Owner decisions still go through AskUserQuestion, in
   the session that owns the work.
 
-**Dependency.** This part builds on `nxgt-autonomy:plan-the-roadmap` and on
-nxgt-docs' roadmap layout, but it does not require either of them. Without
+**Dependency.** This part builds on `nxgt-autonomy:plan-the-roadmap` (nxgt-autonomy
+1.1.0) and on nxgt-docs' roadmap layout, but it does not require either of
+them. Without
 nxgt-autonomy, the alignment pass only degrades: fewer sessions announce plans,
 so it works from whatever roadmaps exist and the plans announced by hand. The
 hooks and the conflict rules do not depend on it at all.
@@ -286,7 +297,10 @@ The hook scripts are TypeScript run by Bun, with no `.sh`. The pure cores are
 `lib/registry.ts` (records, liveness, merge), `lib/shell.ts` (words,
 heredocs, paths), `lib/command.ts` (the operations in a Bash command),
 `lib/conflicts.ts` (one rule per operation), `lib/brief.ts` (the text) and
-`lib/alignment.ts` (roadmaps, duplicate plans, dependencies, owners). Each
+`lib/announcements.ts` (announcements, plans, the cap), `lib/settings.ts`,
+`lib/roadmap.ts` (parsing a roadmap), `lib/alignment.ts` (duplicate plans,
+dependencies, owners) and `lib/alignment-text.ts` (its report). `lib/roadmaps.ts`
+reads the roadmap files from a worktree. Each
 has a spec. `hooks/hooks.spec.ts` spawns every hook against a temporary
 registry and git repository.
 

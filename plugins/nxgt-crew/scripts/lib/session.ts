@@ -9,11 +9,10 @@ import {
 	livePeers,
 	type Peer,
 	type PidProbe,
-	readSettings,
 	register,
 	type SessionRecord,
-	type Settings,
 } from './registry';
+import { readSettings, type Settings } from './settings';
 import { crewHome, readAll } from './store';
 
 export interface Session {

@@ -11,16 +11,12 @@
  */
 
 import { homedir } from 'node:os';
+import { announce, markSeen, unseenAnnouncements } from '../lib/announcements';
 import { digest } from '../lib/brief';
 import { directoriesToResolve, parseCommand } from '../lib/command';
 import { evaluateBash, evaluateEdit, type Verdict } from '../lib/conflicts';
 import { runHook } from '../lib/hook';
-import {
-	announce,
-	markSeen,
-	markWarned,
-	unseenAnnouncements,
-} from '../lib/registry';
+import { markWarned } from '../lib/registry';
 import { load } from '../lib/session';
 import { writeMerged } from '../lib/store';
 import { gitPlace, placeResolver, probePid } from '../lib/system';

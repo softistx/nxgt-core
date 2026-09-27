@@ -18,22 +18,23 @@
  */
 
 import { resolve } from 'node:path';
-import { align, plansOf, renderAlignment } from './lib/alignment';
+import { align, plansOf } from './lib/alignment';
+import { renderAlignment } from './lib/alignment-text';
+import { announce } from './lib/announcements';
 import { listing } from './lib/brief';
 import { worktreesOf } from './lib/conflicts';
 import {
 	type AnnouncementKind,
-	announce,
 	claim,
 	heartbeat,
 	livePeers,
-	readSettings,
 	register,
 	type SessionRecord,
 	unclaim,
 	yieldEdits,
 } from './lib/registry';
 import { readRoadmaps } from './lib/roadmaps';
+import { readSettings } from './lib/settings';
 import { crewHome, readAll, readOne, write, writeMerged } from './lib/store';
 import { probePid } from './lib/system';
 
@@ -151,7 +152,10 @@ switch (verb) {
 		const sessions = [...(self ? [self] : []), ...peers.map((p) => p.record)];
 		const views = sessions.map((record) => ({
 			record,
-			roadmaps: [...worktreesOf(record, now, settings)].flatMap(readRoadmaps),
+			roadmaps: [...worktreesOf(record, now, settings)].flatMap((wt) =>
+				// The record's remote belongs to its own worktree only.
+				readRoadmaps(wt, wt === record.worktree ? record.remote : undefined),
+			),
 		}));
 		const result = align(views);
 		if (json) {

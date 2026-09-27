@@ -1,29 +1,30 @@
 import { describe, expect, test } from 'bun:test';
+import {
+	announce,
+	currentWork,
+	markSeen,
+	unseenAnnouncements,
+} from './announcements';
 import { minutesAgo, NOW, record, SETTINGS } from './fixtures';
 import {
 	ago,
-	announce,
 	claim,
-	currentWork,
 	heartbeat,
 	isInside,
 	isRecord,
-	LIMITS,
 	liveness,
 	livePeers,
-	markSeen,
 	markWarned,
 	merge,
-	readSettings,
 	recentEdits,
 	recordEdit,
 	register,
 	shouldWarn,
 	sweepable,
 	unclaim,
-	unseenAnnouncements,
 	yieldEdits,
 } from './registry';
+import { LIMITS, readSettings } from './settings';
 
 const unknown = () => undefined;
 const alive = () => true;

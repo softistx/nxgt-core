@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * UserPromptSubmit: the heartbeat that also reads the news. It marks this
  * session as seen, refreshes its git place when that is over a minute old, and
@@ -6,14 +7,10 @@
  * in Claude's context next to the prompt.
  */
 
+import { markSeen, unseenAnnouncements } from '../lib/announcements';
 import { digest } from '../lib/brief';
 import { runHook } from '../lib/hook';
-import {
-	gitIsStale,
-	heartbeat,
-	markSeen,
-	unseenAnnouncements,
-} from '../lib/registry';
+import { gitIsStale, heartbeat } from '../lib/registry';
 import { load } from '../lib/session';
 import { writeMerged } from '../lib/store';
 import { gitPlace, probePid } from '../lib/system';

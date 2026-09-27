@@ -1,81 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	align,
-	entryKey,
-	parseRoadmap,
+	plansOf,
 	proposeOwner,
-	renderAlignment,
+	releaseCovers,
 	repoName,
 	type SessionView,
 	scopeKey,
 	splitNeed,
 } from './alignment';
+import { janus, janusRoadmap, mail, plan } from './alignment.fixtures';
+import { announce } from './announcements';
 import { minutesAgo, NOW, record } from './fixtures';
-import { announce, type PlanFields, type SessionRecord } from './registry';
-
-const ROADMAP = `# Roadmap
-
-Intro text with - a dash that is not an item.
-
-## Now
-
-- **janus-mail transport** — send through @nxgt/mail
-- [ ] OAuth2 device flow: for CLIs
-
-## Next
-
-* \`retry\` policy - backoff for the store
-
-\`\`\`md
-- not an entry
-\`\`\`
-
-## Shipped
-
-- **Store failures** — one StoreFailure
-`;
-
-const plan = (
-	r: SessionRecord,
-	entry: string,
-	fields: PlanFields = {},
-	at = NOW,
-) => announce(r, `planning ${entry}`, 'plan', at, { entry, ...fields });
-
-const janus = record('janus-1111', {
-	title: 'janus',
-	worktree: '/w/nxgt-janus',
-	remote: 'git@github.com:softistx/nxgt-janus.git',
-});
-const mail = record('mail-2222', {
-	title: 'mail',
-	worktree: '/w/nxgt-mail',
-	remote: 'https://github.com/softistx/nxgt-mail',
-});
-const janusRoadmap = {
-	path: '/w/nxgt-janus/packages/janus-mail/docs/roadmap.md',
-	scope: '@nxgt/janus-mail',
-	entries: parseRoadmap(ROADMAP),
-};
-
-describe('parseRoadmap', () => {
-	test('top-level items under their section, bold title or text before the dash', () => {
-		expect(parseRoadmap(ROADMAP)).toEqual([
-			{ section: 'Now', title: 'janus-mail transport' },
-			{ section: 'Now', title: 'OAuth2 device flow' },
-			{ section: 'Next', title: 'retry policy' },
-			{ section: 'Shipped', title: 'Store failures' },
-		]);
-	});
-});
+import type { Announcement } from './registry';
+import { entryKey, parseRoadmap } from './roadmap';
 
 describe('keys', () => {
-	test('entryKey ignores case, markdown and punctuation', () => {
-		expect(entryKey('**Janus-Mail  Transport**')).toBe(
-			entryKey('janus mail transport'),
-		);
-	});
-
 	test('scopeKey makes packages, repos and slugs comparable', () => {
 		expect(scopeKey('@nxgt/mail')).toBe('nxgt-mail');
 		expect(scopeKey('softistx/nxgt-mail')).toBe('nxgt-mail');
@@ -208,11 +148,12 @@ describe('align', () => {
 		const views: SessionView[] = [
 			{ record: plan(janus, 'store failures'), roadmaps: [janusRoadmap] },
 		];
-		expect(align(views).shipped).toEqual([
+		expect(align(views).closed).toEqual([
 			{
 				sessionId: 'janus-1111',
 				entry: 'store failures',
 				roadmap: janusRoadmap.path,
+				section: 'Shipped',
 			},
 		]);
 	});
@@ -237,33 +178,119 @@ describe('proposeOwner', () => {
 	});
 });
 
-describe('renderAlignment', () => {
-	test('reads as facts and proposals, naming this session', () => {
-		const views: SessionView[] = [
-			{
-				record: plan(janus, 'janus-mail transport', {
-					needs: ['@nxgt/mail@0.5.0'],
-				}),
-				roadmaps: [janusRoadmap],
-			},
-			{ record: plan(mail, 'janus-mail transport'), roadmaps: [] },
-		];
-		const text = renderAlignment(align(views), views, 'janus-1111');
-		expect(text).toContain('Roadmaps read (1):');
-		expect(text).toContain('janus [janus-11] (this session)');
-		expect(text).toContain(
-			'Same entry in two sessions:\n- "janus-mail transport"',
-		);
-		expect(text).toContain('Proposed owner: janus [janus-11] (this session)');
-		expect(text).toContain(
-			'needs @nxgt/mail@0.5.0: not yet released; produced by mail [mail-222]',
+describe('releaseCovers', () => {
+	test('name and version as whole words, in the usual shapes', () => {
+		expect(
+			releaseCovers('published @nxgt/mail 0.5.0', '@nxgt/mail', '0.5.0'),
+		).toBe(true);
+		expect(
+			releaseCovers('released @nxgt/mail@0.5.0.', '@nxgt/mail', '0.5.0'),
+		).toBe(true);
+		expect(
+			releaseCovers('@nxgt/mail v0.5.0 is out', '@nxgt/mail', '0.5.0'),
+		).toBe(true);
+		expect(releaseCovers('published @nxgt/mail 0.6.0', '@nxgt/mail')).toBe(
+			true,
 		);
 	});
 
-	test('says none when there is nothing', () => {
-		const text = renderAlignment(align([]), [], 'x');
-		expect(text).toContain('Roadmaps read: none');
-		expect(text).toContain('Same entry in two sessions: none.');
-		expect(text).toContain('Dependencies: none announced.');
+	test('a longer package name does not cover a shorter one', () => {
+		expect(
+			releaseCovers('published @nxgt/mail-config 0.5.0', '@nxgt/mail', '0.5.0'),
+		).toBe(false);
+	});
+
+	test('a version inside a longer version does not count', () => {
+		expect(
+			releaseCovers('published @nxgt/mail 10.5.0', '@nxgt/mail', '0.5.0'),
+		).toBe(false);
+		expect(
+			releaseCovers(
+				'published @nxgt/mail-config 10.5.0',
+				'@nxgt/mail',
+				'0.5.0',
+			),
+		).toBe(false);
+	});
+
+	test('in align, @nxgt/mail-config 10.5.0 leaves @nxgt/mail@0.5.0 waiting', () => {
+		const waiting = plan(janus, 'x', { needs: ['@nxgt/mail@0.5.0'] });
+		const other = announce(
+			mail,
+			'published @nxgt/mail-config 10.5.0',
+			'release',
+			NOW,
+		);
+		const dep = align([
+			{ record: waiting, roadmaps: [] },
+			{ record: other, roadmaps: [] },
+		]).dependencies[0];
+		expect(dep?.satisfied).toBe(false);
+	});
+});
+
+describe('plansOf', () => {
+	test('drops a plan whose entry is not a string, and cleans scope and needs', () => {
+		const bad = {
+			text: 't',
+			kind: 'plan',
+			at: NOW.toISOString(),
+			entry: 42,
+		} as unknown as Announcement;
+		const odd = {
+			text: 't',
+			kind: 'plan',
+			at: NOW.toISOString(),
+			entry: 'E',
+			scope: 7,
+			needs: ['@nxgt/a', 3, null],
+		} as unknown as Announcement;
+		const r = record('s', { announcements: [bad, odd] });
+		expect(plansOf(r)).toEqual([
+			{ entry: 'E', at: NOW.toISOString(), text: 't', needs: ['@nxgt/a'] },
+		]);
+		expect(
+			align([{ record: r, roadmaps: [] }]).dependencies.map((d) => d.need),
+		).toEqual(['@nxgt/a']);
+	});
+});
+
+describe('Not planned', () => {
+	const roadmap = {
+		path: '/w/nxgt-janus/docs/roadmap.md',
+		scope: 'nxgt-janus',
+		entries: parseRoadmap('## Not planned\n\n- **Sync API**\n'),
+	};
+
+	test('a plan for a Not planned entry is flagged', () => {
+		const views: SessionView[] = [
+			{ record: plan(janus, 'Sync API'), roadmaps: [roadmap] },
+		];
+		expect(align(views).closed).toEqual([
+			{
+				sessionId: 'janus-1111',
+				entry: 'Sync API',
+				roadmap: roadmap.path,
+				section: 'Not planned',
+			},
+		]);
+	});
+
+	test('listing an entry as Not planned does not make its repository the owner', () => {
+		const views: SessionView[] = [
+			{
+				record: plan(mail, 'Sync API', {}, new Date(minutesAgo(10))),
+				roadmaps: [],
+			},
+			{ record: plan(janus, 'Sync API'), roadmaps: [roadmap] },
+		];
+		expect(align(views).duplicates[0]?.proposal.owner).toBe('mail-2222');
+		expect(
+			proposeOwner(
+				[{ sessionId: 'janus-1111', label: 'j', at: NOW.toISOString() }],
+				views,
+				entryKey('Sync API'),
+			).why,
+		).toContain('recorded its accepted plan first');
 	});
 });

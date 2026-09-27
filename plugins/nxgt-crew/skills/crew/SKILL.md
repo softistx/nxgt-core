@@ -43,8 +43,11 @@ should follow), `note`. Keep it to one line a peer can act on:
 "working on packages/janus-mail in /tmp/…/wt, branch feat/janus-mail",
 "published @nxgt/mail 0.5.0 — sendMail now takes a Transport".
 
-A **`plan`** names its roadmap entry, so the alignment pass can match it —
-`nxgt-autonomy:plan-the-roadmap` records one at its queueing step:
+A **`plan`** names its roadmap entry, so the alignment pass can match it.
+Record one **only after the owner accepted the entry** through
+AskUserQuestion — the queue step of `nxgt-autonomy:plan-the-roadmap`, which
+records one there from nxgt-autonomy 1.1.0. Other sessions read a plan as
+"this entry is taken", so an early one is a claim nobody approved:
 
 ```bash
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID} --kind plan --entry "<entry title as in docs/roadmap.md>" --scope "<repo or package>" --needs "<pkg@version>,…" "planning <entry> in <repo>"
@@ -52,15 +55,16 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts announce --session ${CLAUDE_SESSION_ID
 
 **`align`** — the alignment pass across sessions: every live session's
 `docs/roadmap.md` (root and `packages/*/`) and announced plans, the same entry
-planned twice (with a proposed owner), and plans waiting on another session's
-release:
+planned twice (with a proposed owner), plans waiting on another session's
+release, and plans for entries the roadmap lists as Shipped or Not planned:
 
 ```bash
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts align --session ${CLAUDE_SESSION_ID}
 ```
 
-Present it; for anything that needs agreeing, delegate to the
-`session-coordinator` agent. Agreement between sessions is a proposal — taking
+Present it, and run it before asking the owner to accept an entry, so the
+question carries what the other sessions are doing. For anything that needs
+agreeing, delegate to the `session-coordinator` agent. Agreement between sessions is a proposal — taking
 or dropping an entry is the owner's decision, asked with AskUserQuestion in
 the session that owns the work. Never edit another session's roadmap or queue.
 

@@ -5,6 +5,7 @@
  * prompt injection, and Claude rightly distrusts it.
  */
 
+import type { Unseen } from './announcements';
 import { sameRepository, worktreesOf } from './conflicts';
 import {
 	ago,
@@ -13,9 +14,8 @@ import {
 	type Peer,
 	recentEdits,
 	type SessionRecord,
-	type Settings,
-	type Unseen,
 } from './registry';
+import type { Settings } from './settings';
 
 /** Peers in this session's repository first, then the rest. */
 export function partition(

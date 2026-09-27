@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { announce } from './announcements';
 import { parseCommand } from './command';
 import {
 	type Context,
@@ -9,12 +10,7 @@ import {
 	type Verdict,
 } from './conflicts';
 import { minutesAgo, NOW, peer, record, SETTINGS } from './fixtures';
-import {
-	announce,
-	type GitPlace,
-	markWarned,
-	type SessionRecord,
-} from './registry';
+import { type GitPlace, markWarned, type SessionRecord } from './registry';
 
 const MAIN: GitPlace = {
 	worktree: '/repo',

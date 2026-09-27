@@ -25,19 +25,19 @@
  * locks a worktree.
  */
 
+import { currentWork } from './announcements';
 import type { Op } from './command';
 import {
 	ago,
-	currentWork,
 	type GitPlace,
 	isInside,
 	label,
 	type Peer,
 	recentEdits,
 	type SessionRecord,
-	type Settings,
 	shouldWarn,
 } from './registry';
+import type { Settings } from './settings';
 
 export { isInside };
 
