@@ -1,17 +1,80 @@
 # Troubleshooting `@nxgt/shared-graphql`
 
 Each entry is headed by the message you see; the parts in `<angle brackets>`
-vary. Messages thrown when the schema is built are `TypeError`s naming
-`Type.field`, and stop the server from booting. They start `@permission on`
-or `@check on`, after the directive that carries the mistake; the entries show
-one of the two. The last section holds the
-traps that throw nothing.
+vary. Messages thrown when the server starts or the schema is built are
+`TypeError`s, and stop the server from booting; the schema ones name
+`Type.field` after the directive that carries the mistake. The last section
+holds the traps that throw nothing.
+
+Upgrading from 2.x, most of these come from [the
+migration](./guide/migrating-to-3.md).
+
+## When the server starts
+
+### ``useAuth(): name the gateway allowed to set the caller — useAuth({ trustedGateway: gatewaySecret({ secret }) }). …``
+
+Also `extractJwtPlugin(): name the gateway allowed to set the caller — …`.
+
+Since 3.0 both need to know which gateway may put the caller in the request's
+`extensions`, which a client can otherwise write. Pass one:
+
+```ts
+const trustedGateway = gatewaySecret({ secret: process.env.GATEWAY_SECRET! });
+createYoga({ plugins: [useAuth({ trustedGateway })] });
+new ApolloServer({ plugins: [extractJwtPlugin({ trustedGateway })] });
+```
+
+`extractJwtPlugin` is a function now: `plugins: [extractJwtPlugin]` passes
+the function itself, not a plugin. An API that authenticates its own callers
+uses `useOryAuth(ory)` and needs neither.
+
+### ``gatewaySecret(): `secret` must be a string of at least 16 characters — is its environment variable set?``
+
+The secret is missing or shorter than 16 characters — most often an
+environment variable that is not set where the server runs. Set it, to the
+same value the gateway sends.
+
+### `Cannot find module '@envelop/generic-auth'`
+
+Or `@graphql-hive/gateway`, `@envelop/extended-validation`,
+`@hono/zod-validator`, `zod`. 3.0 dropped them from its dependencies — nothing
+here imported them — and your app was using the copy this package brought.
+Declare it yourself:
+
+```sh
+bun add @envelop/generic-auth
+```
+
+### ``Module '"@nxgt/shared-graphql"' has no exported member 'sandboxExpolorer'. Did you mean 'sandboxExplorer'?``
+
+The typo was corrected in 3.0, with no alias. Import `sandboxExplorer`.
 
 ## When the schema is built
 
+### ``@check on <Type.field>: @check was removed in @nxgt/shared-graphql 3.0 — write one @permission(name: "<permit>", type: "<namespace>") per term, and move an OR into the Keto model``
+
+The schema declares 2.x's `@check` itself and a field still uses it. This
+package no longer answers it, so the field would boot unguarded; it is refused
+instead. Rewrite it:
+
+```graphql
+# before
+note(id: ID!): Note @check(permissions: [[{ namespace: "Note", permit: "view" }]])
+# after
+note(id: ID!): Note @permission(name: "view", type: "Note")
+```
+
+Then drop your `@check` declaration. [The migration guide](./guide/migrating-to-3.md#2-check-is-removed)
+covers an AND and an OR.
+
+### `Unknown directive "@check".`
+
+The same, in a schema that loads this package's `graphql/` and nothing else:
+3.0 no longer ships `@check`'s declaration. Rewrite the field as above.
+
 ### ``@permission on <Type.field>: `id` must be "args.<path>", "parent.<path>" or "source.<path>", got "<id>"``
 
-The `id` argument (or a `@check` term's `id`) names no root. Prefix it:
+The `id` argument names no root. Prefix it:
 
 ```graphql
 note(noteId: ID!): Note @permission(name: "view", type: "Note", id: "args.noteId")
@@ -24,28 +87,12 @@ The path reads an argument the field does not have — usually the default
 an undeclared argument on `args`, so every request would have failed. Name the
 argument in `id`, or read the parent with `parent.<path>`.
 
-### `@check on <Type.field>: an empty group admits EVERYONE — a conjunction over no terms is true`
+In 2.x a `@check` booted with this and logged a warning; a `@permission`
+refuses it.
 
-`@check(permissions: [[]])`. An AND over nothing is true, so the field would
-be open to every signed-in caller while looking guarded. Name a permission,
-or remove the directive.
+### ``@permission on <Type.field>: every term needs `namespace`, `permit` and `id`, got <term>``
 
-### `@check on <Type.field>: an empty permission requirement admits nobody — remove it, or name a permission`
-
-`@check(permissions: [])`: an OR over nothing refuses everyone.
-
-### ``<…> — @check still boots with this; the next major refuses it, as @permission does``
-
-A warning, not an error: one of the two mistakes above — an argument the
-field does not declare, or a guard on an interface field — on a `@check`. The
-server boots as it did in 2.x, but the field answers 500 on every request, or
-is not guarded at all. Fix it as the entry for the same message describes; the
-next major refuses it at build.
-
-### ``@check on <Type.field>: every term needs `namespace`, `permit` and `id`, got <term>``
-
-A term, or a `@permission`, has an empty `namespace`/`type` or
-`permit`/`name` — `@permission(name: "", type: "Note")`. Name both.
+`@permission(name: "", type: "Note")`: an empty `name` or `type`. Name both.
 
 ### `@permission on <Type.field>: unknown namespace "<type>" — known: <namespaces>`
 
@@ -54,7 +101,7 @@ names one outside them — most often a typo. Keto would have answered `false`
 for ever, without an error. Fix the name, or add the namespace to the list
 when the OPL document gained it.
 
-### `<Type.field>: @check / @permission on an interface field guards nothing — no resolver runs there. Put it on each implementing type's field`
+### `<Type.field>: @permission on an interface field guards nothing — no resolver runs there. Put it on each implementing type's field`
 
 A resolver runs on an object type's field, never on an interface's. Move the
 directive to every implementing type:
@@ -66,6 +113,28 @@ type Note implements Node {
 	body: String @permission(name: "view", type: "Note", id: "parent.id")
 }
 ```
+
+In 2.x a `@check` there booted with a warning; a `@permission` is refused.
+
+### ``@authenticated on <Type.field>: `type: []` admits no caller — name a type, or drop `type` ``
+
+An empty list admits nobody. Name the kinds of caller, or drop `type` to
+admit any caller.
+
+### `@authenticated on <Type.field>: unknown type "<type>" — known: <types>`
+
+`type:` names a value outside the caller types `useAuthenticated` knows —
+`session` and `token` by default. Fix the name, or list your own:
+
+```ts
+useAuthenticated({ types: ['session', 'token', 'service'] });
+```
+
+### ``@authenticated on <Type.field>: the field's, its type's and its interfaces' `type`s have none in common — no caller could pass``
+
+Every `@authenticated` that applies to a field must hold — the field's, its
+type's, its interfaces'. Two of them name disjoint types, so no caller could
+reach the field. Drop or widen one.
 
 ### `@nxgt/shared-graphql: no package root`
 
@@ -93,7 +162,7 @@ alone.
 ### `Cannot use GraphQLSchema "<schema>" from another module or realm.`
 
 Two copies of `graphql` are installed: `graphql` is a peer of this package
-(`^16.4.2 || ^17.0.0`), so your app must declare it once, and every GraphQL
+(`^16.9.0 || ^17.0.0`), so your app must declare it once, and every GraphQL
 library must resolve that one. Add `graphql` to your `dependencies` if it was
 only there through this package, and check with `bun pm ls graphql` (or
 `npm ls graphql`) that one version remains. graphql runs this check only
@@ -102,12 +171,11 @@ with less telling errors.
 
 ## When a request runs
 
-The three messages below are plain `Error`s thrown inside a resolver:
-`createMaskError` answers the client `Unexpected error.`
-(`INTERNAL_SERVER_ERROR`). The text is in the server log, and in
-`extensions.debugMessage` when `isDev` is on.
-
 ### `<Type.field>: "<path>" resolved no object id`
+
+A plain `Error` thrown inside a resolver: `createMaskError` answers the client
+`Unexpected error.` (`INTERNAL_SERVER_ERROR`); the text is in the server log,
+and in `extensions.debugMessage` when `isDev` is on.
 
 The path was valid, but at request time it pointed at nothing — a nullable
 argument nobody passed, an empty list, a parent field the parent resolver did
@@ -118,7 +186,7 @@ sure the parent object carries the field.
 
 The schema was transformed with `applyKetoChecks` but the plugin that puts the
 per-request checker on the context is missing. Register
-`useKetoChecks(ory)` after `useOryAuth(ory)`.
+`useKetoChecks(ory)` after `useOryAuth(ory)`. Answered as the previous entry.
 
 ### `can(): no checker on the context — useKetoChecks(ory) is not registered`
 
@@ -130,10 +198,12 @@ Keto (or Kratos, Hydra — the name varies) did not answer. This is on
 purpose: an outage is never turned into a denial or an anonymous caller. The
 client can retry; `extensions.debugMessage` carries what the SDK saw.
 
-### `Unexpected error.` with `INTERNAL_SERVER_ERROR` where a 404 or 403 was expected
+### A denial's message reads `notes.errors.not-found`
 
-`createMaskError` is not registered, so Yoga masks the `CustomException` a
-denial throws as it masks any non-GraphQL error:
+A `@permission(message: "notes.errors.not-found")`, or your own
+`denial(code, key)`, reached the client untranslated. A denial translates its
+key with `@nxgt/i18n`'s own resources, which do not hold your app's keys.
+Register the mask with your translator:
 
 ```ts
 createYoga({ maskedErrors: { maskError: createMaskError(translate) } });
@@ -141,30 +211,45 @@ createYoga({ maskedErrors: { maskError: createMaskError(translate) } });
 
 Under Apollo Server, the counterpart is `formatError: createFormatError(translate)`.
 
+### `Unexpected error.` with `INTERNAL_SERVER_ERROR` where a service's 404 or 403 was expected
+
+A service threw a `CustomException` and `createMaskError` is not registered,
+so Yoga masks it as any non-GraphQL error. The directives and `requireUser` /
+`can` are not concerned — their denials carry their own status — but a
+service's `CustomException.notFound()` is. Register `createMaskError`, as
+above, or throw `denial(code, message)` from the resolver.
+
 ### `Unexpected error.` where a resolver's own message used to reach the client
 
-Since this release `createMaskError` masks a plain `Error` a resolver threw,
-as Yoga's default does — before, its message (a driver error, a host name)
-reached the client. Throw a `CustomException` or a `GraphQLError` for a
+`createMaskError` masks a plain `Error` a resolver threw, as Yoga's default
+does. Throw a `CustomException`, a `denial()` or a `GraphQLError` for a
 message meant for the caller.
 
 ## Traps that throw nothing
 
+### Every caller is anonymous behind the gateway
+
+`useAuth({ trustedGateway })` reads no caller from a request that does not
+carry the gateway's proof. The gateway is not sending the header — or sends
+another secret — on its subgraph requests. Make it add
+`x-gateway-secret: <secret>` (or your `header`) to every one, with the same
+value the subgraph was given.
+
 ### A guarded field answers unguarded in the supergraph
 
 A subgraph composed by federation drops a directive it was not told to keep.
-Add `@composeDirective(name: "@permission")` (and `"@check"` if used) and
-import the directive in the subgraph's `@link`.
+Add `@composeDirective(name: "@permission")` and import the directive in the
+subgraph's `@link`.
 
-### `useAuth()` trusts the request body
+### `@authenticated(type:)` in a subgraph
 
-`useAuth()` copies `user` and `token` from the GraphQL request's
-`extensions`, which a client writes. It is safe only behind a gateway that
-sets them and a network that stops callers from reaching the service
-directly. An API that resolves its own callers uses `useOryAuth(ory)`.
+Federation declares `@authenticated` without an argument, and a subgraph
+imports that declaration. Keep it: `useAuthenticated` enforces it as "any
+caller". A `type:` restriction is for a schema that declares `@authenticated`
+through `SHARED_TYPE_DEFS` or `AUTHENTICATED_DIRECTIVE_SDL`.
 
 ### `OryForbidden` from `ory.requireAllowed` is a 500
 
 `createMaskError` does not map `OryForbidden`: whether a refusal is a 404 or a
 403 is the caller's decision. In a resolver, use `can` and throw the
-`CustomException` you mean.
+`denial` you mean.

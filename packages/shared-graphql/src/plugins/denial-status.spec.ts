@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'bun:test';
+import { ApolloServer } from '@apollo/server';
 import type { Permission } from '@nxgt/ory-sdk';
+import { ErrorCode } from '@nxgt/shared-exceptions';
 import { createSchema, createYoga } from 'graphql-yoga';
 import { KETO_DIRECTIVES_SDL } from '../directives';
+import { denial } from '../utils/errors/denial';
 import { createMaskError } from '../utils/errors/mask-error';
 import { applyKetoChecks } from './apply-keto-checks';
 import { requireUser } from './keto-helpers';
@@ -92,5 +95,22 @@ describe('a denial, through createMaskError', () => {
 			message: 't(errors.not-found)',
 			extensions: { code: 'NOT_FOUND' },
 		});
+	});
+});
+
+describe('a denial, under Apollo Server without createFormatError', () => {
+	it('answers its status too', async () => {
+		const apollo = new ApolloServer({
+			typeDefs: 'type Query { note: String }',
+			resolvers: {
+				Query: {
+					note: () => {
+						throw denial(ErrorCode.Forbidden);
+					},
+				},
+			},
+		});
+		const response = await apollo.executeOperation({ query: '{ note }' });
+		expect(response.http.status).toBe(403);
 	});
 });

@@ -22,7 +22,7 @@ repository is the single copy.
 | `@nxgt/shared-storage` | MinIO / S3 and GridFS |
 | `@nxgt/shared-events` | Event payloads and BullMQ queue plumbing |
 | `@nxgt/shared-hono` | Hono app factory, auth, `openapi-fetch`, MCP |
-| `@nxgt/shared-graphql` | Yoga / federation, shared SDL, `@check` |
+| `@nxgt/shared-graphql` | Yoga / federation, shared SDL, `@permission`, `@authenticated(type:)` |
 | `@nxgt/security` | Policy engine — REST and GraphQL evaluators |
 
 Each package's `README.md` is its page on npmjs: what it is, which subpaths it
