@@ -1,5 +1,16 @@
 # @nxgt/shared-hono
 
+## 3.1.0
+
+### Minor Changes
+
+- [#162](https://github.com/softistx/nxgt-core/pull/162) [`a0bc3e3`](https://github.com/softistx/nxgt-core/commit/a0bc3e3fc38544037f98438e3c06012a1d3e908b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `@nxgt/ory-sdk` is peered `>=0.1.0 <1` (was `>=0.1.0`), so a breaking 1.0 of the SDK is not admitted before a release here has tested it. Every published `@nxgt/ory-sdk` (0.1.0 to 0.1.3) is inside the range, so no install changes today; it is a minor rather than a major for that reason. The READMEs no longer point at `@nxgt/shared-graphql`'s `@check`, removed in its 3.0.
+
+### Patch Changes
+
+- Updated dependencies [[`a0bc3e3`](https://github.com/softistx/nxgt-core/commit/a0bc3e3fc38544037f98438e3c06012a1d3e908b)]:
+  - @nxgt/security@4.1.0
+
 ## 3.0.1
 
 ### Patch Changes
