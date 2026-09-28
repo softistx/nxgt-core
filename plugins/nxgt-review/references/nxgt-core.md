@@ -21,7 +21,7 @@ points at `dist/` and an unbuilt tree reports a wall of `TS2307`:
 ```bash
 bun run build
 bun run typecheck
-bun run test               # one process per package; known state in AGENTS.md
+bun run test               # one process per package, then scripts/; known state in AGENTS.md
 bun run verify:artifacts   # packs, installs as a consumer, imports every subpath
 bun run changeset:status
 bunx biome ci

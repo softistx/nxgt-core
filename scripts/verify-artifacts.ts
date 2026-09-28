@@ -32,238 +32,25 @@
  * 'stx-sdk'` while the same commit reported "All 29 subpaths load" in CI, and it
  * cost an hour before the build was suspected instead of the environment. So it
  * refuses to run now rather than report a failure the source does not have.
+ *
+ * Each check lives in `scripts/artifacts/`, one module per responsibility;
+ * this file only runs them in order and stops at the first that fails.
  */
 
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { $ } from 'bun';
+import { browserSubpathsStayClear } from './artifacts/browser';
+import { classesDefinedOnce } from './artifacts/classes';
+import { installAsConsumer, type Packed, pack } from './artifacts/install';
+import { binsRun, subpathsLoad } from './artifacts/load';
+import { manifestProblems } from './artifacts/manifest';
+import { type Pkg, readPackages } from './artifacts/packages';
+import { staleBuilds } from './artifacts/stale';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-
-type Pkg = {
-	name: string;
-	dir: string;
-	subpaths: string[];
-	browserSubpaths: string[];
-	bins: string[];
-};
-
-/** Every subpath a package publishes, from its own `exports` map. */
-function subpathsOf(name: string, exports: Record<string, unknown>): string[] {
-	return Object.keys(exports)
-		.filter((key) => key.startsWith('.') && !key.endsWith('package.json'))
-		.map((key) => (key === '.' ? name : `${name}/${key.slice(2)}`));
-}
-
-/**
- * The subset of a package's subpaths whose `exports` condition map declares a
- * `browser` entry — today only `@nxgt/i18n`. A bundler (Vite, Nuxt's client
- * build) resolves that entry instead of `import`/`default`, so it is the one
- * that must never reach a Node built-in or `hono/context-storage`: both drag
- * `node:async_hooks` into a client bundle that never runs inside a Hono
- * request.
- */
-function browserSubpathsOf(
-	name: string,
-	exports: Record<string, unknown>,
-): string[] {
-	return Object.entries(exports)
-		.filter(
-			([key, value]) =>
-				key.startsWith('.') &&
-				!key.endsWith('package.json') &&
-				typeof value === 'object' &&
-				value !== null &&
-				'browser' in value,
-		)
-		.map(([key]) => (key === '.' ? name : `${name}/${key.slice(2)}`));
-}
-
-async function readPackages(): Promise<Pkg[]> {
-	const dirs = [...new Bun.Glob('packages/*/package.json').scanSync(ROOT)];
-	const pkgs: Pkg[] = [];
-	for (const rel of dirs.sort()) {
-		const manifest = await Bun.file(join(ROOT, rel)).json();
-		pkgs.push({
-			name: manifest.name,
-			dir: join(ROOT, rel.replace(/\/package\.json$/, '')),
-			subpaths: subpathsOf(manifest.name, manifest.exports ?? {}),
-			browserSubpaths: browserSubpathsOf(manifest.name, manifest.exports ?? {}),
-			bins:
-				typeof manifest.bin === 'string'
-					? [manifest.name.split('/').pop()]
-					: Object.keys(manifest.bin ?? {}),
-		});
-	}
-	return pkgs;
-}
-
-/**
- * What a published manifest may not contain, measured on Bun 1.4.0 rather than
- * assumed:
- *
- *   - a `link:` or `file:` in a field a consumer installs. `devDependencies`
- *     are exempt: a consumer never installs a dependency's dev dependencies,
- *     so a `link:` there is untidy, not harmful.
- *   - a **required** peer that is on no registry. This is the shape that once
- *     broke every consumer's install with a 404 on `stx-sdk`. An *optional*
- *     peer is safe whatever its range; a required one is not.
- *   - an **exact pin on a sibling package**. `workspace:*` publishes as the
- *     exact version, so `@nxgt/shared-hono@1.0.2` demanded
- *     `@nxgt/shared-mongo@1.0.0` while the consumer's own `^1.0.0` resolved to
- *     1.1.0 — two copies in one tree, each registering the `Audit` Mongoose
- *     model, and `OverwriteModelError` on the second. `workspace:^` publishes
- *     as a caret range, which dedupes.
- *   - a **sibling range that excludes the sibling being published beside it**.
- *     `workspace:^` is substituted from `bun.lock`, not from the sibling's
- *     `package.json`, so a `changeset version` that is not followed by a
- *     `bun install` publishes yesterday's numbers: `@nxgt/shared-graphql@2.0.0`
- *     went out asking for `@nxgt/security@^3.2.1` while its own `dist` imported
- *     the 4.0.0 API. The install succeeds, the types check, and the consumer
- *     quietly gets both majors. Nothing else here catches that, because every
- *     range involved is a well-formed caret.
- *   - a **package that lists itself** in a field a consumer installs. Neither
- *     of the checks above sees it: `@nxgt/material` shipped
- *     `"@nxgt/material": "."` for four months, and `.` is neither a `file:`
- *     prefix nor a digit. It is not inert — `.` resolves to the *consumer's*
- *     directory, so every install grew a second copy of the package reporting
- *     the consumer's own version, and a `bun.lock` entry no manifest declared.
- *     A package self-references through its `name` and `exports`; it never
- *     needs to depend on itself.
- *   - a **license other than MIT, or no `LICENSE` in the tarball**. npm only
- *     ships the `LICENSE` in the package's own directory, never the root's.
- */
-async function manifestProblems(tarballs: string[]): Promise<string[]> {
-	const problems: string[] = [];
-	const own = new Map<string, string>();
-	const manifests: Record<string, unknown>[] = [];
-
-	for (const tgz of tarballs) {
-		const raw = await $`tar -xzOf ${tgz} package/package.json`.quiet().text();
-		const manifest = JSON.parse(raw);
-		manifests.push(manifest);
-		own.set(manifest.name, manifest.version);
-		if (manifest.license !== 'MIT') {
-			problems.push(
-				`${manifest.name}: license is ${manifest.license}, not MIT`,
-			);
-		}
-		const entries = (await $`tar -tzf ${tgz}`.quiet().text()).split('\n');
-		if (!entries.includes('package/LICENSE')) {
-			problems.push(`${manifest.name}: the tarball has no LICENSE`);
-		}
-	}
-
-	for (const manifest of manifests) {
-		const name = manifest.name as string;
-
-		for (const field of [
-			'dependencies',
-			'peerDependencies',
-			'optionalDependencies',
-		]) {
-			for (const [dep, range] of Object.entries<string>(
-				(manifest[field] as Record<string, string>) ?? {},
-			)) {
-				if (/^(link|file):/.test(String(range))) {
-					problems.push(`${name}: ${field}.${dep} = ${range}`);
-				}
-				if (dep === name) {
-					problems.push(
-						`${name}: ${field} lists itself as ${range}; a relative path ` +
-							"there resolves to the CONSUMER's directory — " +
-							'`exports` already makes the package self-referencing',
-					);
-				}
-				if (own.has(dep) && /^\d/.test(String(range))) {
-					problems.push(
-						`${name}: ${field}.${dep} = ${range} pins a sibling exactly; ` +
-							'use `workspace:^` so the consumer gets one copy',
-					);
-				}
-				const sibling = own.get(dep);
-				if (sibling && !Bun.semver.satisfies(sibling, String(range))) {
-					problems.push(
-						`${name}: ${field}.${dep} = ${range} excludes ${dep}@${sibling}, ` +
-							'which is being published beside it; run `bun install` after ' +
-							'`changeset version` so `bun.lock` carries the new numbers',
-					);
-				}
-			}
-		}
-
-		const meta =
-			(manifest.peerDependenciesMeta as Record<
-				string,
-				{ optional?: boolean }
-			>) ?? {};
-		for (const peer of Object.keys(
-			(manifest.peerDependencies as Record<string, string>) ?? {},
-		)) {
-			if (meta[peer]?.optional || own.has(peer)) continue;
-			const res = await fetch(
-				`https://registry.npmjs.org/${peer.replace('/', '%2F')}`,
-				{ method: 'HEAD' },
-			).catch(() => null);
-			if (!res?.ok) {
-				problems.push(
-					`${name}: peerDependencies.${peer} is required but is on no registry`,
-				);
-			}
-		}
-	}
-
-	return problems;
-}
-
-/**
- * The newest mtime under a directory, or 0 if it does not exist. Deep, because
- * a build is only as fresh as its stalest input.
- */
-async function newestMtime(dir: string, skip?: RegExp): Promise<number> {
-	let newest = 0;
-	const glob = new Bun.Glob('**/*');
-	for await (const rel of glob.scan({ cwd: dir, onlyFiles: true })) {
-		if (skip?.test(rel)) continue;
-		const { mtimeMs } = await stat(join(dir, rel));
-		if (mtimeMs > newest) newest = mtimeMs;
-	}
-	return newest;
-}
-
-/**
- * Specs and their snapshots live under `src/` but the build does not emit
- * them, so they cannot make `dist/` stale — and `bun test` rewrites a snapshot
- * file's mtime. CI runs the tests *between* the build and this script, so
- * counting them made a green pipeline fail with
- * `@nxgt/openapi-codegen: src/ is 57s newer than dist/`. Measured on
- * nxgt-http, 2026-09-22.
- */
-const NOT_A_BUILD_INPUT = /(^|\/)__snapshots__\/|\.(spec|test)\.[cm]?[jt]sx?$/;
-
-/** Packages whose `dist/` is missing, or older than their own `src/`. */
-async function staleBuilds(pkgs: Pkg[]): Promise<string[]> {
-	const stale: string[] = [];
-	for (const pkg of pkgs) {
-		const dist = await newestMtime(join(pkg.dir, 'dist'));
-		if (dist === 0) {
-			stale.push(`${pkg.name}: no dist/`);
-			continue;
-		}
-		const src = await newestMtime(join(pkg.dir, 'src'), NOT_A_BUILD_INPUT);
-		if (src > dist) {
-			const age = Math.round((src - dist) / 1000);
-			stale.push(`${pkg.name}: src/ is ${age}s newer than dist/`);
-		}
-	}
-	return stale;
-}
-
-const packages = await readPackages();
-
-const stale = await staleBuilds(packages);
-if (stale.length > 0) {
+async function builtFresh(packages: readonly Pkg[]): Promise<boolean> {
+	const stale = await staleBuilds(packages);
+	if (stale.length === 0) return true;
 	console.error('This would verify a stale build, not the working tree:\n');
 	for (const one of stale) console.error(`  ${one}`);
 	console.error(
@@ -273,316 +60,44 @@ if (stale.length > 0) {
 			'hits this because a Build step runs before it, and neither does\n' +
 			'`changeset:publish`, which builds.',
 	);
-	process.exit(1);
+	return false;
 }
 
-const workdir = await mkdtemp(join(tmpdir(), 'nxgt-core-verify-'));
-
-try {
-	console.log(`Packing ${packages.length} packages…`);
-	const tarballs: string[] = [];
-	const overrides: Record<string, string> = {};
-	for (const pkg of packages) {
-		await $`bun pm pack --destination ${workdir}`.cwd(pkg.dir).quiet();
-		const file = [...new Bun.Glob('*.tgz').scanSync(workdir)]
-			.map((f) => join(workdir, f))
-			.find((f) => !tarballs.includes(f));
-		if (!file) throw new Error(`${pkg.name}: bun pm pack produced no tarball`);
-		tarballs.push(file);
-		overrides[pkg.name] = `file:${file}`;
-	}
-
+async function tarballsSound({ tarballs }: Packed): Promise<boolean> {
 	const problems = await manifestProblems(tarballs);
-	if (problems.length > 0) {
-		console.error('\nA published manifest would break a consumer:\n');
-		for (const problem of problems) console.error(`  ${problem}`);
-		console.error(
-			'\nA `link:` or `file:` no consumer can resolve, a required peer that is\n' +
-				'on no registry, an exact pin on a sibling, a sibling range that\n' +
-				'excludes the sibling published beside it, a package that lists\n' +
-				'itself, or a license other than MIT or no LICENSE shipped. See\n' +
-				'AGENTS.md.',
-		);
-		process.exit(1);
-	}
-
-	// An optional peer is installed only by whoever asks for it, so ask for each
-	// one: a subpath that needs it then loads because it is installed on
-	// purpose, not because another package's peer happened to hoist it. One
-	// on no registry is left out, as the manifest check above allows.
-	const optionalPeers: Record<string, string> = {};
-	for (const tgz of tarballs) {
-		const manifest = JSON.parse(
-			await $`tar -xzOf ${tgz} package/package.json`.quiet().text(),
-		);
-		const meta: Record<string, { optional?: boolean }> =
-			manifest.peerDependenciesMeta ?? {};
-		for (const [peer, range] of Object.entries<string>(
-			manifest.peerDependencies ?? {},
-		)) {
-			if (!meta[peer]?.optional || peer in overrides || peer in optionalPeers) {
-				continue;
-			}
-			const res = await fetch(
-				`https://registry.npmjs.org/${peer.replace('/', '%2F')}`,
-				{ method: 'HEAD' },
-			).catch(() => null);
-			if (res?.ok) optionalPeers[peer] = range;
-		}
-	}
-
-	// `stx-sdk` is a required peer of two packages and resolves from the public
-	// registry like anything else — no checkout next door, no special case.
-	await Bun.write(
-		join(workdir, 'package.json'),
-		`${JSON.stringify(
-			{
-				name: 'nxgt-core-artifact-probe',
-				private: true,
-				version: '0.0.0',
-				type: 'module',
-				dependencies: { ...optionalPeers, ...overrides },
-				overrides,
-				resolutions: overrides,
-			},
-			null,
-			2,
-		)}\n`,
+	if (problems.length === 0) return true;
+	console.error('\nA published tarball would break a consumer:\n');
+	for (const problem of problems) console.error(`  ${problem}`);
+	console.error(
+		'\nA `link:` or `file:` no consumer can resolve, a required peer that is\n' +
+			'on no registry, an exact pin on a sibling, a sibling range that\n' +
+			'excludes the sibling published beside it, a package that lists\n' +
+			'itself, a license other than MIT or no LICENSE shipped, or test\n' +
+			'code shipped. See AGENTS.md.',
 	);
+	return false;
+}
 
-	console.log('Installing them as a consumer would…');
-	const install = await $`bun install`.cwd(workdir).quiet().nothrow();
-	if (install.exitCode !== 0) {
-		console.error(`\n${install.stderr.toString().trim()}`);
-		console.error(
-			'\nThe install failed. A required peer on a package that is on no\n' +
-				'registry is the usual cause — an optional one never fails an install.',
-		);
-		process.exit(1);
-	}
+async function main(): Promise<boolean> {
+	const packages = await readPackages();
+	if (!(await builtFresh(packages))) return false;
 
-	const subpaths = packages.flatMap((p) => p.subpaths);
-	console.log(`Importing ${subpaths.length} declared subpaths…\n`);
-	const probe = subpaths
-		.map(
-			(s) =>
-				`try { const m = await import(${JSON.stringify(s)});` +
-				` console.log("  ok      ${s.padEnd(40)}" + Object.keys(m).length + " exports"); }` +
-				` catch (e) { failed++; console.log("  FAIL    ${s.padEnd(40)}" + e.message.split("\\n")[0]); }`,
-		)
-		.join('\n');
-	await Bun.write(
-		join(workdir, 'probe.mjs'),
-		`let failed = 0;\n${probe}\nprocess.exit(failed);\n`,
-	);
-
-	const result = await $`bun run probe.mjs`.cwd(workdir).nothrow();
-	if (result.exitCode !== 0) {
-		console.error(
-			`\n${result.exitCode} subpath(s) failed to load from the built artifact.\n` +
-				'A build exiting 0 is not evidence the artifact loads. See AGENTS.md.',
-		);
-		process.exit(1);
-	}
-	console.log(`\nAll ${subpaths.length} subpaths load.`);
-
-	// ── the `browser` condition never reaches Node ─────────────────────────────
-	//
-	// A subpath's `exports` map can declare a `browser` entry meant for a
-	// bundler's client build (Vite, Nuxt) — today only `@nxgt/i18n`. Importing
-	// it above proved it loads under Bun's own resolution, which is `import`,
-	// never `browser`. That leaves the one entry a consumer's bundler actually
-	// picks unverified, and the failure mode is exactly the shape this package
-	// was split in two to avoid: `hono/context-storage` pulls in
-	// `node:async_hooks`, absent in a browser and dead weight in a client
-	// bundle that never runs inside a Hono request.
-	//
-	// So each `browser` subpath is bundled the way a bundler would — resolved
-	// with the `browser` and `import` conditions, target `browser` — through a
-	// plugin that intercepts every `node:*` specifier and `hono/context-storage`
-	// before Bun's own browser target can quietly shim it into an empty object.
-	// Grepping the bundled output for `node:` would not catch this: under
-	// `target: 'browser'` Bun replaces a Node built-in with a no-op rather than
-	// leaving the import in place, so the text disappears from the artifact
-	// while the mistake it hid does not.
-	const browserSubpaths = packages.flatMap((p) => p.browserSubpaths);
-	if (browserSubpaths.length > 0) {
-		console.log(
-			`\nChecking ${browserSubpaths.length} browser-conditioned subpath(s) ` +
-				'never reach a Node built-in or hono/context-storage…\n',
-		);
-		const entries = browserSubpaths.map((s, i) => {
-			const file = `browser-entry-${i}.mjs`;
-			return { subpath: s, file };
-		});
-		for (const { subpath, file } of entries) {
-			await Bun.write(
-				join(workdir, file),
-				`export * from ${JSON.stringify(subpath)};\n`,
-			);
-		}
-		await Bun.write(
-			join(workdir, 'browser-probe.mjs'),
-			`const entries = ${JSON.stringify(entries)};
-let failed = 0;
-for (const { subpath, file } of entries) {
-	const hits = new Set();
-	const guard = {
-		name: 'browser-condition-guard',
-		setup(build) {
-			build.onResolve({ filter: /^node:/ }, (args) => {
-				hits.add(args.path);
-				return { path: args.path, namespace: 'guard-stub' };
-			});
-			build.onResolve({ filter: /^hono\\/context-storage$/ }, (args) => {
-				hits.add(args.path);
-				return { path: args.path, namespace: 'guard-stub' };
-			});
-			build.onLoad({ filter: /.*/, namespace: 'guard-stub' }, () => ({
-				contents: 'export default {};',
-				loader: 'js',
-			}));
-		},
-	};
-	let buildError = null;
+	const workdir = await mkdtemp(join(tmpdir(), 'nxgt-core-verify-'));
 	try {
-		const result = await Bun.build({
-			entrypoints: [file],
-			conditions: ['browser', 'import'],
-			target: 'browser',
-			packages: 'bundle',
-			plugins: [guard],
-			write: false,
-		});
-		if (!result.success) {
-			buildError = result.logs.map(String).join('; ');
-		}
-	} catch (e) {
-		// A resolve hit is recorded before the stubbed module can fail to
-		// build against it, so this still reports the hit below — but a
-		// throw for any OTHER reason must fail too, or a broken browser
-		// subpath silently reports "ok".
-		buildError = e && e.message ? e.message : String(e);
-	}
-	if (hits.size > 0) {
-		failed++;
-		console.log("  FAIL    " + subpath.padEnd(40) + "reaches " + [...hits].join(', '));
-	} else if (buildError) {
-		failed++;
-		console.log("  FAIL    " + subpath.padEnd(40) + buildError.split("\\n")[0]);
-	} else {
-		console.log("  ok      " + subpath.padEnd(40));
+		const packed = await pack(workdir, packages);
+		return (
+			(await tarballsSound(packed)) &&
+			(await installAsConsumer(workdir, packed)) &&
+			(await subpathsLoad(workdir, packages)) &&
+			(await browserSubpathsStayClear(workdir, packages)) &&
+			(await classesDefinedOnce(workdir, packages)) &&
+			(await binsRun(workdir, packages))
+		);
+	} finally {
+		await rm(workdir, { recursive: true, force: true });
 	}
 }
-process.exit(failed);
-`,
-		);
-		const browserResult = await $`bun run browser-probe.mjs`
-			.cwd(workdir)
-			.nothrow();
-		if (browserResult.exitCode !== 0) {
-			console.error(
-				`\n${browserResult.exitCode} browser subpath(s) reach a Node ` +
-					'built-in or hono/context-storage through the browser export\n' +
-					'condition. A bundler resolving `browser` would ship that into a ' +
-					'client bundle. See AGENTS.md.',
-			);
-			process.exit(1);
-		}
-		console.log(
-			`\nAll ${browserSubpaths.length} browser subpath(s) stay clear of ` +
-				'Node built-ins and hono/context-storage.',
-		);
-	}
 
-	// ── one class per package ─────────────────────────────────────────────────
-	//
-	// A class must be DEFINED once in a package, not once per entry point.
-	// `Bun.build` inlines a shared module into every entry bundle unless
-	// `splitting` is on, so a package with several entry points can hand an app
-	// two copies of one class — and `instanceof` across them is false. It is the
-	// failure `packages: 'external'` was chosen to prevent, arriving from the
-	// other side: that setting already refuses to duplicate a DEPENDENCY's
-	// classes, and this is the same argument for the package's own.
-	//
-	// No package here duplicates a class today, measured package by package after a
-	// full rebuild. This exists because nothing reported it when one did: it was
-	// found in nxgt-ory, where two copies of `OryUnavailable` meant nine routes
-	// answered 500 instead of 503, through a green build and a green typecheck.
-	//
-	// A scan of the entry bundles rather than a runtime `instanceof` probe,
-	// because duplication can be real in the artifact and still unreachable
-	// through the export surface — inert today, live the day one more export is
-	// added. A runtime probe passes in exactly that case, which is the case that
-	// survives longest.
-	//
-	// Against the INSTALLED TARBALL, like everything else here: that is the only
-	// artifact a consumer sees.
-	console.log('\nChecking each class is defined once per package…\n');
-	let duplicated = 0;
-	for (const pkg of packages) {
-		const dist = join(workdir, 'node_modules', pkg.name, 'dist');
-		const where = new Map<string, string[]>();
-		const glob = new Bun.Glob('**/*.js');
-		for await (const rel of glob.scan({ cwd: dist, onlyFiles: true })) {
-			// Chunks are the fix, not the symptom: a class defined in one shared
-			// chunk is exactly what this asserts, so only entry bundles are read.
-			if (rel.startsWith('chunks/')) continue;
-			const text = await Bun.file(join(dist, rel)).text();
-			for (const match of text.matchAll(/^class ([A-Za-z_$][\w$]*)/gm)) {
-				const cls = match[1];
-				if (!cls) continue;
-				where.set(cls, [...(where.get(cls) ?? []), rel]);
-			}
-		}
-		const twice = [...where].filter(([, files]) => files.length > 1);
-		if (twice.length === 0) {
-			console.log(`  ok      ${pkg.name}`);
-			continue;
-		}
-		duplicated++;
-		for (const [cls, files] of twice) {
-			console.log(`  FAIL    ${pkg.name}: ${cls} in ${files.join(', ')}`);
-		}
-	}
-	if (duplicated > 0) {
-		console.error(
-			`\n${duplicated} package(s) define a class more than once. An ` +
-				'`instanceof` across\ntwo entry points of such a package is false, and ' +
-				'nothing else reports it —\nit typechecks, and every subpath loads. ' +
-				'`splitting: true` in build.ts is what\nshares them; see its comment.',
-		);
-		process.exit(1);
-	}
-	console.log(
-		`\nEach class is defined once in all ${packages.length} packages.`,
-	);
-
-	const bins = packages.flatMap((p) => p.bins);
-	if (bins.length > 0) {
-		console.log(`\nRunning ${bins.length} declared bin(s) with --help…\n`);
-		let broken = 0;
-		for (const bin of bins) {
-			const ran = await $`./node_modules/.bin/${bin} --help`
-				.cwd(workdir)
-				.quiet()
-				.nothrow();
-			const ok = ran.exitCode === 0;
-			if (!ok) broken++;
-			console.log(
-				`  ${ok ? 'ok  ' : 'FAIL'}    ${bin.padEnd(40)}` +
-					(ok ? '' : ran.stderr.toString().split('\n')[0]),
-			);
-		}
-		if (broken > 0) {
-			console.error(
-				`\n${broken} bin(s) failed to run from node_modules/.bin. A missing #!\n` +
-					'line or a non-executable file is the usual cause; build.ts checks both.',
-			);
-			process.exit(1);
-		}
-		console.log(`\nAll ${bins.length} bin(s) run.`);
-	}
-} finally {
-	await rm(workdir, { recursive: true, force: true });
+if (import.meta.main && !(await main())) {
+	process.exit(1);
 }
