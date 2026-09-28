@@ -115,7 +115,7 @@ DECISION: take "<option label>" | wait
 BECAUSE: <the row of the table, in one line>
 ACT: <what the main session does now — the option's first step, or the holding step>
 LEDGER: <the line you appended>
-TELL THE OWNER: <one line for the top of the next report, starting "Assumed (no answer after <timeout>):" or "Waiting for you:">
+TELL THE OWNER: <one line — "Assumed (no answer after <timeout>): …" for the top of the next report, or "Waiting for you: …" for its questions at the end>
 ```
 
 The main session's next report to the owner **leads with** every *Assumed,
