@@ -60,7 +60,9 @@ gateway is, it is one header added beside the `X-User-*` ones it already
 sets:
 
 ```ts
-upstream.headers.set('x-gateway-secret', process.env.GATEWAY_SECRET!);
+import { GATEWAY_SECRET_HEADER } from '@nxgt/shared-hono'; // 'x-gateway-secret'
+
+upstream.headers.set(GATEWAY_SECRET_HEADER, process.env.GATEWAY_SECRET!);
 ```
 
 - A request without the header, or with a wrong one, keeps the context
@@ -143,7 +145,7 @@ const principal = await principalFromMockHeaders(ctx, { trustedGateway });
 ```
 
 It resolves `undefined` for a request without `X-User-*` headers **or**
-without the gateway's proof, and throws a `TypeError` without a
+without the gateway's proof, and rejects with a `TypeError` without a
 `trustedGateway`. It returns a promise because a `trustedGateway` may be
 asynchronous; forgetting the `await` hands your code a `Promise`, which is
 truthy.

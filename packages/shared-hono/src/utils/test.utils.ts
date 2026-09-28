@@ -23,7 +23,11 @@ export async function principalFromMockHeaders(
 	ctx: Context,
 	options: GatewayTrustOptions,
 ): Promise<Principal | undefined> {
-	const trusted = requireGatewayTrust(options, 'principalFromMockHeaders()');
+	const trusted = requireGatewayTrust(
+		options,
+		'principalFromMockHeaders()',
+		'principalFromMockHeaders(ctx, { trustedGateway: gatewaySecret({ secret }) })',
+	);
 	return trustedPrincipal(ctx.req.raw.headers, trusted);
 }
 

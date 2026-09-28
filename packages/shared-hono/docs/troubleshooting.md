@@ -1,8 +1,9 @@
 # Troubleshooting `@nxgt/shared-hono`
 
-Each entry is headed by the message you see; the parts in `<angle brackets>`
-vary. Messages thrown when the app starts are `TypeError`s, and stop it from
-booting. The last section holds the traps that throw nothing.
+Each entry is headed by the message you see, then says when it happens, why,
+and the fix. Every message here is a `TypeError`. Those under *When the app
+starts* stop it from booting; those under *When a request runs* answer that
+request 500. The last section holds the traps that throw nothing.
 
 Upgrading from 3.x, most of these come from [the
 migration](./guide/migrating-to-4.md).
@@ -11,11 +12,13 @@ migration](./guide/migrating-to-4.md).
 
 ### ``currentUser(): name the gateway allowed to set the caller — currentUser({ trustedGateway: gatewaySecret({ secret }) }). The X-User-* headers are written by the client; an API that resolves its own callers uses oryAuth(ory)``
 
-Also `principalFromMockHeaders(): name the gateway allowed to set the caller — …`,
-thrown when it is called.
+**When.** `currentUser()` is called without a `trustedGateway` — typically
+the `app.use('/api/*', currentUser())` of a 3.x app.
 
-Since 4.0 both need to know which gateway may name the caller in the
-`X-User-*` headers, which a client can otherwise write. Pass one:
+**Why.** Since 4.0 it needs to know which gateway may name the caller in the
+`X-User-*` headers, which a client can otherwise write.
+
+**Fix.** Pass one:
 
 ```ts
 import { currentUser, gatewaySecret } from '@nxgt/shared-hono';
@@ -25,21 +28,30 @@ app.use('/api/*', currentUser({ trustedGateway }));
 ```
 
 An API that authenticates its own callers uses `oryAuth(ory)` and needs
-neither.
+none.
 
 ### ``gatewaySecret(): `secret` must be a string of at least 16 characters — is its environment variable set?``
 
-Also `mockAuthMiddleware(): …` and `openfetchServiceUser(): …`, for the
-secret you asked them to send.
+Also `mockAuthMiddleware(): …`, for the secret a spec asked it to send.
 
-The secret is missing or shorter than 16 characters — most often an
-environment variable that is not set where the app runs. Set it, to the same
-value the gateway sends. A spec's secret needs 16 characters too.
+**When.** `gatewaySecret({ secret })` or `mockAuthMiddleware(user, { secret })`
+is built with a secret that is missing or shorter than 16 characters.
+
+**Why.** Most often an environment variable that is not set where the app
+runs; an empty secret must stop the server, not trust an empty header.
+
+**Fix.** Set it, to the same value the gateway sends. A spec's secret needs
+16 characters too.
 
 ### ``oryAuth(): `trustedGateway` must be a function — gatewaySecret({ secret }), say``
 
-`oryAuth(ory, { trustedGateway })` was given a secret string, or something
-else that is not a `GatewayTrust`. Wrap the secret:
+**When.** `oryAuth(ory, { trustedGateway })` is given a secret string, or
+anything else that is not a function.
+
+**Why.** `trustedGateway` is a `GatewayTrust` — `(headers) => boolean` — not
+the secret itself.
+
+**Fix.** Wrap the secret:
 
 ```ts
 app.use('*', oryAuth(ory, { trustedGateway: gatewaySecret({ secret }) }));
@@ -47,6 +59,28 @@ app.use('*', oryAuth(ory, { trustedGateway: gatewaySecret({ secret }) }));
 
 Leave `trustedGateway` out altogether outside the specs: without it
 `oryAuth` never reads the `X-User-*` headers.
+
+## When a request runs
+
+### ``principalFromMockHeaders(): name the gateway allowed to set the caller — principalFromMockHeaders(ctx, { trustedGateway: gatewaySecret({ secret }) }). …``
+
+**When.** `await principalFromMockHeaders(ctx)` without the second argument.
+It is async, so the error is the rejection of the promise you await.
+
+**Why.** It reads the same client-written headers as `currentUser()`.
+
+**Fix.** `await principalFromMockHeaders(ctx, { trustedGateway })`.
+
+### ``openfetchServiceUser(): `secret` must be a string of at least 16 characters — is its environment variable set?``
+
+**When.** `openfetchServiceUser({ secret })` is built — inside a request, as
+it must be — with a secret missing or shorter than 16 characters.
+
+**Why.** It would send an empty proof, which the downstream service refuses
+to trust anyway.
+
+**Fix.** Set the variable to the secret the downstream service's
+`gatewaySecret` holds.
 
 ## Traps that throw nothing
 

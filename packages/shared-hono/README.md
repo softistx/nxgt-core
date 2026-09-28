@@ -62,12 +62,15 @@ app.use('/api/*', currentUser({
 app.get('/api/users', secured([['ADMIN'], ['users:read']]), handler);
 ```
 
-The gateway sends the secret in `x-gateway-secret` on every request it
-forwards. `gatewaySecret` compares it in constant time and refuses, at
+The gateway sends the secret in `x-gateway-secret` (`GATEWAY_SECRET_HEADER`,
+or the one you pass as `gatewaySecret({ secret, header })`) on every request
+it forwards. `gatewaySecret` compares it in constant time and refuses, at
 startup, a secret shorter than 16 characters; `trustedGateway` may also be any
 `(headers) => boolean | Promise<boolean>`. There is no default: `currentUser()`
 without one throws. It is the same `gatewaySecret` as `@nxgt/shared-graphql`'s
-`useAuth()`, from `@nxgt/security/gateway`.
+`useAuth()`, from `@nxgt/security/gateway`. `requireGatewayTrust(options,
+caller)` is the same refusal, for a middleware of your own that reads the
+headers.
 
 `secured([['ADMIN'], ['users:read']])` is Apollo-federation `requireScopes`
 semantics: outer AND, inner OR. Confidential clients (a `clientId` and no
@@ -155,7 +158,7 @@ import createClient from '@nxgt/shared-hono/openapi-fetch';
 
 The star re-export of `openapi-fetch` lives in this entry point, not below it —
 Bun mis-compiles `export *` of an external package in a module that is not an
-entry. See AGENTS.md.
+entry.
 
 ## MCP
 
@@ -182,6 +185,9 @@ it follows `PORT`.
   `trustedGateway` at all.
 - **`openfetchServiceUser()` without a secret forwards an anonymous caller**
   to a service on 4.0. Pass `{ secret }`.
+- **`openfetchServiceUser({ secret })` hands the secret to whatever the
+  client calls.** Use it only on clients for your internal services: the
+  secret lets its holder name any caller to every service that trusts it.
 - **`principalFromMockHeaders` is async.** Without the `await`, the promise
   is truthy and reads as a caller.
 - **`rateLimiter()` keys on `x-forwarded-for` by default**, which a client

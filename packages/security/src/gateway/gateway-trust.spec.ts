@@ -79,6 +79,17 @@ describe('requireGatewayTrust', () => {
 		).toThrow(TypeError);
 	});
 
+	it('writes the call it is given', () => {
+		expect(() =>
+			requireGatewayTrust(undefined, {
+				...site,
+				call: 'f(ctx, { trustedGateway: gatewaySecret({ secret }) })',
+			}),
+		).toThrow(
+			'currentUser(): name the gateway allowed to set the caller — f(ctx, { trustedGateway: gatewaySecret({ secret }) }). The X-User-*',
+		);
+	});
+
 	it('hands back the trust it was given', () => {
 		const trust = () => true;
 		expect(requireGatewayTrust({ trustedGateway: trust }, site)).toBe(trust);

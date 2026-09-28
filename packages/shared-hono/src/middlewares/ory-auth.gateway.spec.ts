@@ -3,7 +3,11 @@ import { createOry } from '@nxgt/ory-sdk';
 import { USER_HEADERS } from '@nxgt/shared/models';
 import { Hono } from 'hono';
 import { createErrorHandler } from './error-handler';
-import { GATEWAY_SECRET_HEADER, gatewaySecret } from './gateway-trust';
+import {
+	GATEWAY_SECRET_HEADER,
+	gatewaySecret,
+	mockHeadersTrust,
+} from './gateway-trust';
 import { type OryAuthOptions, oryAuth } from './ory-auth';
 
 /**
@@ -64,6 +68,16 @@ describe('oryAuth — a mock caller', () => {
 			identity: { email: 'mock@example.test', verified: true },
 		});
 		expect(body.claims).toMatchObject({ sub: 'mock-1' });
+	});
+});
+
+describe('mockHeadersTrust — the NODE_ENV gate', () => {
+	test('holds the trust under NODE_ENV=test only', () => {
+		expect(mockHeadersTrust('test', trustedGateway)).toBe(trustedGateway);
+		for (const nodeEnv of ['production', 'development', '']) {
+			expect(mockHeadersTrust(nodeEnv, trustedGateway)).toBeUndefined();
+		}
+		expect(mockHeadersTrust('test', undefined)).toBeUndefined();
 	});
 });
 

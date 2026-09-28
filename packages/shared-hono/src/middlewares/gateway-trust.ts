@@ -26,11 +26,13 @@ export {
 export function requireGatewayTrust(
 	options: Partial<GatewayTrustOptions> | undefined,
 	caller: string,
+	call?: string,
 ): GatewayTrust {
 	return requireTrust(options, {
 		caller,
 		reads: 'the X-User-* headers',
 		alternative: 'oryAuth(ory)',
+		call,
 	});
 }
 
@@ -53,6 +55,17 @@ export async function trustedPrincipal(
 		return undefined;
 	}
 	return principal;
+}
+
+/**
+ * The trust `oryAuth` reads mock headers with: its `trustedGateway`, and only
+ * under `NODE_ENV=test`. Anywhere else, none — whatever the option says.
+ */
+export function mockHeadersTrust(
+	nodeEnv: string,
+	trustedGateway: GatewayTrust | undefined,
+): GatewayTrust | undefined {
+	return nodeEnv === 'test' ? trustedGateway : undefined;
 }
 
 /** The `Principal` the headers describe, trusted or not. Never exported. */

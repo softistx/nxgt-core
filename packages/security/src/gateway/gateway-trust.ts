@@ -75,6 +75,8 @@ export type GatewayTrustSite = {
 	reads: string;
 	/** What an API that resolves its own callers uses instead. */
 	alternative: string;
+	/** The call to write, when it is not `caller({ trustedGateway })`. */
+	call?: string;
 };
 
 /**
@@ -84,13 +86,16 @@ export type GatewayTrustSite = {
  */
 export function requireGatewayTrust(
 	options: Partial<GatewayTrustOptions> | undefined,
-	{ caller, reads, alternative }: GatewayTrustSite,
+	{ caller, reads, alternative, call }: GatewayTrustSite,
 ): GatewayTrust {
 	const trust = options?.trustedGateway;
 	if (typeof trust !== 'function') {
 		const source = reads.charAt(0).toUpperCase() + reads.slice(1);
+		const fix =
+			call ??
+			`${caller.replace('()', '')}({ trustedGateway: gatewaySecret({ secret }) })`;
 		throw new TypeError(
-			`${caller}: name the gateway allowed to set the caller — ${caller.replace('()', '')}({ trustedGateway: gatewaySecret({ secret }) }). ${source} are written by the client; an API that resolves its own callers uses ${alternative}`,
+			`${caller}: name the gateway allowed to set the caller — ${fix}. ${source} are written by the client; an API that resolves its own callers uses ${alternative}`,
 		);
 	}
 	return trust;

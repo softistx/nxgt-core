@@ -11,7 +11,11 @@ import { logger } from '@nxgt/shared-logging';
 import type { ErrorHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { env } from '../env';
-import { type GatewayTrust, trustedPrincipal } from './gateway-trust';
+import {
+	type GatewayTrust,
+	mockHeadersTrust,
+	trustedPrincipal,
+} from './gateway-trust';
 
 export type OryAuthOptions = {
 	/**
@@ -24,10 +28,10 @@ export type OryAuthOptions = {
 };
 
 /**
- * Authentication for an Ory-native API — the twin of storex-api's
- * `remoteAuth()`, with the Ory stack instead of oauth-api as the authority.
- * Same contract, so `policyGuard` and a `rules.yaml` keep answering 401 for
- * `authenticated: true` without knowing which authority signed the caller in:
+ * Authentication for an Ory-native API: the Ory stack is the authority.
+ * It keeps the contract every authentication middleware here keeps, so
+ * `policyGuard` and a `rules.yaml` answer 401 for `authenticated: true`
+ * without knowing which authority signed the caller in:
  *
  * - `NODE_ENV=test`, a `trustedGateway` given, and a request it vouches for
  *   carrying `X-User-*` headers ⇒ the mock principal a route spec sent. The
@@ -53,11 +57,12 @@ export function oryAuth(ory: Ory, options: OryAuthOptions = {}) {
 			'oryAuth(): `trustedGateway` must be a function — gatewaySecret({ secret }), say',
 		);
 	}
+	const mockTrust = mockHeadersTrust(env.NODE_ENV, trustedGateway);
 	return createMiddleware(async (ctx, next) => {
-		if (env.NODE_ENV === 'test' && trustedGateway) {
+		if (mockTrust) {
 			const mockPrincipal = await trustedPrincipal(
 				ctx.req.raw.headers,
-				trustedGateway,
+				mockTrust,
 			);
 			if (mockPrincipal) {
 				ctx.set('principal', mockPrincipal);

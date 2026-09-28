@@ -65,7 +65,8 @@ export function oryChecks(ory: Ory) {
  * Ory-native `rules.yaml` used to carry, and nothing else that file said.
  *
  * The `NODE_ENV=test` mock headers set `ory` like any other credential, so a
- * route spec that sends `X-User-Id` passes here unchanged.
+ * route spec passes here once it signs in the 4.0 way: `oryAuth(ory, {
+ * trustedGateway })`, and `mockAuthMiddleware(user, { secret })`.
  */
 export function requireAuthenticated() {
 	return createMiddleware(async (ctx, next) => {

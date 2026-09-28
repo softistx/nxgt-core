@@ -262,8 +262,9 @@ i18n key onto the `GraphQLError`.
 Which gateway may name the caller in data the client could otherwise write —
 the `X-User-*` headers `@nxgt/shared-hono`'s `currentUser()` reads, the
 `extensions` `@nxgt/shared-graphql`'s `useAuth()` reads. Both packages take a
-`trustedGateway` and re-export this module, so one secret means the same
-thing to a REST and a GraphQL service.
+`trustedGateway` and re-export `gatewaySecret`, `GATEWAY_SECRET_HEADER` and
+the types, so one secret means the same thing to a REST and a GraphQL
+service.
 
 ```ts
 import { gatewaySecret } from '@nxgt/security/gateway';
@@ -279,8 +280,14 @@ await trustedGateway(request.headers); // true only with the secret in x-gateway
   header.
 - A `GatewayTrust` is any `(headers) => boolean | Promise<boolean>`, for a
   proof other than a shared secret.
-- `requireGatewayTrust(options, { caller, reads, alternative })` is the
-  `TypeError` a middleware throws when it was given no `trustedGateway`.
+- `GATEWAY_SECRET_HEADER` is the default header's name, for the gateway's
+  side of the wiring.
+- `requireGatewayTrust(options, { caller, reads, alternative, call? })` (the
+  second argument is a `GatewayTrustSite`) is the `TypeError` a middleware
+  throws when it was given no `trustedGateway`; `assertGatewaySecret(secret,
+  caller)` is the 16-character check, for a helper that *sends* the secret.
+  Both packages above export a `requireGatewayTrust(options, caller)` of
+  their own that fills in the site for you.
 
 It imports nothing, so a service that uses only this pays for nothing else.
 
@@ -300,7 +307,7 @@ call this now.
 
 `PolicyClaims` is **Kratos/OIDC-shaped**: `sub`, `kind`, `email`,
 `email_verified`, `aal`, `aud`, `clientId`, `scope`, `iss`, `exp` (NumericDate
-— seconds, RFC 7519 §2). The oauth-api vocabulary (`username`, `authorities`,
+— seconds, RFC 7519 §2). The legacy OAuth vocabulary (`username`, `authorities`,
 `roles`, `permissions`, `uid`, `user`) is still there and still checked by
 `checkAuthorities`, but it is marked `@deprecated`.
 

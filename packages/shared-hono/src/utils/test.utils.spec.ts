@@ -78,7 +78,7 @@ describe('principalFromMockHeaders', () => {
 		});
 		expect(response.status).toBe(500);
 		expect(await response.text()).toStartWith(
-			'principalFromMockHeaders(): name the gateway allowed to set the caller',
+			'principalFromMockHeaders(): name the gateway allowed to set the caller — principalFromMockHeaders(ctx, { trustedGateway: gatewaySecret({ secret }) }).',
 		);
 	});
 });

@@ -547,12 +547,15 @@ that `secured()` answers 401. The `X-User-*` reader itself
 exported, so no caller can reach it without passing the trust first.
 
 **One definition, in `@nxgt/security/gateway`.** `gatewaySecret`,
-`requireGatewayTrust`, `assertGatewaySecret` and the `GatewayTrust` types
-live there, and both packages re-export them — `security` sits below both in
+`GATEWAY_SECRET_HEADER`, `requireGatewayTrust`, `assertGatewaySecret` and the
+`GatewayTrust` types live there. Both packages re-export `gatewaySecret`,
+`GATEWAY_SECRET_HEADER` and the types — `security` sits below both in
 the layering, so the dependency points the right way, and the subpath imports
-nothing. Each package keeps only a thin `requireGatewayTrust(options, caller)`
-that words the error for its own source (`the request's extensions`, `the
-X-User-* headers`) and its own alternative (`useOryAuth(ory)`, `oryAuth(ory)`).
+nothing. Each package also exports a `requireGatewayTrust(options, caller)`
+of its own — security's name with a different signature, on purpose: it is
+the one a middleware author calls — which words the error for its own source
+(`the request's extensions`, `the X-User-* headers`) and its own alternative
+(`useOryAuth(ory)`, `oryAuth(ory)`).
 Change the proof there, never in one package.
 
 ### Siblings are depended on by range — `workspace:^`, never `workspace:*`
@@ -729,7 +732,7 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **590 pass, 9 skip, 0 fail** on 2026-09-28: 556 in the
+`bun run test` is **592 pass, 9 skip, 0 fail** on 2026-09-28: 558 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
 real `nuxt build`), then 43 in `scripts/`, 16 of them
 `check-nxgt-versions.spec.ts`'s. Treat any failure as yours.
