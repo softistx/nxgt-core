@@ -89,7 +89,14 @@ Four findings are worth more than a summary, and each has a fixed shape:
 
 Lines under *Assumed, not answered* are not items: `unanswered-question-resolver`
 writes them, and they stay until the owner confirms or reverses each. Report
-their count in the header; do not reconcile them.
+their count in the header; do not reconcile them. Its *waiting for the owner*
+lines under *Blocked on the user* are ordinary blockers.
+
+The `Mandate:` line above the sections is not an item either: it is the
+owner's pre-approval that lets `queue-refiller` write into *In flight*.
+Report it when its `until:` date has passed or it is struck out while *In
+flight* still holds lines marked `approved by mandate` — those lost their
+approval and go back to *Proposed, not approved*.
 
 An item that says "PR #216" is checked by **reading that PR**, not by trusting
 the number. A PR that merged with a failing check is not done.
