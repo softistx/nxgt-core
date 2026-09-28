@@ -41,8 +41,8 @@ The two files, and why there are two:
 - **The queue is private and per project**: the owner's memory file
   `~/.claude/projects/<project>/memory/work-queue.md` of the project the
   session runs in — the same file `work-autonomously` works, with the
-  sections *In flight*, *Blocked on the user*, *Proposed, not approved*,
-  *Done*. `ls ~/.claude/projects/*/memory/work-queue.md` lists every
+  sections *Assumed, not answered*, *In flight*, *Blocked on the user*,
+  *Proposed, not approved*, *Done*. `ls ~/.claude/projects/*/memory/work-queue.md` lists every
   project's; the one whose project matches the checkout is this session's.
   An item may name several repositories; it still lives in this one file.
 
@@ -60,7 +60,11 @@ cycle across sessions.
 Gather the candidates:
 
 - run the **`improvement-scout`** agent — it writes into *Proposed, not
-  approved*, with evidence;
+  approved*, with evidence. When the owner has said to keep going, the
+  **`queue-refiller`** has usually run already (`work-autonomously`
+  section 5): what it put in *Proposed, not approved* is the candidate list,
+  and what it put in *In flight* is already approved by mandate — do not
+  ask about it again;
 - take the **owner's requests**: what he asked for in this conversation, and
   what already sits in *Proposed, not approved* or in a roadmap's Next and
   Later;

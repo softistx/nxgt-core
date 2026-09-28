@@ -69,6 +69,14 @@ describe('buildMandate', () => {
 	test.each([
 		['the queue, to completion', /Work the queue .* to completion/],
 		['the planning cycle when it runs dry', /nxgt-autonomy:plan-the-roadmap/],
+		[
+			'the refiller, only on the go-ahead',
+			/queue-refiller if the owner said to keep going, else the improvement-scout/,
+		],
+		[
+			'the 5-minute rule, through the Claude Code setting',
+			/unanswered after 5 minutes \(askUserQuestionTimeout "5m"\) goes to the unanswered-question-resolver/,
+		],
 		['no unapproved work', /Never start work the queue does not approve/],
 		[
 			'interactive questions, recommendation first',

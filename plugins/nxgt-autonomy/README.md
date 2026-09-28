@@ -12,6 +12,8 @@ and ask the owner only what only the owner can decide.
 | agent `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and the roadmaps with the queue; says what remains |
 | agent `improvement-scout` | proposes improvements into the queue, applies none |
 | agent `green-bar-verifier` | refuses to call anything done that was not measured |
+| agent `queue-refiller` | when the queue is empty and the owner said to keep going: reconciles it with `git` and `gh`, sweeps for improvements and features, and writes the top items into it — under *In flight* only when the owner pre-approved recommendations and the item is reversible; names the sibling sessions that look idle. Edits the queue file only |
+| agent `unanswered-question-resolver` | when a question came back unanswered after 5 minutes: takes the recommended option if it is reversible and inside the mandate, otherwise waits with a holding step, and records the decision under *Assumed, not answered*. Edits the queue file only |
 
 ## Enable it
 
@@ -33,8 +35,8 @@ context before the first prompt:
 
 ```text
 nxgt-autonomy: autonomous mode is the default for this session. The skill nxgt-autonomy:work-autonomously details it; NXGT_AUTONOMY_DISABLE=1 turns it off.
-- Work the queue (the work-queue.md memory file) to completion. When it runs dry, run the improvement-scout, then nxgt-autonomy:plan-the-roadmap. Never start work the queue does not approve.
-- Owner decisions go through AskUserQuestion, recommended option first and labelled "(Recommended)" or "(Recommandé)". Do all the work that does not depend on the answer before asking.
+- Work the queue (the work-queue.md memory file) to completion. When it runs dry, run the queue-refiller if the owner said to keep going, else the improvement-scout, then nxgt-autonomy:plan-the-roadmap. Never start work the queue does not approve.
+- Owner decisions go through AskUserQuestion, recommended option first and labelled "(Recommended)" or "(Recommandé)". Do all the work that does not depend on the answer before asking. A question that returns unanswered after 5 minutes (askUserQuestionTimeout "5m") goes to the unanswered-question-resolver.
 - An irreversible or outward-facing action — deleting data, force-pushing, a first publish of a package, spending money, messaging anyone off this machine — waits for the owner's explicit answer; carry on with other work meanwhile.
 - Never end a turn by handing back or waiting.
 - Every PR goes through nxgt-review:review-before-a-pr, then nxgt-docs:keep-docs-current. Merges and releases follow the repository's AGENTS.md.
@@ -53,6 +55,29 @@ What the hook does **not** do:
 - **It prints nothing outside a git repository.** There is no queue to work
   and no PR to open in a scratch folder. The check walks up from `cwd` looking
   for `.git` (a directory, or a worktree's file) without spawning `git`.
+
+## A question nobody answers
+
+The owner's rule is that a question left unanswered for **5 minutes** is
+taken on its recommendation — when that can be undone. The trigger is a
+Claude Code setting, not this plugin:
+
+```json
+{ "askUserQuestionTimeout": "5m" }
+```
+
+It is `/config` → *Question auto-continue timeout* (`"60s"`, `"5m"`, `"10m"`
+or `"never"`; the default is `"never"`). With it, a question left idle for 5
+minutes ends and `AskUserQuestion` returns with no answer; the session then
+runs `unanswered-question-resolver`, which takes the recommended option only
+if it is reversible and inside the mandate, and records it under *Assumed,
+not answered* at the top of the queue. The next report leads with those
+lines.
+
+**Without the setting, nothing fires.** `AskUserQuestion` blocks the turn
+until it is answered, so no timer, background command or scheduled wake-up
+can act meanwhile. The plugin does not change the setting — the loop reads
+it and, when it is not `"5m"`, asks the owner to set it.
 
 ## Opting out
 
