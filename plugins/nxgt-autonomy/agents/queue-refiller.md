@@ -186,8 +186,9 @@ reversible. A breaking change to a published package is reversible in git
 and not for its consumers — mark it `breaking: yes`, and it is decided below
 as breaking. **An addition to a published package's public API** — an
 export, a subpath, an option — is reversible only until it is released:
-removing it afterwards breaks whoever adopted it. Mark it `feature: yes`; it
-goes under *In flight* only when the mandate covers features.
+removing it afterwards breaks whoever adopted it. Keep `reversible: yes` and
+mark it `feature: yes`; the feature rule decides it — it goes under *In
+flight* only when the `Mandate:` line covers features.
 
 ## 5. Write the top items into the queue
 

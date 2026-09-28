@@ -3,7 +3,7 @@ name: unanswered-question-resolver
 description: >-
   Decides what an autonomous run does with an owner question left unanswered
   for 5 minutes: takes the recommended option as the owner's choice only when
-  it is reversible and inside the mandate, and otherwise answers "wait for the
+  it is reversible and inside the autonomy mandate, and otherwise answers "wait for the
   owner" with a reversible holding step; records a taken decision under the
   queue's Assumed, not answered section and a wait under Blocked on the user,
   so the owner can reverse or answer on his return. Use when an
@@ -63,9 +63,19 @@ answer either.
 | the option to be taken — his tick, else the recommendation — is irreversible when carried out: deletes data, force-pushes, publishes a package for the first time, renames a published name, spends money, messages anyone off this machine | **wait**, even if the label was forgotten — say so |
 | it reaches outward beyond a normal PR, merge and release as the repository's `AGENTS.md` allows them | **wait** |
 | it is a breaking change to a published package, and the owner gave no mandate for that break | **wait** |
+| it adds public API to a published package — an export, a subpath, an option — and the queue's `Mandate:` line does not cover features | **wait** — holding step: the branch and its PR, not merged, so nothing is released |
 | the owner had ticked an option or written an answer before it timed out | **his** selection, not the recommendation — recorded as `partial answer` |
 | no option is labelled `(Recommended)`, or the label is not on the first option | **wait** — there is no recommendation to adopt; the question was malformed |
-| otherwise — reversible by a `git revert` and a normal release, inside the mandate | **take the recommended option** |
+| otherwise — reversible by a `git revert` and a normal release, inside the autonomy mandate | **take the recommended option** |
+
+**The autonomy mandate** here is the SessionStart text and the repository's
+`AGENTS.md`: the 5-minute rule is the owner's standing rule and needs no
+`Mandate:` line. That line — the owner's pre-approval of recommendations,
+at the top of the queue — matters only for the public-API row; read it from
+the queue file, and treat it as absent when it is missing, expired or
+struck out. An addition that is `reversible` in git is not reversible for
+consumers once released, which is why that row exists — the same rule
+`queue-refiller` applies.
 
 "Wait" never means stop. It comes with a **holding step**: the most progress
 that stays fully reversible while the question stays open — the work done on

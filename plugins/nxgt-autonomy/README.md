@@ -13,7 +13,7 @@ and ask the owner only what only the owner can decide.
 | agent `improvement-scout` | proposes improvements into the queue, applies none |
 | agent `green-bar-verifier` | refuses to call anything done that was not measured |
 | agent `queue-refiller` | when the queue is empty and the owner said to keep going: reconciles it with `git` and `gh`, sweeps for improvements and features, and writes the top items into it — under *In flight* only when the queue's `Mandate:` line covers the item (its repository, and features if it adds public API), it is reversible, and no other session planned it; names the sibling sessions that look idle. Edits the queue file only |
-| agent `unanswered-question-resolver` | when a question came back unanswered after 5 minutes: takes the recommended option if it is reversible and inside the mandate, records a taken decision under *Assumed, not answered*; otherwise waits under *Blocked on the user* with a holding step. Edits the queue file only |
+| agent `unanswered-question-resolver` | when a question came back unanswered after 5 minutes: takes the recommended option if it is reversible and inside the autonomy mandate (a public-API addition also needs the queue's `Mandate:` line to cover features), records a taken decision under *Assumed, not answered*; otherwise waits under *Blocked on the user* with a holding step. Edits the queue file only |
 
 ## Enable it
 

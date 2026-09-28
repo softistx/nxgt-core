@@ -68,8 +68,8 @@ The **`Mandate:` line** is the owner's pre-approval of your recommendations
 ("adopt your recommendations", « j'approuve tes recommandations »), written
 when he gives it, with his words, what it covers and until when. It is the
 only thing that lets `queue-refiller` write into *In flight*; he revokes it
-by striking it out. A question that waited out its timeout goes to *Blocked
-on the user*, not to *Assumed, not answered*.
+by striking it out. A question the resolver decides to wait on goes to
+*Blocked on the user*; only a taken one goes to *Assumed, not answered*.
 
 *Done* also holds `- [x] … withdrawn — <reason>` lines: an accepted item let
 go after its branch was cut, its PR closed (`plan-the-roadmap` step 5). They
@@ -169,7 +169,10 @@ mechanism, and this skill claims no other:
   ticked. That result is the trigger: note the time before asking and after
   (`date -Iseconds`), then run **`unanswered-question-resolver`** with the
   question, its options in order, both times, the timeout, whether it was
-  labelled `(Irreversible)`, and what the owner had ticked. Act on its `DECISION`; if
+  labelled `(Irreversible)`, and what the owner had ticked. It waits on
+  anything irreversible, outward-facing or breaking, and on an addition to a
+  published package's public API unless the `Mandate:` line covers
+  features. Act on its `DECISION`; if
   it says wait, take its holding step and carry on with the rest of the
   queue.
 - **Without that setting, nothing fires.** `AskUserQuestion` holds the turn
