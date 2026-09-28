@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, spyOn } from 'bun:test';
+import { afterAll, afterEach, describe, expect, it, spyOn } from 'bun:test';
 import { logger } from '@nxgt/shared-logging';
 import { createSchema } from 'graphql-yoga';
 import { KETO_DIRECTIVES_SDL } from '../directives';
@@ -78,6 +78,7 @@ describe('applyKetoChecks refuses at build', () => {
 describe('applyKetoChecks warns, for @check alone', () => {
 	const warn = spyOn(logger, 'warn').mockImplementation(() => logger);
 	afterEach(() => warn.mockClear());
+	afterAll(() => warn.mockRestore());
 	const warned = () => warn.mock.calls.map(([message]) => String(message));
 
 	it('an argument the field does not declare', () => {
@@ -100,6 +101,20 @@ describe('applyKetoChecks warns, for @check alone', () => {
 			build(`
 				interface Node {
 					body(id: ID!): String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
+				}
+				type Note implements Node { body(id: ID!): String }
+				type Query { node: Node }
+			`),
+		).not.toThrow();
+		expect(warned()).toEqual([
+			expect.stringMatching(/^Node\.body: .*interface field guards nothing/),
+		]);
+	});
+	it('a malformed @check on an interface field, which 2.x never read', () => {
+		expect(
+			build(`
+				interface Node {
+					body(id: ID!): String @check(permissions: [[{ namespace: "Note", permit: "view", id: "id" }]])
 				}
 				type Note implements Node { body(id: ID!): String }
 				type Query { node: Node }

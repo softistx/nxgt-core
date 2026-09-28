@@ -69,12 +69,17 @@ type Note implements Node {
 
 ### `@nxgt/shared-graphql: no package root`
 
-Thrown when the package is imported, if no `package.json` sits above its
-files — a bundler inlined it into your own bundle. `SHARED_SCHEMA_PATH` needs
-the installed package on disk: mark `@nxgt/shared-graphql` external in the
-bundler.
+Thrown when the package is imported, if no `package.json` sits anywhere
+above its files — a bundle copied into an image without one. The more common
+case throws nothing: a bundler inlined the package into your app's bundle, the
+walk finds your app's `package.json`, and `SHARED_SCHEMA_PATH` points at
+`<app>/graphql/**`, which loads no SDL. Either way, mark
+`@nxgt/shared-graphql` external in the bundler so it stays on disk as
+installed.
 
 ### `Directive "@permission" argument "name" of type "String!" is required, but it was not provided.`
+
+On graphql 17: `Argument "@permission(name:)" of type "String!" is required, but it was not provided.`
 
 Your schema declares its own `@permission`, and you load this package's
 `graphql/**/*.graphqls` (`SHARED_SCHEMA_PATH`) beside it: `mergeTypeDefs`
@@ -91,7 +96,9 @@ Two copies of `graphql` are installed: `graphql` is a peer of this package
 (`^16.4.2 || ^17.0.0`), so your app must declare it once, and every GraphQL
 library must resolve that one. Add `graphql` to your `dependencies` if it was
 only there through this package, and check with `bun pm ls graphql` (or
-`npm ls graphql`) that one version remains.
+`npm ls graphql`) that one version remains. graphql runs this check only
+when `NODE_ENV` is not `production`; in production two copies fail later,
+with less telling errors.
 
 ## When a request runs
 

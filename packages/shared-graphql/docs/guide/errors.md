@@ -81,6 +81,8 @@ exported for a server that writes its own `maskError`:
 
 ```ts
 import { isOryUnavailable, serviceUnavailableError } from '@nxgt/shared-graphql';
+import { GraphQLError } from 'graphql';
+import type { MaskError } from 'graphql-yoga';
 
 const maskError: MaskError = (error, message) => {
 	const original = error instanceof GraphQLError ? error.originalError : error;

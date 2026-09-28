@@ -118,7 +118,7 @@ the next major refuses them there too.
 `@permission` is read only when its declaration has `name` and `type` — a
 schema with its own `@permission` of another shape keeps it. Loading this
 package's `graphql/` next to such a declaration merges the two, though: see
-troubleshooting.
+[troubleshooting](./docs/troubleshooting.md).
 
 **An outage is never a denial.** A Keto failure throws `OryUnavailable`, which
 `createMaskError` answers `503 SERVICE_UNAVAILABLE`.

@@ -1,4 +1,4 @@
-import { MapperKind, mapSchema } from '@graphql-tools/utils';
+import { getDirective, MapperKind, mapSchema } from '@graphql-tools/utils';
 import { evaluateRequirement, type PermissionTerm } from '@nxgt/ory-sdk';
 import { CustomException } from '@nxgt/shared-exceptions';
 import {
@@ -7,10 +7,10 @@ import {
 	type GraphQLSchema,
 } from 'graphql';
 import {
+	CHECK_DIRECTIVE_NAME,
 	type CheckArgs,
 	objectIds,
 	type ReadOptions,
-	readChecks,
 	readPath,
 	readPermissions,
 	readRequirements,
@@ -70,7 +70,9 @@ function refuseOnInterface(
 	if (readPermissions(schema, fieldConfig, where).length > 0) {
 		throw new TypeError(message);
 	}
-	if (readChecks(schema, fieldConfig, where).length > 0) {
+	// Counted, not read: 2.x never looked at an interface's `@check`, so even
+	// a malformed one booted, and must still.
+	if (getDirective(schema, fieldConfig, CHECK_DIRECTIVE_NAME)?.length) {
 		warnCheckMistake(message);
 	}
 }
