@@ -81,8 +81,9 @@ not a failure. **Never** run `changeset:publish`, `scripts/publish.ts`,
   `@nxgt/shared-graphql` 3.0, `useAuth()` and `extractJwtPlugin()` read the
   request's `extensions` only when a `trustedGateway` vouches for it; since
   `@nxgt/shared-hono` 4.0, `currentUser()` takes the same `trustedGateway`,
-  as does `principalFromMockHeaders`. Those four throw at construction
-  without one. `oryAuth(ory)` needs none and is the normal call: without a
+  as does `principalFromMockHeaders`. Those four throw without one — the
+  plugins and `currentUser()` at construction, `principalFromMockHeaders`
+  on the call. `oryAuth(ory)` needs none and is the normal call: without a
   `trustedGateway` it never reads the `X-User-*` headers, and
   `oryAuth(ory, { trustedGateway })` reads a route spec's mock headers only
   with it **and** under `NODE_ENV=test`. A default that trusts the body or
