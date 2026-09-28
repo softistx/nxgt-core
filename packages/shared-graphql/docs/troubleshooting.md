@@ -116,18 +116,21 @@ type Note implements Node {
 
 In 2.x a `@check` there booted with a warning; a `@permission` is refused.
 
-### ``@authenticated on <Type.field>: `type: []` admits no caller — name a type, or drop `type` ``
+### ``@authenticated on <where>: `type: []` admits no caller — name a type, or drop `type` ``
+
+`<where>` is where the directive sits: `Type.field`, or a type, interface,
+scalar or enum name.
 
 An empty list admits nobody. Name the kinds of caller, or drop `type` to
 admit any caller.
 
-### `@authenticated on <Type.field>: unknown type "<type>" — known: <types>`
+### `@authenticated on <where>: unknown type "<type>" — known: <types>`
 
 `type:` names a value outside the caller types `useAuthenticated` knows —
 `session` and `token` by default. Fix the name, or list your own:
 
 ```ts
-useAuthenticated({ types: ['session', 'token', 'service'] });
+useAuthenticated({ types: [...CALLER_TYPES, 'service'] });
 ```
 
 ### ``@authenticated on <Type.field>: the field's, its type's and its interfaces' `type`s have none in common — no caller could pass``
@@ -135,6 +138,14 @@ useAuthenticated({ types: ['session', 'token', 'service'] });
 Every `@authenticated` that applies to a field must hold — the field's, its
 type's, its interfaces'. Two of them name disjoint types, so no caller could
 reach the field. Drop or widen one.
+
+### `Unknown argument "type" on directive "@authenticated".`
+
+The schema declares `@authenticated` without an argument — federation's
+declaration, imported through `@link`, or your own — and a field writes
+`type:`. In a subgraph keep federation's form and drop `type:`; in a schema
+of your own, load `SHARED_TYPE_DEFS` or `AUTHENTICATED_DIRECTIVE_SDL` in place
+of your declaration.
 
 ### `@nxgt/shared-graphql: no package root`
 
@@ -234,6 +245,13 @@ carry the gateway's proof. The gateway is not sending the header — or sends
 another secret — on its subgraph requests. Make it add
 `x-gateway-secret: <secret>` (or your `header`) to every one, with the same
 value the subgraph was given.
+
+### `FORBIDDEN` from `@authenticated(type:)` for a caller who should pass
+
+The caller's type is `context.ory.kind`, or `context.user.tokenType` without
+Ory. Behind a gateway that writes no `tokenType` in the `user` it forwards,
+every caller has no type, and every `type:` refuses them. Make the gateway
+write it, or drop `type:` on those fields.
 
 ### A guarded field answers unguarded in the supergraph
 

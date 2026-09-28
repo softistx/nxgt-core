@@ -51,7 +51,7 @@ Nothing planned that changes what a consumer gets. See Later.
   ^17.0.0`.
 - **`sandboxExplorer`**, the sandbox helper's corrected name.
 
-### 2.x
+### 2.1
 
 - **`@permission(name, type, id, onDeny, message)`**, the flat form, answered
   with `@check` in declaration order; `@check` deprecated in its favour.

@@ -29,7 +29,8 @@ Three implementations are worth reading before starting:
 
 **Authentication is not this skill's.** Load `nxgt-ory-app`'s
 `create-ory-native-graphql-api` for who the caller is: `useOryAuth(ory)`,
-`useKetoChecks(ory)` if and only if the SDL has `@check` directives, and the
+`useKetoChecks(ory)` if and only if the SDL has `@permission` (on
+`@nxgt/shared-graphql` 2.x, also `@check`) directives, and the
 404-then-403 ladder. Everything below is true whichever plugin resolves the
 principal — but §6 is not optional either way.
 

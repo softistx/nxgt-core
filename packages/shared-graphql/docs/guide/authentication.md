@@ -135,16 +135,20 @@ type Staff implements Node @authenticated(type: ["session"]) { id: ID!, name: St
 ### Other caller types
 
 ```ts
-useAuthenticated({ types: ['session', 'token', 'service'] });
+import { CALLER_TYPES, useAuthenticated } from '@nxgt/shared-graphql';
+
+useAuthenticated({ types: [...CALLER_TYPES, 'service'] });
 ```
 
-`types` lists every value a `type:` may name. Behind a gateway, it is the set
+`types` lists every value a `type:` may name; `CALLER_TYPES` —
+`['session', 'token']` — is the default. Behind a gateway, it is the set
 of `tokenType`s your gateway writes.
 
 ### Refused at build
 
-`applyAuthenticated` throws a `TypeError` naming the field for a directive no
-request could pass:
+`applyAuthenticated` throws a `TypeError` for a directive no request could
+pass, naming where it sits — `Query.me` on a field, `Staff` on a type,
+`Secret` on a scalar:
 
 | Mistake | Message starts |
 | --- | --- |

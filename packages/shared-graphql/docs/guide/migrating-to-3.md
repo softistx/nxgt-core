@@ -70,6 +70,11 @@ defineConfig({
   starts:
   ``useAuth(): name the gateway allowed to set the caller — …``.
 - `extractJwtPlugin` is now a function, and no longer logs the payload.
+- A `user` (or `payload`) without a non-empty string `sub` is ignored, even
+  from a trusted gateway.
+- Over WebSocket, `useAuth()` reads no caller: a graphql-ws context holds no
+  fetch `Request` to carry the proof. Resolve the caller per connection with
+  `resolveWsUser`.
 
 An API that authenticates its own callers — a Kratos session, a Hydra token —
 does not need a gateway at all: use `useOryAuth(ory)`, which verifies the

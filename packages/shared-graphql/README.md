@@ -67,8 +67,9 @@ types. `@permission` is not in it: it lives in `graphql/directives/`, so a
 subgraph that builds through `buildSubgraphSchema` and never loads
 `SHARED_TYPE_DEFS` still sees it through `SHARED_SCHEMA_PATH`. For a schema
 assembled in code, the declarations ship as strings —
-`PERMISSION_DIRECTIVE_SDL` (also exported as `KETO_DIRECTIVES_SDL`) and
-`AUTHENTICATED_DIRECTIVE_SDL` — held equal to the files by a spec.
+`PERMISSION_DIRECTIVE_SDL` (also exported as `KETO_DIRECTIVES_SDL`), held
+equal to its file by a spec, and `AUTHENTICATED_DIRECTIVE_SDL`, which has no
+file: it lives in `SHARED_TYPE_DEFS` and in this string only.
 
 ```ts
 import { AUTHENTICATED_DIRECTIVE_SDL, PERMISSION_DIRECTIVE_SDL } from '@nxgt/shared-graphql';
@@ -114,9 +115,11 @@ type Staff @authenticated(type: ["session"]) { … }
 `useAuthenticated(options?)` enforces it: no caller is `UNAUTHENTICATED`
 (401), a caller of a type `type:` does not name is `FORBIDDEN` (403). The type
 is Ory's `kind` — `session` or `token` — or `user.tokenType` without Ory;
-`useAuthenticated({ types })` names other values. The field's, its type's and
-its interfaces' directives are AND-ed. Refused at build, naming the field:
-`type: []`, an unknown type, and restrictions with nothing in common.
+`useAuthenticated({ types: [...CALLER_TYPES, 'service'] })` names other
+values. The field's, its type's and its interfaces' directives are AND-ed; a
+scalar's or an enum's guards every field returning it; a subscription is
+refused before its stream opens. Refused at build, naming where the directive
+sits: `type: []`, an unknown type, and restrictions with nothing in common.
 
 Federation declares `@authenticated` with no argument, and a subgraph imports
 that declaration. `useAuthenticated` reads that shape as "any caller", so keep
@@ -236,11 +239,11 @@ Apollo would not.
 
 | Export | What it does |
 | --- | --- |
-| `useOryAuth(ory)` | Yoga plugin: resolve the caller through Kratos or Hydra, set `user`, `claims`, `ory` |
+| `useOryAuth(ory)` | Yoga plugin: resolve the caller through Kratos or Hydra, set `user`, `claims`, `token`, `ory` |
 | `useAuth({ trustedGateway })` | Yoga plugin: the caller a trusted gateway put in `extensions` — `user`, `token` |
 | `extractJwtPlugin({ trustedGateway })` | Apollo plugin: the payload a trusted gateway put in `extensions.payload`, on `context.jwt` |
 | `gatewaySecret({ secret, header? })` | the stock `trustedGateway`: a shared secret in a header |
-| `useAuthenticated(options?)` | Yoga plugin: enforce `@authenticated(type:)` |
+| `useAuthenticated(options?)` | Yoga plugin: enforce `@authenticated(type:)`; `CALLER_TYPES` is the default `types` |
 | `applyAuthenticated(schema, options?)` | the same transform on an already-built schema |
 | `useKetoChecks(ory, options?)` | Yoga plugin: the per-request Keto memo, and the `@permission` transform |
 | `applyKetoChecks(schema, options?)` | the same transform on an already-built schema |
@@ -265,10 +268,22 @@ SDL.
 - **`useAuth()` without the gateway's header reads no caller.** A gateway
   that does not send `x-gateway-secret` on every subgraph request makes every
   caller anonymous. Send it from the gateway, not from clients.
-- **A type's `@authenticated` guards its fields, not the field that returns
-  it.** Put the directive on the field too when the lookup itself must not
-  run for an anonymous caller.
+- **An object type's `@authenticated` guards its fields, not the field that
+  returns it** (a scalar's or an enum's does guard the fields returning it).
+  Put the directive on the field too when the lookup itself must not run for
+  an anonymous caller.
 - **Do not import `graphql-subscriptions` from `graphql-subscriptions`.** Take
   it from this package, same reason mongoose comes from `@nxgt/shared-mongo`.
 - **`stx-sdk` is required.** Unlike `@nxgt/security`, this package does not
   mark it optional.
+
+## Documentation
+
+| Page | Read it when |
+| --- | --- |
+| [Migrating to 3.0](./docs/guide/migrating-to-3.md) | you upgrade from 2.x |
+| [Authentication](./docs/guide/authentication.md) | you wire `useOryAuth`, `useAuth` behind a gateway, or `@authenticated` |
+| [Permissions](./docs/guide/permissions.md) | you guard a field with `@permission`, or ask Keto from a resolver |
+| [Errors](./docs/guide/errors.md) | you decide what a client receives, or write your own mask |
+| [Troubleshooting](./docs/troubleshooting.md) | you have an error message in hand |
+| [Roadmap](./docs/roadmap.md) | you want to know what is next |
