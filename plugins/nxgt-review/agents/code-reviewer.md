@@ -205,6 +205,10 @@ reference may set its own. Every rule below means that number.
   behaviour moved, whatever the commit message says.
 - A spec that tests a hand-written copy of the thing instead of the thing,
   or a double written to agree with the code it stands in for.
+- A root `bun test <dir>` without the `./`: a bare `bun test scripts` is a
+  substring filter, not a path, and runs every spec whose path contains
+  `scripts` — a package's specs a second time included. The path is
+  `bun test ./scripts/`.
 
 **Packaging and release** — for a repository that publishes
 - A change under `packages/` (or to the published package) with no changeset.

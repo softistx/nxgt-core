@@ -50,7 +50,7 @@ bun run build              # before typecheck: siblings resolve through dist/
 git diff --exit-code -- 'packages/*/src/generated'   # the committed generated code is current
 test -z "$(git status --porcelain -- 'packages/*/src/generated')"   # and none is left uncommitted
 bun run typecheck          # includes every test/types/ — the type-safety measurement
-bun run test               # per package, then `bun test scripts`: the root scripts/ specs and janus-mail's
+bun run test               # per package, then `bun test ./scripts/`: the root scripts/ specs, 147 tests in 21 files
 bun run verify:artifacts   # loads every subpath; one JanusError, one StoreFailure; no test code shipped
 bun run changeset:status   # pull requests only, not on changeset-release/develop
 ```
