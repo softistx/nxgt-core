@@ -28,17 +28,18 @@ git ls-files ':(glob)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | hea
 ```
 
 Functions with the agent's brace-bounded `awk`, over the same file list (342
-source files on `develop`, the `*.fixtures.ts` included), then over the
-scripts, which the pathspecs above leave out:
+source files on `develop`, the `*.fixtures.ts` included). Then measure what
+the pathspecs above leave out — the scripts and every package's `test/`,
+`test/types/` included — the same way, files with `wc -l` and functions with
+the `awk`, over:
 
 ```bash
-git ls-files 'scripts/**.ts' 'packages/*/scripts/**.ts' 'packages/*/test/**.ts' build.ts \
-  | xargs wc -l | sort -rn | head -15
+git ls-files 'scripts/**.ts' 'packages/*/scripts/**.ts' 'packages/*/test/**.ts' build.ts
 ```
- The thresholds are
-the agent's: 250 lines per file, 80 per function. The `awk` does not see a
-class body, and this repository has two long ones (below): check a class by
-hand.
+
+The thresholds are the agent's: 250 lines per file, 80 per function. The
+`awk` does not see a class body, and this repository has two long ones
+(below): check a class by hand.
 
 The green bar, as CI runs it (`.github/workflows/ci.yml`, job `ci`):
 
@@ -243,17 +244,22 @@ diff that grows one is a finding.
 - No spec under `packages/*/src` is over 250 (the longest,
   `auth/sessions/index.spec.ts` and `auth/second-factor/flows.events.spec.ts`,
   229 each).
-- Outside the pathspecs: **none**. The longest files are
+- Outside the pathspecs, one function over 80: `secondFactor`
+  (`janus/test/types/auth/second-factor.ts:15`) 95 — the type-safety cases
+  21–28 and 35–38 in one never-run function. Splitting it by behaviour, with
+  the case numbering kept, is the move; a case added to it is the finding.
+  No file over 250. The longest files are
   `janus/test/types/refusals.ts` 236, `scripts/check-nxgt-versions.spec.ts`
   221, `janus-mail/test/types/option-refusals.ts` 204,
   `janus-graphql/test/harness.ts` 196, `scripts/publish.ts` 180 and
   `scripts/run-in-floor-project.ts` 178 (`run-on-peer-floor.ts` 141,
   `scripts/artifacts/manifest.ts` 137, `scripts/floor-project/copies.ts` 120;
   `scripts/verify-artifacts.ts` 90, `janus-mail/scripts/build-mail.ts` 171).
-  The longest functions there are two fixtures near the line,
-  `isolatedInstallPerCase` (`scripts/run-on-peer-floor.fixtures.ts:42`) 77
-  and `workspacePerCase` (`scripts/run-in-floor-project.fixtures.ts:39`) 72,
-  then `publish.ts:112`, 65.
+  The next longest functions are near the line: `isolatedInstallPerCase`
+  (`scripts/run-on-peer-floor.fixtures.ts:42`) 77, `setup`
+  (`janus-graphql/test/harness.ts:37`) 76, `janus/test/types/auth/allowed.ts:11`
+  73 and `workspacePerCase` (`scripts/run-in-floor-project.fixtures.ts:39`)
+  72.
 
 ## Deliberate — do not report
 
