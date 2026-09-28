@@ -63,14 +63,15 @@ answer either.
 | the option to be taken — his tick, else the recommendation — is irreversible when carried out: deletes data, force-pushes, publishes a package for the first time, renames a published name, spends money, messages anyone off this machine | **wait**, even if the label was forgotten — say so |
 | it reaches outward beyond a normal PR, merge and release as the repository's `AGENTS.md` allows them | **wait** |
 | it is a breaking change to a published package, and the owner gave no mandate for that break | **wait** |
-| it adds public API to a published package — an export, a subpath, an option — and the queue's `Mandate:` line does not cover features | **wait** — holding step: the branch and its PR, not merged, so nothing is released |
+| it adds public API to a published package — an export, a subpath, an option — and the queue's `Mandate:` line does not cover features for this repository | **wait** — holding step: the branch and its PR, not merged, so nothing is released |
 | the owner had ticked an option or written an answer before it timed out | **his** selection, not the recommendation — recorded as `partial answer` |
 | no option is labelled `(Recommended)`, or the label is not on the first option | **wait** — there is no recommendation to adopt; the question was malformed |
 | otherwise — reversible by a `git revert` and a normal release, inside the autonomy mandate | **take the recommended option** |
 
 **The autonomy mandate** here is the SessionStart text and the repository's
 `AGENTS.md`: the 5-minute rule is the owner's standing rule and needs no
-`Mandate:` line. That line — the owner's pre-approval of recommendations,
+`Mandate:` line. A mandate for a break is the owner's explicit answer
+naming that break, never the `Mandate:` line. That line — the owner's pre-approval of recommendations,
 at the top of the queue — matters only for the public-API row; read it from
 the queue file, and treat it as absent when it is missing, expired or
 struck out. An addition that is `reversible` in git is not reversible for
@@ -88,7 +89,8 @@ queue items taken meanwhile. Name it concretely.
 One line, in one section, and nothing else in the file.
 
 A **taken** decision goes to `## Assumed, not answered` — create the section,
-right under the title and above *In flight*, if it is missing:
+under the `Mandate:` line if there is one, else right under the title, and
+above *In flight*, if it is missing:
 
 ```markdown
 - <asked-at> → <resolved-at> — <question> — taken: "<option label>" (recommended | partial answer) — assumed, no answer after <timeout> idle — reversible by: <what undoes it>
@@ -117,5 +119,6 @@ TELL THE OWNER: <one line for the top of the next report, starting "Assumed (no 
 ```
 
 The main session's next report to the owner **leads with** every *Assumed,
-not answered* line, then the questions still waiting, before what landed, so the owner reverses a wrong guess
-before it has consequences.
+not answered* line, before what landed (`work-autonomously` section 6), so
+the owner reverses a wrong guess before it has consequences; the questions
+still waiting come with the other questions at its end.

@@ -197,7 +197,7 @@ Each goes to exactly one place:
 
 | where | when |
 | --- | --- |
-| **In flight** | the `Mandate:` line covers it (its repository, and features if `feature: yes`), **and** it is `reversible: yes`, **and** its outward reach is normal PR, merge and release per the repository's `AGENTS.md`, **and** it is `breaking: no` — or breaking under a mandate the owner gave for that break — **and** no other live session has planned it (below) |
+| **In flight** | the `Mandate:` line covers it (its repository, and features if `feature: yes`), **and** it is `reversible: yes`, **and** its outward reach is normal PR, merge and release per the repository's `AGENTS.md`, **and** it is `breaking: no` — or breaking under the owner's explicit answer naming that break, which the `Mandate:` line never is — **and** no other live session has planned it (below) |
 | **Proposed, not approved** | anything else: no mandate or outside it, irreversible, outward-facing beyond PR, merge and release, breaking without a mandate, or planned by another session |
 
 **When `nxgt-crew` is installed**, check each *In flight* candidate against

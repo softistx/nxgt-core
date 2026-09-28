@@ -36,7 +36,7 @@ Five agents do the parts that must not be done by whoever did the work:
 | `improvement-scout` | proposes improvements, applies none |
 | `green-bar-verifier` | refuses to call anything done that was not measured |
 | `queue-refiller` | when the queue is empty and the owner said to keep going: reconciles, sweeps for improvements and features, and writes the top items into the queue — approved by mandate only when the owner pre-approved recommendations and the item is reversible (section 5) |
-| `unanswered-question-resolver` | when a question got no answer in 5 minutes: takes the recommendation (or the owner's tick) if it is reversible and records it under *Assumed, not answered*; otherwise waits under *Blocked on the user* with a holding step (section 4) |
+| `unanswered-question-resolver` | when a question got no answer in 5 minutes: takes the recommendation (or the owner's tick) if it is reversible and inside the autonomy mandate (a public-API addition also needs the queue's `Mandate:` line to cover features) and records it under *Assumed, not answered*; otherwise waits under *Blocked on the user* with a holding step (section 4) |
 
 ---
 

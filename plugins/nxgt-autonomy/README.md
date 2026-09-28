@@ -70,7 +70,9 @@ It is `/config` → *Question auto-continue timeout* (`"60s"`, `"5m"`, `"10m"`
 or `"never"`; the default is `"never"`). With it, a question left idle for 5
 minutes continues with no submitted answer — only any option the owner had
 ticked. The session then runs `unanswered-question-resolver`. It waits on
-anything irreversible or outward-facing, ticked or not; otherwise it takes
+anything irreversible, outward-facing or breaking, ticked or not, on a
+public-API addition the `Mandate:` line does not cover, and on a question
+with no recommendation; otherwise it takes
 the owner's ticked option, else the recommended one, and records it under
 *Assumed, not answered* at the top of the queue. A wait goes under *Blocked
 on the user*, with a reversible holding step. The next report leads with the
