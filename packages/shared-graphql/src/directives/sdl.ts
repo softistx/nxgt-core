@@ -78,3 +78,22 @@ directive @permission(
  * removed in 3.0, that is `@permission` alone.
  */
 export const KETO_DIRECTIVES_SDL = PERMISSION_DIRECTIVE_SDL;
+
+/**
+ * `@authenticated`, with the `type:` `useAuthenticated` reads: any caller
+ * without it, a caller of one of the types with it. Part of
+ * `SHARED_TYPE_DEFS`, and not in `graphql/`: a federation subgraph loads
+ * `SHARED_SCHEMA_PATH` and imports federation's own `@authenticated`, which
+ * takes no argument — a shape `useAuthenticated` reads as "any caller".
+ */
+export const AUTHENTICATED_DIRECTIVE_SDL = `"""
+A signed-in caller — of one of the types \`type\` names, when it names some.
+"""
+directive @authenticated(
+	"""
+	The kinds of caller admitted: "session" or "token" by default. Any caller
+	when omitted.
+	"""
+	type: [String!]
+) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+`;

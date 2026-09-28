@@ -17,8 +17,11 @@ import { refuseRemovedCheck } from '../directives/removed-check';
 import { denial } from '../utils/errors/denial';
 import type { KetoChecksContext } from './keto-checker';
 import type { OryContext } from './ory-auth';
+import { isMarked, withMark } from './schema-mark';
 
 type FieldConfig = GraphQLFieldConfig<unknown, unknown>;
+
+const MARK = '@nxgt/shared-graphql:keto-checks';
 
 /**
  * Wraps every field carrying `@permission` so the permission is answered
@@ -31,13 +34,15 @@ type FieldConfig = GraphQLFieldConfig<unknown, unknown>;
  * throw a `TypeError` naming `Type.field`, so the server does not boot.
  *
  * Modelled on `applyGraphqlPolicy` in `@nxgt/security`. Exported on its own
- * because a schema transform is far easier to test than a plugin.
+ * because a schema transform is far easier to test than a plugin. A schema it
+ * already transformed is returned as it is, so it never wraps a field twice.
  */
 export function applyKetoChecks(
 	schema: GraphQLSchema,
 	options: ReadOptions = {},
 ): GraphQLSchema {
-	return mapSchema(schema, {
+	if (isMarked(schema, MARK)) return schema;
+	const mapped = mapSchema(schema, {
 		[MapperKind.INTERFACE_FIELD]: (fieldConfig, fieldName, typeName) => {
 			refuseOnInterface(schema, fieldConfig, `${typeName}.${fieldName}`);
 			return fieldConfig;
@@ -50,6 +55,7 @@ export function applyKetoChecks(
 			return guarded(fieldConfig, requirements, where);
 		},
 	});
+	return withMark(mapped, MARK);
 }
 
 /** No resolver runs on an interface's field, so a guard there guards nothing. */

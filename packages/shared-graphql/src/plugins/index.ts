@@ -1,5 +1,7 @@
+export * from './apply-authenticated';
 export * from './apply-keto-checks';
 export * from './auth';
+export * from './authenticated';
 export * from './extract-jwt';
 export * from './gateway-trust';
 export * from './keto-checker';
