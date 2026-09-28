@@ -3,6 +3,10 @@
 The Hono application layer: error handler, auth and rate-limit middleware, the
 typed `openapi-fetch` client, and an MCP server integration.
 
+**Upgrading from 3.x?** Read [Migrating to 4.0](./docs/guide/migrating-to-4.md):
+`currentUser()` now needs a `trustedGateway`, and forged `X-User-*` headers
+name nobody.
+
 ## Install
 
 ```bash
@@ -44,12 +48,38 @@ app.onError(createErrorHandler(translate));
 
 Two worlds, both first-class.
 
-**Gateway headers** — sellix's services. `currentUser()` builds a `Principal`
-from `USER_HEADERS` (`X-User-Id`, …). `secured([['ADMIN'], ['users:read']])`
-is Apollo-federation `requireScopes` semantics: outer AND, inner OR.
-Confidential clients (a `clientId` and no `username`) only match `SCOPE_*`.
+**Gateway headers** — a service behind a gateway that resolves the caller.
+`currentUser({ trustedGateway })` builds a `Principal` from `USER_HEADERS`
+(`X-User-Id`, …) — **only for a request `trustedGateway` vouches for**. The
+client writes its own headers; without the gateway's proof they name nobody.
 
-**Ory-native** — federation's services. `oryAuth(ory)` authenticates and stops
+```ts
+import { currentUser, gatewaySecret, secured } from '@nxgt/shared-hono';
+
+app.use('/api/*', currentUser({
+  trustedGateway: gatewaySecret({ secret: process.env.GATEWAY_SECRET! }),
+}));
+app.get('/api/users', secured([['ADMIN'], ['users:read']]), handler);
+```
+
+The gateway sends the secret in `x-gateway-secret` (`GATEWAY_SECRET_HEADER`,
+or the one you pass as `gatewaySecret({ secret, header })`) on every request
+it forwards. `gatewaySecret` compares it in constant time and refuses, at
+startup, a secret shorter than 16 characters; `trustedGateway` may also be any
+`(headers) => boolean | Promise<boolean>`. There is no default: `currentUser()`
+without one throws. It is the same `gatewaySecret` as `@nxgt/shared-graphql`'s
+`useAuth()`, from `@nxgt/security/gateway`. `requireGatewayTrust(options,
+caller)` is the same refusal, for a middleware of your own that reads the
+headers.
+
+`secured([['ADMIN'], ['users:read']])` is Apollo-federation `requireScopes`
+semantics: outer AND, inner OR. Confidential clients (a `clientId` and no
+`username`) only match `SCOPE_*`.
+
+In a route spec, send the caller and the secret together:
+`client.use(mockAuthMiddleware(mockUser({ username: 'ada' }), { secret }))`.
+
+**Ory-native** — an API that resolves its own callers. `oryAuth(ory)` authenticates and stops
 there — an anonymous caller reaches `next()`, because authenticating is not
 deciding. Two middlewares decide:
 
@@ -108,9 +138,10 @@ A Keto outage is never a denial: `OryUnavailable` reaches
 the handler, advertising QUERY support without changing the `POST …/search`
 route it shares handlers with.
 
-`openfetchServiceUser()` is `openapi-fetch` middleware that copies the current
-`USER_HEADERS` context onto outbound REST calls, so a GraphQL resolver talking
-to a REST service forwards the same principal the gateway set.
+`openfetchServiceUser({ secret })` is `openapi-fetch` middleware that copies
+the current `USER_HEADERS` context onto outbound REST calls, with the
+downstream service's gateway secret, so a GraphQL resolver talking to a REST
+service forwards the same principal the gateway set.
 
 ## Rate limiter
 
@@ -127,7 +158,7 @@ import createClient from '@nxgt/shared-hono/openapi-fetch';
 
 The star re-export of `openapi-fetch` lives in this entry point, not below it —
 Bun mis-compiles `export *` of an external package in a module that is not an
-entry. See AGENTS.md.
+entry.
 
 ## MCP
 
@@ -143,6 +174,34 @@ it follows `PORT`.
 - **`secured` and `ketoCheck` nest in opposite directions.** `secured` is
   outer AND, inner OR (authorities). `ketoCheck` is outer OR, inner AND
   (permissions).
+- **Forged `X-User-*` headers are ignored, not refused.** A request without
+  the gateway's proof is anonymous: a public route still answers it, and
+  `secured()` answers 401. Every caller anonymous after upgrading means the
+  gateway is not sending the secret — see
+  [troubleshooting](./docs/troubleshooting.md).
+- **`oryAuth` reads mock headers only with a `trustedGateway`, and only in
+  `NODE_ENV=test`.** Route specs pass `oryAuth(ory, { trustedGateway })` and
+  `mockAuthMiddleware(user, { secret })`; production passes no
+  `trustedGateway` at all.
+- **`openfetchServiceUser()` without a secret forwards an anonymous caller**
+  to a service on 4.0. Pass `{ secret }`.
+- **`openfetchServiceUser({ secret })` hands the secret to whatever the
+  client calls.** Use it only on clients for your internal services: the
+  secret lets its holder name any caller to every service that trusts it.
+- **`principalFromMockHeaders` is async.** Without the `await`, the promise
+  is truthy and reads as a caller.
+- **`rateLimiter()` keys on `x-forwarded-for` by default**, which a client
+  can set when nothing in front of the service overwrites it. Behind a proxy
+  that does not, pass a `keyGenerator` reading something the client cannot
+  write.
 - **`openfetchServiceUser` reads the Hono context at construction.** Call it
   inside a request (or from `tryGetContext()`-aware code), not at module
   scope, or it captures an empty context forever.
+
+## Docs
+
+| Page | Read it when |
+| --- | --- |
+| [Migrating to 4.0](./docs/guide/migrating-to-4.md) | you upgrade from 3.x |
+| [Troubleshooting](./docs/troubleshooting.md) | you have an error message in hand |
+| [Roadmap](./docs/roadmap.md) | you want to know what is next |

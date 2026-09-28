@@ -172,9 +172,10 @@ every `@nxgt/*` package there depends only on its siblings.
 It fails a `files` entry the tarball holds nothing under, with
 `<package>: files lists <entry>, which the tarball does not hold — build it
 first, or drop it from files` — npm skips such an entry without a word, and
-five packages ship a folder beside `dist/` that only `files` names: `schema/`,
+six packages ship a folder beside `dist/` that only `files` names: `schema/`,
 `graphql/` and `openapi/` in `security`, `shared-graphql` and
-`shared-openapi`, and `docs/` in `env`, `i18n-vue` and `shared-graphql`.
+`shared-openapi`, and `docs/` in `env`, `i18n-vue`, `shared-graphql` and
+`shared-hono`.
 
 It also fails a tarball that ships test code — a `*.spec.*`, a `*.test.*`, a
 snapshot, or a `<subject>.fixtures.*` — with
@@ -520,7 +521,7 @@ form (`AUTHENTICATED_DIRECTIVE_SDL`) lives in `SHARED_TYPE_DEFS` and not in
 `graphql/`, `FEDERATION_DIRECTIVES` keeps federation's shape, and
 `applyAuthenticated` reads a declaration without `type` as "any caller".
 
-### A caller is never read from the request body alone
+### A caller is never read from what the client writes alone
 
 `useAuth()` and `extractJwtPlugin()` read the caller from the GraphQL
 request's `extensions` — the body, which the client writes. Up to
@@ -532,6 +533,30 @@ without one. Do not add a default that trusts the body, nor a
 `trustedGateway` that always answers `true`: the specs send forged
 `extensions` to a Yoga server through `yoga.fetch` and to an `ApolloServer`
 through `executeOperation` (with a hand-built `HeaderMap`) to hold this.
+
+`@nxgt/shared-hono` had the same flaw in headers: `currentUser()` built the
+caller from the `X-User-*` headers of any request, and `oryAuth()` did too
+whenever `NODE_ENV` was `test`. Since 4.0 `currentUser()` takes the same
+`trustedGateway` and throws without one; `oryAuth(ory, { trustedGateway })`
+reads a route spec's mock headers only with it **and** under `NODE_ENV=test`;
+`principalFromMockHeaders` needs it. A request without the proof is ignored,
+not refused, as in shared-graphql. The specs send forged headers through
+`app.request` — with no secret, a wrong one and a prefix of it — and assert
+that `secured()` answers 401. The `X-User-*` reader itself
+(`principalFromUserHeaders` in `middlewares/gateway-trust.ts`) is not
+exported, so no caller can reach it without passing the trust first.
+
+**One definition, in `@nxgt/security/gateway`.** `gatewaySecret`,
+`GATEWAY_SECRET_HEADER`, `requireGatewayTrust`, `assertGatewaySecret` and the
+`GatewayTrust` types live there. Both packages re-export `gatewaySecret`,
+`GATEWAY_SECRET_HEADER` and the types — `security` sits below both in
+the layering, so the dependency points the right way, and the subpath imports
+nothing. Each package also exports a `requireGatewayTrust(options, caller)`
+of its own — security's name with a different signature, on purpose: it is
+the one a middleware author calls — which words the error for its own source
+(`the request's extensions`, `the X-User-* headers`) and its own alternative
+(`useOryAuth(ory)`, `oryAuth(ory)`).
+Change the proof there, never in one package.
 
 ### Siblings are depended on by range — `workspace:^`, never `workspace:*`
 
@@ -698,7 +723,7 @@ Established here, and applying to all four repositories:
   private applications that consume it. Organize by section, each with a
   concise copy-paste example; never name a private app, a private monorepo,
   or "the parc" there — those names belong in this file. The long version
-  is the package's `docs/` folder, named in `files` — `env`, `i18n-vue` and `shared-graphql` have one;
+  is the package's `docs/` folder, named in `files` — `env`, `i18n-vue`, `shared-graphql` and `shared-hono` have one;
   the `nxgt-docs` agents write it: guide pages with the
   detail and an example for each point, `troubleshooting.md` headed by the
   exact error a consumer sees, and `roadmap.md`, with no dates. The bar is
@@ -707,7 +732,7 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **546 pass, 9 skip, 0 fail** on 2026-09-28: 503 in the
+`bun run test` is **592 pass, 9 skip, 0 fail** on 2026-09-28: 558 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
 real `nuxt build`), then 43 in `scripts/`, 16 of them
 `check-nxgt-versions.spec.ts`'s. Treat any failure as yours.

@@ -10,8 +10,8 @@ import { oryAuth, toPrincipal, withOryUnavailable } from './ory-auth';
  * (principal, null, OryUnavailable) to what a route sees is the contract
  * here; `@nxgt/ory-sdk` has its own tests against the real stack.
  *
- * `bun test` sets NODE_ENV=test, which is what lets the mock-header branch
- * be exercised alongside the real one.
+ * The mock-header branch, and the forged headers it must not read, are
+ * `ory-auth.gateway.spec.ts`'s.
  */
 
 type Reply = { status: number; body?: unknown } | Error;
@@ -187,27 +187,6 @@ describe('oryAuth', () => {
 				'errors.service-unavailable',
 			);
 		}
-	});
-
-	test('mock X-User-* headers short-circuit in NODE_ENV=test, with an Ory principal to match', async () => {
-		const response = await app({}).request('/me', {
-			headers: {
-				[USER_HEADERS.ID]: 'mock-1',
-				[USER_HEADERS.EMAIL]: 'mock@example.test',
-				[USER_HEADERS.FIRST_NAME]: 'Mo',
-			},
-		});
-		const body = await response.json();
-		expect(body.principal).toMatchObject({
-			id: 'mock-1',
-			email: 'mock@example.test',
-		});
-		expect(body.ory).toMatchObject({
-			subject: 'mock-1',
-			kind: 'session',
-			identity: { email: 'mock@example.test', verified: true },
-		});
-		expect(body.claims).toMatchObject({ sub: 'mock-1' });
 	});
 });
 
