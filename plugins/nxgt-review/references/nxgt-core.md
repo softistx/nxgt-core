@@ -77,6 +77,30 @@ not a failure. **Never** run `changeset:publish`, `scripts/publish.ts`,
   directly, so the star re-export stays at the entry point; `shared` declares
   `mongoose` directly and is the one other exception.
 - **No `.npmrc`, ever.** Registry configuration lives in `bunfig.toml`.
+- **A caller is never read from what the client writes alone.** Since
+  `@nxgt/shared-graphql` 3.0, `useAuth()` and `extractJwtPlugin()` read the
+  request's `extensions` only when a `trustedGateway` vouches for it; since
+  `@nxgt/shared-hono` 4.0, `currentUser()` takes the same `trustedGateway`,
+  as does `principalFromMockHeaders`. Those four throw without one — the
+  plugins and `currentUser()` at construction, `principalFromMockHeaders`
+  on the call. `oryAuth(ory)` needs none and is the normal call: without a
+  `trustedGateway` it never reads the `X-User-*` headers, and
+  `oryAuth(ory, { trustedGateway })` reads a route spec's mock headers only
+  with it **and** under `NODE_ENV=test`. A default that trusts the body or
+  the `X-User-*` headers, a `trustedGateway` that always answers `true`, a
+  secret compared other than in constant time, or an export of
+  `principalFromUserHeaders` is a finding.
+- **One definition of the proof, in `@nxgt/security/gateway`.**
+  `gatewaySecret`, `GATEWAY_SECRET_HEADER`, `requireGatewayTrust`,
+  `assertGatewaySecret` and the `GatewayTrust` types live there; both
+  packages re-export `gatewaySecret`, `GATEWAY_SECRET_HEADER` and the types.
+  Each package's own `requireGatewayTrust(options, caller)` — a different
+  signature on purpose, wording the error for its source — is not a
+  duplicate. A second definition of the secret or of its comparison in
+  `shared-graphql` or `shared-hono`, or a change to the proof made in one of
+  them, is a finding.
+  `grep -rn "export function gatewaySecret\|constantTimeEqual" packages/*/src --include=*.ts | grep -v spec`
+  answers `packages/security/src/gateway/` only.
 - **An optional peer is imported only on the path that uses it**, so the rest
   of the package loads without it.
 - **CI runs on GitHub-hosted runners.** `runs-on: self-hosted` copied in from
