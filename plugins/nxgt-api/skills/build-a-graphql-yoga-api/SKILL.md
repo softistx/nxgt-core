@@ -290,7 +290,7 @@ every `*.spec.ts`** under the target. The convention is `*.spec.ts`, never
 ```bash
 bun install && bun run codegen        # generated/ rewritten, no diff in git
 bun run typecheck
-bun test apps/api                     # from the repo root, so .env.test is loaded
+bun test ./apps/api/                  # from the repo root, so .env.test is loaded
 bun run --cwd apps/api dev            # then open /graphql and introspect
 
 grep -rn 'locale' src/**/*.graphqls          # no locale argument anywhere
