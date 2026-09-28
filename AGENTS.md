@@ -157,11 +157,13 @@ fields, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
 `browser.ts` (the `browser` condition, which only this repository has) and
 `classes.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
-port to the others. All four hold the test-code check and the unbuilt-package
-guard below. `missingFiles` is here, in nxgt-janus and in nxgt-data, and
-nxgt-http's port is softistx/nxgt-http#56. `browser.ts` is this copy's alone.
-This copy and nxgt-http read a sibling's version from the packed manifests,
-where nxgt-janus and nxgt-data read it from the workspace.
+port to the others. All four hold the same three checks, each described
+below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
+spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
+is this copy's alone. This copy and nxgt-http read a sibling's version from the
+packed manifests, where nxgt-janus and nxgt-data read it from the workspace.
+Outside `scripts/artifacts/`, `check-changesets.ts` and `check-nxgt-versions.ts`
+are nxgt-janus's alone.
 
 It fails a `files` entry the tarball holds nothing under, with
 `<package>: files lists <entry>, which the tarball does not hold — build it
