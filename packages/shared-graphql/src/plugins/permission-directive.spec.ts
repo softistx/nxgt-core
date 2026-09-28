@@ -4,6 +4,7 @@ import { ErrorCode } from '@nxgt/shared-exceptions';
 import { type ExecutionResult, graphql } from 'graphql';
 import { createSchema } from 'graphql-yoga';
 import { KETO_DIRECTIVES_SDL } from '../directives';
+import { denialMessageKey } from '../utils/errors/denial';
 import { applyKetoChecks } from './apply-keto-checks';
 
 /**
@@ -71,12 +72,9 @@ function signedIn(held: string[]) {
 /** The first error's code, and the i18n key it carries. */
 function refusalOf(result: ExecutionResult) {
 	const error = result.errors?.[0];
-	const original = error?.originalError as
-		| { errorCode?: string; message?: string }
-		| undefined;
 	return {
-		code: error?.extensions?.code ?? original?.errorCode,
-		key: original?.message,
+		code: error?.extensions?.code,
+		key: denialMessageKey(error?.originalError),
 	};
 }
 

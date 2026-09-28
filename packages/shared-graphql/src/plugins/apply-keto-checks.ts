@@ -1,6 +1,6 @@
 import { MapperKind, mapSchema } from '@graphql-tools/utils';
 import { evaluateRequirement, type PermissionTerm } from '@nxgt/ory-sdk';
-import { CustomException } from '@nxgt/shared-exceptions';
+import { ErrorCode } from '@nxgt/shared-exceptions';
 import {
 	defaultFieldResolver,
 	type GraphQLFieldConfig,
@@ -14,6 +14,7 @@ import {
 	readPermissions,
 } from '../directives';
 import { refuseRemovedCheck } from '../directives/removed-check';
+import { denial } from '../utils/errors/denial';
 import type { KetoChecksContext } from './keto-checker';
 import type { OryContext } from './ory-auth';
 
@@ -78,9 +79,7 @@ function guarded(
 			const ctx = context as KetoChecksContext & OryContext;
 			const subject = ctx.ory?.subject;
 			if (!subject) {
-				throw CustomException.unauthenticated({
-					message: 'errors.unauthenticated',
-				});
+				throw denial(ErrorCode.Unauthenticated);
 			}
 
 			const check = ctx.ketoChecks;
@@ -99,7 +98,7 @@ function guarded(
 					check,
 					subject,
 				);
-				if (!allowed) throw denial(onDeny, message);
+				if (!allowed) throw refusal(onDeny, message);
 			}
 
 			return resolve(source, args, context, info);
@@ -132,10 +131,9 @@ function objectsOf(
  * two different messages behind one 404 tell the caller which layer spoke, and
  * that is the difference NOT_FOUND is there to hide.
  */
-function denial(onDeny: FieldPermission['onDeny'], message?: string) {
-	return onDeny === 'FORBIDDEN'
-		? CustomException.forbidden({
-				message: message ?? 'errors.insufficient-permissions',
-			})
-		: CustomException.notFound({ message: message ?? 'errors.not-found' });
+function refusal(onDeny: FieldPermission['onDeny'], message?: string) {
+	return denial(
+		onDeny === 'FORBIDDEN' ? ErrorCode.Forbidden : ErrorCode.NotFound,
+		message,
+	);
 }

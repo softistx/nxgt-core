@@ -7,6 +7,7 @@ import { CustomException, ErrorCode } from '@nxgt/shared-exceptions';
 import { MONGO_UTILS, mongoose } from '@nxgt/shared-mongo';
 import { GraphQLError } from 'graphql';
 import type { MaskError } from 'graphql-yoga';
+import { denialMessageKey } from './denial';
 import { isOryUnavailable, serviceUnavailableError } from './ory-unavailable';
 
 type Translate<K extends LocaleKey> = (
@@ -25,7 +26,8 @@ type Translate<K extends LocaleKey> = (
  * (`UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404); a Mongoose error
  * goes through `castError` first, as `createFormatError` does for Apollo.
  * `OryUnavailable` (@nxgt/ory-sdk) becomes a 503 `SERVICE_UNAVAILABLE`, never
- * a denial. Everything else is masked as Yoga's default masks it: a
+ * a denial. A `denial()` — what the directives, `requireUser` and `can` throw
+ * — keeps its code and status, and its message is translated with `translate`. Everything else is masked as Yoga's default masks it: a
  * `GraphQLError` thrown on purpose — or raised by validation — passes, and one
  * that only wraps a plain `Error` a resolver threw is replaced by `message`,
  * so an internal message never reaches the client.
@@ -42,6 +44,14 @@ export function createMaskError<K extends LocaleKey>(
 				: error;
 
 		if (isOryUnavailable(original)) return serviceUnavailableError(original);
+
+		const key = denialMessageKey(original);
+		if (key !== undefined) {
+			return new GraphQLError(translate(key as K), {
+				...locationOf(error),
+				extensions: (original as GraphQLError).extensions,
+			});
+		}
 
 		if (
 			original instanceof CustomException ||

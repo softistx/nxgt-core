@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { type Ory, OryUnavailable, type Permission } from '@nxgt/ory-sdk';
 import type { TokenPrincipal } from '@nxgt/shared';
-import { CustomException, ErrorCode } from '@nxgt/shared-exceptions';
+import { ErrorCode } from '@nxgt/shared-exceptions';
+import { GraphQLError } from 'graphql';
 import { createKetoChecks } from './keto-checker';
 import { can, requireUser } from './keto-helpers';
 
-const codeOf = (error: unknown) => (error as CustomException).errorCode;
+const codeOf = (error: unknown) => (error as GraphQLError).extensions?.code;
 
 describe('requireUser', () => {
 	it('returns the caller', () => {
@@ -18,7 +19,8 @@ describe('requireUser', () => {
 			requireUser({});
 			throw new Error('unreachable');
 		} catch (error) {
-			expect(error).toBeInstanceOf(CustomException);
+			expect(error).toBeInstanceOf(GraphQLError);
+			expect((error as GraphQLError).extensions.http).toEqual({ status: 401 });
 			expect(codeOf(error)).toBe(ErrorCode.Unauthenticated);
 		}
 	});

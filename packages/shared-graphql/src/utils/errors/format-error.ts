@@ -12,13 +12,15 @@ import { CustomException, ErrorCode } from '@nxgt/shared-exceptions';
 import { MONGO_UTILS, mongoose } from '@nxgt/shared-mongo';
 import { kebabCase } from 'lodash';
 import type { GraphQLBaseContext } from '../../types';
+import { denialMessageKey } from './denial';
 import { isOryUnavailable, serviceUnavailableError } from './ory-unavailable';
 
 /**
  * Apollo Server's `formatError`, taught this repo's exceptions — the Apollo
  * counterpart of `createMaskError`. `OryUnavailable` answers
  * `SERVICE_UNAVAILABLE`, never a denial and never an opaque
- * `INTERNAL_SERVER_ERROR`.
+ * `INTERNAL_SERVER_ERROR`; a `denial()` keeps its code, and its message is
+ * translated with `translate`.
  */
 export function createFormatError<
 	K extends LocaleKey,
@@ -42,6 +44,10 @@ export function createFormatError<
 				message: unavailable.message,
 				extensions: { ...formattedError.extensions, ...unavailable.extensions },
 			};
+		}
+		const key = denialMessageKey(error);
+		if (key !== undefined) {
+			return { ...formattedError, message: translate(key as K) };
 		}
 		if (
 			error instanceof CustomException ||
