@@ -1,7 +1,8 @@
 import type { Permission } from '@nxgt/ory-sdk';
 import type { TokenPrincipal } from '@nxgt/shared';
-import { CustomException } from '@nxgt/shared-exceptions';
+import { ErrorCode } from '@nxgt/shared-exceptions';
 import type { GraphQLBaseContext } from '../types';
+import { denial } from '../utils/errors/denial';
 import type { KetoChecksContext } from './keto-checker';
 import type { OryContext } from './ory-auth';
 
@@ -26,16 +27,14 @@ export type CanQuestion = {
 };
 
 /**
- * The caller, or an `UNAUTHENTICATED` refusal (401 through `createMaskError`).
+ * The caller, or an `UNAUTHENTICATED` refusal: a `GraphQLError` answered 401.
  * An absent caller is not an error to swallow in a resolver that needs one.
  */
 export function requireUser(context: {
 	user?: TokenPrincipal | null;
 }): TokenPrincipal {
 	if (!context.user) {
-		throw CustomException.unauthenticated({
-			message: 'errors.unauthenticated',
-		});
+		throw denial(ErrorCode.Unauthenticated);
 	}
 	return context.user;
 }
@@ -55,9 +54,7 @@ export async function can(
 ): Promise<boolean> {
 	const subject = context.ory?.subject;
 	if (!subject) {
-		throw CustomException.unauthenticated({
-			message: 'errors.unauthenticated',
-		});
+		throw denial(ErrorCode.Unauthenticated);
 	}
 	if (!context.ketoChecks) {
 		throw new Error(

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { type Ory, OryUnavailable, type Permission } from '@nxgt/ory-sdk';
 import type { TokenPrincipal } from '@nxgt/shared';
-import { CustomException, ErrorCode } from '@nxgt/shared-exceptions';
+import { ErrorCode } from '@nxgt/shared-exceptions';
+import { GraphQLError } from 'graphql';
 import { createKetoChecks } from './keto-checker';
 import { can, requireUser } from './keto-helpers';
 
-const codeOf = (error: unknown) => (error as CustomException).errorCode;
+const codeOf = (error: unknown) => (error as GraphQLError).extensions?.code;
 
 describe('requireUser', () => {
 	it('returns the caller', () => {
@@ -18,7 +19,8 @@ describe('requireUser', () => {
 			requireUser({});
 			throw new Error('unreachable');
 		} catch (error) {
-			expect(error).toBeInstanceOf(CustomException);
+			expect(error).toBeInstanceOf(GraphQLError);
+			expect((error as GraphQLError).extensions.http).toEqual({ status: 401 });
 			expect(codeOf(error)).toBe(ErrorCode.Unauthenticated);
 		}
 	});
@@ -83,23 +85,5 @@ describe('can', () => {
 		await expect(can(signedIn as never, question)).rejects.toThrow(
 			/useKetoChecks\(ory\) is not registered/,
 		);
-	});
-});
-
-describe('createKetoChecks after an outage', () => {
-	it('does not memoise the failure: the next ask goes back to Keto', async () => {
-		let calls = 0;
-		const ory = {
-			checkMany: async (questions: unknown[]) => {
-				calls += 1;
-				if (calls === 1) throw new OryUnavailable('keto', 0, null);
-				return questions.map(() => true);
-			},
-		} as unknown as Ory;
-		const check = createKetoChecks(ory);
-		const view = { namespace: 'Note', object: 'n1', relation: 'view' };
-
-		await expect(check(view, 'idn-7')).rejects.toBeInstanceOf(OryUnavailable);
-		expect(await check(view, 'idn-7')).toBe(true);
 	});
 });

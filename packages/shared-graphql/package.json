@@ -49,14 +49,10 @@
 	"dependencies": {
 		"@apollo/server": "^5.5.1",
 		"@apollo/subgraph": "^2.14.3",
-		"@envelop/extended-validation": "^7.1.1",
-		"@envelop/generic-auth": "^11.1.1",
-		"@graphql-hive/gateway": "^2.11.2",
 		"@graphql-tools/load-files": "^7.0.1",
 		"@graphql-tools/merge": "^9.2.3",
 		"@graphql-tools/utils": "^12.0.0",
 		"@graphql-yoga/redis-event-target": "^3.0.3",
-		"@hono/zod-validator": "^0.9.0",
 		"@nxgt/i18n": "workspace:^",
 		"@nxgt/security": "workspace:^",
 		"@nxgt/shared": "workspace:^",
@@ -72,19 +68,19 @@
 		"hono": "^4.13.4",
 		"ioredis": "^6.0.0",
 		"lodash": "^4.18.1",
-		"ws": "^8.21.3",
-		"zod": "^4.4.3"
+		"ws": "^8.21.3"
 	},
 	"devDependencies": {
+		"@graphql-tools/schema": "^10.1.0",
 		"@types/bun": "^1.4.0",
 		"@types/graphql-upload": "^17.0.0",
 		"@types/lodash": "^4.17.25",
 		"@types/ws": "^8.18.1",
-		"graphql": "^16.4.2"
+		"graphql": "^16.9.0"
 	},
 	"peerDependencies": {
-		"@nxgt/ory-sdk": ">=0.1.0",
-		"graphql": "^16.4.2 || ^17.0.0",
+		"@nxgt/ory-sdk": ">=0.1.0 <1",
+		"graphql": "^16.9.0 || ^17.0.0",
 		"stx-sdk": ">=1.1.0",
 		"typescript": "^6.0.3"
 	}

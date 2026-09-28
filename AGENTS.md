@@ -307,10 +307,11 @@ never cancels a run under way.
 
 ### graphql 17 is a tested peer, not a hoped-for one
 
-`@nxgt/shared-graphql` peers `graphql` by `^16.4.2 || ^17.0.0`, and `bun.lock`
+`@nxgt/shared-graphql` peers `graphql` by `^16.9.0 || ^17.0.0`, and `bun.lock`
 holds a 16. The second half was not free: on graphql 17 `getDirective` stops
-applying an input field's default, so every `@check` term without an explicit
-`id` refused the schema at build. `bun run test:graphql17`
+applying an input field's default, so every term of 2.x's `@check` without an
+explicit `id` refused the schema at build — which is why `readPermissions`
+applies `@permission`'s defaults itself. `bun run test:graphql17`
 (`scripts/graphql-17.ts`, spec'd beside it) moves the package's `graphql`
 devDependency to 17, installs, asserts 17 is what resolves, runs the package's
 typecheck and suite, and puts `package.json` and `bun.lock` back whatever
@@ -319,12 +320,13 @@ graphql 17 directly and is not part of this run.
 
 ### A new `@nxgt/ory-sdk` is found by a schedule, not by memory
 
-Three packages peer `@nxgt/ory-sdk` by the open range `>=0.1.0` —
+Three packages peer `@nxgt/ory-sdk` by `>=0.1.0 <1` —
 `@nxgt/security` as an optional peer, `@nxgt/shared-hono` and
 `@nxgt/shared-graphql` as required ones — and their specs run only the version
-`bun.lock` holds: a new release is admitted
+`bun.lock` holds: a new 0.x release is admitted
 by the range the day it is published and tested by nobody until the lock is
-bumped. `bun run nxgt:outdated` (`scripts/check-nxgt-versions.ts`, spec'd
+bumped. The `<1` ceiling, set in `@nxgt/shared-graphql` 3.0 on the owner's
+decision, keeps a breaking 1.0 out until a release here raises it. `bun run nxgt:outdated` (`scripts/check-nxgt-versions.ts`, spec'd
 beside it) lists every `@nxgt/*` devDependency of a package that is not a
 sibling and whose locked version is behind npm's `latest`: exit 0 when all are
 current, 1 when something is behind, 2 when the registry did not answer, which
@@ -340,8 +342,8 @@ published, and `changeset status` passes without a changeset when only the
 root manifest moved. Not Dependabot: its Bun updater reads `bun.lock` up to
 `lockfileVersion` 1, and this one, from Bun 1.4.2, is 2.
 
-The peer ranges themselves — open, with no upper bound — are the owner's
-decision and are not moved by a lock bump.
+The peer ranges themselves — `>=0.1.0 <1` since the owner set the ceiling —
+are the owner's decision and are not moved by a lock bump.
 
 ### Publishing needs a granular access token, and you cannot tell by looking
 
@@ -492,8 +494,8 @@ is `src/utils/schema.utils.ts`, and no single relative path serves both. See
 
 ### A shipped directive is not a composed directive
 
-`@permission` and the deprecated `@check` are declared in
-`graphql/directives/permission.graphqls` and `check.graphqls`, inside the
+`@permission` is declared in
+`graphql/directives/permission.graphqls`, inside the
 `graphql/**/*.graphqls` glob `SHARED_SCHEMA_PATH` already exposes — not in
 `SHARED_TYPE_DEFS`. That is the difference between a subgraph seeing it and
 not: `health` and `platform` build through `buildSubgraphSchema` and never load
@@ -501,16 +503,35 @@ not: `health` and `platform` build through `buildSubgraphSchema` and never load
 the schemas most likely to want it next.
 
 Shipping the SDL is enough for a **standalone** Yoga schema. It is **not**
-enough for a subgraph that federation composes. The day `@check` is used in
-`health` or `platform`, rover needs both:
+enough for a subgraph that federation composes. The day `@permission` is used
+in `health` or `platform`, rover needs both:
 
-- `@composeDirective(name: "@permission")` (or `"@check"`) in that subgraph, and
+- `@composeDirective(name: "@permission")` in that subgraph, and
 - the directive named in the subgraph's own `@link` import list.
 
 Without them the composition **drops it silently** — the supergraph SDL comes
 out valid, the field loses its check, and nothing fails. Nobody is doing this
 today; `apps/supergraph/supergraph.yaml` composes only those two subgraphs and
-neither carries a `@check`. Read this before the first one does.
+neither carries a `@permission`. Read this before the first one does.
+
+`@authenticated` goes the other way: federation owns that name, with no
+argument, and a subgraph imports federation's declaration. So the `type:`
+form (`AUTHENTICATED_DIRECTIVE_SDL`) lives in `SHARED_TYPE_DEFS` and not in
+`graphql/`, `FEDERATION_DIRECTIVES` keeps federation's shape, and
+`applyAuthenticated` reads a declaration without `type` as "any caller".
+
+### A caller is never read from the request body alone
+
+`useAuth()` and `extractJwtPlugin()` read the caller from the GraphQL
+request's `extensions` — the body, which the client writes. Up to
+`@nxgt/shared-graphql` 2.x they did so unconditionally, and a client that
+reached a subgraph directly could name itself anyone. Since 3.0 they read it
+only for a request `trustedGateway` vouches for (`gatewaySecret`: a shared
+secret, constant-time, 16 characters at least), and throw at construction
+without one. Do not add a default that trusts the body, nor a
+`trustedGateway` that always answers `true`: the specs send forged
+`extensions` to a Yoga server through `yoga.fetch` and to an `ApolloServer`
+through `executeOperation` (with a hand-built `HeaderMap`) to hold this.
 
 ### Siblings are depended on by range — `workspace:^`, never `workspace:*`
 
@@ -686,7 +707,7 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **513 pass, 9 skip, 0 fail** on 2026-09-28: 470 in the
+`bun run test` is **546 pass, 9 skip, 0 fail** on 2026-09-28: 503 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
 real `nuxt build`), then 43 in `scripts/`, 16 of them
 `check-nxgt-versions.spec.ts`'s. Treat any failure as yours.

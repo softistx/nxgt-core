@@ -10,6 +10,15 @@ description: >-
 
 # Skill: Create an Ory-native GraphQL API
 
+> **On `@nxgt/shared-graphql` 3.0 the wiring below changes.** `@check` is
+> removed: write one `@permission(name: "<permit>", type: "<M>", id?, onDeny?,
+> message?)` per term — `view` then `edit` keeps the ladder — and a leftover
+> `@check` stops the server. `useAuthenticated()` enforces `@authenticated`
+> (and `type:`) in place of `useGenericAuth`, `useAuth()` needs a
+> `trustedGateway`, and denials are `GraphQLError`s carrying their status.
+> The reference apps below are on 2.x; the package's
+> `docs/guide/migrating-to-3.md` has the before and after for each point.
+
 > **Read `references/ory-in-one-page.md` first.** It carries the model — who is
 > calling, what a permit is, which listeners are unauthenticated, who may write
 > tuples — plus the package entry-point table and `src/ory/tuples.ts`, all of

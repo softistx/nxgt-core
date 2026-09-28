@@ -1,3 +1,9 @@
+/**
+ * Federation's own directive declarations, as a subgraph imports them.
+ * `@authenticated` keeps federation's shape — no argument — which
+ * `useAuthenticated` reads as "any caller". `AUTHENTICATED_DIRECTIVE_SDL`, in
+ * `SHARED_TYPE_DEFS`, is the one with `type:`.
+ */
 export const FEDERATION_DIRECTIVES = `
 directive @external on FIELD_DEFINITION | OBJECT
 directive @requires(fields: FieldSet!) on FIELD_DEFINITION

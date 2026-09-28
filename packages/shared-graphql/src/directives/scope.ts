@@ -4,11 +4,11 @@ import type { RequirementScope } from './validate';
 /** A field definition or a field config — whatever `getDirective` reads. */
 export type FieldNode = Parameters<typeof getDirective>[1];
 
-/** What a schema may add to the build-time checks of `@check` and `@permission`. */
+/** What a schema may add to the build-time checks of `@permission`. */
 export type ReadOptions = {
 	/**
-	 * The namespaces of the stack's OPL document. When given, a `type` or
-	 * `namespace` outside it is refused at build.
+	 * The namespaces of the stack's OPL document. When given, a `type`
+	 * outside it is refused at build.
 	 */
 	namespaces?: readonly string[];
 };

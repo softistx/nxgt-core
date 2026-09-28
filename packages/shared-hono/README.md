@@ -73,8 +73,8 @@ app.patch('/:id',
 Ory-native API — `authenticated: true`, and nothing else, because an Ory
 principal carries no authorities.
 
-`ketoCheck` takes the same `[[ ]]` grammar as the `@check` directive in
-`@nxgt/shared-graphql`, and the same evaluator from `@nxgt/ory-sdk`: **outer list
+`ketoCheck` takes the same `[[ ]]` grammar as `keto` rungs in
+`@nxgt/security`, and the same evaluator from `@nxgt/ory-sdk`: **outer list
 OR, inner list AND**, short-circuit in both directions. `id` is a path —
 `param.<name>`, `query.<name>` or `json.<path>` — and a value that turns out to
 be a list requires the permit on every element.
@@ -142,7 +142,7 @@ it follows `PORT`.
 
 - **`secured` and `ketoCheck` nest in opposite directions.** `secured` is
   outer AND, inner OR (authorities). `ketoCheck` is outer OR, inner AND
-  (permissions). The same shape as `@policy` vs `@check`.
+  (permissions).
 - **`openfetchServiceUser` reads the Hono context at construction.** Call it
   inside a request (or from `tryGetContext()`-aware code), not at module
   scope, or it captures an empty context forever.

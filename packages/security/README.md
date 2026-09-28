@@ -101,7 +101,7 @@ real completion of `claims.` → `roles` / `scope`. It carries a curated
 
 `authorities` asks what the caller *carries*. It cannot ask what an Ory-native
 API needs to know — **may this caller `view` `Bookmark:b1`**. That is what
-`keto` adds, in the same grammar as `@check` and `ketoCheck()`:
+`keto` adds, in the same grammar as `ketoCheck()`:
 
 ```yaml
 rest:
@@ -139,7 +139,7 @@ The two nestings in a rule are **opposite**, and deliberately so:
 | field | outer list | inner list | grammar shared with |
 | --- | --- | --- | --- |
 | `authorities` | AND | OR | — (this package only) |
-| `keto[].permissions` | **OR** | **AND** | `@check`, `ketoCheck()`, `@policy` |
+| `keto[].permissions` | **OR** | **AND** | `ketoCheck()`, `@policy` |
 
 Aligning them would silently change what an existing `authorities` line means.
 They do not get confused in practice: an authority is a **string**, a
@@ -331,7 +331,7 @@ notation, so the same question asked by the rules file and again by a
 `ketoCheck()` on the route costs one round trip.
 
 The DNF walk itself is `evaluateRequirement` from `@nxgt/ory-sdk`, not a copy —
-so the rules file, `@check` and `ketoCheck()` cannot disagree about
+so the rules file and `ketoCheck()` cannot disagree about
 `[[A, B], [C]]`.
 
 `stx-sdk` is an **optional** peer: a service whose rules file has no `keto`
@@ -353,7 +353,7 @@ const policed = applyGraphqlPolicy(schema, rawRules, {
 Reads `ory.subject` and the `ketoChecks` DataLoader off the GraphQL context —
 what `useOryAuth(ory)` and `useKetoChecks(ory)` from `@nxgt/shared-graphql`
 publish, so `useKetoChecks` must be registered before the policed schema is
-served. Same consequence as REST: a `@check` on the field and a `keto` rung
+served. Same consequence as REST: a `@permission` on the field and a `keto` rung
 asking the same question cost one round trip.
 
 ## Things that bite

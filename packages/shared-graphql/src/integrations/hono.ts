@@ -3,9 +3,9 @@ import { Hono } from 'hono';
 import { contextStorage } from 'hono/context-storage';
 import { createMiddleware } from 'hono/factory';
 import { languageDetector } from 'hono/language';
-import { type RenderSandboxOptions, renderSandbox } from '../utils';
+import { type RenderSandboxOptions, renderSandbox } from '../utils/sandbox';
 
-export function sandboxExpolorer(options: RenderSandboxOptions) {
+export function sandboxExplorer(options: RenderSandboxOptions) {
 	return createMiddleware(async (ctx) => {
 		return ctx.html(renderSandbox(options));
 	});
@@ -51,7 +51,7 @@ export function createYogaHono<
 
 	app.get(
 		options?.sandbox?.endpoint || 'sandbox',
-		sandboxExpolorer(options?.sandbox || {}),
+		sandboxExplorer(options?.sandbox || {}),
 	);
 
 	app.use(yoga.graphqlEndpoint, honoYoga(yoga));

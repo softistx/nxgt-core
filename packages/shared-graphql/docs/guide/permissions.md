@@ -1,4 +1,4 @@
-# Permissions: `@permission`, `@check`, `useKetoChecks`
+# Permissions: `@permission`, `useKetoChecks`
 
 An Ory-native API asks Keto one question per object: **may this caller
 `view` `Note:n1`**. This page is how a schema asks it, what answers it, and
@@ -33,21 +33,23 @@ const yoga = createYoga<{}, OryGraphQLContext>({
 });
 ```
 
-Both are needed: a guarded field reads `ory.subject`, which `useOryAuth` puts
-on the context — without it every guarded field answers `UNAUTHENTICATED`. `createMaskError` is what turns a denial into a 404/403 and an outage
-into a 503 — without it Yoga answers every one of them as an opaque 500.
+`useOryAuth` is needed: a guarded field reads `ory.subject`, which it puts on
+the context — without it every guarded field answers `UNAUTHENTICATED`.
+`createMaskError` is optional for the denials, which carry their own status,
+and is what translates their message with your `translate` and turns an
+outage into a 503 — see [errors](./errors.md).
 
 A schema assembled in code, with no `SHARED_SCHEMA_PATH`, takes the
-declarations as a string:
+declaration as a string:
 
 ```ts
-import { KETO_DIRECTIVES_SDL } from '@nxgt/shared-graphql';
+import { PERMISSION_DIRECTIVE_SDL } from '@nxgt/shared-graphql';
 
-createSchema({ typeDefs: [KETO_DIRECTIVES_SDL, typeDefs], resolvers });
+createSchema({ typeDefs: [PERMISSION_DIRECTIVE_SDL, typeDefs], resolvers });
 ```
 
-`PERMISSION_DIRECTIVE_SDL` and `CHECK_DIRECTIVE_SDL` are the two halves. Each
-equals its file in `graphql/directives/` — a spec parses and prints both.
+It equals `graphql/directives/permission.graphqls` — a spec parses and prints
+both. `KETO_DIRECTIVES_SDL` is the same string.
 
 ## `@permission`
 
@@ -82,9 +84,11 @@ updateNote(id: ID!, input: UpdateNoteInput!): Note!
 
 | Caller holds | Answer |
 | --- | --- |
-| nothing | `NOT_FOUND` — the same as an id that never existed, so ids cannot be probed |
-| `view` | `FORBIDDEN` — they can already see it, so "you may not change it" is honest |
+| nothing | `NOT_FOUND` (404) — the same as an id that never existed, so ids cannot be probed |
+| `view` | `FORBIDDEN` (403) — they can already see it, so "you may not change it" is honest |
 | `view` and `edit` | the resolver runs |
+
+An anonymous caller is `UNAUTHENTICATED` (401) before Keto is asked anything.
 
 ### Where the id comes from
 
@@ -128,71 +132,55 @@ check — and if they word the same 404 differently, the wording tells a caller
 which one refused: a generic message means "you may not", a domain one "it is
 gone". That is the distinction `NOT_FOUND` exists to hide.
 
-## `@check` — deprecated
+## `@check` — removed in 3.0
 
-The list-of-lists form. It keeps working, and is validated and evaluated
-exactly like `@permission` — in declaration order with it, on the same field:
-
-```graphql
-note(id: ID!): Note
-	@check(permissions: [[{ namespace: "Note", permit: "view" }]])
-
-either(id: ID!): Note
-	@check(permissions: [
-		[{ namespace: "Note", permit: "a" }, { namespace: "Note", permit: "b" }],
-		[{ namespace: "Note", permit: "c" }]
-	])
-```
-
-The outer list is OR, the inner list AND: `[[A, B], [C]]` reads
-"(A and B) or C". Moving a field to `@permission` one directive at a time
-keeps its ladder, since the order is read across both names:
-
-```graphql
-updateNote(id: ID!, input: UpdateNoteInput!): Note!
-	@check(permissions: [[{ namespace: "Note", permit: "view" }]])
-	@permission(name: "edit", type: "Note", onDeny: FORBIDDEN)
-```
-
-A field whose `@check` really needs an OR is the one to move into the Keto
-model first.
+The list-of-lists form is gone. Rewrite each term as a `@permission`, and move
+an OR into the Keto model — [the migration guide](./migrating-to-3.md#2-check-is-removed)
+has the before and after. A `@check` left in a schema does not boot: see
+[troubleshooting](../troubleshooting.md).
 
 ## Refused at build
 
 `applyKetoChecks` — which `useKetoChecks` runs on every schema change — reads
-every requirement when the schema is built, and throws a `TypeError` naming
+every `@permission` when the schema is built, and throws a `TypeError` naming
 `Type.field` for:
 
 | Mistake | Message starts |
 | --- | --- |
 | a path naming no root | ``@permission on Query.note: `id` must be "args.<path>", …`` |
 | an argument the field does not declare | ``… `id` reads "args.id", but the field declares noteId`` |
-| an empty requirement or group (`@check`) | `… an empty group admits EVERYONE …` |
+| an empty `name` or `type` | ``… every term needs `namespace`, `permit` and `id` …`` |
 | a namespace outside `namespaces` | `… unknown namespace "Noet" — known: Note, Folder` |
-| a guard on an interface field | `Node.id: @check / @permission on an interface field guards nothing …` |
-
-On a `@check` — which 2.x booted with them — the undeclared argument and the
-interface field are logged (`logger.warn` from `@nxgt/shared-logging`) instead
-of thrown, ending `— @check still boots with this; the next major refuses it,
-as @permission does`. Fix them now: the field they name answers 500 on every
-request, or is not guarded at all.
+| a guard on an interface field | `Node.id: @permission on an interface field guards nothing …` |
+| a `@check` of 2.x's shape | `@check on Query.note: @check was removed in @nxgt/shared-graphql 3.0 …` |
 
 `namespaces` is optional. Without it a namespace is taken on trust, and a
 misspelt one answers `false` for ever — Keto does not error on a namespace it
 does not know. Pass the namespaces of your OPL document to make that a boot
 failure.
 
+`applyKetoChecks` leaves a field it already guarded alone, so a field is never
+wrapped twice, and a field it has not — the other half of a merged schema —
+is guarded when it runs again — as is a field whose resolver was replaced
+since (`addResolversToSchema`, a merge with resolvers).
+
+On a subscription, a `@permission` whose `id` reads `args.*` is asked before
+`subscribe`, so a refused subscription opens no stream. One that reads
+`parent.*` has no event to read yet: it is asked of each event instead, and a
+refused event answers its denial while the stream stays open.
+
 ## From a resolver
 
 ```ts
-import { can, type OryGraphQLContext, requireUser } from '@nxgt/shared-graphql';
+import { can, denial, type OryGraphQLContext, requireUser } from '@nxgt/shared-graphql';
+import { ErrorCode } from '@nxgt/shared-exceptions';
 
 const resolvers = {
 	Mutation: {
 		archive: async (_: unknown, { id }: { id: string }, ctx: OryGraphQLContext) => {
 			const user = requireUser(ctx);
 			if (!(await can(ctx, { name: 'edit', type: 'Note', id }))) {
-				throw CustomException.forbidden({ message: 'notes.errors.read-only' });
+				throw denial(ErrorCode.Forbidden, 'notes.errors.read-only');
 			}
 			return notes.archive(id, user.sub);
 		},
@@ -200,7 +188,8 @@ const resolvers = {
 };
 ```
 
-- `requireUser(ctx)` returns `ctx.user`, or throws `UNAUTHENTICATED` (401).
+- `requireUser(ctx)` returns `ctx.user`, or throws an `UNAUTHENTICATED`
+  denial (401).
 - `can(ctx, { name, type, id })` returns Keto's answer. It throws
   `UNAUTHENTICATED` with no caller, names the missing plugin without
   `useKetoChecks`, and lets `OryUnavailable` through on an outage — it never

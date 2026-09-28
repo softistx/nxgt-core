@@ -2,11 +2,11 @@
 /**
  * Runs `@nxgt/shared-graphql`'s typecheck and suite on graphql 17.
  *
- * The package peers `graphql` by `^16.4.2 || ^17.0.0`, and `bun.lock` holds a
+ * The package peers `graphql` by `^16.9.0 || ^17.0.0`, and `bun.lock` holds a
  * 16 — so without this, the second half of the range is admitted and tested
  * by nobody. It was not free: on graphql 17 `getDirective` stopped applying an
- * input field's default, and every `@check` without an explicit `id` refused
- * the schema at build.
+ * input field's default, and every term of 2.x's `@check` without an explicit
+ * `id` refused the schema at build.
  *
  * It rewrites the package's `graphql` devDependency, installs, runs, and puts
  * `package.json` and `bun.lock` back — whatever happened — then reinstalls so

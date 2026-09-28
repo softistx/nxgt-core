@@ -1,10 +1,40 @@
 # Errors: `createMaskError` and `createFormatError`
 
-Services throw `CustomException` (from `@nxgt/shared-exceptions`), the
-directives throw it for a refusal, and `@nxgt/ory-sdk` throws `OryUnavailable`
-when Ory cannot answer. Neither is a `GraphQLError`, so a server has to be told
-how to answer them. These two functions do it — one for Yoga, one for Apollo
-Server.
+The directives, `requireUser` and `can` throw a **denial**: a `GraphQLError`
+that carries its own code and HTTP status, so any server answers it right.
+Services throw `CustomException` (from `@nxgt/shared-exceptions`), and
+`@nxgt/ory-sdk` throws `OryUnavailable` when Ory cannot answer. Neither of
+those is a `GraphQLError`, so a server has to be told how to answer them —
+and how to translate a denial's message with your resources. These two
+functions do it — one for Yoga, one for Apollo Server.
+
+## Denials
+
+```ts
+import { denial } from '@nxgt/shared-graphql';
+import { ErrorCode } from '@nxgt/shared-exceptions';
+
+throw denial(ErrorCode.NotFound, 'notes.errors.not-found');
+```
+
+| Code | `extensions.http.status` | Thrown by |
+| --- | --- | --- |
+| `UNAUTHENTICATED` | 401 | `@permission`, `@authenticated`, `requireUser`, `can`, with no caller |
+| `FORBIDDEN` | 403 | `@permission(onDeny: FORBIDDEN)`; `@authenticated(type:)` for a caller of another type |
+| `NOT_FOUND` | 404 | `@permission`, by default |
+
+The second argument is an i18n key — `errors.unauthenticated`,
+`errors.insufficient-permissions` or `errors.not-found` when omitted. The
+message is that key translated with `@nxgt/i18n`'s own resources, in the
+request's language when one is known; a key those resources do not hold stays
+as it is. `createMaskError(translate)` and `createFormatError(translate)`
+translate it again with yours, and keep its code and status.
+
+`denialMessageKey(error)` returns that key, for a mask of your own; the key is
+never serialised to the client.
+
+**Without `createMaskError`**, Yoga answers a denial with its status — it is
+a `GraphQLError` thrown on purpose, which Yoga's default mask lets through.
 
 ## Yoga
 
@@ -27,6 +57,7 @@ new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 
 | Thrown | `extensions.code` | `extensions.http.status` | message |
 | --- | --- | --- | --- |
+| a `denial()` | its code | 401, 403 or 404 | its key, translated with your `translate` |
 | `CustomException.unauthenticated()` | `UNAUTHENTICATED` | 401 | translated key |
 | `CustomException.forbidden()` | `FORBIDDEN` | 403 | translated key |
 | `CustomException.notFound()` | `NOT_FOUND` | 404 | translated key |
@@ -55,6 +86,7 @@ decides it.
 
 | Thrown | `extensions.code` | message |
 | --- | --- | --- |
+| a `denial()` | its code (`http.status` answers the transport) | its key, translated with your `translate` |
 | a `CustomException` or a Mongoose error | its `errorCode` (plus `debugMessage`) | translated key |
 | `OryUnavailable` | `SERVICE_UNAVAILABLE`, `http: { status: 503 }` in `extensions` | `ory: keto is unavailable` |
 | an Apollo validation or parse error | its own | translated `errors.<code>` |

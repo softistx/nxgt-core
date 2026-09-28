@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import { OryUnavailable } from '@nxgt/ory-sdk';
 import { CustomException, ErrorCode } from '@nxgt/shared-exceptions';
 import { GraphQLError } from 'graphql';
+import { denial } from './denial';
 import { createFormatError } from './format-error';
 import { createMaskError } from './mask-error';
 import { isOryUnavailable } from './ory-unavailable';
@@ -98,6 +99,35 @@ describe('createFormatError', () => {
 		expect(formatted?.extensions).toMatchObject({
 			code: ErrorCode.ServiceUnavailable,
 			http: { status: 503 },
+		});
+	});
+});
+
+describe('denial', () => {
+	it('is a GraphQLError with its code and status, and your wording through either formatter', () => {
+		const refused = denial(ErrorCode.Forbidden, 'notes.errors.read-only');
+		expect(refused).toBeInstanceOf(GraphQLError);
+		expect(refused.extensions).toEqual({
+			code: ErrorCode.Forbidden,
+			http: { status: 403 },
+		});
+		// The key is not serialised: the client reads the message and the code.
+		expect(Object.keys(JSON.parse(JSON.stringify(refused)))).toEqual([
+			'message',
+			'extensions',
+		]);
+
+		const masked = mask(wrapped(refused), 'Unexpected error.', false);
+		expect((masked as GraphQLError).message).toBe('t(notes.errors.read-only)');
+		expect((masked as GraphQLError).path).toEqual(['note']);
+
+		const formatted = createFormatError(translate as never)?.(
+			{ message: refused.message, extensions: { code: 'FORBIDDEN' } },
+			wrapped(refused),
+		);
+		expect(formatted).toMatchObject({
+			message: 't(notes.errors.read-only)',
+			extensions: { code: 'FORBIDDEN' },
 		});
 	});
 });

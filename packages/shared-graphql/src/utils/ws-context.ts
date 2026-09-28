@@ -11,7 +11,7 @@ export interface ResolvedWsUser {
 
 /**
  * Resolves the authenticated TokenPrincipal for a `graphql-ws` connection - the
- * WS-transport equivalent of the HTTP-path `useAuth()`/`useGenericAuth()`
+ * WS-transport equivalent of the HTTP-path `useOryAuth()` / `useAuth()`
  * plugins. There is no gateway hop for WS connections, so each app performs
  * the OAuth introspection call itself using its own `auth` client.
  *

@@ -1,7 +1,10 @@
-export * from './check';
+export {
+	AUTHENTICATED_DIRECTIVE_NAME,
+	type AuthenticatedOptions,
+	CALLER_TYPES,
+} from './authenticated';
 export * from './federation';
 export { assertReadablePath, objectIds, readPath } from './paths';
 export * from './permission';
-export * from './requirements';
 export type { ReadOptions } from './scope';
 export * from './sdl';

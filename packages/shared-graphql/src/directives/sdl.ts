@@ -8,88 +8,6 @@
  * are parsed and printed. Edit the file, then this.
  */
 
-/** `@check`, its `CheckPermission` input and its `CheckDenial` enum. */
-export const CHECK_DIRECTIVE_SDL = `"""
-One question, with the object left as a path instead of a value.
-"""
-input CheckPermission {
-	"""
-	The Keto namespace, e.g. "Note" — from the stack's OPL document.
-	"""
-	namespace: String!
-
-	"""
-	The permit asked of it, e.g. "view". A plain relation works too; Keto
-	answers \`false\`, not an error, for a name it does not know.
-	"""
-	permit: String!
-
-	"""
-	Where the object id is read: \`args.<path>\`, or \`parent.<path>\` /
-	\`source.<path>\` (the same root under two names), dotted paths allowed. A value that turns out to be a LIST requires the permit on every
-	element — that is what a mutation taking \`ids: [ID!]!\` means.
-	"""
-	id: String = "args.id"
-}
-
-"""
-What a denial looks like from outside.
-"""
-enum CheckDenial {
-	"""
-	The same answer as for an id that never existed, so ids cannot be probed.
-	The default, and the one to keep unless the caller already knows the object
-	is there.
-	"""
-	NOT_FOUND
-
-	"""
-	For a second check on an object the caller can already see: a viewer asked
-	to edit already knows it exists, and "you may not change it" is honest.
-	"""
-	FORBIDDEN
-}
-
-"""
-Deprecated: write \`@permission(name:, type:)\` in a new schema — one Keto
-question per directive, repeated for AND, with OR kept in the Keto model. This
-form keeps working and is evaluated in declaration order with @permission.
-
-The permission a field requires, in disjunctive normal form: the OUTER list is
-OR, the INNER list is AND. \`[[A, B], [C]]\` reads "(A and B) or C" — the same
-shape \`@policy(policies: [["ADMIN"]])\` uses.
-
-Repeatable, and evaluated in declaration order, each with its own \`onDeny\`.
-That is how the 404-then-403 ladder is written:
-
-    updateNote(id: ID!, input: UpdateNoteInput!): Note!
-      @check(permissions: [[{ namespace: "Note", permit: "view" }]])
-      @check(permissions: [[{ namespace: "Note", permit: "edit" }]], onDeny: FORBIDDEN)
-
-NOT for a field that answers a LIST the caller is entitled to. "Which notes may
-I see" is not a check, it is a Keto query folded into the database filter
-before the read. A directive there would have to fetch everything and filter
-after, which makes \`totalCount\` and the cursors lie.
-"""
-directive @check(
-	permissions: [[CheckPermission!]!]!
-	onDeny: CheckDenial! = NOT_FOUND
-
-	"""
-	The i18n key the denial carries, e.g. "notes.errors.not-found". Defaults to
-	\`errors.not-found\` / \`errors.insufficient-permissions\`, the shared keys.
-
-	Set it whenever the API's own service layer answers the same refusal with a
-	domain message. Two layers guard these fields — the directive, and the
-	\`require<M>Access\` the service calls — and if they word the same 404
-	differently, the wording tells a caller WHICH one refused: a generic message
-	means "you may not", a domain one means "it is gone". That is precisely the
-	distinction NOT_FOUND exists to hide.
-	"""
-	message: String
-) repeatable on FIELD_DEFINITION
-`;
-
 /** `@permission` and its `PermissionDenial` enum. */
 export const PERMISSION_DIRECTIVE_SDL = `"""
 What a refused @permission looks like from outside.
@@ -154,5 +72,28 @@ directive @permission(
 ) repeatable on FIELD_DEFINITION
 `;
 
-/** Both, for `createSchema({ typeDefs: [KETO_DIRECTIVES_SDL, …] })`. */
-export const KETO_DIRECTIVES_SDL = `${CHECK_DIRECTIVE_SDL}\n${PERMISSION_DIRECTIVE_SDL}`;
+/**
+ * Every directive `useKetoChecks` answers, for
+ * `createSchema({ typeDefs: [KETO_DIRECTIVES_SDL, …] })`. Since `@check` was
+ * removed in 3.0, that is `@permission` alone.
+ */
+export const KETO_DIRECTIVES_SDL = PERMISSION_DIRECTIVE_SDL;
+
+/**
+ * `@authenticated`, with the `type:` `useAuthenticated` reads: any caller
+ * without it, a caller of one of the types with it. Part of
+ * `SHARED_TYPE_DEFS`, and not in `graphql/`: a federation subgraph loads
+ * `SHARED_SCHEMA_PATH` and imports federation's own `@authenticated`, which
+ * takes no argument — a shape `useAuthenticated` reads as "any caller".
+ */
+export const AUTHENTICATED_DIRECTIVE_SDL = `"""
+A signed-in caller — of one of the types \`type\` names, when it names some.
+"""
+directive @authenticated(
+	"""
+	The kinds of caller admitted: "session" or "token" by default. Any caller
+	when omitted.
+	"""
+	type: [String!]
+) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+`;
