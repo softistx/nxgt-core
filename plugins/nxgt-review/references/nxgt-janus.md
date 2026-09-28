@@ -24,7 +24,7 @@ git ls-files ':(glob)packages/*/src/**/*.ts' ':(glob,exclude)packages/*/src/**/*
 git ls-files ':(glob)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
 ```
 
-Functions with the agent's brace-bounded `awk`, over the same file list (305
+Functions with the agent's brace-bounded `awk`, over the same file list (306
 source files on `develop`, the `*.fixtures.ts` included). The thresholds are
 the agent's: 250 lines per file, 80 per function. The `awk` does not see a
 class body, and this repository has two long ones (below): check a class by
@@ -176,16 +176,18 @@ running them in parallel races the caches.
   the cases runs across the folder. `test/types/refusals.ts` stays the
   top-level list.
 
-**Known debt to split** (measured on `develop` at `1cc6934`, 2026-09-27,
-after 0.9.0) — each stays in the tally until it is gone, and a diff that
-grows one is a finding.
+**Known debt to split** (measured on `develop` at `fd8ca10`, 2026-09-27,
+after 0.9.0's release PR #137) — each stays in the tally until it is gone,
+and a diff that grows one is a finding.
 
-- Files over 250: **none** under `packages/*/src`. Closest to the line:
+- Files over 250: **none** under `packages/*/src`, `janus-webhooks` and
+  `janus-webhooks-redis` included. Closest to the line:
   `janus-redis/src/scripts.ts` 249, `janus/src/permissions/list.fixtures.ts`
   247, `janus/src/permissions/reverse.ts` 245, `janus-mail/src/options.ts`
-  236, `janus-mail/src/types.ts` 234,
-  `janus/src/auth/second-factor/lifecycle.ts` 231 (192 before the second
-  factor's events, #125) — a diff that pushes one over is the finding.
+  244, `janus/src/auth/second-factor/lifecycle.ts` 231 (192 before the second
+  factor's events, #125; #139, open at this measurement, splits it into one
+  module per step, and the tally drops it when that lands) — a diff that
+  pushes one over is the finding.
 - Functions over 80, by the agent's `awk`: **none**. Longest:
   `confirmChallenge` (`janus/src/auth/second-factor/challenge.ts:64`) 71,
   `memorySessionStore` (`janus/src/auth/port/memory/sessions.ts:11`) 71.
@@ -199,9 +201,10 @@ grows one is a finding.
   `auth/sessions/index.spec.ts`, 229).
 - Outside the pathspecs: **none**. `scripts/verify-artifacts.ts` is 90 lines
   since #124 split it into `scripts/artifacts/` (the longest,
-  `manifest.ts`, 136); the longest file under `scripts/` is
-  `check-nxgt-versions.spec.ts`, 221, the longest function `publish.ts:112`,
-  65, and `janus-mail/scripts/build-mail.ts` is 148.
+  `manifest.ts`, 137); the longest file under `scripts/` is
+  `check-nxgt-versions.spec.ts`, 221 (`check-nxgt-versions.ts` 172), the
+  longest function `publish.ts:112`, 65, and
+  `janus-mail/scripts/build-mail.ts` is 149.
 
 ## Deliberate — do not report
 
@@ -224,7 +227,8 @@ grows one is a finding.
   read a sibling's version from the workspace, nxgt-http and nxgt-core from
   the packed manifests; and `check-changesets.ts` is this copy's alone.
   `check-nxgt-versions.ts`, its spec and `nxgt-versions.yml` are copied into
-  nxgt-core (the script byte for byte but its header) and nxgt-data, which
+  nxgt-core (the script byte for byte but its header, the spec but the one
+  package it expects to find, `@nxgt/ory-sdk`) and nxgt-data, which
   reads every `<folder>/*` workspace glob, `examples/*` included, exits 2 on
   any other glob (`folderOf`), and counts a private workspace's
   `dependencies` (`manifestOf`); nxgt-http has no external `@nxgt/*` to
