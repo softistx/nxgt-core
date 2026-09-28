@@ -228,9 +228,7 @@ grows one is a finding.
   reads every `<folder>/*` workspace glob, `examples/*` included, exits 2 on
   any other glob (`folderOf`), and counts a private workspace's
   `dependencies` (`manifestOf`); nxgt-http has no external `@nxgt/*` to
-  track.
-  A fix to a check in one
-  copy and not the others is still reported.
+  track. A fix to a check in one copy and not the others is still reported.
 - The Redis `test/server.ts` in `janus-redis`, `janus-kit` and
   `janus-webhooks-redis` — byte-identical, and both CI jobs key their Redis
   cache on all three.

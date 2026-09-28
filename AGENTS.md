@@ -297,7 +297,9 @@ it.
 up to 2026-09-27: 8 for CI, whose job took 1 to 2¼ minutes, and 10 for the
 release, which took under two — generous, since a publish killed half-way is
 worse than one waited on. Past it a run is hung, and the six-hour default holds
-the runner for nothing. `ci.yml` has nxgt-janus's `concurrency` group: a pull
+the runner for nothing. The weekly `nxgt versions` job, which only asks the
+registry and `gh`, has 5, as nxgt-janus's does. `ci.yml` has nxgt-janus's
+`concurrency` group: a pull
 request's new push cancels its run in progress, and a push to `develop`, were
 CI ever to run on one, never would. The release keeps its own group, which
 never cancels a run under way.
