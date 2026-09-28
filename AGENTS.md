@@ -157,7 +157,18 @@ fields, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
 `browser.ts` (the `browser` condition, which only this repository has) and
 `classes.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
-port to the others.
+port to the others. All four hold the test-code check and the unbuilt-package
+guard below. `missingFiles` is here, in nxgt-janus and in nxgt-data, and
+nxgt-http's port is softistx/nxgt-http#56. `browser.ts` is this copy's alone.
+This copy and nxgt-http read a sibling's version from the packed manifests,
+where nxgt-janus and nxgt-data read it from the workspace.
+
+It fails a `files` entry the tarball holds nothing under, with
+`<package>: files lists <entry>, which the tarball does not hold — build it
+first, or drop it from files` — npm skips such an entry without a word, and
+five packages ship a folder beside `dist/` that only `files` names: `schema/`,
+`graphql/` and `openapi/` in `security`, `shared-graphql` and
+`shared-openapi`, and `docs/` in `env` and `i18n-vue`.
 
 It also fails a tarball that ships test code — a `*.spec.*`, a `*.test.*`, a
 snapshot, or a `<subject>.fixtures.*` — with
@@ -495,8 +506,9 @@ CI enforces two things a green build does not:
   manifest that would break an install — a `link:` or `file:` in a field a
   consumer resolves, or a **required** peer that is on no registry — and a
   package that is not MIT or ships no `LICENSE`, or a tarball that ships
-  test code. It reads the subpath list from each `exports` map, so a new
-  entry point is covered as soon as it is declared.
+  test code or holds nothing under one of its `files` entries. It reads the
+  subpath list from each `exports` map, so a new entry point is covered as
+  soon as it is declared.
   `changeset:publish` runs it too, so a broken artifact cannot be published.
 
 ### Every package is MIT, and ships its own `LICENSE`
@@ -611,9 +623,9 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **455 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
+`bun run test` is **459 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
-real `nuxt build`), then 21 in `scripts/`. Treat any failure as yours.
+real `nuxt build`), then 25 in `scripts/`. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running the packages together in one
