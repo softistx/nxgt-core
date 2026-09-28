@@ -1,6 +1,6 @@
 import { getDirective } from '@graphql-tools/utils';
+import type { PermissionRequirement } from '@nxgt/ory-sdk';
 import type { GraphQLSchema } from 'graphql';
-import type { CheckArgs, CheckDenial } from './check';
 import { DEFAULT_ID_PATH } from './paths';
 import { type FieldNode, type ReadOptions, scopeOf } from './scope';
 import { assertRequirementShape } from './validate';
@@ -12,7 +12,7 @@ import { assertRequirementShape } from './validate';
  */
 export const PERMISSION_DIRECTIVE_NAME = 'permission';
 
-export type PermissionDenial = CheckDenial;
+export type PermissionDenial = 'NOT_FOUND' | 'FORBIDDEN';
 
 /** One `@permission` as written, after its defaults. */
 export type PermissionArgs = {
@@ -24,16 +24,31 @@ export type PermissionArgs = {
 };
 
 /**
- * Every `@permission` on a field, in declaration order, validated, each as the
- * one-term requirement `@check` would spell `[[{ namespace: type, permit:
- * name, id }]]` — so the transform answers both through one path.
+ * One `@permission` as the transform answers it: the one-term requirement
+ * `[[{ namespace: type, permit: name, id }]]` that `evaluateRequirement`
+ * takes, its denial, and its i18n key.
+ */
+export type FieldPermission = {
+	permissions: PermissionRequirement;
+	onDeny: PermissionDenial;
+	/** i18n key; the shared `errors.*` one when the field does not say. */
+	message?: string;
+};
+
+/**
+ * Every `@permission` on a field, in declaration order, validated.
+ *
+ * Repeatable, so this is a list and the order is load-bearing: `view` then
+ * `edit` is what turns a denial into 404 for a stranger and 403 for a viewer.
+ * The `id` and `onDeny` defaults are applied here as well as in the SDL, which
+ * graphql 17 does not always hand to `getDirective`.
  */
 export function readPermissions(
 	schema: GraphQLSchema,
 	node: FieldNode,
 	where: string,
 	options: ReadOptions = {},
-): CheckArgs[] {
+): FieldPermission[] {
 	if (!isOurs(schema)) return [];
 	const found = getDirective(schema, node, PERMISSION_DIRECTIVE_NAME) ?? [];
 	const scope = scopeOf(node, `@permission on ${where}`, options);

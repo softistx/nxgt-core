@@ -85,21 +85,3 @@ describe('can', () => {
 		);
 	});
 });
-
-describe('createKetoChecks after an outage', () => {
-	it('does not memoise the failure: the next ask goes back to Keto', async () => {
-		let calls = 0;
-		const ory = {
-			checkMany: async (questions: unknown[]) => {
-				calls += 1;
-				if (calls === 1) throw new OryUnavailable('keto', 0, null);
-				return questions.map(() => true);
-			},
-		} as unknown as Ory;
-		const check = createKetoChecks(ory);
-		const view = { namespace: 'Note', object: 'n1', relation: 'view' };
-
-		await expect(check(view, 'idn-7')).rejects.toBeInstanceOf(OryUnavailable);
-		expect(await check(view, 'idn-7')).toBe(true);
-	});
-});

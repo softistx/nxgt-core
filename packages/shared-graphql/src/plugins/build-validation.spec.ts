@@ -1,5 +1,4 @@
-import { afterAll, afterEach, describe, expect, it, spyOn } from 'bun:test';
-import { logger } from '@nxgt/shared-logging';
+import { describe, expect, it } from 'bun:test';
 import { createSchema } from 'graphql-yoga';
 import { KETO_DIRECTIVES_SDL } from '../directives';
 import { applyKetoChecks } from './apply-keto-checks';
@@ -63,7 +62,7 @@ describe('applyKetoChecks refuses at build', () => {
 				type Note {
 					ownerId: ID!
 					a: String @permission(name: "view", type: "Owner", id: "parent.ownerId")
-					b: String @check(permissions: [[{ namespace: "Owner", permit: "view", id: "source.ownerId" }]])
+					b: String @permission(name: "view", type: "Owner", id: "source.ownerId")
 				}
 				type Query { note: Note }
 			`),
@@ -72,57 +71,57 @@ describe('applyKetoChecks refuses at build', () => {
 });
 
 /**
- * `@check` booted in 2.x with the same two mistakes. It still does — with a
- * warning naming the field — so this minor stops no server that ran before.
+ * `@check` was removed in 3.0. A schema that still declares it with 2.x's
+ * `permissions` would otherwise boot with the field open.
  */
-describe('applyKetoChecks warns, for @check alone', () => {
-	const warn = spyOn(logger, 'warn').mockImplementation(() => logger);
-	afterEach(() => warn.mockClear());
-	afterAll(() => warn.mockRestore());
-	const warned = () => warn.mock.calls.map(([message]) => String(message));
+const CHECK_2X = `
+	input CheckPermission { namespace: String!, permit: String!, id: String = "args.id" }
+	enum CheckDenial { NOT_FOUND FORBIDDEN }
+	directive @check(permissions: [[CheckPermission!]!]!, onDeny: CheckDenial! = NOT_FOUND, message: String) repeatable on FIELD_DEFINITION
+`;
 
-	it('an argument the field does not declare', () => {
-		expect(
-			build(`
-				type Query {
-					note: String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
-				}
-			`),
-		).not.toThrow();
-		expect(warned()).toEqual([
-			expect.stringMatching(
-				/^@check on Query\.note: .*declares no arguments — @check still boots/,
-			),
-		]);
+describe('applyKetoChecks refuses a removed @check', () => {
+	it('on an object field, naming the field and the rewrite', () => {
+		const attempt = build(`${CHECK_2X}
+			type Query {
+				note(id: ID!): String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
+			}
+		`);
+		expect(attempt).toThrow(TypeError);
+		expect(attempt).toThrow(
+			/^@check on Query\.note: @check was removed in @nxgt\/shared-graphql 3\.0 — write one @permission/,
+		);
 	});
 
-	it('a guard on an interface field', () => {
+	it('on an interface field', () => {
 		expect(
-			build(`
+			build(`${CHECK_2X}
 				interface Node {
 					body(id: ID!): String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
 				}
 				type Note implements Node { body(id: ID!): String }
 				type Query { node: Node }
 			`),
-		).not.toThrow();
-		expect(warned()).toEqual([
-			expect.stringMatching(/^Node\.body: .*interface field guards nothing/),
-		]);
+		).toThrow(/@check on Node\.body: @check was removed/);
 	});
-	it('a malformed @check on an interface field, which 2.x never read', () => {
+
+	it('without its declaration, as graphql itself does', () => {
 		expect(
 			build(`
-				interface Node {
-					body(id: ID!): String @check(permissions: [[{ namespace: "Note", permit: "view", id: "id" }]])
+				type Query {
+					note(id: ID!): String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
 				}
-				type Note implements Node { body(id: ID!): String }
-				type Query { node: Node }
+			`),
+		).toThrow(/Unknown directive "@check"/);
+	});
+
+	it('but leaves a @check of another shape to the schema that declared it', () => {
+		expect(
+			build(`
+				directive @check(role: String) on FIELD_DEFINITION
+				type Query { note: String @check(role: "ADMIN") }
 			`),
 		).not.toThrow();
-		expect(warned()).toEqual([
-			expect.stringMatching(/^Node\.body: .*interface field guards nothing/),
-		]);
 	});
 });
 

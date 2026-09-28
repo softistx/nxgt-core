@@ -1,4 +1,4 @@
-import { getDirective, MapperKind, mapSchema } from '@graphql-tools/utils';
+import { MapperKind, mapSchema } from '@graphql-tools/utils';
 import { evaluateRequirement, type PermissionTerm } from '@nxgt/ory-sdk';
 import { CustomException } from '@nxgt/shared-exceptions';
 import {
@@ -7,29 +7,27 @@ import {
 	type GraphQLSchema,
 } from 'graphql';
 import {
-	CHECK_DIRECTIVE_NAME,
-	type CheckArgs,
+	type FieldPermission,
 	objectIds,
 	type ReadOptions,
 	readPath,
 	readPermissions,
-	readRequirements,
 } from '../directives';
-import { warnCheckMistake } from '../directives/deprecation';
+import { refuseRemovedCheck } from '../directives/removed-check';
 import type { KetoChecksContext } from './keto-checker';
 import type { OryContext } from './ory-auth';
 
 type FieldConfig = GraphQLFieldConfig<unknown, unknown>;
 
 /**
- * Wraps every field carrying `@check` or `@permission` so the permission is
- * answered before its resolver runs.
+ * Wraps every field carrying `@permission` so the permission is answered
+ * before its resolver runs.
  *
  * Every requirement is read and validated here, when the schema is built: a
  * malformed path, an argument the field does not declare, an empty group, a
- * namespace outside `options.namespaces` — and a guard on an interface field,
- * which no resolver ever runs through — each throw a `TypeError` naming
- * `Type.field`, so the server does not boot.
+ * namespace outside `options.namespaces`, a guard on an interface field,
+ * which no resolver ever runs through, and a `@check` — removed in 3.0 — each
+ * throw a `TypeError` naming `Type.field`, so the server does not boot.
  *
  * Modelled on `applyGraphqlPolicy` in `@nxgt/security`. Exported on its own
  * because a schema transform is far easier to test than a plugin.
@@ -45,41 +43,31 @@ export function applyKetoChecks(
 		},
 		[MapperKind.OBJECT_FIELD]: (fieldConfig, fieldName, typeName) => {
 			const where = `${typeName}.${fieldName}`;
-			const requirements = readRequirements(
-				schema,
-				fieldConfig,
-				where,
-				options,
-			);
+			refuseRemovedCheck(schema, fieldConfig, where);
+			const requirements = readPermissions(schema, fieldConfig, where, options);
 			if (requirements.length === 0) return fieldConfig;
 			return guarded(fieldConfig, requirements, where);
 		},
 	});
 }
 
-/**
- * No resolver runs on an interface's field, so a guard there guards nothing.
- * `@permission` is refused; `@check`, which 2.x let boot, is warned about.
- */
+/** No resolver runs on an interface's field, so a guard there guards nothing. */
 function refuseOnInterface(
 	schema: GraphQLSchema,
 	fieldConfig: FieldConfig,
 	where: string,
 ) {
-	const message = `${where}: @check / @permission on an interface field guards nothing — no resolver runs there. Put it on each implementing type's field`;
+	refuseRemovedCheck(schema, fieldConfig, where);
 	if (readPermissions(schema, fieldConfig, where).length > 0) {
-		throw new TypeError(message);
-	}
-	// Counted, not read: 2.x never looked at an interface's `@check`, so even
-	// a malformed one booted, and must still.
-	if (getDirective(schema, fieldConfig, CHECK_DIRECTIVE_NAME)?.length) {
-		warnCheckMistake(message);
+		throw new TypeError(
+			`${where}: @permission on an interface field guards nothing — no resolver runs there. Put it on each implementing type's field`,
+		);
 	}
 }
 
 function guarded(
 	fieldConfig: FieldConfig,
-	requirements: CheckArgs[],
+	requirements: FieldPermission[],
 	where: string,
 ): FieldConfig {
 	const resolve = fieldConfig.resolve ?? defaultFieldResolver;
@@ -144,7 +132,7 @@ function objectsOf(
  * two different messages behind one 404 tell the caller which layer spoke, and
  * that is the difference NOT_FOUND is there to hide.
  */
-function denial(onDeny: CheckArgs['onDeny'], message?: string) {
+function denial(onDeny: FieldPermission['onDeny'], message?: string) {
 	return onDeny === 'FORBIDDEN'
 		? CustomException.forbidden({
 				message: message ?? 'errors.insufficient-permissions',
