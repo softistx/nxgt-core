@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { HeaderMap } from '@apollo/server';
+import { version } from 'graphql';
 import {
 	GATEWAY_SECRET_HEADER,
 	gatewaySecret,
@@ -7,19 +7,35 @@ import {
 	requireGatewayTrust,
 } from './gateway-trust';
 
+/**
+ * Apollo Server 5 peers graphql ^16 and `require()`s it, which graphql 17 —
+ * ESM only — refuses. So the Apollo cases run on graphql 16 and are skipped
+ * by `test:graphql17`, where Apollo cannot load at all.
+ */
+const ON_APOLLO = version.startsWith('16.');
+const apollo = ON_APOLLO
+	? await import('@apollo/server')
+	: ({} as typeof import('@apollo/server'));
+
 const SECRET = 'a-gateway-secret-of-32-characters';
 
 describe('gatewaySecret', () => {
 	const trusted = gatewaySecret({ secret: SECRET });
 
-	it('holds for the secret, in fetch Headers and in Apollo HeaderMap', () => {
+	it('holds for the secret in fetch Headers', () => {
 		expect(trusted(new Headers({ [GATEWAY_SECRET_HEADER]: SECRET }))).toBe(
 			true,
 		);
-		const map = new HeaderMap();
-		map.set('X-Gateway-Secret', SECRET);
-		expect(trusted(map)).toBe(true);
 	});
+
+	it.skipIf(!ON_APOLLO)(
+		'holds for it in Apollo HeaderMap, whatever the case',
+		() => {
+			const map = new apollo.HeaderMap();
+			map.set('X-Gateway-Secret', SECRET);
+			expect(trusted(map)).toBe(true);
+		},
+	);
 
 	it.each([
 		['no header', new Headers()],

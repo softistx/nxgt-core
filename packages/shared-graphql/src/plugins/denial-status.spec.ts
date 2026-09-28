@@ -1,13 +1,23 @@
 import { describe, expect, it } from 'bun:test';
-import { ApolloServer } from '@apollo/server';
 import type { Permission } from '@nxgt/ory-sdk';
 import { ErrorCode } from '@nxgt/shared-exceptions';
+import { version } from 'graphql';
 import { createSchema, createYoga } from 'graphql-yoga';
 import { KETO_DIRECTIVES_SDL } from '../directives';
 import { denial } from '../utils/errors/denial';
 import { createMaskError } from '../utils/errors/mask-error';
 import { applyKetoChecks } from './apply-keto-checks';
 import { requireUser } from './keto-helpers';
+
+/**
+ * Apollo Server 5 peers graphql ^16 and `require()`s it, which graphql 17 —
+ * ESM only — refuses. So the Apollo cases run on graphql 16 and are skipped
+ * by `test:graphql17`, where Apollo cannot load at all.
+ */
+const ON_APOLLO = version.startsWith('16.');
+const apollo = ON_APOLLO
+	? await import('@apollo/server')
+	: ({} as typeof import('@apollo/server'));
 
 /**
  * A denial is a `GraphQLError` carrying its status, so a server that never
@@ -98,19 +108,22 @@ describe('a denial, through createMaskError', () => {
 	});
 });
 
-describe('a denial, under Apollo Server without createFormatError', () => {
-	it('answers its status too', async () => {
-		const apollo = new ApolloServer({
-			typeDefs: 'type Query { note: String }',
-			resolvers: {
-				Query: {
-					note: () => {
-						throw denial(ErrorCode.Forbidden);
+describe.skipIf(!ON_APOLLO)(
+	'a denial, under Apollo Server without createFormatError',
+	() => {
+		it('answers its status too', async () => {
+			const server = new apollo.ApolloServer({
+				typeDefs: 'type Query { note: String }',
+				resolvers: {
+					Query: {
+						note: () => {
+							throw denial(ErrorCode.Forbidden);
+						},
 					},
 				},
-			},
+			});
+			const response = await server.executeOperation({ query: '{ note }' });
+			expect(response.http.status).toBe(403);
 		});
-		const response = await apollo.executeOperation({ query: '{ note }' });
-		expect(response.http.status).toBe(403);
-	});
-});
+	},
+);
