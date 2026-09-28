@@ -2,7 +2,7 @@
 name: plan-the-roadmap
 description: >-
   The planning cycle of the nxgt repositories: discover candidates (the
-  improvement-scout and the owner's requests), frame each as a roadmap entry
+  improvement-scout or the queue-refiller, and the owner's requests), frame each as a roadmap entry
   in the package's docs/roadmap.md, plan it with a Plan agent, validate the
   owner decisions through interactive questions with recommendations, queue
   what is approved, then execute through work-autonomously and ship. Use when

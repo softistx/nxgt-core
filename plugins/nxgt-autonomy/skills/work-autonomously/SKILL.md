@@ -36,7 +36,7 @@ Five agents do the parts that must not be done by whoever did the work:
 | `improvement-scout` | proposes improvements, applies none |
 | `green-bar-verifier` | refuses to call anything done that was not measured |
 | `queue-refiller` | when the queue is empty and the owner said to keep going: reconciles, sweeps for improvements and features, and writes the top items into the queue — approved by mandate only when the owner pre-approved recommendations and the item is reversible (section 5) |
-| `unanswered-question-resolver` | when a question got no answer in 5 minutes: takes the recommendation if it is reversible, otherwise waits with a holding step, and records the decision as assumed (section 4) |
+| `unanswered-question-resolver` | when a question got no answer in 5 minutes: takes the recommendation (or the owner's tick) if it is reversible and records it under *Assumed, not answered*; otherwise waits under *Blocked on the user* with a holding step (section 4) |
 
 ---
 
@@ -52,15 +52,24 @@ ls ~/.claude/projects/*/memory/work-queue.md
 The one whose project matches the checkout is this session's queue. An item may
 name several repositories; it still lives in that one file.
 
-Five sections, and each one earns its place:
+Five sections, and each one earns its place, under an optional `Mandate:`
+line:
 
 ```markdown
-## Assumed, not answered  decisions taken on a recommendation after 5 min of silence — the owner confirms or reverses each
+Mandate: <date> "<owner's words>" — covers: improvements | improvements and features — repos: <names | all> — until: <date | revoked>
+## Assumed, not answered  decisions taken on a recommendation (or a ticked option) after the question timed out — the owner confirms or reverses each
 ## In flight              what to work on now, most-blocking first
 ## Blocked on the user    named, with what exactly is needed
-## Proposed, not approved  the scout writes here — DO NOT START
+## Proposed, not approved  the scout and the refiller write here — DO NOT START
 ## Done                   crossed off with the PR number that proves it
 ```
+
+The **`Mandate:` line** is the owner's pre-approval of your recommendations
+("adopt your recommendations", « j'approuve tes recommandations »), written
+when he gives it, with his words, what it covers and until when. It is the
+only thing that lets `queue-refiller` write into *In flight*; he revokes it
+by striking it out. A question that waited out its timeout goes to *Blocked
+on the user*, not to *Assumed, not answered*.
 
 *Done* also holds `- [x] … withdrawn — <reason>` lines: an accepted item let
 go after its branch was cut, its PR closed (`plan-the-roadmap` step 5). They
@@ -111,7 +120,8 @@ looking like progress.
   approved*. It is written down, not done. The exception is a fix the queued work
   requires to be correct — then it is part of the item, and the commit says why.
   What `queue-refiller` writes into *In flight* is not new scope: the owner
-  approved it in advance, by a pre-approval the line quotes (section 5).
+  approved it in advance, by the queue's `Mandate:` line (section 1), and the
+  line says so.
 - **Never take an irreversible or outward-facing step on anything but an
   explicit answer** — deleting data, force-pushing, the first publish of a
   package, spending money, messaging anyone off this machine. Ask, and carry on
@@ -154,25 +164,30 @@ mechanism, and this skill claims no other:
 
 - **`askUserQuestionTimeout: "5m"`** — a Claude Code setting (`/config` →
   *Question auto-continue timeout*; `"60s"`, `"5m"`, `"10m"` or `"never"`,
-  default `"never"`). With it, a question left idle for 5 minutes ends on its
-  own and `AskUserQuestion` returns **no answer** — plus any option the owner
-  had ticked. That result is the trigger: note the time before asking and
-  after (`date -Iseconds`), then run **`unanswered-question-resolver`** with
-  the question, its options in order, both times, whether it was labelled
-  `(Irreversible)`, and what the owner had ticked. Act on its `DECISION`; if
+  default `"never"`). With it, a question left idle for 5 minutes continues
+  on its own, with **no submitted answer** — only any option the owner had
+  ticked. That result is the trigger: note the time before asking and after
+  (`date -Iseconds`), then run **`unanswered-question-resolver`** with the
+  question, its options in order, both times, the timeout, whether it was
+  labelled `(Irreversible)`, and what the owner had ticked. Act on its `DECISION`; if
   it says wait, take its holding step and carry on with the rest of the
   queue.
-- **Without that setting, nothing fires.** `AskUserQuestion` blocks the turn
-  until the owner answers: no background timer, `sleep`, `Monitor` or
-  scheduled wake-up can run while the question is open, because the model is
-  not running. So at the start of an autonomous run, read the setting —
+- **Without that setting, nothing fires.** `AskUserQuestion` holds the turn
+  until the owner answers. A background command keeps running meanwhile, but
+  nothing — no timer, `sleep`, `Monitor` or scheduled wake-up — can answer
+  the question or let the session act before it is answered. So at the start
+  of an autonomous run, read the setting —
 
   ```bash
   grep -h '"askUserQuestionTimeout"' ~/.claude/settings.json .claude/settings.json .claude/settings.local.json 2>/dev/null
   ```
 
-  — and when it is not `"5m"`, say so in the first report and ask the owner
-  to set it in `/config`. **Never edit a settings file for it yourself**:
+  — and when it is `"never"` or absent, say so in the first report and ask
+  the owner to set it to `"5m"` in `/config`; `"60s"` or `"10m"` also fire,
+  and the resolver records the value that did. The grep does not see managed
+  (policy) settings or `--settings`: when `/config` does not offer the entry,
+  a managed setting holds it, and only its administrator can change it.
+  **Never edit a settings file for it yourself**:
   it is the owner's setting, and a question that blocks is his to shorten.
   Until he does, the older rule is the only one that works: everything that
   does not depend on the answer is done **before** asking.
@@ -192,13 +207,16 @@ When *In flight* is empty, or everything left in it is blocked:
    merged, is fixed in the file.
 3. **`queue-refiller`** — when *In flight* has no actionable item and the
    owner has said to keep going. Pass it the queue's path, the owner's
-   go-ahead and — if he gave one — his pre-approval of your recommendations,
-   each quoted with its date, and the auditor's report. It writes the top
-   items into *In flight* (approved by mandate: pre-approved **and**
-   reversible) or *Proposed, not approved* (anything irreversible,
-   outward-facing beyond PR, merge and release, breaking without a mandate,
-   or not pre-approved), and returns `LAUNCH NEXT`: launch those items
-   through section 2, in order. It also names the **sibling sessions that
+   go-ahead quoted with its date, and the auditor's report; it reads the
+   queue's `Mandate:` line itself. It writes the top items into *In flight*
+   (approved by mandate: covered by the `Mandate:` line **and** reversible,
+   and not planned by another session) or *Proposed, not approved*
+   (anything irreversible, outward-facing beyond PR, merge and release,
+   breaking without a mandate, a feature the mandate does not cover, or no
+   mandate), and returns `LAUNCH NEXT`. With `nxgt-crew`, record each *In
+   flight* line that has a roadmap entry with `/crew announce --kind plan`
+   (`plan-the-roadmap` step 5) — the refiller cannot — then launch those
+   items through section 2, in order. It also names the **sibling sessions that
    look idle**; it cannot message them. For each, send one `SendMessage`
    naming the candidates it found for that session's repository — first line
    self-contained, one message per session, no follow-ups; in the main

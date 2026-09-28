@@ -207,7 +207,9 @@ approval. It never asks a peer to do what this session was denied.
 
 `nxgt-autonomy:plan-the-roadmap` defines the planning cycle for one session:
 
-1. discover (improvement-scout);
+1. discover (improvement-scout, or queue-refiller when the owner said to
+   keep going — from nxgt-autonomy 1.2.0 it may queue by the owner's
+   standing mandate, after `crew align`, skipping step 4);
 2. a roadmap entry under Next or Later (roadmap-keeper, from nxgt-docs);
 3. a plan per entry;
 4. owner validation through AskUserQuestion, recommended option first;

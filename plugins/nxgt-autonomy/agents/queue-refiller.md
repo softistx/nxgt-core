@@ -7,7 +7,7 @@ description: >-
   and Next, what consumers need, gaps between sibling packages), ranks them
   with a recommended option, size, reach, breaking or not, reversible or not
   and a first slice, then writes the top items into the queue — under In
-  flight when the owner pre-approved recommendations and the item is
+  flight when the queue's Mandate line pre-approves them and the item is
   reversible, under Proposed, not approved otherwise. Use when In flight has
   no actionable item left and the owner has said to keep going. It edits the
   queue file only, never a repository, and names the sibling sessions that
@@ -75,10 +75,20 @@ The caller gives you:
   the one whose project matches the checkout) and say which you took;
 - **the owner's go-ahead to keep going**, quoted with its date — without it
   you do not run: report `REFILL: not run — no go-ahead` and stop;
-- **whether the owner pre-approved your recommendations**, quoted with its
-  date ("adopt your recommendations", « j'approuve tes recommandations »). This
-  alone decides whether anything you write lands under *In flight*. A go-ahead
-  to keep going is **not** a pre-approval; absent a quote, treat it as no;
+- the owner's **pre-approval of your recommendations**, if he gave one. It is
+  read from the queue file, not from the caller's summary: a `Mandate:` line
+  right under the title, which the main session writes when the owner gives
+  it and the owner can see and strike out —
+
+  ```markdown
+  Mandate: <date> "<owner's words>" — covers: improvements | improvements and features — repos: <names | all> — until: <date | revoked>
+  ```
+
+  It alone decides whether anything you write lands under *In flight*, and
+  only within what it covers: its repositories, and new features only when
+  it says `improvements and features`. A go-ahead to keep going is **not** a
+  pre-approval; no `Mandate:` line, an expired one, or one struck out, means
+  no;
 - the **`work-queue-auditor` report** if one ran in this pass, so you do not
   redo it.
 
@@ -163,6 +173,7 @@ For each, one block:
   size: S (one PR) | M (2–3 PRs) | L (more — slice it)
   touches: <packages / repositories>
   breaking: no | yes — <what a consumer changes>
+  feature: no | yes — <the public API it adds to a published package>
   reversible: yes | no — <why: a revert undoes it, or it publishes, deletes, messages off the machine…>
   first slice: <the first PR, and its first command>
   evidence: <file:line | cmd → output>
@@ -173,7 +184,10 @@ completely. A first publish of a package, a deletion, a force-push, a
 rename of a published name, money spent, a message off this machine: not
 reversible. A breaking change to a published package is reversible in git
 and not for its consumers — mark it `breaking: yes`, and it is decided below
-as breaking.
+as breaking. **An addition to a published package's public API** — an
+export, a subpath, an option — is reversible only until it is released:
+removing it afterwards breaks whoever adopted it. Mark it `feature: yes`; it
+goes under *In flight* only when the mandate covers features.
 
 ## 5. Write the top items into the queue
 
@@ -182,21 +196,35 @@ Each goes to exactly one place:
 
 | where | when |
 | --- | --- |
-| **In flight** | the owner **pre-approved your recommendations** (quoted), **and** the item is `reversible: yes`, **and** its outward reach is normal PR, merge and release per the repository's `AGENTS.md`, **and** it is `breaking: no` — or breaking under a mandate the owner gave for that break |
-| **Proposed, not approved** | anything else: no pre-approval, irreversible, outward-facing beyond PR, merge and release, or breaking without a mandate |
+| **In flight** | the `Mandate:` line covers it (its repository, and features if `feature: yes`), **and** it is `reversible: yes`, **and** its outward reach is normal PR, merge and release per the repository's `AGENTS.md`, **and** it is `breaking: no` — or breaking under a mandate the owner gave for that break — **and** no other live session has planned it (below) |
+| **Proposed, not approved** | anything else: no mandate or outside it, irreversible, outward-facing beyond PR, merge and release, breaking without a mandate, or planned by another session |
+
+**When `nxgt-crew` is installed**, check each *In flight* candidate against
+the other sessions before writing it, as `plan-the-roadmap` step 4 does —
+its alignment reads every live session's roadmaps and announced plans:
+
+```bash
+crew="$(ls -d ~/.claude/plugins/cache/*/nxgt-crew/*/scripts/crew.ts 2>/dev/null | sort -V | tail -1)"
+[ -n "$crew" ] && bun "$crew" align --json
+```
+
+An entry another session announced as a plan goes to *Proposed, not
+approved* with `planned by <session>`. You do not announce anything: the
+main session records each *In flight* line with a roadmap entry as a `plan`
+(`plan-the-roadmap` step 5), so other sessions read it as taken.
 
 An *In flight* line has the shape `plan-the-roadmap` step 5 gives a queue
 item, plus where its approval comes from, so no reader mistakes it for an
 owner's explicit answer:
 
 ```markdown
-- [ ] <repo> <package> — **<bold name>** — <recommended option> — first: <first slice> — approved by mandate (<date>: "<owner's quote>"), reversible, refilled <date>
+- [ ] <repo> <package> — **<bold name>** — <recommended option> — first: <first slice> — approved by mandate (<Mandate date>, covers <what>), reversible, refilled <date>
 ```
 
 A *Proposed, not approved* line says what it needs from the owner:
 
 ```markdown
-- <repo> <package> — **<bold name>** — recommended: <option> — needs the owner: <irreversible: … | breaking: … | no pre-approval> — refilled <date>
+- <repo> <package> — **<bold name>** — recommended: <option> — needs the owner: <irreversible: … | breaking: … | feature outside the mandate | no mandate | planned by <session>> — refilled <date>
 ```
 
 Write most-blocking first. Touch no other line, and no other section. A sliced
@@ -247,12 +275,13 @@ Queue lines that are wrong
 Sibling sessions
   - <session / repo>: idle since <time> — candidates for it: <names> | active | siblings: not checked
 For the main session
-  - launch LAUNCH NEXT through work-autonomously, one branch per item
+  - announce each In flight line with a roadmap entry (/crew announce --kind plan), then
+    launch LAUNCH NEXT through work-autonomously, one branch per item
   - for each idle sibling above: one SendMessage naming its candidates, the first line self-contained
   - run plan-the-roadmap on the Proposed items: they are owner questions
 ```
 
 `LAUNCH NEXT` naming an item that is not under *In flight* is a
-contradiction; so is an *In flight* line without the owner's quoted
-pre-approval. If you cannot write either honestly, write nothing to *In
+contradiction; so is an *In flight* line that the `Mandate:` line does not
+cover. If you cannot write either honestly, write nothing to *In
 flight* and say why.

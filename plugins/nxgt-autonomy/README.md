@@ -68,16 +68,25 @@ Claude Code setting, not this plugin:
 
 It is `/config` → *Question auto-continue timeout* (`"60s"`, `"5m"`, `"10m"`
 or `"never"`; the default is `"never"`). With it, a question left idle for 5
-minutes ends and `AskUserQuestion` returns with no answer; the session then
-runs `unanswered-question-resolver`, which takes the recommended option only
-if it is reversible and inside the mandate, and records it under *Assumed,
-not answered* at the top of the queue. The next report leads with those
-lines.
+minutes continues with no submitted answer — only any option the owner had
+ticked. The session then runs `unanswered-question-resolver`. It waits on
+anything irreversible or outward-facing, ticked or not; otherwise it takes
+the owner's ticked option, else the recommended one, and records it under
+*Assumed, not answered* at the top of the queue. A wait goes under *Blocked
+on the user*, with a reversible holding step. The next report leads with the
+assumed lines.
 
-**Without the setting, nothing fires.** `AskUserQuestion` blocks the turn
-until it is answered, so no timer, background command or scheduled wake-up
-can act meanwhile. The plugin does not change the setting — the loop reads
-it and, when it is not `"5m"`, asks the owner to set it.
+**Without the setting, nothing fires.** `AskUserQuestion` holds the turn
+until it is answered; a background command keeps running, but nothing can
+answer the question or let the session act before then. The plugin does not
+change the setting — the loop reads it and, when it is `"never"` or absent,
+asks the owner to set it. A managed (policy) setting can pin it, and then
+`/config` does not offer it.
+
+`queue-refiller` writes into *In flight* only under a `Mandate:` line at the
+top of the queue — the owner's pre-approval of recommendations, in his
+words, with what it covers (improvements, or improvements and features),
+which repositories and until when. He revokes it by striking it out.
 
 ## Opting out
 
