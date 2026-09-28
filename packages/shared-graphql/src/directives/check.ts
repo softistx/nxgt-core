@@ -1,18 +1,17 @@
 import { getDirective } from '@graphql-tools/utils';
-import {
-	assertRequirement,
-	type PermissionRequirement,
-	type PermissionTerm,
-} from '@nxgt/ory-sdk';
+import type { PermissionRequirement, PermissionTerm } from '@nxgt/ory-sdk';
 import type { GraphQLSchema } from 'graphql';
+import { DEFAULT_ID_PATH } from './paths';
+import { type FieldNode, type ReadOptions, scopeOf } from './scope';
+import { assertRequirementShape } from './validate';
 
 /**
- * `@check` — the Ory-native counterpart to `@policy`.
+ * `@check` — the list-of-lists form of `@permission`, deprecated in its
+ * favour and kept working.
  *
  * The declaration itself is SDL, in `graphql/directives/check.graphqls`, so it
- * reaches every consumer of `SHARED_SCHEMA_PATH`. This module only reads it.
- * Keeping the two in one place would mean two copies of the same grammar, and
- * the copy nobody edits is the one that goes wrong.
+ * reaches every consumer of `SHARED_SCHEMA_PATH`; `CHECK_DIRECTIVE_SDL` is the
+ * same text as a string, held equal by a spec. This module only reads it.
  */
 export const CHECK_DIRECTIVE_NAME = 'check';
 
@@ -26,66 +25,45 @@ export type CheckArgs = {
 };
 
 /**
- * Every `@check` on a field, in declaration order.
+ * Every `@check` on a field, in declaration order, validated.
  *
  * `@check` is repeatable, so this is a list and the order is load-bearing:
  * `view` then `edit` is what turns a denial into 404 for a stranger and 403
- * for a viewer. `getDirective` reads the arguments against the schema's own
- * definition, which is what applies the `id` and `onDeny` defaults — the AST
- * node carries only what was written.
+ * for a viewer.
+ *
+ * The `id` and `onDeny` defaults are applied here as well as in the SDL:
+ * graphql 17 no longer hands an input field's default to `getDirective`, and a
+ * term without an id would otherwise refuse the whole schema.
  */
 export function readChecks(
 	schema: GraphQLSchema,
-	node: Parameters<typeof getDirective>[1],
+	node: FieldNode,
 	where: string,
+	options: ReadOptions = {},
 ): CheckArgs[] {
 	const found = getDirective(schema, node, CHECK_DIRECTIVE_NAME) ?? [];
+	const scope = scopeOf(node, `@check on ${where}`, options);
 
 	return found.map((raw) => {
-		const permissions = (raw.permissions ?? []) as PermissionRequirement;
-		assertRequirement(permissions, `@check on ${where}`);
-		for (const group of permissions) {
-			for (const term of group) assertReadablePath(term, where);
-		}
+		const permissions = withDefaultIds(raw.permissions);
+		assertRequirementShape(permissions, scope);
 		return {
 			permissions,
 			onDeny: (raw.onDeny ?? 'NOT_FOUND') as CheckDenial,
-			message: raw.message as string | undefined,
+			message: raw.message ?? undefined,
 		};
 	});
 }
 
-/**
- * Validated here, when the schema is transformed, and not when a request
- * arrives: a path naming neither root is a wiring mistake, and it should stop
- * the server from booting rather than 500 on the one query nobody tried.
- */
-export function assertReadablePath(term: PermissionTerm, where: string) {
-	if (!/^(args|source)(\.[A-Za-z0-9_]+)+$/.test(term.id)) {
-		throw new Error(
-			`@check on ${where}: \`id\` must be "args.<path>" or "source.<path>", got ${JSON.stringify(term.id)}`,
-		);
-	}
-}
-
-/** Reads `args.x` / `source.x.y` off a resolver's inputs. */
-export function readPath(
-	path: string,
-	source: unknown,
-	args: Record<string, unknown>,
-): unknown {
-	const [root, ...rest] = path.split('.');
-	let value: unknown = root === 'args' ? args : source;
-	for (const key of rest) {
-		value = (value as Record<string, unknown> | null | undefined)?.[key];
-	}
-	return value;
-}
-
-/** The ids one term has to clear: one value, or every element of a list. */
-export function objectIds(value: unknown): string[] {
-	const values = Array.isArray(value) ? value : [value];
-	return values.filter(
-		(item): item is string => typeof item === 'string' && item.length > 0,
+function withDefaultIds(raw: unknown): PermissionRequirement {
+	if (!Array.isArray(raw)) return raw as PermissionRequirement;
+	return raw.map((group) =>
+		Array.isArray(group)
+			? group.map((term: PermissionTerm) =>
+					term && typeof term === 'object'
+						? { ...term, id: term.id ?? DEFAULT_ID_PATH }
+						: term,
+				)
+			: group,
 	);
 }

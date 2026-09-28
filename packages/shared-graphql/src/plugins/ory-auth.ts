@@ -2,14 +2,18 @@ import {
 	bearerOf,
 	type Ory,
 	type OryPrincipal,
-	OryUnavailable,
+	type OryUnavailable,
 } from '@nxgt/ory-sdk';
 import { claimsFromOryPrincipal } from '@nxgt/security/integrations/ory';
 import type { PolicyClaims } from '@nxgt/security/policy';
 import type { TokenPrincipal } from '@nxgt/shared';
-import { GraphQLError } from 'graphql';
+import type { GraphQLError } from 'graphql';
 import type { Plugin } from 'graphql-yoga';
 import type { GraphQLBaseContext } from '../types';
+import {
+	isOryUnavailable,
+	serviceUnavailableError,
+} from '../utils/errors/ory-unavailable';
 
 /**
  * What `useOryAuth()` adds to the context, next to `user` and `token`: the
@@ -69,13 +73,7 @@ export function toPrincipal(ory: OryPrincipal): TokenPrincipal {
  * Hydra or Keto could not answer, and that must not read as "not signed in".
  */
 export function oryUnavailableError(error: OryUnavailable): GraphQLError {
-	return new GraphQLError(`ory: ${error.service} is unavailable`, {
-		extensions: {
-			code: 'SERVICE_UNAVAILABLE',
-			http: { status: 503 },
-			debugMessage: error.message,
-		},
-	});
+	return serviceUnavailableError(error);
 }
 
 /**
@@ -93,7 +91,7 @@ export async function resolveOryPrincipal(
 	try {
 		principal = await ory.resolve(headers);
 	} catch (error) {
-		if (error instanceof OryUnavailable) throw oryUnavailableError(error);
+		if (isOryUnavailable(error)) throw oryUnavailableError(error);
 		throw error;
 	}
 

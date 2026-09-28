@@ -44,12 +44,13 @@ export function createScalarFrom<T, R>(
 				throw exception;
 			}
 		},
-		parseLiteral(ast) {
+		// Both arguments forwarded: graphql 17 declares `variables` required.
+		parseLiteral(ast, variables) {
 			if (!errorMessage) {
-				return scalar.parseLiteral(ast);
+				return scalar.parseLiteral(ast, variables);
 			}
 			try {
-				return scalar.parseLiteral(ast);
+				return scalar.parseLiteral(ast, variables);
 			} catch (e) {
 				logger.error(e);
 				throw exception;

@@ -174,7 +174,7 @@ It fails a `files` entry the tarball holds nothing under, with
 first, or drop it from files` — npm skips such an entry without a word, and
 five packages ship a folder beside `dist/` that only `files` names: `schema/`,
 `graphql/` and `openapi/` in `security`, `shared-graphql` and
-`shared-openapi`, and `docs/` in `env` and `i18n-vue`.
+`shared-openapi`, and `docs/` in `env`, `i18n-vue` and `shared-graphql`.
 
 It also fails a tarball that ships test code — a `*.spec.*`, a `*.test.*`, a
 snapshot, or a `<subject>.fixtures.*` — with
@@ -304,6 +304,18 @@ registry and `gh`, has 5, as nxgt-janus's does. `ci.yml` has nxgt-janus's
 request's new push cancels its run in progress, and a push to `develop`, were
 CI ever to run on one, never would. The release keeps its own group, which
 never cancels a run under way.
+
+### graphql 17 is a tested peer, not a hoped-for one
+
+`@nxgt/shared-graphql` peers `graphql` by `^16.4.2 || ^17.0.0`, and `bun.lock`
+holds a 16. The second half was not free: on graphql 17 `getDirective` stops
+applying an input field's default, so every `@check` term without an explicit
+`id` refused the schema at build. `bun run test:graphql17`
+(`scripts/graphql-17.ts`, spec'd beside it) moves the package's `graphql`
+devDependency to 17, installs, asserts 17 is what resolves, runs the package's
+typecheck and suite, and puts `package.json` and `bun.lock` back whatever
+happened. CI runs it after the artifact check. `@nxgt/security` depends on
+graphql 17 directly and is not part of this run.
 
 ### A new `@nxgt/ory-sdk` is found by a schedule, not by memory
 
@@ -480,7 +492,8 @@ is `src/utils/schema.utils.ts`, and no single relative path serves both. See
 
 ### A shipped directive is not a composed directive
 
-`@check` is declared in `graphql/directives/check.graphqls`, inside the
+`@permission` and the deprecated `@check` are declared in
+`graphql/directives/permission.graphqls` and `check.graphqls`, inside the
 `graphql/**/*.graphqls` glob `SHARED_SCHEMA_PATH` already exposes — not in
 `SHARED_TYPE_DEFS`. That is the difference between a subgraph seeing it and
 not: `health` and `platform` build through `buildSubgraphSchema` and never load
@@ -491,7 +504,7 @@ Shipping the SDL is enough for a **standalone** Yoga schema. It is **not**
 enough for a subgraph that federation composes. The day `@check` is used in
 `health` or `platform`, rover needs both:
 
-- `@composeDirective(name: "@check")` in that subgraph, and
+- `@composeDirective(name: "@permission")` (or `"@check"`) in that subgraph, and
 - the directive named in the subgraph's own `@link` import list.
 
 Without them the composition **drops it silently** — the supergraph SDL comes
@@ -664,7 +677,7 @@ Established here, and applying to all four repositories:
   private applications that consume it. Organize by section, each with a
   concise copy-paste example; never name a private app, a private monorepo,
   or "the parc" there — those names belong in this file. The long version
-  is the package's `docs/` folder, named in `files` — `env` and `i18n-vue` have one;
+  is the package's `docs/` folder, named in `files` — `env`, `i18n-vue` and `shared-graphql` have one;
   the `nxgt-docs` agents write it: guide pages with the
   detail and an example for each point, `troubleshooting.md` headed by the
   exact error a consumer sees, and `roadmap.md`, with no dates. The bar is
@@ -673,9 +686,9 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **475 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
+`bun run test` is **508 pass, 9 skip, 0 fail** on 2026-09-27: 465 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
-real `nuxt build`), then 41 in `scripts/`, 16 of them
+real `nuxt build`), then 43 in `scripts/`, 16 of them
 `check-nxgt-versions.spec.ts`'s. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one

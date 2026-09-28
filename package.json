@@ -12,6 +12,7 @@
 		"typecheck:plugins": "tsc --noEmit -p plugins/tsconfig.json",
 		"test": "bun run --filter '*' test && bun test ./scripts/",
 		"test:plugins": "bun test ./plugins/",
+		"test:graphql17": "bun run scripts/graphql-17.ts",
 		"check": "biome check",
 		"format": "biome format",
 		"lint": "biome lint",

@@ -8,7 +8,8 @@ import {
 import { ErrorCode } from '@nxgt/shared-exceptions';
 import { graphql } from 'graphql';
 import { createSchema } from 'graphql-yoga';
-import { applyKetoChecks, createKetoChecks } from './keto-checks';
+import { applyKetoChecks } from './apply-keto-checks';
+import { createKetoChecks } from './keto-checker';
 
 /**
  * The SDL under test is the one that SHIPS — `graphql/directives/check.graphqls`,
@@ -270,7 +271,7 @@ describe('applyKetoChecks, at build time', () => {
 			`,
 				{},
 			),
-		).toThrow(/must be "args\.<path>" or "source\.<path>"/);
+		).toThrow(/must be "args\.<path>", "parent\.<path>" or "source\.<path>"/);
 	});
 
 	it('refuses an empty group, which would admit everyone', () => {
