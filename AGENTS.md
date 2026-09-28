@@ -164,7 +164,8 @@ is this copy's alone. This copy and nxgt-http read a sibling's version from the
 packed manifests, where nxgt-janus and nxgt-data read it from the workspace.
 Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
 `check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
-copied from nxgt-janus, the script byte for byte but for its header comment;
+copied from nxgt-janus, the script byte for byte but for its header comment
+and the spec but for the one package it expects to find (`@nxgt/ory-sdk`);
 nxgt-data has a copy too, which also reads `examples/*`. nxgt-http has none:
 every `@nxgt/*` package there depends only on its siblings.
 
