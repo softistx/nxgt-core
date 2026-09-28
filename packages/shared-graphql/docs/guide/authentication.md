@@ -84,9 +84,9 @@ Apollo Server; both answer `get`.
   `context.jwt.payload`.
 - A request that fails the proof leaves `user`, `token` and `jwt` as they
   were — another plugin's caller is not erased.
-- Over WebSocket, `useAuth()` checks the proof on `context.request` when your
-  graphql-ws wiring puts one there (the upgrade request); without one it reads
-  no caller. `resolveWsUser` resolves one per connection instead.
+- Over WebSocket, `useAuth()` reads no caller: the proof needs a fetch
+  `Request`, which a graphql-ws context does not hold. Resolve the caller per
+  connection with `resolveWsUser` instead.
 
 Without a `trustedGateway`, both throw a `TypeError` when called — see
 [troubleshooting](../troubleshooting.md).
@@ -122,6 +122,11 @@ type Staff implements Node @authenticated(type: ["session"]) { id: ID!, name: St
 - **Every directive that applies is AND-ed**: the field's, its type's, its
   type's interfaces', and those interfaces' same field. `Staff.name` above
   needs a caller (`Node`) who is a session (`Staff`).
+- **A scalar's or an enum's directive guards every field returning it** —
+  `scalar Secret @authenticated` refuses `Query.secret: Secret` to an
+  anonymous caller, as federation's router reads it.
+- **A subscription is refused before its stream opens**: the check runs
+  before the field's `subscribe`, and again before each event is resolved.
 - **A type's directive guards its fields, not the field returning it.**
   `Query.staff` runs for an anonymous caller; the error lands on
   `staff.name`. Put `@authenticated` on the field too when the lookup must not
@@ -165,8 +170,12 @@ declares `@authenticated` through `SHARED_TYPE_DEFS` or
 
 ### Beside `useKetoChecks`
 
-Both plugins replace the schema. Each marks the schema it returns and passes a
-marked one through, so the two settle on one schema in either order:
+Both plugins replace the schema. Each marks the fields it guarded and leaves a
+marked field alone, so the two settle on one schema in either order — and a
+schema merged from a guarded half and an unguarded one gets the second half
+guarded when it is transformed again. On a field carrying both,
+`@authenticated` is checked before `@permission` whatever the plugin order,
+so a caller of the wrong type is `FORBIDDEN` before Keto is asked:
 
 ```ts
 plugins: [useOryAuth(ory), useAuthenticated(), useKetoChecks(ory)]

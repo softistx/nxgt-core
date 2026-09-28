@@ -1,11 +1,7 @@
 import { MapperKind, mapSchema } from '@graphql-tools/utils';
 import { evaluateRequirement, type PermissionTerm } from '@nxgt/ory-sdk';
 import { ErrorCode } from '@nxgt/shared-exceptions';
-import {
-	defaultFieldResolver,
-	type GraphQLFieldConfig,
-	type GraphQLSchema,
-} from 'graphql';
+import type { GraphQLFieldConfig, GraphQLSchema } from 'graphql';
 import {
 	type FieldPermission,
 	objectIds,
@@ -15,9 +11,9 @@ import {
 } from '../directives';
 import { refuseRemovedCheck } from '../directives/removed-check';
 import { denial } from '../utils/errors/denial';
+import { guardField, isGuarded } from './field-guard';
 import type { KetoChecksContext } from './keto-checker';
 import type { OryContext } from './ory-auth';
-import { isMarked, withMark } from './schema-mark';
 
 type FieldConfig = GraphQLFieldConfig<unknown, unknown>;
 
@@ -34,14 +30,16 @@ const MARK = '@nxgt/shared-graphql:keto-checks';
  * throw a `TypeError` naming `Type.field`, so the server does not boot.
  *
  * Modelled on `applyGraphqlPolicy` in `@nxgt/security`. Exported on its own
- * because a schema transform is far easier to test than a plugin. A schema it
- * already transformed is returned as it is, so it never wraps a field twice.
+ * because a schema transform is far easier to test than a plugin. A field it
+ * already guarded is left as it is, and a schema with no field left to guard
+ * is returned as it is — so it never wraps a field twice, and the plugin's
+ * `onSchemaChange` settles.
  */
 export function applyKetoChecks(
 	schema: GraphQLSchema,
 	options: ReadOptions = {},
 ): GraphQLSchema {
-	if (isMarked(schema, MARK)) return schema;
+	let guardedNow = 0;
 	const mapped = mapSchema(schema, {
 		[MapperKind.INTERFACE_FIELD]: (fieldConfig, fieldName, typeName) => {
 			refuseOnInterface(schema, fieldConfig, `${typeName}.${fieldName}`);
@@ -51,11 +49,14 @@ export function applyKetoChecks(
 			const where = `${typeName}.${fieldName}`;
 			refuseRemovedCheck(schema, fieldConfig, where);
 			const requirements = readPermissions(schema, fieldConfig, where, options);
-			if (requirements.length === 0) return fieldConfig;
+			if (requirements.length === 0 || isGuarded(fieldConfig, MARK)) {
+				return fieldConfig;
+			}
+			guardedNow += 1;
 			return guarded(fieldConfig, requirements, where);
 		},
 	});
-	return withMark(mapped, MARK);
+	return guardedNow > 0 ? mapped : schema;
 }
 
 /** No resolver runs on an interface's field, so a guard there guards nothing. */
@@ -77,16 +78,13 @@ function guarded(
 	requirements: FieldPermission[],
 	where: string,
 ): FieldConfig {
-	const resolve = fieldConfig.resolve ?? defaultFieldResolver;
-
-	return {
-		...fieldConfig,
-		resolve: async (source, args, context, info) => {
+	return guardField(fieldConfig, {
+		mark: MARK,
+		rank: 1,
+		check: async (source, args, context) => {
 			const ctx = context as KetoChecksContext & OryContext;
 			const subject = ctx.ory?.subject;
-			if (!subject) {
-				throw denial(ErrorCode.Unauthenticated);
-			}
+			if (!subject) throw denial(ErrorCode.Unauthenticated);
 
 			const check = ctx.ketoChecks;
 			if (!check) {
@@ -106,10 +104,8 @@ function guarded(
 				);
 				if (!allowed) throw refusal(onDeny, message);
 			}
-
-			return resolve(source, args, context, info);
 		},
-	};
+	});
 }
 
 /**

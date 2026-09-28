@@ -18,7 +18,7 @@ export type KetoChecksOptions = ReadOptions;
  *
  * `replaceSchema` inside `onSchemaChange` re-enters this hook with the new
  * schema, and with every schema another plugin makes of it. `applyKetoChecks`
- * passes a schema it already transformed through, so the replacement settles
+ * returns a schema with no field left to guard as it is, so the replacement settles
  * instead of looping, alongside `useAuthenticated` whatever their order.
  *
  * `OryUnavailable` is deliberately not caught anywhere here: a Keto outage is

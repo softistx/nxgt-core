@@ -9,8 +9,8 @@ import type { OryContext } from './ory-auth';
  * server uses. Goes after the plugin that sets the caller — `useOryAuth(ory)`
  * or `useAuth({ trustedGateway })`.
  *
- * `applyAuthenticated` passes a schema it already transformed through, so the
- * replacement settles alongside `useKetoChecks` whatever their order.
+ * `applyAuthenticated` returns a schema with no field left to guard as it is,
+ * so the replacement settles alongside `useKetoChecks` whatever their order.
  */
 export function useAuthenticated(
 	options: AuthenticatedOptions = {},

@@ -167,7 +167,8 @@ createYoga({ plugins: [useOryAuth(ory), useAuthenticated()] });
   no Ory principal is on the context. `useAuthenticated({ types: [...] })`
   names other values; a `type` outside them is refused at build.
 - An anonymous caller is `UNAUTHENTICATED` (401), a caller of another type
-  `FORBIDDEN` (403).
+  `FORBIDDEN` (403). An `@authenticated` scalar or enum guards every field
+  returning it, and a subscription is refused before its stream opens.
 - `SHARED_TYPE_DEFS` now declares `@authenticated(type: [String!])`. If you
   declare `@authenticated` yourself, add the argument or drop your
   declaration; `AUTHENTICATED_DIRECTIVE_SDL` is the declaration as a string.

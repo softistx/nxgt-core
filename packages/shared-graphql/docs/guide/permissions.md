@@ -159,8 +159,10 @@ misspelt one answers `false` for ever — Keto does not error on a namespace it
 does not know. Pass the namespaces of your OPL document to make that a boot
 failure.
 
-`applyKetoChecks` returns a schema it already transformed as it is, so a field
-is never wrapped twice.
+`applyKetoChecks` leaves a field it already guarded alone, so a field is never
+wrapped twice, and a field it has not — the other half of a merged schema —
+is guarded when it runs again. A subscription's `subscribe` is guarded too:
+a refused subscription opens no stream.
 
 ## From a resolver
 

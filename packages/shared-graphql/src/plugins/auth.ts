@@ -26,9 +26,12 @@ export function useAuth(options: UseAuthOptions): Plugin<GraphQLBaseContext> {
 	const trusted = requireGatewayTrust(options, 'useAuth()');
 	return {
 		onContextBuilding: async ({ context, extendContext }) => {
-			// A WebSocket message has no request of its own to prove anything.
+			// Only a fetch Request can carry the proof. A WebSocket context holds
+			// none, or a Node upgrade request whose headers are a plain record:
+			// neither names a caller here — `resolveWsUser` does, per connection.
 			const headers = context.request?.headers;
-			if (!headers || !(await trusted(headers))) return;
+			if (typeof headers?.get !== 'function') return;
+			if (!(await trusted(headers))) return;
 			const user = principalOf(context.params?.extensions?.user);
 			if (!user) return;
 			const token = context.params.extensions?.token;

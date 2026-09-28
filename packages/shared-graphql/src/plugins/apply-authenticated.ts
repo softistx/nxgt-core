@@ -1,10 +1,12 @@
 import { MapperKind, mapSchema } from '@graphql-tools/utils';
 import { ErrorCode } from '@nxgt/shared-exceptions';
 import {
-	defaultFieldResolver,
 	type GraphQLFieldConfig,
 	type GraphQLSchema,
+	getNamedType,
+	isEnumType,
 	isObjectType,
+	isScalarType,
 } from 'graphql';
 import {
 	type AuthenticatedOptions,
@@ -15,8 +17,8 @@ import {
 } from '../directives/authenticated';
 import type { PrincipalContext } from '../types';
 import { denial } from '../utils/errors/denial';
+import { guardField, isGuarded } from './field-guard';
 import type { OryContext } from './ory-auth';
-import { isMarked, withMark } from './schema-mark';
 
 type FieldConfig = GraphQLFieldConfig<unknown, unknown>;
 
@@ -24,8 +26,9 @@ const MARK = '@nxgt/shared-graphql:authenticated';
 
 /**
  * Wraps every object field that an `@authenticated` applies to — on the field,
- * on its type, on one of its type's interfaces or on that interface's field —
- * so the caller is checked before its resolver runs: none is
+ * on its type, on one of its type's interfaces or on that interface's field,
+ * or on the scalar or enum it returns — so the caller is checked before its
+ * resolver (and a subscription's `subscribe`) runs: none is
  * `UNAUTHENTICATED` (401), one of a type no `type:` names is `FORBIDDEN`
  * (403). Every one that applies must hold.
  *
@@ -34,78 +37,90 @@ const MARK = '@nxgt/shared-graphql:authenticated';
  * type in common each throw a `TypeError` naming `Type.field`.
  *
  * The caller is `context.user`, which `useOryAuth` and `useAuth` set; its
- * type is `context.ory.kind`, or `context.user.tokenType` without Ory.
+ * type is `context.ory.kind`, or `context.user.tokenType` without Ory. A field
+ * already guarded is left alone, and a schema with none left to guard is
+ * returned as it is, so the plugin's `onSchemaChange` settles.
  */
 export function applyAuthenticated(
 	schema: GraphQLSchema,
 	options: AuthenticatedOptions = {},
 ): GraphQLSchema {
-	if (isMarked(schema, MARK)) return schema;
 	const known = options.types ?? CALLER_TYPES;
+	let guardedNow = 0;
 	const mapped = mapSchema(schema, {
 		[MapperKind.OBJECT_FIELD]: (fieldConfig, fieldName, typeName) => {
-			const requirement = requirementOf(
-				schema,
-				fieldConfig,
-				fieldName,
-				typeName,
-				known,
-			);
-			return requirement ? guarded(fieldConfig, requirement) : fieldConfig;
+			const where = `${typeName}.${fieldName}`;
+			const requirement = requirementOf(schema, fieldConfig, where, known);
+			if (!requirement || isGuarded(fieldConfig, MARK)) return fieldConfig;
+			guardedNow += 1;
+			return guarded(fieldConfig, requirement);
 		},
 	});
-	return withMark(mapped, MARK);
+	return guardedNow > 0 ? mapped : schema;
 }
 
+/** Every `@authenticated` that applies to `Type.field`, combined. */
 function requirementOf(
 	schema: GraphQLSchema,
 	fieldConfig: FieldConfig,
-	fieldName: string,
-	typeName: string,
+	where: string,
 	known: readonly string[],
 ): CallerRequirement | null {
-	const where = `${typeName}.${fieldName}`;
+	const [typeName = '', fieldName = ''] = where.split('.');
 	const type = schema.getType(typeName);
 	const interfaces = isObjectType(type) ? type.getInterfaces() : [];
+	const read = (node: Parameters<typeof readAuthenticated>[1], at: string) =>
+		readAuthenticated(schema, node, at, known);
 	return combineRequirements(
 		[
-			readAuthenticated(schema, fieldConfig, where, known),
-			type ? readAuthenticated(schema, type, typeName, known) : null,
+			read(fieldConfig, where),
+			type ? read(type, typeName) : null,
 			...interfaces.flatMap((iface) => {
 				const field = iface.getFields()[fieldName];
 				return [
-					readAuthenticated(schema, iface, iface.name, known),
-					field
-						? readAuthenticated(
-								schema,
-								field,
-								`${iface.name}.${fieldName}`,
-								known,
-							)
-						: null,
+					read(iface, iface.name),
+					field ? read(field, `${iface.name}.${fieldName}`) : null,
 				];
 			}),
+			leafRequirement(schema, fieldConfig, read),
 		],
 		where,
 	);
+}
+
+/**
+ * A scalar or an enum has no resolver of its own, so its `@authenticated`
+ * guards every field that returns it — the reading federation's router gives
+ * the same declaration.
+ */
+function leafRequirement(
+	schema: GraphQLSchema,
+	fieldConfig: FieldConfig,
+	read: (
+		node: Parameters<typeof readAuthenticated>[1],
+		at: string,
+	) => CallerRequirement | null,
+): CallerRequirement | null {
+	const leaf = schema.getType(getNamedType(fieldConfig.type).name);
+	if (!leaf || !(isScalarType(leaf) || isEnumType(leaf))) return null;
+	return read(leaf, leaf.name);
 }
 
 function guarded(
 	fieldConfig: FieldConfig,
 	{ types }: CallerRequirement,
 ): FieldConfig {
-	const resolve = fieldConfig.resolve ?? defaultFieldResolver;
-	return {
-		...fieldConfig,
-		resolve: (source, args, context, info) => {
+	return guardField(fieldConfig, {
+		mark: MARK,
+		rank: 0,
+		check: (_source, _args, context) => {
 			const ctx = (context ?? {}) as PrincipalContext & OryContext;
 			if (!ctx.user) throw denial(ErrorCode.Unauthenticated);
 			if (types && !types.includes(callerTypeOf(ctx) ?? '')) {
 				throw denial(ErrorCode.Forbidden);
 			}
-			return resolve(source, args, context, info);
 		},
-	};
+	});
 }
 
 function callerTypeOf(ctx: PrincipalContext & OryContext): string | undefined {

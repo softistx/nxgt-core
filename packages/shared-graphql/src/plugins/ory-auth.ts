@@ -106,9 +106,9 @@ export async function resolveOryPrincipal(
 /**
  * `useAuth()` for an Ory-native API: resolves the caller through Kratos
  * (session cookie, session token) or Hydra (Bearer, introspected) and puts
- * `user`, `claims`, `token` and `ory` on the context. Wire it exactly where the
- * standalone APIs wire `useAuth()`, ahead of `useGenericAuth` — which then
- * enforces `@authenticated` from `context.user` unchanged.
+ * `user`, `claims`, `token` and `ory` on the context. Wire it ahead of
+ * `useAuthenticated()`, which enforces `@authenticated` from `context.user`
+ * and `context.ory.kind`.
  *
  * The `Ory` instance comes from the app's `createOry()` — one per process —
  * and is the same one the services use for `isAllowed`.

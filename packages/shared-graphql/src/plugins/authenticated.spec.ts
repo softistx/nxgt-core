@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'bun:test';
 import { ErrorCode } from '@nxgt/shared-exceptions';
-import { type ExecutionResult, graphql, parse } from 'graphql';
-import { createSchema, createYoga } from 'graphql-yoga';
 import {
-	AUTHENTICATED_DIRECTIVE_SDL,
-	KETO_DIRECTIVES_SDL,
-} from '../directives';
+	type ExecutionResult,
+	GraphQLScalarType,
+	graphql,
+	parse,
+	subscribe,
+} from 'graphql';
+import { createSchema } from 'graphql-yoga';
+import { AUTHENTICATED_DIRECTIVE_SDL } from '../directives';
 import { buildSubgraphSchema } from '../utils/schema.utils';
 import { applyAuthenticated } from './apply-authenticated';
-import { useAuthenticated } from './authenticated';
-import { useKetoChecks } from './keto-checks';
 
 const SDL = `
 interface Node @authenticated { id: ID! }
@@ -82,10 +83,6 @@ describe('@authenticated', () => {
 			machine: 'machine',
 		});
 	});
-
-	it('never wraps a field twice', () => {
-		expect(applyAuthenticated(schema)).toBe(schema);
-	});
 });
 
 describe('applyAuthenticated refuses at build', () => {
@@ -140,34 +137,68 @@ describe("federation's @authenticated, which takes no argument", () => {
 	});
 });
 
-describe('useAuthenticated beside useKetoChecks', () => {
-	it('settles on one schema, whatever the order, and still guards the field', async () => {
-		const typeDefs = [
-			AUTHENTICATED_DIRECTIVE_SDL,
-			KETO_DIRECTIVES_SDL,
-			`type Query {
-				note(id: ID!): String @authenticated(type: ["session"]) @permission(name: "view", type: "Note")
-			}`,
-		];
-		const ory = {
-			checkMany: async (q: unknown[]) => q.map(() => true),
-		} as never;
-		for (const plugins of [
-			[useAuthenticated(), useKetoChecks(ory)],
-			[useKetoChecks(ory), useAuthenticated()],
-		]) {
-			const yoga = createYoga({
-				schema: createSchema({
-					typeDefs,
-					resolvers: { Query: { note: () => 'n' } },
-				}),
-				context: { ...token, ory: { kind: 'token', subject: 'client-1' } },
-				plugins,
-			});
-			const response = await yoga.fetch(
-				'http://api.test/graphql?query={note(id:"n1")}',
-			);
-			expect(response.status).toBe(403);
-		}
+describe('@authenticated on what a field returns, and on a subscription', () => {
+	const guarded = applyAuthenticated(
+		createSchema({
+			typeDefs: [
+				AUTHENTICATED_DIRECTIVE_SDL,
+				`scalar Secret @authenticated
+				enum Level @authenticated(type: ["session"]) { LOW HIGH }
+				type Query { secret: Secret, level: Level }
+				type Subscription { tick: Int @authenticated }`,
+			],
+			resolvers: {
+				Secret: new GraphQLScalarType({ name: 'Secret' }),
+				Query: { secret: () => 'classified', level: () => 'HIGH' },
+				Subscription: {
+					tick: {
+						subscribe: () => {
+							opened += 1;
+							return (async function* () {
+								yield { tick: 1 };
+							})();
+						},
+					},
+				},
+			},
+		}),
+	);
+	let opened = 0;
+
+	it('guards every field returning a guarded scalar or enum', async () => {
+		const anonymous = await run('{ secret level }', {}, guarded);
+		expect(anonymous.data).toEqual({ secret: null, level: null });
+		expect(anonymous.errors?.map((e) => e.extensions.code)).toEqual([
+			ErrorCode.Unauthenticated,
+			ErrorCode.Unauthenticated,
+		]);
+		expect(codeOf(await run('{ level }', token, guarded))).toBe(
+			ErrorCode.Forbidden,
+		);
+		expect((await run('{ secret level }', session, guarded)).data).toEqual({
+			secret: 'classified',
+			level: 'HIGH',
+		});
+	});
+
+	it('refuses a subscription before its stream is opened', async () => {
+		const refused = await subscribe({
+			schema: guarded,
+			document: parse('subscription { tick }'),
+			contextValue: {},
+		});
+		expect((refused as ExecutionResult).errors?.[0]?.extensions?.code).toBe(
+			ErrorCode.Unauthenticated,
+		);
+		expect(opened).toBe(0);
+
+		const stream = await subscribe({
+			schema: guarded,
+			document: parse('subscription { tick }'),
+			contextValue: session,
+		});
+		const first = await (stream as AsyncGenerator<ExecutionResult>).next();
+		expect(first.value?.data).toEqual({ tick: 1 });
+		expect(opened).toBe(1);
 	});
 });

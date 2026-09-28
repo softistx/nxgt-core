@@ -530,7 +530,8 @@ only for a request `trustedGateway` vouches for (`gatewaySecret`: a shared
 secret, constant-time, 16 characters at least), and throw at construction
 without one. Do not add a default that trusts the body, nor a
 `trustedGateway` that always answers `true`: the specs send forged
-`extensions` through a real Yoga and a real Apollo server to hold this.
+`extensions` to a Yoga server through `yoga.fetch` and to an `ApolloServer`
+through `executeOperation` (with a hand-built `HeaderMap`) to hold this.
 
 ### Siblings are depended on by range — `workspace:^`, never `workspace:*`
 
@@ -706,7 +707,7 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **538 pass, 9 skip, 0 fail** on 2026-09-28: 495 in the
+`bun run test` is **543 pass, 9 skip, 0 fail** on 2026-09-28: 500 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
 real `nuxt build`), then 43 in `scripts/`, 16 of them
 `check-nxgt-versions.spec.ts`'s. Treat any failure as yours.

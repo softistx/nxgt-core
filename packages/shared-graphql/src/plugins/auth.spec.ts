@@ -69,4 +69,19 @@ describe('useAuth — the caller comes from a trusted gateway only', () => {
 			/useAuth\(\): name the gateway allowed to set the caller/,
 		);
 	});
+
+	it('reads no caller, and does not throw, from a Node upgrade request', async () => {
+		const plugin = useAuth({
+			trustedGateway: gatewaySecret({ secret: SECRET }),
+		});
+		const extended: unknown[] = [];
+		await plugin.onContextBuilding?.({
+			context: {
+				request: { headers: { [GATEWAY_SECRET_HEADER]: SECRET } },
+				params: FORGED,
+			},
+			extendContext: (value: unknown) => extended.push(value),
+		} as never);
+		expect(extended).toEqual([]);
+	});
 });
