@@ -4,11 +4,13 @@ description: >-
   The default operating mode of every session in a git repository, put in
   context at session start by the nxgt-autonomy hook: work the standing queue
   to completion — branch, verify, review, document, PR and merge each item —
-  then run the verifier, the auditor and the scout, and plan the roadmap when
-  the queue runs dry instead of stopping. Owner decisions go through
-  interactive questions, recommended option first; it never hands back, never
-  starts unapproved work, and never takes an irreversible step without an
-  explicit answer. Read it at the start of a session, when an item lands, and
+  then run the verifier and the auditor, refill the queue (the queue-refiller
+  when the owner said to keep going, else the scout) and plan the roadmap
+  instead of stopping. Owner decisions go through interactive questions,
+  recommended option first; a question unanswered after 5 minutes goes to
+  the unanswered-question-resolver. It never hands back, never starts
+  unapproved work, and never takes an irreversible step without an explicit
+  answer. Read it at the start of a session, when an item lands, and
   before ending any turn.
 ---
 
@@ -26,13 +28,15 @@ every session in a git repository; this skill is its long form. The hook changes
 no permission and no mode — it only says how to work. `NXGT_AUTONOMY_DISABLE=1`
 in the environment turns it off for a session that must not run this way.
 
-Three agents do the parts that must not be done by whoever did the work:
+Five agents do the parts that must not be done by whoever did the work:
 
 | agent | what it is for |
 | --- | --- |
 | `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and the roadmaps with the queue; says what remains |
 | `improvement-scout` | proposes improvements, applies none |
 | `green-bar-verifier` | refuses to call anything done that was not measured |
+| `queue-refiller` | when the queue is empty and the owner said to keep going: reconciles, sweeps for improvements and features, and writes the top items into the queue — approved by mandate only when the owner pre-approved recommendations and the item is reversible (section 5) |
+| `unanswered-question-resolver` | when a question got no answer in 5 minutes: takes the recommendation (or the owner's tick) if it is reversible and inside the autonomy mandate (a public-API addition also needs the queue's `Mandate:` line to cover features) and records it under *Assumed, not answered*; otherwise waits under *Blocked on the user* with a holding step (section 4) |
 
 ---
 
@@ -48,14 +52,24 @@ ls ~/.claude/projects/*/memory/work-queue.md
 The one whose project matches the checkout is this session's queue. An item may
 name several repositories; it still lives in that one file.
 
-Four sections, and each one earns its place:
+Five sections, and each one earns its place, under an optional `Mandate:`
+line:
 
 ```markdown
+Mandate: <date> "<owner's words>" — covers: improvements | improvements and features — repos: <names | all> — until: <date | revoked>
+## Assumed, not answered  decisions taken on a recommendation (or a ticked option) after the question timed out — the owner confirms or reverses each
 ## In flight              what to work on now, most-blocking first
 ## Blocked on the user    named, with what exactly is needed
-## Proposed, not approved  the scout writes here — DO NOT START
+## Proposed, not approved  the scout and the refiller write here — DO NOT START
 ## Done                   crossed off with the PR number that proves it
 ```
+
+The **`Mandate:` line** is the owner's pre-approval of your recommendations
+("adopt your recommendations", « j'approuve tes recommandations »), written
+when he gives it, with his words, what it covers and until when. It is the
+only thing that lets `queue-refiller` write into *In flight*; he revokes it
+by striking it out. A question the resolver decides to wait on goes to
+*Blocked on the user*; only a taken one goes to *Assumed, not answered*.
 
 *Done* also holds `- [x] … withdrawn — <reason>` lines: an accepted item let
 go after its branch was cut, its PR closed (`plan-the-roadmap` step 5). They
@@ -105,10 +119,15 @@ looking like progress.
 - **No new scope.** An improvement found on the way goes to *Proposed, not
   approved*. It is written down, not done. The exception is a fix the queued work
   requires to be correct — then it is part of the item, and the commit says why.
+  What `queue-refiller` writes into *In flight* is not new scope: the owner
+  approved it in advance, by the queue's `Mandate:` line (section 1), and the
+  line says so.
 - **Never take an irreversible or outward-facing step on anything but an
   explicit answer** — deleting data, force-pushing, the first publish of a
   package, spending money, messaging anyone off this machine. Ask, and carry on
   with other work until the owner answers; a recommendation is not an answer.
+  The 5-minute rule of section 4 never reaches these: its resolver waits on
+  every one of them.
 - **Never widen a destructive action.** A live machine, a running stack, a
   registry, someone else's repository: confirm first, every time, even mid-flow.
   Approval for one delete is not approval for the next.
@@ -137,6 +156,48 @@ Ask with `AskUserQuestion`, in the owner's language, and:
   reads as one that waits for a real answer (section 3).
 - **Never ask what the code can answer.** Measure it instead.
 
+### A question left unanswered for 5 minutes
+
+The owner's standing rule: **5 minutes without an answer, take the
+recommendation — when it can be undone.** Claude Code gives that one
+mechanism, and this skill claims no other:
+
+- **`askUserQuestionTimeout: "5m"`** — a Claude Code setting (`/config` →
+  *Question auto-continue timeout*; `"60s"`, `"5m"`, `"10m"` or `"never"`,
+  default `"never"`). With it, a question left idle for 5 minutes continues
+  on its own, with **no submitted answer** — only any option the owner had
+  ticked. That result is the trigger: note the time before asking and after
+  (`date -Iseconds`), then run **`unanswered-question-resolver`** with the
+  question, its options in order, both times, the timeout, whether it was
+  labelled `(Irreversible)`, and what the owner had ticked. It waits on
+  anything irreversible, outward-facing or breaking, and on an addition to a
+  published package's public API unless the `Mandate:` line covers
+  features. Act on its `DECISION`; if
+  it says wait, take its holding step and carry on with the rest of the
+  queue.
+- **Without that setting, nothing fires.** `AskUserQuestion` holds the turn
+  until the owner answers. A background command keeps running meanwhile, but
+  nothing — no timer, `sleep`, `Monitor` or scheduled wake-up — can answer
+  the question or let the session act before it is answered. So at the start
+  of an autonomous run, read the setting —
+
+  ```bash
+  grep -h '"askUserQuestionTimeout"' ~/.claude/settings.json .claude/settings.json .claude/settings.local.json 2>/dev/null
+  ```
+
+  — and when it is `"never"` or absent, say so in the first report and ask
+  the owner to set it to `"5m"` in `/config`; `"60s"` or `"10m"` also fire,
+  and the resolver records the value that did. The grep does not see managed
+  (policy) settings or `--settings`: when `/config` does not offer the entry,
+  a managed setting holds it, and only its administrator can change it.
+  **Never edit a settings file for it yourself**:
+  it is the owner's setting, and a question that blocks is his to shorten.
+  Until he does, the older rule is the only one that works: everything that
+  does not depend on the answer is done **before** asking.
+
+An owner's answer that arrives later, in the chat, replaces the assumed one:
+if they differ, queue the undo and remove the *Assumed, not answered* line.
+
 ## 5. The end of a run, in this order
 
 When *In flight* is empty, or everything left in it is blocked:
@@ -147,14 +208,31 @@ When *In flight* is empty, or everything left in it is blocked:
    `gh pr list`, and the roadmaps with the queue.
    Anything it finds that is done-but-not-crossed-off, or crossed-off-but-not-
    merged, is fixed in the file.
-3. **`improvement-scout`** — writes into *Proposed, not approved*, and applies
-   nothing.
-4. **`plan-the-roadmap`** — when *In flight* is empty, the queue has run dry,
-   and that is not a reason to stop: run the planning cycle on the scout's
-   candidates and the owner's requests. It ends in interactive questions, and
-   what the owner approves goes back into *In flight*.
+3. **`queue-refiller`** — when *In flight* has no actionable item and the
+   owner has said to keep going. Pass it the queue's path, the owner's
+   go-ahead quoted with its date, and the auditor's report; it reads the
+   queue's `Mandate:` line itself. It writes the top items into *In flight*
+   (approved by mandate: covered by the `Mandate:` line **and** reversible,
+   and not planned by another session) or *Proposed, not approved*
+   (anything irreversible, outward-facing beyond PR, merge and release,
+   breaking without a mandate, a feature the mandate does not cover, or no
+   mandate), and returns `LAUNCH NEXT`. With `nxgt-crew`, record each *In
+   flight* line that has a roadmap entry with `/crew announce --kind plan`
+   (`plan-the-roadmap` step 5) — the refiller cannot — then launch those
+   items through section 2, in order. It also names the **sibling sessions that
+   look idle**; it cannot message them. For each, send one `SendMessage`
+   naming the candidates it found for that session's repository — first line
+   self-contained, one message per session, no follow-ups; in the main
+   conversation `ListAgents` (and `notify_when_idle`) are yours to check
+   first when it could not. Without the owner's go-ahead, run
+   **`improvement-scout`** instead — it writes into *Proposed, not
+   approved*, and applies nothing.
+4. **`plan-the-roadmap`** — on whatever sits in *Proposed, not approved*: the
+   queue running dry is not a reason to stop. It ends in interactive
+   questions, and what the owner approves goes back into *In flight*.
 5. **Report**: what landed with PR numbers, what is blocked and on what
-   exactly, what the scout proposes, and the interactive questions.
+   exactly, what the refiller or the scout proposes, and the interactive
+   questions.
 
 **If the auditor finds remaining work, continue instead of stopping.** That is
 the continuation trigger, and it is the auditor's answer that decides it — not a
@@ -163,8 +241,11 @@ waiting**: a turn ends on work done and questions asked, not on "let me know".
 
 ## 6. What the report says
 
-Short, and in the owner's language. For each item: what landed, the PR number,
-and the one thing that was surprising. Then blockers, one line each, phrased as
+Short, and in the owner's language. **It leads with every *Assumed, not
+answered* line** — the decisions taken on a recommendation while he was
+away — so he can reverse one before it has consequences. Then, for each
+item: what landed, the PR number, and the one thing that was surprising.
+Items the refiller queued by mandate say so. Then blockers, one line each, phrased as
 what the owner must do. Then the questions.
 
 Never report a step as done that was skipped, and never describe a check as

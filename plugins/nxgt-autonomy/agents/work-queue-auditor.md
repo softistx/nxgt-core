@@ -87,6 +87,17 @@ Four findings are worth more than a summary, and each has a fixed shape:
 | **silently abandoned** | a branch with commits, no PR, and nothing in flight |
 | **withdrawn** — *not a finding* | `- [x] … withdrawn — <reason>` under *Done*, its PR closed without merging (or no PR, if none was opened). `plan-the-roadmap` step 5 writes it on purpose when an accepted entry is let go after its branch was cut. Not **crossed off but not merged**, and not a roadmap finding below |
 
+Lines under *Assumed, not answered* are not items: `unanswered-question-resolver`
+writes them, and they stay until the owner confirms or reverses each. Report
+their count in the header; do not reconcile them. Its *waiting for the owner*
+lines under *Blocked on the user* are ordinary blockers.
+
+The `Mandate:` line above the sections is not an item either: it is the
+owner's pre-approval that lets `queue-refiller` write into *In flight*.
+Report it when its `until:` date has passed or it is struck out while *In
+flight* still holds lines marked `approved by mandate` — those lost their
+approval and go back to *Proposed, not approved*.
+
 An item that says "PR #216" is checked by **reading that PR**, not by trusting
 the number. A PR that merged with a failing check is not done.
 
@@ -129,7 +140,7 @@ the entry yourself; `roadmap-keeper` does, in the item's PR.
 ## 4. Report
 
 ```
-QUEUE: <n> in flight · <n> blocked on the user · <n> proposed
+QUEUE: <n> in flight · <n> blocked on the user · <n> proposed · <n> assumed
 CONTINUE: yes|no          ← the trigger. "yes" means item <x> is actionable now.
 
 Actionable now

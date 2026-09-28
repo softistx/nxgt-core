@@ -76,7 +76,9 @@ you must ask the caller for in your report rather than guess.
 
 Run it whenever the plan involves roadmap entries — at the start of an
 autonomous run, and while `nxgt-autonomy:plan-the-roadmap` (nxgt-autonomy
-1.1.0) plans an entry. That skill's cycle is: discover (improvement-scout), a
+1.1.0) plans an entry, and when nxgt-autonomy's queue-refiller (1.2.0) queues
+one by the owner's standing mandate. That skill's cycle is: discover
+(improvement-scout or queue-refiller), a
 roadmap entry under Next or Later (roadmap-keeper), a plan per entry, the
 owner's validation through AskUserQuestion, the queue item, execution
 (work-autonomously), verification, Shipped. This pass runs **before** the
