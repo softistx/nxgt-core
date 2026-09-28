@@ -13,4 +13,4 @@
 - **`graphql` peered `^16.9.0 || ^17.0.0`** (was `^16.4.2 || ^17.0.0`).
 - **`sandboxExpolorer` renamed `sandboxExplorer`**, with no alias.
 
-`applyKetoChecks` and `applyAuthenticated` mark the fields they guard and leave a marked field alone, so `useKetoChecks` and `useAuthenticated` settle beside each other in either order, `@authenticated` is checked before `@permission` on a field carrying both, and a merged schema's unguarded half is guarded when transformed again. `@permission` now also guards a subscription's `subscribe`, so a refused subscription opens no stream.
+`applyKetoChecks` and `applyAuthenticated` mark the fields they guard and leave a marked field alone, so `useKetoChecks` and `useAuthenticated` settle beside each other in either order, `@authenticated` is checked before `@permission` on a field carrying both, and a merged schema's unguarded half is guarded when transformed again. A field whose resolver was replaced since is guarded again. On a subscription, `@permission` reading `args.*` is now asked before `subscribe`, so a refused subscription opens no stream; one reading `parent.*` is asked of each event, as before.

@@ -161,8 +161,13 @@ failure.
 
 `applyKetoChecks` leaves a field it already guarded alone, so a field is never
 wrapped twice, and a field it has not — the other half of a merged schema —
-is guarded when it runs again. A subscription's `subscribe` is guarded too:
-a refused subscription opens no stream.
+is guarded when it runs again — as is a field whose resolver was replaced
+since (`addResolversToSchema`, a merge with resolvers).
+
+On a subscription, a `@permission` whose `id` reads `args.*` is asked before
+`subscribe`, so a refused subscription opens no stream. One that reads
+`parent.*` has no event to read yet: it is asked of each event instead, and a
+refused event answers its denial while the stream stays open.
 
 ## From a resolver
 

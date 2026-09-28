@@ -113,6 +113,7 @@ function guarded(
 	return guardField(fieldConfig, {
 		mark: MARK,
 		rank: 0,
+		onSubscribe: true,
 		check: (_source, _args, context) => {
 			const ctx = (context ?? {}) as PrincipalContext & OryContext;
 			if (!ctx.user) throw denial(ErrorCode.Unauthenticated);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
+import { addResolversToSchema, mergeSchemas } from '@graphql-tools/schema';
 import type { Ory } from '@nxgt/ory-sdk';
-import { GraphQLObjectType, GraphQLSchema, graphql } from 'graphql';
+import { graphql } from 'graphql';
 import { createSchema, createYoga } from 'graphql-yoga';
 import {
 	AUTHENTICATED_DIRECTIVE_SDL,
@@ -50,18 +51,8 @@ describe('a transform run again', () => {
 			typeDefs: sdl('b'),
 			resolvers: { Query: { b: () => 'B' } },
 		});
-		// What a merge does: the fields of both, and the first one's extensions.
-		const fields = (schema: GraphQLSchema) =>
-			schema.getQueryType()?.toConfig().fields ?? {};
 		const merged = applyAuthenticated(
-			new GraphQLSchema({
-				...guarded.toConfig(),
-				query: new GraphQLObjectType({
-					name: 'Query',
-					fields: { ...fields(guarded), ...fields(open) },
-				}),
-				types: [],
-			}),
+			mergeSchemas({ schemas: [guarded, open] }),
 		);
 
 		const result = await graphql({
@@ -71,6 +62,35 @@ describe('a transform run again', () => {
 		});
 		expect(result.data).toEqual({ a: null, b: null });
 		expect(result.errors).toHaveLength(2);
+	});
+
+	it('guards again a field whose resolver was replaced since', async () => {
+		const sdl = [
+			AUTHENTICATED_DIRECTIVE_SDL,
+			'type Query { a: String @authenticated }',
+		];
+		const guarded = applyAuthenticated(
+			createSchema({ typeDefs: sdl, resolvers: { Query: { a: () => 'A' } } }),
+		);
+		for (const replaced of [
+			addResolversToSchema({
+				schema: guarded,
+				resolvers: { Query: { a: () => 'A2' } },
+			}),
+			mergeSchemas({
+				schemas: [guarded],
+				resolvers: { Query: { a: () => 'A3' } },
+			}),
+		]) {
+			const again = applyAuthenticated(replaced);
+			expect(again).not.toBe(replaced);
+			const result = await graphql({
+				schema: again,
+				source: '{ a }',
+				contextValue: {},
+			});
+			expect(result.data).toEqual({ a: null });
+		}
 	});
 });
 

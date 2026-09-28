@@ -81,6 +81,12 @@ function guarded(
 	return guardField(fieldConfig, {
 		mark: MARK,
 		rank: 1,
+		// Before the stream opens only when no term reads the event.
+		onSubscribe: requirements.every(({ permissions }) =>
+			permissions.every((group) =>
+				group.every((term) => term.id.startsWith('args.')),
+			),
+		),
 		check: async (source, args, context) => {
 			const ctx = context as KetoChecksContext & OryContext;
 			const subject = ctx.ory?.subject;

@@ -173,7 +173,8 @@ declares `@authenticated` through `SHARED_TYPE_DEFS` or
 Both plugins replace the schema. Each marks the fields it guarded and leaves a
 marked field alone, so the two settle on one schema in either order — and a
 schema merged from a guarded half and an unguarded one gets the second half
-guarded when it is transformed again. On a field carrying both,
+guarded when it is transformed again, as is a field whose resolver was
+replaced since. On a field carrying both,
 `@authenticated` is checked before `@permission` whatever the plugin order,
 so a caller of the wrong type is `FORBIDDEN` before Keto is asked:
 
