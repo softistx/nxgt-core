@@ -10,9 +10,12 @@ import {
 	type CheckArgs,
 	objectIds,
 	type ReadOptions,
+	readChecks,
 	readPath,
+	readPermissions,
 	readRequirements,
 } from '../directives';
+import { warnCheckMistake } from '../directives/deprecation';
 import type { KetoChecksContext } from './keto-checker';
 import type { OryContext } from './ory-auth';
 
@@ -54,15 +57,22 @@ export function applyKetoChecks(
 	});
 }
 
+/**
+ * No resolver runs on an interface's field, so a guard there guards nothing.
+ * `@permission` is refused; `@check`, which 2.x let boot, is warned about.
+ */
 function refuseOnInterface(
 	schema: GraphQLSchema,
 	fieldConfig: FieldConfig,
 	where: string,
 ) {
-	if (readRequirements(schema, fieldConfig, where).length === 0) return;
-	throw new TypeError(
-		`${where}: @check / @permission on an interface field guards nothing — no resolver runs there. Put it on each implementing type's field`,
-	);
+	const message = `${where}: @check / @permission on an interface field guards nothing — no resolver runs there. Put it on each implementing type's field`;
+	if (readPermissions(schema, fieldConfig, where).length > 0) {
+		throw new TypeError(message);
+	}
+	if (readChecks(schema, fieldConfig, where).length > 0) {
+		warnCheckMistake(message);
+	}
 }
 
 function guarded(

@@ -33,8 +33,8 @@ const yoga = createYoga<{}, OryGraphQLContext>({
 });
 ```
 
-Order matters: `useKetoChecks` reads `ory.subject`, which `useOryAuth` puts
-there. `createMaskError` is what turns a denial into a 404/403 and an outage
+Both are needed: a guarded field reads `ory.subject`, which `useOryAuth` puts
+on the context — without it every guarded field answers `UNAUTHENTICATED`. `createMaskError` is what turns a denial into a 404/403 and an outage
 into a 503 — without it Yoga answers every one of them as an opaque 500.
 
 A schema assembled in code, with no `SHARED_SCHEMA_PATH`, takes the
@@ -165,11 +165,17 @@ every requirement when the schema is built, and throws a `TypeError` naming
 
 | Mistake | Message starts |
 | --- | --- |
-| a path naming no root | `@permission on Query.note: \`id\` must be "args.<path>", …` |
-| an argument the field does not declare | `… \`id\` reads "args.id", but the field declares noteId` |
+| a path naming no root | ``@permission on Query.note: `id` must be "args.<path>", …`` |
+| an argument the field does not declare | ``… `id` reads "args.id", but the field declares noteId`` |
 | an empty requirement or group (`@check`) | `… an empty group admits EVERYONE …` |
 | a namespace outside `namespaces` | `… unknown namespace "Noet" — known: Note, Folder` |
 | a guard on an interface field | `Node.id: @check / @permission on an interface field guards nothing …` |
+
+On a `@check` — which 2.x booted with them — the undeclared argument and the
+interface field are logged (`logger.warn` from `@nxgt/shared-logging`) instead
+of thrown, ending `— @check still boots with this; the next major refuses it,
+as @permission does`. Fix them now: the field they name answers 500 on every
+request, or is not guarded at all.
 
 `namespaces` is optional. Without it a namespace is taken on trust, and a
 misspelt one answers `false` for ever — Keto does not error on a namespace it

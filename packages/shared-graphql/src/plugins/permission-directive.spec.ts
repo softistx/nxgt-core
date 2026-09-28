@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { type Permission, tuple } from '@nxgt/ory-sdk';
+import { OryUnavailable, type Permission, tuple } from '@nxgt/ory-sdk';
 import { ErrorCode } from '@nxgt/shared-exceptions';
 import { graphql } from 'graphql';
 import { createSchema } from 'graphql-yoga';
@@ -30,6 +30,10 @@ type Query {
 		@check(permissions: [[{ namespace: "Note", permit: "view" }]])
 		@permission(name: "edit", type: "Note", onDeny: FORBIDDEN)
 
+	reversed(id: ID!): Note
+		@permission(name: "view", type: "Note")
+		@check(permissions: [[{ namespace: "Note", permit: "edit" }]], onDeny: FORBIDDEN)
+
 	byKey(key: ID!): Note @permission(name: "view", type: "Note", id: "args.key")
 }
 `;
@@ -46,6 +50,7 @@ function schemaOf() {
 					}),
 					editable: (_s: unknown, args: { id: string }) => ({ id: args.id }),
 					mixed: (_s: unknown, args: { id: string }) => ({ id: args.id }),
+					reversed: (_s: unknown, args: { id: string }) => ({ id: args.id }),
 					byKey: (_s: unknown, args: { key: string }) => ({ id: args.key }),
 				},
 				Note: { owner: (note: { ownerId: string }) => ({ id: note.ownerId }) },
@@ -119,6 +124,31 @@ describe('@permission', () => {
 			'Note:n1#view@idn-7',
 		]);
 		expect(viewer.code).toBe(ErrorCode.Forbidden);
+	});
+
+	it('keeps it with @permission first, too', async () => {
+		const stranger = await run('{ reversed(id: "n1") { id } }', []);
+		expect(stranger.code).toBe(ErrorCode.NotFound);
+		expect(stranger.asked).toEqual(['Note:n1#view@idn-7']);
+
+		const viewer = await run('{ reversed(id: "n1") { id } }', [
+			'Note:n1#view@idn-7',
+		]);
+		expect(viewer.code).toBe(ErrorCode.Forbidden);
+	});
+
+	it('lets an outage through, never as a denial', async () => {
+		const result = await graphql({
+			schema: schemaOf(),
+			source: '{ note(id: "n1") { id } }',
+			contextValue: {
+				ory: { subject: 'idn-7' },
+				ketoChecks: async () => {
+					throw new OryUnavailable('keto', 503, null);
+				},
+			},
+		});
+		expect(result.errors?.[0]?.originalError).toBeInstanceOf(OryUnavailable);
 	});
 
 	it('reads the id where `id` points: another argument', async () => {

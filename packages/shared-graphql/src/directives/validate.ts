@@ -14,6 +14,12 @@ export type RequirementScope = {
 	where: string;
 	argumentNames: readonly string[];
 	namespaces?: readonly string[];
+	/**
+	 * Set for `@check` alone: a mistake it used to let boot — an argument the
+	 * field does not declare — is reported here instead of thrown, so a 2.x
+	 * schema that booted still boots. It becomes a refusal in the next major.
+	 */
+	lenient?: (message: string) => void;
 };
 
 /**
@@ -35,12 +41,28 @@ export function assertRequirementShape(
 	for (const group of permissions) {
 		for (const term of group) {
 			assertReadablePath(term, where);
-			assertDeclaredArgument(term, argumentNames, where);
+			declaredOrReported(term, argumentNames, scope);
 			if (namespaces && !namespaces.includes(term.namespace)) {
 				throw new TypeError(
 					`${where}: unknown namespace ${JSON.stringify(term.namespace)} — known: ${namespaces.join(', ')}`,
 				);
 			}
 		}
+	}
+}
+
+function declaredOrReported(
+	term: PermissionRequirement[number][number],
+	argumentNames: readonly string[],
+	scope: RequirementScope,
+) {
+	if (!scope.lenient) {
+		assertDeclaredArgument(term, argumentNames, scope.where);
+		return;
+	}
+	try {
+		assertDeclaredArgument(term, argumentNames, scope.where);
+	} catch (error) {
+		scope.lenient((error as Error).message);
 	}
 }

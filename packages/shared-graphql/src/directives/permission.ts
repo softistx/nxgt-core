@@ -34,6 +34,7 @@ export function readPermissions(
 	where: string,
 	options: ReadOptions = {},
 ): CheckArgs[] {
+	if (!isOurs(schema)) return [];
 	const found = getDirective(schema, node, PERMISSION_DIRECTIVE_NAME) ?? [];
 	const scope = scopeOf(node, `@permission on ${where}`, options);
 
@@ -55,4 +56,15 @@ function permissionArgs(raw: Record<string, unknown>): PermissionArgs {
 		onDeny: (raw.onDeny ?? 'NOT_FOUND') as PermissionDenial,
 		message: (raw.message as string | null | undefined) ?? undefined,
 	};
+}
+
+/**
+ * `@permission` is a common name. A schema that declares its own — without
+ * `name` and `type` — keeps it: only the declaration this package ships (or
+ * one of the same shape) is read as a Keto question.
+ */
+function isOurs(schema: GraphQLSchema): boolean {
+	const declared = schema.getDirective(PERMISSION_DIRECTIVE_NAME);
+	const names = declared?.args.map((arg) => arg.name) ?? [];
+	return names.includes('name') && names.includes('type');
 }

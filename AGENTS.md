@@ -686,7 +686,7 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **508 pass, 9 skip, 0 fail** on 2026-09-27: 465 in the
+`bun run test` is **512 pass, 9 skip, 0 fail** on 2026-09-28: 469 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
 real `nuxt build`), then 43 in `scripts/`, 16 of them
 `check-nxgt-versions.spec.ts`'s. Treat any failure as yours.

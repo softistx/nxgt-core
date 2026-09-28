@@ -2,12 +2,14 @@
 
 Each entry is headed by the message you see; the parts in `<angle brackets>`
 vary. Messages thrown when the schema is built are `TypeError`s naming
-`Type.field`, and stop the server from booting. The last section holds the
+`Type.field`, and stop the server from booting. They start `@permission on`
+or `@check on`, after the directive that carries the mistake; the entries show
+one of the two. The last section holds the
 traps that throw nothing.
 
 ## When the schema is built
 
-### `@permission on <Type.field>: `id` must be "args.<path>", "parent.<path>" or "source.<path>", got "<id>"`
+### ``@permission on <Type.field>: `id` must be "args.<path>", "parent.<path>" or "source.<path>", got "<id>"``
 
 The `id` argument (or a `@check` term's `id`) names no root. Prefix it:
 
@@ -15,7 +17,7 @@ The `id` argument (or a `@check` term's `id`) names no root. Prefix it:
 note(noteId: ID!): Note @permission(name: "view", type: "Note", id: "args.noteId")
 ```
 
-### `@permission on <Type.field>: `id` reads "args.<name>", but the field declares <arguments>`
+### ``@permission on <Type.field>: `id` reads "args.<name>", but the field declares <arguments>``
 
 The path reads an argument the field does not have — usually the default
 `args.id` on a field whose argument is named otherwise. graphql-js never puts
@@ -31,6 +33,19 @@ or remove the directive.
 ### `@check on <Type.field>: an empty permission requirement admits nobody — remove it, or name a permission`
 
 `@check(permissions: [])`: an OR over nothing refuses everyone.
+
+### ``<…> — @check still boots with this; the next major refuses it, as @permission does``
+
+A warning, not an error: one of the two mistakes above — an argument the
+field does not declare, or a guard on an interface field — on a `@check`. The
+server boots as it did in 2.x, but the field answers 500 on every request, or
+is not guarded at all. Fix it as the entry for the same message describes; the
+next major refuses it at build.
+
+### ``@check on <Type.field>: every term needs `namespace`, `permit` and `id`, got <term>``
+
+A term, or a `@permission`, has an empty `namespace`/`type` or
+`permit`/`name` — `@permission(name: "", type: "Note")`. Name both.
 
 ### `@permission on <Type.field>: unknown namespace "<type>" — known: <namespaces>`
 
@@ -52,7 +67,38 @@ type Note implements Node {
 }
 ```
 
+### `@nxgt/shared-graphql: no package root`
+
+Thrown when the package is imported, if no `package.json` sits above its
+files — a bundler inlined it into your own bundle. `SHARED_SCHEMA_PATH` needs
+the installed package on disk: mark `@nxgt/shared-graphql` external in the
+bundler.
+
+### `Directive "@permission" argument "name" of type "String!" is required, but it was not provided.`
+
+Your schema declares its own `@permission`, and you load this package's
+`graphql/**/*.graphqls` (`SHARED_SCHEMA_PATH`) beside it: `mergeTypeDefs`
+merges the two declarations into one with both sets of arguments, and your
+usages lack `name` and `type`. `@permission` and `PermissionDenial` are
+names this package ships. Load only the folders you need —
+`graphql/scalars`, `graphql/schema` — or rename your directive.
+`useKetoChecks` itself leaves a `@permission` without `name` and `type`
+alone.
+
+### `Cannot use GraphQLSchema "<schema>" from another module or realm.`
+
+Two copies of `graphql` are installed: `graphql` is a peer of this package
+(`^16.4.2 || ^17.0.0`), so your app must declare it once, and every GraphQL
+library must resolve that one. Add `graphql` to your `dependencies` if it was
+only there through this package, and check with `bun pm ls graphql` (or
+`npm ls graphql`) that one version remains.
+
 ## When a request runs
+
+The three messages below are plain `Error`s thrown inside a resolver:
+`createMaskError` answers the client `Unexpected error.`
+(`INTERNAL_SERVER_ERROR`). The text is in the server log, and in
+`extensions.debugMessage` when `isDev` is on.
 
 ### `<Type.field>: "<path>" resolved no object id`
 

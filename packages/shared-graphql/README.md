@@ -38,9 +38,13 @@ walking up to the nearest `package.json` — the bundle is `dist/index.js`, the
 source is `src/utils/schema.utils.ts`, and no single relative path serves both.
 
 ```ts
-import { loadTypeDefs, SCALAR_RESOLVERS, SHARED_SCHEMA_PATH } from '@nxgt/shared-graphql';
+import { fileURLToPath } from 'node:url';
+import { loadTypeDefs, SHARED_SCHEMA_PATH } from '@nxgt/shared-graphql';
 
-const typeDefs = loadTypeDefs(SHARED_SCHEMA_PATH, join(__dirname, '../**/*.graphqls'));
+const typeDefs = loadTypeDefs(
+	SHARED_SCHEMA_PATH,
+	fileURLToPath(new URL('../**/*.graphqls', import.meta.url)),
+);
 ```
 
 ```ts
@@ -107,7 +111,14 @@ plugins: [useOryAuth(ory), useKetoChecks(ory, { namespaces: ['Note', 'Person'] }
 **Refused when the schema is built**, as a `TypeError` naming `Type.field`: a
 path naming no root, an `args.<name>` the field does not declare, a namespace
 outside `namespaces` (when you pass them), and a guard on an interface field,
-where no resolver runs.
+where no resolver runs. On a `@check`, the undeclared argument and the
+interface field are logged as warnings instead, since 2.x booted with them;
+the next major refuses them there too.
+
+`@permission` is read only when its declaration has `name` and `type` — a
+schema with its own `@permission` of another shape keeps it. Loading this
+package's `graphql/` next to such a declaration merges the two, though: see
+troubleshooting.
 
 **An outage is never a denial.** A Keto failure throws `OryUnavailable`, which
 `createMaskError` answers `503 SERVICE_UNAVAILABLE`.
@@ -131,11 +142,14 @@ note(id: ID!): Note! @check(permissions: [[{ namespace: "Note", permit: "view" }
 
 ```ts
 import { can, type OryGraphQLContext, requireUser } from '@nxgt/shared-graphql';
+import { CustomException } from '@nxgt/shared-exceptions';
 
 async function archive(_: unknown, { id }: { id: string }, ctx: OryGraphQLContext) {
 	const user = requireUser(ctx); // UNAUTHENTICATED (401) when nobody is calling
-	if (!(await can(ctx, { name: 'edit', type: 'Note', id }))) throw forbidden();
-	// …
+	if (!(await can(ctx, { name: 'edit', type: 'Note', id }))) {
+		throw CustomException.forbidden({ message: 'notes.errors.read-only' });
+	}
+	return notes.archive(id, user.sub);
 }
 ```
 
@@ -165,11 +179,17 @@ createYoga({ maskedErrors: { maskError: createMaskError(translate) } });
 new ApolloServer({ formatError: createFormatError(translate) });
 ```
 
-A `CustomException` becomes a `GraphQLError` with `extensions { code, http {
-status } }` — `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404 — and
-its translated message. `OryUnavailable` becomes `SERVICE_UNAVAILABLE` 503,
-recognised even from a second copy of `@nxgt/ory-sdk`. A plain `Error` a
-resolver threw is masked, as Yoga's default masks it.
+Under Yoga, `createMaskError` turns a `CustomException` into a `GraphQLError`
+with `extensions { code, http { status } }` — `UNAUTHENTICATED` 401,
+`FORBIDDEN` 403, `NOT_FOUND` 404 — and its translated message; `OryUnavailable`
+into `SERVICE_UNAVAILABLE` 503, recognised even from a second copy of
+`@nxgt/ory-sdk`; and a plain `Error` a resolver threw into the mask message, as
+Yoga's default does.
+
+Under Apollo, `createFormatError` sets the `code` and the translated message
+(and `SERVICE_UNAVAILABLE` for an outage, with `http.status` in `extensions`
+only — `formatError` cannot change the transport status). It masks nothing
+Apollo would not.
 
 ## Plugins and context
 

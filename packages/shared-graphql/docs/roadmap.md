@@ -14,6 +14,9 @@ subscriptions over Redis, uploads and the Hono integration.
 Each of these changes what an existing consumer gets, so they wait for a major
 release, together:
 
+- **`@check`'s mistakes refused at build**, as `@permission`'s are: an
+  argument the field does not declare, and a guard on an interface field —
+  today a warning.
 - **`@check` removed**, leaving `@permission`. A field whose `@check` holds an
   OR moves that OR into the Keto model first.
 - **`@authenticated(type: [String!])`** — refusing a caller of the wrong kind
@@ -53,7 +56,8 @@ release, together:
   with `@check` in declaration order; `@check` deprecated in its favour.
 - **More refused at build**: an argument the field does not declare, a
   namespace outside the model (`namespaces`), a guard on an interface field —
-  each a `TypeError` naming the field.
+  each a `TypeError` naming the field for `@permission`, and a warning for
+  `@check`, which booted with the first and last before.
 - **`requireUser`, `can` and `OryGraphQLContext`** for resolvers, through the
   same per-request memo.
 - **The directive SDL as strings** — `PERMISSION_DIRECTIVE_SDL`,

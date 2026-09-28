@@ -1,6 +1,7 @@
 import { getDirective } from '@graphql-tools/utils';
 import type { PermissionRequirement, PermissionTerm } from '@nxgt/ory-sdk';
 import type { GraphQLSchema } from 'graphql';
+import { warnCheckMistake } from './deprecation';
 import { DEFAULT_ID_PATH } from './paths';
 import { type FieldNode, type ReadOptions, scopeOf } from './scope';
 import { assertRequirementShape } from './validate';
@@ -42,7 +43,10 @@ export function readChecks(
 	options: ReadOptions = {},
 ): CheckArgs[] {
 	const found = getDirective(schema, node, CHECK_DIRECTIVE_NAME) ?? [];
-	const scope = scopeOf(node, `@check on ${where}`, options);
+	const scope = {
+		...scopeOf(node, `@check on ${where}`, options),
+		lenient: warnCheckMistake,
+	};
 
 	return found.map((raw) => {
 		const permissions = withDefaultIds(raw.permissions);

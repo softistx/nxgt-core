@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, describe, expect, it, spyOn } from 'bun:test';
+import { logger } from '@nxgt/shared-logging';
 import { createSchema } from 'graphql-yoga';
 import { KETO_DIRECTIVES_SDL } from '../directives';
 import { applyKetoChecks } from './apply-keto-checks';
@@ -35,16 +36,6 @@ describe('applyKetoChecks refuses at build', () => {
 		);
 	});
 
-	it('the same typo in a @check term', () => {
-		expect(
-			build(`
-				type Query {
-					note: String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
-				}
-			`),
-		).toThrow(/@check on Query\.note: .*declares no arguments/);
-	});
-
 	it('a namespace outside the model, when the model is given', () => {
 		const sdl = `
 			type Query { note(id: ID!): String @permission(name: "view", type: "Noet") }
@@ -77,5 +68,61 @@ describe('applyKetoChecks refuses at build', () => {
 				type Query { note: Note }
 			`),
 		).not.toThrow();
+	});
+});
+
+/**
+ * `@check` booted in 2.x with the same two mistakes. It still does — with a
+ * warning naming the field — so this minor stops no server that ran before.
+ */
+describe('applyKetoChecks warns, for @check alone', () => {
+	const warn = spyOn(logger, 'warn').mockImplementation(() => logger);
+	afterEach(() => warn.mockClear());
+	const warned = () => warn.mock.calls.map(([message]) => String(message));
+
+	it('an argument the field does not declare', () => {
+		expect(
+			build(`
+				type Query {
+					note: String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
+				}
+			`),
+		).not.toThrow();
+		expect(warned()).toEqual([
+			expect.stringMatching(
+				/^@check on Query\.note: .*declares no arguments — @check still boots/,
+			),
+		]);
+	});
+
+	it('a guard on an interface field', () => {
+		expect(
+			build(`
+				interface Node {
+					body(id: ID!): String @check(permissions: [[{ namespace: "Note", permit: "view" }]])
+				}
+				type Note implements Node { body(id: ID!): String }
+				type Query { node: Node }
+			`),
+		).not.toThrow();
+		expect(warned()).toEqual([
+			expect.stringMatching(/^Node\.body: .*interface field guards nothing/),
+		]);
+	});
+});
+
+describe('a @permission of another shape', () => {
+	it('is left to the schema that declared it', () => {
+		const schema = applyKetoChecks(
+			createSchema({
+				typeDefs: `
+					directive @permission(requires: String) on FIELD_DEFINITION
+					type Query { note: String @permission(requires: "ADMIN") }
+				`,
+				resolvers: { Query: { note: () => 'open' } },
+			}),
+		);
+		const resolve = schema.getQueryType()?.getFields().note?.resolve;
+		expect(resolve?.(null, {}, {}, {} as never)).toBe('open');
 	});
 });

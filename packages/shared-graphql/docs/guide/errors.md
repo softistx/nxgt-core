@@ -23,7 +23,7 @@ import { createFormatError } from '@nxgt/shared-graphql';
 new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 ```
 
-## What a client receives
+## What a client receives — Yoga, through `createMaskError`
 
 | Thrown | `extensions.code` | `extensions.http.status` | message |
 | --- | --- | --- | --- |
@@ -51,18 +51,46 @@ new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 The HTTP status applies when it is the only error of the response, as Yoga
 decides it.
 
+## What a client receives — Apollo, through `createFormatError`
+
+| Thrown | `extensions.code` | message |
+| --- | --- | --- |
+| a `CustomException` or a Mongoose error | its `errorCode` (plus `debugMessage`) | translated key |
+| `OryUnavailable` | `SERVICE_UNAVAILABLE`, `http: { status: 503 }` in `extensions` | `ory: keto is unavailable` |
+| an Apollo validation or parse error | its own | translated `errors.<code>` |
+| anything else | as Apollo formats it | as Apollo formats it — not masked here |
+
+`formatError` shapes the error body; it does not set the response's status,
+so `http.status` is information for the client, not the transport's answer.
+The stack trace is removed when the second argument, `production`, is true.
+
 ## An outage is a 503, never a denial
 
 Kratos, Hydra or Keto failing to answer is not "anonymous" and not "denied".
 Answering it as either would lock every caller out in silence — or, for a
 check that defaulted open, let everyone in. So `OryUnavailable` is never caught
 as a refusal anywhere in this package, and both functions answer it
-`SERVICE_UNAVAILABLE` 503, which a client can retry.
+`SERVICE_UNAVAILABLE` — with HTTP 503 under Yoga — which a client can retry.
 
 It is recognised by class, and also by its name and shape: an install that
 ends up with two copies of `@nxgt/ory-sdk` throws an `OryUnavailable` whose
 class is not the one this package imported, and that must still be a 503
-rather than a masked 500. `isOryUnavailable(error)` is the test, exported.
+rather than a masked 500. `isOryUnavailable(error)` is the test, and
+`serviceUnavailableError(error)` builds the 503 `GraphQLError` both use —
+exported for a server that writes its own `maskError`:
+
+```ts
+import { isOryUnavailable, serviceUnavailableError } from '@nxgt/shared-graphql';
+
+const maskError: MaskError = (error, message) => {
+	const original = error instanceof GraphQLError ? error.originalError : error;
+	if (isOryUnavailable(original)) return serviceUnavailableError(original);
+	// …
+};
+```
+
+`oryUnavailableError`, which `useOryAuth` throws when it cannot resolve the
+caller, is the same function under its older name.
 
 ## Internal messages stay internal
 
