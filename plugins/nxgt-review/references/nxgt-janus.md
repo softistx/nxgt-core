@@ -222,9 +222,13 @@ grows one is a finding.
   `files` entry `dis` is not covered by `dist/`. The differences that remain
   are declared: `browser.ts` is nxgt-core's alone; this copy and nxgt-data
   read a sibling's version from the workspace, nxgt-http and nxgt-core from
-  the packed manifests; and `check-changesets.ts` and
-  `check-nxgt-versions.ts` are this copy's alone. A fix to a check in one
-  copy and not the others is still reported.
+  the packed manifests; and `check-changesets.ts` is this copy's alone.
+  `check-nxgt-versions.ts`, its spec and `nxgt-versions.yml` are copied into
+  nxgt-core (the script byte for byte but its header) and nxgt-data, which
+  reads every `<folder>/*` workspace glob, `examples/*` included, exits 2 on
+  any other glob (`folderOf`), and counts a private workspace's
+  `dependencies` (`manifestOf`); nxgt-http has no external `@nxgt/*` to
+  track. A fix to a check in one copy and not the others is still reported.
 - The Redis `test/server.ts` in `janus-redis`, `janus-kit` and
   `janus-webhooks-redis` — byte-identical, and both CI jobs key their Redis
   cache on all three.

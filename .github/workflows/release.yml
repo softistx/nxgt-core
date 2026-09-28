@@ -30,6 +30,11 @@ jobs:
     # VPS that is not always online — CI here sat queued for an hour behind
     # it before this changed.
     runs-on: ubuntu-latest
+    # Measured on the 60 runs up to 2026-09-27: under two minutes. Generous
+    # on purpose: a publish killed half-way is worse than one waited on, and
+    # the concurrency group above never cancels one under way — this only
+    # stops a run that has hung.
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
