@@ -6,10 +6,10 @@ import {
 	graphql,
 	parse,
 	subscribe,
+	version,
 } from 'graphql';
 import { createSchema } from 'graphql-yoga';
 import { AUTHENTICATED_DIRECTIVE_SDL } from '../directives';
-import { buildSubgraphSchema } from '../utils/schema.utils';
 import { applyAuthenticated } from './apply-authenticated';
 
 const SDL = `
@@ -116,26 +116,38 @@ describe('applyAuthenticated refuses at build', () => {
 	});
 });
 
-describe("federation's @authenticated, which takes no argument", () => {
-	it('is read as "any caller" in a subgraph that imports it', async () => {
-		const subgraph = applyAuthenticated(
-			buildSubgraphSchema([
-				{
-					typeDefs: parse(`
+/**
+ * `@apollo/subgraph` peers graphql ^16 and `require()`s it, which graphql 17 —
+ * ESM only — refuses; this case runs on graphql 16 and `test:graphql17` skips it.
+ */
+const ON_GRAPHQL_16 = version.startsWith('16.');
+
+describe.skipIf(!ON_GRAPHQL_16)(
+	"federation's @authenticated, which takes no argument",
+	() => {
+		it('is read as "any caller" in a subgraph that imports it', async () => {
+			const { buildSubgraphSchema } = await import('../utils/schema.utils');
+			const subgraph = applyAuthenticated(
+				buildSubgraphSchema([
+					{
+						typeDefs: parse(`
 						extend schema @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@authenticated"])
 						type Query { me: String @authenticated }
 					`),
-					resolvers: { Query: { me: () => 'me' } },
-				},
-			]),
-		);
-		expect(subgraph.getDirective('authenticated')?.args).toEqual([]);
-		expect(codeOf(await run('{ me }', {}, subgraph))).toBe(
-			ErrorCode.Unauthenticated,
-		);
-		expect((await run('{ me }', session, subgraph)).data).toEqual({ me: 'me' });
-	});
-});
+						resolvers: { Query: { me: () => 'me' } },
+					},
+				]),
+			);
+			expect(subgraph.getDirective('authenticated')?.args).toEqual([]);
+			expect(codeOf(await run('{ me }', {}, subgraph))).toBe(
+				ErrorCode.Unauthenticated,
+			);
+			expect((await run('{ me }', session, subgraph)).data).toEqual({
+				me: 'me',
+			});
+		});
+	},
+);
 
 describe('@authenticated on what a field returns, and on a subscription', () => {
 	const guarded = applyAuthenticated(

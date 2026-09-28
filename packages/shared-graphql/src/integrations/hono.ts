@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { contextStorage } from 'hono/context-storage';
 import { createMiddleware } from 'hono/factory';
 import { languageDetector } from 'hono/language';
-import { type RenderSandboxOptions, renderSandbox } from '../utils';
+import { type RenderSandboxOptions, renderSandbox } from '../utils/sandbox';
 
 export function sandboxExplorer(options: RenderSandboxOptions) {
 	return createMiddleware(async (ctx) => {
