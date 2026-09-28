@@ -26,6 +26,7 @@ them widens it.
 | `@nxgt/security/integrations/ory` | `claimsFromOryPrincipal` — the one mapper |
 | `@nxgt/security/integrations/hono/keto` | `ketoPermissions()` for REST |
 | `@nxgt/security/integrations/graphql/keto` | `ketoPermissions()` for GraphQL |
+| `@nxgt/security/gateway` | `gatewaySecret` — which gateway may name the caller |
 
 The JSON Schema ships in `schema/rules.schema.json` (named in `files`). Point a
 `$schema` pragma at `node_modules/@nxgt/security/schema/rules.schema.json` from
@@ -256,6 +257,33 @@ straight to its resolver. It now throws `UNAUTHENTICATED` for a caller the
 floor turned away, and carries a Keto rung's `NOT_FOUND` / `FORBIDDEN` code and
 i18n key onto the `GraphQLError`.
 
+## Trusted gateway (`@nxgt/security/gateway`)
+
+Which gateway may name the caller in data the client could otherwise write —
+the `X-User-*` headers `@nxgt/shared-hono`'s `currentUser()` reads, the
+`extensions` `@nxgt/shared-graphql`'s `useAuth()` reads. Both packages take a
+`trustedGateway` and re-export this module, so one secret means the same
+thing to a REST and a GraphQL service.
+
+```ts
+import { gatewaySecret } from '@nxgt/security/gateway';
+
+const trustedGateway = gatewaySecret({ secret: process.env.GATEWAY_SECRET! });
+await trustedGateway(request.headers); // true only with the secret in x-gateway-secret
+```
+
+- The header is `x-gateway-secret` unless you name another with `header`,
+  and it is compared in constant time.
+- A secret shorter than 16 characters is a `TypeError` when `gatewaySecret`
+  is built — an unset variable stops the server instead of trusting an empty
+  header.
+- A `GatewayTrust` is any `(headers) => boolean | Promise<boolean>`, for a
+  proof other than a shared secret.
+- `requireGatewayTrust(options, { caller, reads, alternative })` is the
+  `TypeError` a middleware throws when it was given no `trustedGateway`.
+
+It imports nothing, so a service that uses only this pays for nothing else.
+
 ## Integrations
 
 ### `claimsFromOryPrincipal` (`@nxgt/security/integrations/ory`)
@@ -365,3 +393,6 @@ asking the same question cost one round trip.
   throws at compile.
 - **A `keto` term without an evaluator throws**, never allows.
 - **`rateLimit` / `cors` / `providers` validate and go nowhere.**
+- **A rule reading `req.headers` reads what the client wrote.** An
+  `expression` on a header is no proof of who sent it; identity comes from
+  `claims`, which the authentication middleware sets.

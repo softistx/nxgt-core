@@ -11,7 +11,17 @@ import { logger } from '@nxgt/shared-logging';
 import type { ErrorHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { env } from '../env';
-import { principalFromMockHeaders } from '../utils/test.utils';
+import { type GatewayTrust, trustedPrincipal } from './gateway-trust';
+
+export type OryAuthOptions = {
+	/**
+	 * Lets a route spec sign in with `mockAuthMiddleware(user, { secret })`:
+	 * under `NODE_ENV=test`, a request this vouches for is the caller its
+	 * `X-User-*` headers name. Without it — and outside `NODE_ENV=test` —
+	 * those headers are never read.
+	 */
+	trustedGateway?: GatewayTrust;
+};
 
 /**
  * Authentication for an Ory-native API — the twin of storex-api's
@@ -19,9 +29,12 @@ import { principalFromMockHeaders } from '../utils/test.utils';
  * Same contract, so `policyGuard` and a `rules.yaml` keep answering 401 for
  * `authenticated: true` without knowing which authority signed the caller in:
  *
- * - `NODE_ENV=test` and `X-User-*` headers present ⇒ the mock principal, as
- *   every route spec in this repo expects. The Ory principal is synthesised
- *   from it so `<module>.access.ts` sees a `subject` either way.
+ * - `NODE_ENV=test`, a `trustedGateway` given, and a request it vouches for
+ *   carrying `X-User-*` headers ⇒ the mock principal a route spec sent. The
+ *   Ory principal is synthesised from it so `<module>.access.ts` sees a
+ *   `subject` either way. The client writes those headers, so both gates
+ *   hold: a deployment that runs with `NODE_ENV=test` still reads none
+ *   without the gateway's proof.
  * - no credential, or one Kratos / Hydra does not honour ⇒ `next()` as an
  *   anonymous caller. The rules file decides whether that is a 401.
  * - Kratos, Hydra or Keto unreachable ⇒ **503**, fail closed. Never an
@@ -33,10 +46,19 @@ import { principalFromMockHeaders } from '../utils/test.utils';
  * Takes an `Ory` rather than URLs so the app builds one `createOry()` from
  * its own zod-validated env and shares it with its access layer.
  */
-export function oryAuth(ory: Ory) {
+export function oryAuth(ory: Ory, options: OryAuthOptions = {}) {
+	const { trustedGateway } = options;
+	if (trustedGateway !== undefined && typeof trustedGateway !== 'function') {
+		throw new TypeError(
+			'oryAuth(): `trustedGateway` must be a function — gatewaySecret({ secret }), say',
+		);
+	}
 	return createMiddleware(async (ctx, next) => {
-		if (env.NODE_ENV === 'test') {
-			const mockPrincipal = principalFromMockHeaders(ctx);
+		if (env.NODE_ENV === 'test' && trustedGateway) {
+			const mockPrincipal = await trustedPrincipal(
+				ctx.req.raw.headers,
+				trustedGateway,
+			);
 			if (mockPrincipal) {
 				ctx.set('principal', mockPrincipal);
 				ctx.set('ory', oryPrincipalFromMock(mockPrincipal));

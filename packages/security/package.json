@@ -48,6 +48,11 @@
 			"import": "./dist/integrations/graphql/keto.js",
 			"default": "./dist/integrations/graphql/keto.js"
 		},
+		"./gateway": {
+			"types": "./dist/gateway/index.d.ts",
+			"import": "./dist/gateway/index.js",
+			"default": "./dist/gateway/index.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"repository": {
@@ -73,7 +78,8 @@
 			"src/integrations/ory/index.ts",
 			"src/integrations/hono/index.ts",
 			"src/integrations/hono/keto.ts",
-			"src/integrations/graphql/keto.ts"
+			"src/integrations/graphql/keto.ts",
+			"src/gateway/index.ts"
 		]
 	},
 	"dependencies": {
