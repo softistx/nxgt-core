@@ -304,8 +304,10 @@ never cancels a run under way.
 
 ### A new `@nxgt/ory-sdk` is found by a schedule, not by memory
 
-`@nxgt/security` peers `@nxgt/ory-sdk` by the open range `>=0.1.0`, optional,
-and its specs run only the version `bun.lock` holds: a new release is admitted
+Three packages peer `@nxgt/ory-sdk` by the open range `>=0.1.0` —
+`@nxgt/security` as an optional peer, `@nxgt/shared-hono` and
+`@nxgt/shared-graphql` as required ones — and their specs run only the version
+`bun.lock` holds: a new release is admitted
 by the range the day it is published and tested by nobody until the lock is
 bumped. `bun run nxgt:outdated` (`scripts/check-nxgt-versions.ts`, spec'd
 beside it) lists every `@nxgt/*` devDependency of a package that is not a
@@ -316,13 +318,15 @@ and on `workflow_dispatch`; something behind opens the issue *@nxgt/\*
 devDependencies behind npm latest*, or updates the one open, and fails the run,
 and a later run with nothing behind closes it. The bump is a pull request like
 any other: the root `package.json`'s devDependency and `bun.lock` in one
-commit, and `@nxgt/security`'s suite run. A lock bump changes nothing
+commit, and the three packages' suites run. The check finds it through
+`@nxgt/security`'s own devDependency on it, since it reads `packages/*` and not
+the root manifest. A lock bump changes nothing
 published, and `changeset status` passes without a changeset when only the
 root manifest moved. Not Dependabot: its Bun updater reads `bun.lock` up to
 `lockfileVersion` 1, and this one, from Bun 1.4.2, is 2.
 
-The peer range itself — open, with no upper bound — is the owner's decision
-and is not moved by a lock bump.
+The peer ranges themselves — open, with no upper bound — are the owner's
+decision and are not moved by a lock bump.
 
 ### Publishing needs a granular access token, and you cannot tell by looking
 

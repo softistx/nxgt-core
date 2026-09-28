@@ -108,6 +108,10 @@ From the table in `AGENTS.md`:
   devDependency.
 - `verify:artifacts` reporting the `stx-sdk` subpaths as skipped on a hosted
   runner.
+- `scripts/check-nxgt-versions.ts`, its spec and `nxgt-versions.yml`, copied
+  from nxgt-janus — the script byte for byte except its header comment.
+- `@nxgt/ory-sdk`'s open peer range `>=0.1.0` in `security`, `shared-hono`
+  and `shared-graphql`: the owner's decision, not moved by a lock bump.
 
 ## Layering and packaging
 

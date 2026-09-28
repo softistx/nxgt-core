@@ -3,8 +3,9 @@
  * Lists every `@nxgt/*` devDependency whose locked version is behind npm's
  * `latest`.
  *
- * Here that is `@nxgt/security`'s `@nxgt/ory-sdk`, an optional peer by the
- * open range `>=0.1.0`, and the specs run only the version `bun.lock` holds.
+ * Here that is `@nxgt/ory-sdk`, which `@nxgt/security`, `@nxgt/shared-hono`
+ * and `@nxgt/shared-graphql` peer by the open range `>=0.1.0`, and their specs
+ * run only the version `bun.lock` holds.
  * A new release upstream is therefore admitted by the range the day it is
  * published and never tested until someone bumps the lock. This check is
  * what makes that someone the `nxgt-versions` workflow, weekly, instead of

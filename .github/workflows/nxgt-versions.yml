@@ -1,7 +1,8 @@
 name: nxgt versions
 
-# @nxgt/security peers @nxgt/ory-sdk by the open range >=0.1.0, and the specs
-# run only the version bun.lock holds: a new @nxgt/* release is admitted by
+# @nxgt/security, @nxgt/shared-hono and @nxgt/shared-graphql peer
+# @nxgt/ory-sdk by the open range >=0.1.0, and their specs run only the
+# version bun.lock holds: a new @nxgt/* release is admitted by
 # the range the day it is published and tested by nobody until the lock is
 # bumped. This asks npm every week instead of relying on someone remembering.
 # Copied from nxgt-janus.
