@@ -1,5 +1,15 @@
 # @nxgt/shared-graphql
 
+## 3.0.1
+
+### Patch Changes
+
+- [#164](https://github.com/softistx/nxgt-core/pull/164) [`91261fd`](https://github.com/softistx/nxgt-core/commit/91261fd32566bfbdab1894bb2508a15777a9cede) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `@nxgt/security/gateway`: `gatewaySecret`, `requireGatewayTrust`, `assertGatewaySecret`, `GATEWAY_SECRET_HEADER` and the `GatewayTrust` types — the one definition of "which gateway may name the caller". `@nxgt/shared-graphql` and `@nxgt/shared-hono` both re-export `gatewaySecret`, `GATEWAY_SECRET_HEADER` and the types, and each wraps `requireGatewayTrust` in a `requireGatewayTrust(options, caller)` of its own, so a gateway's secret means the same thing to a REST and a GraphQL service. The subpath imports nothing.
+  
+  `@nxgt/shared-graphql` now re-exports it rather than carrying its own copy. Its exports, their behaviour and their error messages are unchanged.
+- Updated dependencies [[`91261fd`](https://github.com/softistx/nxgt-core/commit/91261fd32566bfbdab1894bb2508a15777a9cede)]:
+  - @nxgt/security@4.2.0
+
 ## 3.0.0
 
 ### Major Changes
