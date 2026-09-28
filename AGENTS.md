@@ -162,8 +162,11 @@ below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
 spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
 is this copy's alone. This copy and nxgt-http read a sibling's version from the
 packed manifests, where nxgt-janus and nxgt-data read it from the workspace.
-Outside `scripts/artifacts/`, `check-changesets.ts` and `check-nxgt-versions.ts`
-are nxgt-janus's alone.
+Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
+`check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
+copied from nxgt-janus, the script byte for byte but for its header comment;
+nxgt-data has a copy too, which also reads `examples/*`. nxgt-http has none:
+every `@nxgt/*` package there depends only on its siblings.
 
 It fails a `files` entry the tarball holds nothing under, with
 `<package>: files lists <entry>, which the tarball does not hold — build it
@@ -283,6 +286,43 @@ Do not copy `self-hosted` in from a sibling repo.
 The consequence for `verify:artifacts`: a hosted runner has no sibling
 `../stx-sdk` checkout, so the subpaths importing it are reported **skipped**
 rather than failed. A different error from those same subpaths still fails.
+
+**CI lints with the Biome `bun.lock` resolved**: `bunx biome ci`, the version
+`bun run check` runs locally, and the one `biome.json`'s `$schema` names. Not
+`biomejs/setup-biome` with `latest`, which linted CI with a newer Biome than
+anyone ran locally. Raising Biome is a lock bump that moves the `$schema` with
+it.
+
+**Every job has a `timeout-minutes`**, sized from the 60 runs of each measured
+up to 2026-09-27: 8 for CI, whose job took 1 to 2¼ minutes, and 10 for the
+release, which took under two — generous, since a publish killed half-way is
+worse than one waited on. Past it a run is hung, and the six-hour default holds
+the runner for nothing. `ci.yml` has nxgt-janus's `concurrency` group: a pull
+request's new push cancels its run in progress, and a push to `develop`, were
+CI ever to run on one, never would. The release keeps its own group, which
+never cancels a run under way.
+
+### A new `@nxgt/ory-sdk` is found by a schedule, not by memory
+
+`@nxgt/security` peers `@nxgt/ory-sdk` by the open range `>=0.1.0`, optional,
+and its specs run only the version `bun.lock` holds: a new release is admitted
+by the range the day it is published and tested by nobody until the lock is
+bumped. `bun run nxgt:outdated` (`scripts/check-nxgt-versions.ts`, spec'd
+beside it) lists every `@nxgt/*` devDependency of a package that is not a
+sibling and whose locked version is behind npm's `latest`: exit 0 when all are
+current, 1 when something is behind, 2 when the registry did not answer, which
+is never read as "current". The `nxgt versions` workflow runs it every Monday
+and on `workflow_dispatch`; something behind opens the issue *@nxgt/\*
+devDependencies behind npm latest*, or updates the one open, and fails the run,
+and a later run with nothing behind closes it. The bump is a pull request like
+any other: the root `package.json`'s devDependency and `bun.lock` in one
+commit, and `@nxgt/security`'s suite run. A lock bump changes nothing
+published, and `changeset status` passes without a changeset when only the
+root manifest moved. Not Dependabot: its Bun updater reads `bun.lock` up to
+`lockfileVersion` 1, and this one, from Bun 1.4.2, is 2.
+
+The peer range itself — open, with no upper bound — is the owner's decision
+and is not moved by a lock bump.
 
 ### Publishing needs a granular access token, and you cannot tell by looking
 
@@ -592,7 +632,8 @@ Inherited from both monorepos and unchanged:
   unused: `biome.json` turns `noUnusedVariables` and `noUnusedImports` off for
   `**/*.vue`, and `vue-tsc` is what checks them.
 - Commit messages: `<type>: <Capitalized summary>`, types `feat`, `fix`,
-  `update`, `chore`, `docs`, `typo`.
+  `update`, `chore`, `docs`, `typo`, and `ci` for the workflows and the setup
+  action.
 
 Established here, and applying to all four repositories:
 
@@ -625,9 +666,10 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **459 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
+`bun run test` is **475 pass, 9 skip, 0 fail** on 2026-09-27: 434 in the
 packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
-real `nuxt build`), then 25 in `scripts/`. Treat any failure as yours.
+real `nuxt build`), then 41 in `scripts/`, 16 of them
+`check-nxgt-versions.spec.ts`'s. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running the packages together in one

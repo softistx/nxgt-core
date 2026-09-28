@@ -120,4 +120,4 @@ From the table in `AGENTS.md`:
 - A fix here is a release before it is a consumer PR. A consumer PR opened
   before the version answers on `registry.npmjs.org` is not reviewable.
 - `CHANGELOG.md` is generated; a hand edit is a finding.
-- Commit types: `feat`, `fix`, `update`, `chore`, `docs`, `typo`.
+- Commit types: `feat`, `fix`, `update`, `chore`, `docs`, `typo`, and `ci` for the workflows and the setup action.
