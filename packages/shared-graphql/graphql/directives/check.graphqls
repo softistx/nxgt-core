@@ -25,8 +25,8 @@ input CheckPermission {
 	permit: String!
 
 	"""
-	Where the object id is read: `args.<path>` or `source.<path>`, dotted paths
-	allowed. A value that turns out to be a LIST requires the permit on every
+	Where the object id is read: `args.<path>`, or `parent.<path>` /
+	`source.<path>` (the same root under two names), dotted paths allowed. A value that turns out to be a LIST requires the permit on every
 	element — that is what a mutation taking `ids: [ID!]!` means.
 	"""
 	id: String = "args.id"
@@ -51,6 +51,10 @@ enum CheckDenial {
 }
 
 """
+Deprecated: write `@permission(name:, type:)` in a new schema — one Keto
+question per directive, repeated for AND, with OR kept in the Keto model. This
+form keeps working and is evaluated in declaration order with @permission.
+
 The permission a field requires, in disjunctive normal form: the OUTER list is
 OR, the INNER list is AND. `[[A, B], [C]]` reads "(A and B) or C" — the same
 shape `@policy(policies: [["ADMIN"]])` uses.

@@ -10,9 +10,16 @@ and the SDL every service merges into its own schema.
 bun add @nxgt/shared-graphql
 ```
 
-Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
-`^6.0.3` across every `@nxgt/*` package — the set is unsatisfiable if one of
-them widens it. **`stx-sdk` is a required peer** (`>=1.1.0`).
+Public on npmjs; no token needed to install. Peers:
+
+| Peer | Range | Why |
+| --- | --- | --- |
+| `graphql` | `^16.4.2 \|\| ^17.0.0` | one copy for your schema and this package's transforms; the suite runs on both majors |
+| `@nxgt/ory-sdk` | `>=0.1.0` | `useOryAuth`, `useKetoChecks`, `can` |
+| `stx-sdk` | `>=1.1.0` | `./security`'s policy types |
+| `typescript` | `^6.0.3` | pinned across every `@nxgt/*` package — the set is unsatisfiable if one of them widens it |
+
+The long version of each section below is in [`docs/`](./docs/README.md).
 
 ## Subpaths
 
@@ -31,9 +38,13 @@ walking up to the nearest `package.json` — the bundle is `dist/index.js`, the
 source is `src/utils/schema.utils.ts`, and no single relative path serves both.
 
 ```ts
-import { loadTypeDefs, SCALAR_RESOLVERS, SHARED_SCHEMA_PATH } from '@nxgt/shared-graphql';
+import { fileURLToPath } from 'node:url';
+import { loadTypeDefs, SHARED_SCHEMA_PATH } from '@nxgt/shared-graphql';
 
-const typeDefs = loadTypeDefs(SHARED_SCHEMA_PATH, join(__dirname, '../**/*.graphqls'));
+const typeDefs = loadTypeDefs(
+	SHARED_SCHEMA_PATH,
+	fileURLToPath(new URL('../**/*.graphqls', import.meta.url)),
+);
 ```
 
 ```ts
@@ -47,107 +58,148 @@ A relative path into this package's `src/` will not work from an install — it
 is not published, and it was not there in the first place.
 
 `SHARED_TYPE_DEFS` is a string of the shared directives (`@authenticated`,
-`@policy`, `@shareable`, `@link`) plus empty root types. A subgraph that
+`@policy`, `@shareable`, `@link`) plus empty root types. `@permission` and
+`@check` are not in it: they live in `graphql/directives/`, so a subgraph that
 builds through `buildSubgraphSchema` and never loads `SHARED_TYPE_DEFS` still
-sees `@check`, because that declaration lives in `graphql/directives/` and
-rides `SHARED_SCHEMA_PATH`. A directive put *only* in `SHARED_TYPE_DEFS`
-would be invisible to exactly the schemas most likely to want it.
+sees them through `SHARED_SCHEMA_PATH`. For a schema assembled in code, the
+same declarations ship as strings — `PERMISSION_DIRECTIVE_SDL`,
+`CHECK_DIRECTIVE_SDL`, or both as `KETO_DIRECTIVES_SDL` — held equal to the
+files by a spec.
+
+```ts
+import { KETO_DIRECTIVES_SDL } from '@nxgt/shared-graphql';
+
+createSchema({ typeDefs: [KETO_DIRECTIVES_SDL, typeDefs], resolvers });
+```
 
 `buildSubgraphSchema` wraps Apollo's builder and prunes unused types.
 
-## `@check` — the permission a field requires
+## `@permission` — the permission a field requires
 
 `@authenticated` asks whether anyone is calling. `@policy` asks whether they
 *carry* an authority. Neither can ask what an Ory-native API needs to know:
 **may this caller `view` `Note:n1`** — a question about one object, answered by
-Keto.
-
-`@check` asks it. The declaration ships in `graphql/directives/check.graphqls`,
-so any schema built from `SHARED_SCHEMA_PATH` already has it; `useKetoChecks(ory)`
-is what answers it.
+Keto. `@permission` asks it; `useKetoChecks(ory)` answers it.
 
 ```graphql
-note(id: ID!): Note!
-	@check(permissions: [[{ namespace: "Note", permit: "view" }]])
+note(id: ID!): Note! @permission(name: "view", type: "Note")
 
 updateNote(id: ID!, input: UpdateNoteInput!): Note!
-	@check(permissions: [[{ namespace: "Note", permit: "view" }]])
-	@check(permissions: [[{ namespace: "Note", permit: "edit" }]], onDeny: FORBIDDEN)
+	@permission(name: "view", type: "Note")
+	@permission(name: "edit", type: "Note", onDeny: FORBIDDEN)
+
+owner: Person @permission(name: "view", type: "Person", id: "parent.ownerId")
 ```
 
 ```ts
-plugins: [useOryAuth(ory), useKetoChecks(ory), useGenericAuth({ … })]
+plugins: [useOryAuth(ory), useKetoChecks(ory, { namespaces: ['Note', 'Person'] }), useGenericAuth({ … })]
 ```
 
-`permissions` is disjunctive normal form — **outer list OR, inner list AND**,
-the same shape `@policy(policies: [["ADMIN"]])` uses. `[[A, B], [C]]` reads
-"(A and B) or C", and evaluation is short-circuit in both directions, so the
-order written is the order Keto is billed for.
+- `name` is the permit, `type` the Keto namespace, `id` where the object id
+  is read: `args.<path>` (default `args.id`) or `parent.<path>`. A **list**
+  value requires the permit on every element.
+- **Repeated, they are AND**, in declaration order, each with its own
+  `onDeny`: a stranger fails `view` and gets `NOT_FOUND` (the default), so an
+  id cannot be probed; a viewer passes it, fails `edit`, and gets `FORBIDDEN`.
+- `message:` sets the i18n key a denial carries (shared `errors.not-found` /
+  `errors.insufficient-permissions` otherwise). Word it like the service
+  layer that guards the same object, or the wording tells a caller which
+  layer refused.
+- An OR belongs in the Keto model — a permit that unions two relations — not
+  in the schema.
 
-`id` defaults to `args.id` and may be any `args.<path>` or `source.<path>`. A
-value that turns out to be a **list** requires the permit on every element —
-that is what `deleteNotes(ids: [ID!]!)` means.
+**Refused when the schema is built**, as a `TypeError` naming `Type.field`: a
+path naming no root, an `args.<name>` the field does not declare, a namespace
+outside `namespaces` (when you pass them), and a guard on an interface field,
+where no resolver runs. On a `@check`, the undeclared argument and the
+interface field are logged as warnings instead, since 2.x booted with them;
+the next major refuses them there too.
 
-**The directive is repeatable, and that is how 404 and 403 stay distinct.**
-Checks run in declaration order with their own `onDeny`: a stranger fails the
-`view` check and gets `NOT_FOUND`, so an id cannot be probed; a viewer passes
-it, fails `edit`, and gets `FORBIDDEN`, which is honest because they already
-know the object exists.
+`@permission` is read only when its declaration has `name` and `type` — a
+schema with its own `@permission` of another shape keeps it. Loading this
+package's `graphql/` next to such a declaration merges the two, though: see
+[troubleshooting](./docs/troubleshooting.md).
 
-**Word the refusal like the layer beneath it.** `message:` sets the i18n key a
-denial carries; without it the shared `errors.not-found` /
-`errors.insufficient-permissions` are used. It matters because these fields are
-guarded twice — by the directive, and by the `require<M>Access` their service
-calls — and if the two word one 404 differently, the wording alone tells the
-caller which refused: a generic message means "you may not", a domain one means
-"it is gone". That is the distinction `NOT_FOUND` exists to hide.
+**An outage is never a denial.** A Keto failure throws `OryUnavailable`, which
+`createMaskError` answers `503 SERVICE_UNAVAILABLE`.
+
+Every question goes through a per-request memo: distinct questions are
+batched into one `POST /relation-tuples/batch/check`, identical ones asked
+once, a failed batch not remembered.
+
+### `@check`, the list-of-lists form — deprecated
+
+`@check(permissions: [[{ namespace, permit, id }]], onDeny, message)` keeps
+working, is validated the same way, and is evaluated in declaration order with
+`@permission` on the same field. Its outer list is OR, its inner list AND. Write
+`@permission` in a new schema; `@check` is planned for removal in a major.
 
 ```graphql
-note(id: ID!): Note!
-	@check(
-		permissions: [[{ namespace: "Note", permit: "view" }]]
-		message: "notes.errors.not-found"
-	)
+note(id: ID!): Note! @check(permissions: [[{ namespace: "Note", permit: "view" }]])
 ```
+
+### From a resolver: `requireUser` and `can`
+
+```ts
+import { can, type OryGraphQLContext, requireUser } from '@nxgt/shared-graphql';
+import { CustomException } from '@nxgt/shared-exceptions';
+
+async function archive(_: unknown, { id }: { id: string }, ctx: OryGraphQLContext) {
+	const user = requireUser(ctx); // UNAUTHENTICATED (401) when nobody is calling
+	if (!(await can(ctx, { name: 'edit', type: 'Note', id }))) {
+		throw CustomException.forbidden({ message: 'notes.errors.read-only' });
+	}
+	return notes.archive(id, user.sub);
+}
+```
+
+`can` answers Keto's `true` or `false` through the same memo as the
+directives; an outage throws, never answers `false`.
 
 ### What it does not cover, on purpose
 
 A field that answers a **list** the caller is entitled to. "Which notes may I
-see" is not a check — it is a Keto query (`heldBy(subject)`) folded into the
-database filter before the read. A directive there would have to fetch
-everything and filter after, which makes `totalCount` and the cursors lie.
-Those fields keep their access layer.
-
-That access layer stays anyway, and costs nothing: `useKetoChecks` puts a
-per-request loader on the context that **batches** distinct questions into one
-`POST /relation-tuples/batch/check` and **memoises** identical ones. A field
-guarded by `@check(view)` and a service that then asks the same question pay
-for one round trip between them.
-
-Two mistakes are refused when the schema is built, not when a request arrives:
-an `id` naming neither root, and `permissions: [[]]` — a conjunction over no
-terms is vacuously true, so it would admit everyone while looking guarded.
-
-A Keto outage is never a denial: `OryUnavailable` travels up to
-`createMaskError`, which answers 503.
+see" is not a check — it is a Keto query folded into the database filter
+before the read. A directive there would have to fetch everything and filter
+after, which makes `totalCount` and the cursors lie.
 
 ### A shipped directive is not a composed directive
 
 Shipping the SDL is enough for a standalone Yoga schema. It is **not** enough
-for a subgraph that federation composes. The day `@check` is used in `health`
-or `platform`, rover needs both `@composeDirective(name: "@check")` in that
-subgraph and the directive named in the subgraph's own `@link` import list.
-Without them the composition drops it silently — the supergraph SDL comes out
-valid, the field loses its check, and nothing fails.
+for a subgraph that federation composes: that subgraph needs
+`@composeDirective(name: "@permission")` (or `"@check"`) and the directive in
+its own `@link` import list. Without them the composition drops it silently —
+the supergraph SDL comes out valid, the field loses its guard, and nothing
+fails.
+
+## Errors
+
+```ts
+createYoga({ maskedErrors: { maskError: createMaskError(translate) } });
+new ApolloServer({ formatError: createFormatError(translate) });
+```
+
+Under Yoga, `createMaskError` turns a `CustomException` into a `GraphQLError`
+with `extensions { code, http { status } }` — `UNAUTHENTICATED` 401,
+`FORBIDDEN` 403, `NOT_FOUND` 404 — and its translated message; `OryUnavailable`
+into `SERVICE_UNAVAILABLE` 503, recognised even from a second copy of
+`@nxgt/ory-sdk`; and a plain `Error` a resolver threw into the mask message, as
+Yoga's default does.
+
+Under Apollo, `createFormatError` sets the `code` and the translated message
+(and `SERVICE_UNAVAILABLE` for an outage, with `http.status` in `extensions`
+only — `formatError` cannot change the transport status). It masks nothing
+Apollo would not.
 
 ## Plugins and context
 
 | Export | What it does |
 | --- | --- |
-| `useOryAuth(ory)` | Yoga plugin: resolve the caller, set `context.user` |
-| `useKetoChecks(ory)` | Yoga plugin: per-request DataLoader for Keto, and the `@check` transformer |
-| `applyKetoChecks(schema)` | wrap an already-built schema with `@check` |
-| `useAuth()` | Yoga plugin: require a user on the context |
+| `useOryAuth(ory)` | Yoga plugin: resolve the caller through Kratos or Hydra, set `user`, `claims`, `ory` |
+| `useKetoChecks(ory, options?)` | Yoga plugin: the per-request Keto memo, and the `@permission` / `@check` transform |
+| `applyKetoChecks(schema, options?)` | the same transform on an already-built schema |
+| `requireUser(ctx)`, `can(ctx, question)` | the caller or 401; Keto's answer through the memo |
+| `useAuth()` | Yoga plugin: copy `user` and `token` from the request's `extensions` — trust it only behind a gateway that sets them |
 | `extractJwtPlugin` | Apollo plugin: copy `request.extensions.payload` onto `context.jwt` |
 
 `GraphQLBaseContext.user` is `TokenPrincipal` — the caller as the access token
@@ -164,7 +216,10 @@ SDL.
 
 ## Things that bite
 
-- **`@check` on a list field is the wrong tool.** Filter before the read.
+- **`@permission` on a list field is the wrong tool.** Filter before the read.
+- **`useAuth()` reads the request body's `extensions`.** A client that can
+  reach the service directly can set them. Put the service behind the gateway
+  that writes them, or resolve the caller with `useOryAuth(ory)`.
 - **Do not import `graphql-subscriptions` from `graphql-subscriptions`.** Take
   it from this package, same reason mongoose comes from `@nxgt/shared-mongo`.
 - **The sandbox helper is spelled `sandboxExpolorer`.** That is the export
