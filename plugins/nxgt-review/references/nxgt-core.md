@@ -81,11 +81,14 @@ not a failure. **Never** run `changeset:publish`, `scripts/publish.ts`,
   `@nxgt/shared-graphql` 3.0, `useAuth()` and `extractJwtPlugin()` read the
   request's `extensions` only when a `trustedGateway` vouches for it; since
   `@nxgt/shared-hono` 4.0, `currentUser()` takes the same `trustedGateway`,
-  and `oryAuth(ory, { trustedGateway })` reads a route spec's mock headers
-  only with it **and** under `NODE_ENV=test`. Each throws at construction
-  without one. A default that trusts the body or the `X-User-*` headers, a
-  `trustedGateway` that always answers `true`, a secret compared other than
-  in constant time, or an export of `principalFromUserHeaders` is a finding.
+  as does `principalFromMockHeaders`. Those four throw at construction
+  without one. `oryAuth(ory)` needs none and is the normal call: without a
+  `trustedGateway` it never reads the `X-User-*` headers, and
+  `oryAuth(ory, { trustedGateway })` reads a route spec's mock headers only
+  with it **and** under `NODE_ENV=test`. A default that trusts the body or
+  the `X-User-*` headers, a `trustedGateway` that always answers `true`, a
+  secret compared other than in constant time, or an export of
+  `principalFromUserHeaders` is a finding.
 - **One definition of the proof, in `@nxgt/security/gateway`.**
   `gatewaySecret`, `GATEWAY_SECRET_HEADER`, `requireGatewayTrust`,
   `assertGatewaySecret` and the `GatewayTrust` types live there; both

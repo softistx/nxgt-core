@@ -82,8 +82,9 @@ makes it green by testing a newer version is a finding, and so is a README
 that states a new floor without a step in that job. A floor linked over
 when the workspace resolves the same peer elsewhere (two copies of
 `graphql`) belongs in `run-in-floor-project.ts` instead. Run them locally
-only as `AGENTS.md` (*Tests*) shows, after `bun run build`; a link either
-refuses as left by an interrupted run is fixed by `bun install`.
+only as `AGENTS.md` (*Tests*) shows, after `bun run build`; a stale link
+`run-on-peer-floor.ts` refuses, or a name `run-in-floor-project.ts` cannot
+resolve, is fixed by `bun install`.
 
 You may run all of it; none of it publishes. Run the suites **one package
 at a time** — `(cd packages/<name> && bun run test)`, which is
@@ -164,8 +165,9 @@ running them in parallel races the caches.
   that versions it. `changeset:private` enforces the second half. Ten of the
   eleven packages are public; `@nxgt/janus-graphql` is still private on
   `develop`, and softistx/nxgt-janus#155 removes the flag with the changeset
-  that publishes it at 0.1.0. Until it lands, a changeset naming
-  `janus-graphql` anywhere else is the finding.
+  that publishes it at 0.1.0. Until it lands, a changeset whose front
+  matter names `janus-graphql` anywhere else is the finding; an empty one
+  whose text mentions it (`.changeset/janus-graphql-floors.md`) is not.
 
 ## Structure
 
@@ -251,8 +253,9 @@ diff that grows one is a finding.
   No file over 250. The longest files are
   `janus/test/types/refusals.ts` 236, `scripts/check-nxgt-versions.spec.ts`
   221, `janus-mail/test/types/option-refusals.ts` 204,
-  `janus-graphql/test/harness.ts` 196, `scripts/publish.ts` 180 and
-  `scripts/run-in-floor-project.ts` 178 (`run-on-peer-floor.ts` 141,
+  `janus-graphql/test/harness.ts` 196, `scripts/publish.ts` 180,
+  `scripts/run-in-floor-project.ts` 178, and `janus-hono/test/app.ts` and
+  `janus-drizzle/test/db.ts` 175 each (`run-on-peer-floor.ts` 141,
   `scripts/artifacts/manifest.ts` 137, `scripts/floor-project/copies.ts` 120;
   `scripts/verify-artifacts.ts` 90, `janus-mail/scripts/build-mail.ts` 171).
   The next longest functions are near the line: `isolatedInstallPerCase`
