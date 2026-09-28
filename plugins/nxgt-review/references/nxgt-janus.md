@@ -3,14 +3,17 @@
 nxgt-janus is an embeddable, typed alternative to the Ory suite: a library the
 application runs in its own process, whose persistence is a **port** the
 developer may implement. A Bun workspace published to npmjs with changesets,
-ten packages: `@nxgt/janus` (entry points `.` for identities,
+eleven packages: `@nxgt/janus` (entry points `.` for identities,
 `./permissions`, `./conformance`), the adapters `@nxgt/janus-drizzle`,
 `@nxgt/janus-mongo` and `@nxgt/janus-redis`, the wiring kit
 `@nxgt/janus-kit` (`./drizzle`, `./mongo`), the integrations
-`@nxgt/janus-hono`, `@nxgt/janus-mail` (the flows' e-mails, built with
-Maizzle at this repository's build and sent through an `@nxgt/mail`
-transport) and `@nxgt/janus-telemetry`, and `@nxgt/janus-webhooks` (with its
-own `./conformance`) with its adapter `@nxgt/janus-webhooks-redis`. Its
+`@nxgt/janus-hono`, `@nxgt/janus-graphql` (an Envelop plugin with the user
+on the context and the `@authenticated` and `@permission` directives),
+`@nxgt/janus-mail` (the flows' e-mails, built with Maizzle at this
+repository's build and sent through an `@nxgt/mail` transport) and
+`@nxgt/janus-telemetry`, and `@nxgt/janus-webhooks` (with its own
+`./conformance`) with its adapter `@nxgt/janus-webhooks-redis`. A package
+given no subpath here has the one entry point `.`; the kit has no `.`. Its
 audience is outside this organisation, so type safety is the selling point
 and has to be **measured**. The worst defects here compile and pass: an
 adapter that turns an outage into `null`, a second copy of `StoreFailure`, a
@@ -24,8 +27,15 @@ git ls-files ':(glob)packages/*/src/**/*.ts' ':(glob,exclude)packages/*/src/**/*
 git ls-files ':(glob)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
 ```
 
-Functions with the agent's brace-bounded `awk`, over the same file list (306
-source files on `develop`, the `*.fixtures.ts` included). The thresholds are
+Functions with the agent's brace-bounded `awk`, over the same file list (342
+source files on `develop`, the `*.fixtures.ts` included), then over the
+scripts, which the pathspecs above leave out:
+
+```bash
+git ls-files 'scripts/**.ts' 'packages/*/scripts/**.ts' 'packages/*/test/**.ts' build.ts \
+  | xargs wc -l | sort -rn | head -15
+```
+ The thresholds are
 the agent's: 250 lines per file, 80 per function. The `awk` does not see a
 class body, and this repository has two long ones (below): check a class by
 hand.
@@ -39,15 +49,40 @@ bun run build              # before typecheck: siblings resolve through dist/
 git diff --exit-code -- 'packages/*/src/generated'   # the committed generated code is current
 test -z "$(git status --porcelain -- 'packages/*/src/generated')"   # and none is left uncommitted
 bun run typecheck          # includes every test/types/ — the type-safety measurement
-bun run test               # per package, then `bun test scripts`
+bun run test               # per package, then `bun test scripts`: the root scripts/ specs and janus-mail's
 bun run verify:artifacts   # loads every subpath; one JanusError, one StoreFailure; no test code shipped
 bun run changeset:status   # pull requests only, not on changeset-release/develop
 ```
 
 CI also runs `janus-drizzle` over node-postgres, postgres.js and PGlite, and
-a `floors` job runs the suites a README floor concerns on PostgreSQL 15,
-Redis 7.0 and Valkey 7.2. A floor that fails there means the README is wrong;
-a change that makes it green by testing a newer version is a finding.
+a `floors` job (*Floors*) runs the suites a README floor concerns on
+PostgreSQL 15, Redis 7.0 and Valkey 7.2, then the library peers' floors,
+each the exact lower bound of its peer range:
+
+- `scripts/run-on-peer-floor.ts` (its stages in `scripts/peer-floor/`:
+  `plan`, `fetch`, `stage`, `forward`) points the named packages' link to a
+  peer at the floor's tarball, runs a command and puts the links back —
+  `@nxgt/mail` 0.1.0 under `janus-mail`, `@nxgt/mongo` 0.17.0 under
+  `janus-mongo` and the kit. It never touches a `package.json` or `bun.lock`.
+- `scripts/run-in-floor-project.ts` (its stages in `scripts/floor-project/`:
+  `plan`, `manifest`, `copies`, `layout`) is for a floor the rest of the
+  workspace also resolves, which a link would duplicate: it packs the
+  package and its `workspace:` siblings into a scratch project with the
+  floors, asserts one copy of each `--single` floor and that the sources and
+  the packed package resolve every floor, runs the command in a copy of the
+  package, and removes the project — `@nxgt/janus-graphql` on `graphql`
+  16.9.0 (`--single`), `@envelop/core` 5.0.0 and `@graphql-tools/utils`
+  10.0.0.
+
+Both forward SIGINT and SIGTERM through `scripts/peer-floor/forward.ts`, and
+their specs hold that everything is put back after a success, a failure and
+a signal. A floor that fails there means the README is wrong; a change that
+makes it green by testing a newer version is a finding, and so is a README
+that states a new floor without a step in that job. A floor linked over
+when the workspace resolves the same peer elsewhere (two copies of
+`graphql`) belongs in `run-in-floor-project.ts` instead. Run them locally
+only as `AGENTS.md` (*Tests*) shows, after `bun run build`; a link either
+refuses as left by an interrupted run is fixed by `bun install`.
 
 You may run all of it; none of it publishes. Run the suites **one package
 at a time** — `(cd packages/<name> && bun run test)`, which is
@@ -125,8 +160,11 @@ running them in parallel races the caches.
   that throws on one, or a grant that answers it quietly, is a finding.
 - **A new package starts `"private": true`, and a private package gets no
   changeset.** Removing the flag is a commit of its own, with the changeset
-  that versions it. `changeset:private` enforces the second half. All ten
-  packages are public today.
+  that versions it. `changeset:private` enforces the second half. Ten of the
+  eleven packages are public; `@nxgt/janus-graphql` is still private on
+  `develop`, and softistx/nxgt-janus#155 removes the flag with the changeset
+  that publishes it at 0.1.0. Until it lands, a changeset naming
+  `janus-graphql` anywhere else is the finding.
 
 ## Structure
 
@@ -137,9 +175,10 @@ running them in parallel races the caches.
   left beside it and its specs inside: `auth/types/`, `auth/users/`,
   `auth/sessions/`, `janus-drizzle/src/{stores,tables,relations}/`,
   `janus-mongo/src/{stores,relations}/`, `janus-telemetry/src/flows/`,
-  `janus-webhooks/src/worker/`. `permissions/model/` and
-  `permissions/resolve/` were split without an `index.ts` and are imported
-  by file: they are in the known debt below, not a new finding each pass.
+  `janus-webhooks/src/worker/`. `permissions/model/`,
+  `permissions/resolve/` and janus-graphql's `directives/permission/` were
+  split without an `index.ts` and are imported by file: they are in the
+  known debt below, not a new finding each pass.
   *Observed (the owner's rule for the split, and the agent's), not stated in
   `AGENTS.md`.*
 - **A spec split by behaviour becomes siblings**,
@@ -176,35 +215,45 @@ running them in parallel races the caches.
   the cases runs across the folder. `test/types/refusals.ts` stays the
   top-level list.
 
-**Known debt to split** (measured on `develop` at `fd8ca10`, 2026-09-27,
-after 0.9.0's release PR #137) — each stays in the tally until it is gone,
-and a diff that grows one is a finding.
+**Known debt to split** (measured on `develop` at `e53ef7b`, 2026-09-28,
+after #154, with #155 open) — each stays in the tally until it is gone, and a
+diff that grows one is a finding.
 
-- Files over 250: **none** under `packages/*/src`, `janus-webhooks` and
-  `janus-webhooks-redis` included. Closest to the line:
+- Files over 250: **none** under `packages/*/src`, `janus-graphql`,
+  `janus-webhooks` and `janus-webhooks-redis` included. Closest to the line:
   `janus-redis/src/scripts.ts` 249, `janus/src/permissions/list.fixtures.ts`
-  247, `janus/src/permissions/reverse.ts` 245, `janus-mail/src/options.ts`
-  244, `janus/src/auth/second-factor/lifecycle.ts` 231 (192 before the second
-  factor's events, #125; #139, open at this measurement, splits it into one
-  module per step, and the tally drops it when that lands) — a diff that
-  pushes one over is the finding.
+  247, `janus/src/permissions/reverse.ts` 245,
+  `janus-webhooks-redis/src/queue.ts` 229, `janus-redis/src/stores.ts` 228 —
+  a diff that pushes one over is the finding. The second factor's steps were
+  split one module per step (#139): `lifecycle.ts` is 69, and
+  `janus-mail/src/options.ts` is down to 212.
 - Functions over 80, by the agent's `awk`: **none**. Longest:
-  `confirmChallenge` (`janus/src/auth/second-factor/challenge.ts:64`) 71,
-  `memorySessionStore` (`janus/src/auth/port/memory/sessions.ts:11`) 71.
+  `memorySessionStore` (`janus/src/auth/port/memory/sessions.ts:11`) 71,
+  `sessionStore` (`janus-drizzle/src/stores/sessions.ts:8`) 68.
 - Class bodies, which the `awk` does not see: `class Reverse`
   (`janus/src/permissions/reverse.ts:35`) 211 lines and `class Walk`
   (`janus/src/permissions/walk.ts:22`) 142 — each one traversal's state and
   its steps, no method over 80 (measured with TypeScript's parser).
-- Folders split without an `index.ts`: `janus/src/permissions/model/` and
-  `janus/src/permissions/resolve/`. Adding one is a move with no spec touched.
+- Folders split without an `index.ts`: `janus/src/permissions/model/`,
+  `janus/src/permissions/resolve/`, and `janus-graphql/src/directives/permission/`
+  (`enforce`, `model`, `path`, `validate`), whose specs
+  `permission.<behaviour>.spec.ts` and `permission.fixtures.ts` sit beside
+  the folder in `directives/`. Adding the `index.ts` and moving the specs in
+  is a move with no spec's content touched.
 - No spec under `packages/*/src` is over 250 (the longest,
-  `auth/sessions/index.spec.ts`, 229).
-- Outside the pathspecs: **none**. `scripts/verify-artifacts.ts` is 90 lines
-  since #124 split it into `scripts/artifacts/` (the longest,
-  `manifest.ts`, 137); the longest file under `scripts/` is
-  `check-nxgt-versions.spec.ts`, 221 (`check-nxgt-versions.ts` 172), the
-  longest function `publish.ts:112`, 65, and
-  `janus-mail/scripts/build-mail.ts` is 149.
+  `auth/sessions/index.spec.ts` and `auth/second-factor/flows.events.spec.ts`,
+  229 each).
+- Outside the pathspecs: **none**. The longest files are
+  `janus/test/types/refusals.ts` 236, `scripts/check-nxgt-versions.spec.ts`
+  221, `janus-mail/test/types/option-refusals.ts` 204,
+  `janus-graphql/test/harness.ts` 196, `scripts/publish.ts` 180 and
+  `scripts/run-in-floor-project.ts` 178 (`run-on-peer-floor.ts` 141,
+  `scripts/artifacts/manifest.ts` 137, `scripts/floor-project/copies.ts` 120;
+  `scripts/verify-artifacts.ts` 90, `janus-mail/scripts/build-mail.ts` 171).
+  The longest functions there are two fixtures near the line,
+  `isolatedInstallPerCase` (`scripts/run-on-peer-floor.fixtures.ts:42`) 77
+  and `workspacePerCase` (`scripts/run-in-floor-project.fixtures.ts:39`) 72,
+  then `publish.ts:112`, 65.
 
 ## Deliberate — do not report
 
@@ -225,7 +274,9 @@ and a diff that grows one is a finding.
   `files` entry `dis` is not covered by `dist/`. The differences that remain
   are declared: `browser.ts` is nxgt-core's alone; this copy and nxgt-data
   read a sibling's version from the workspace, nxgt-http and nxgt-core from
-  the packed manifests; and `check-changesets.ts` is this copy's alone.
+  the packed manifests; and `check-changesets.ts`, the two floor scripts
+  `run-on-peer-floor.ts` and `run-in-floor-project.ts`, and their
+  `scripts/peer-floor/` and `scripts/floor-project/`, are this copy's alone.
   `check-nxgt-versions.ts`, its spec and `nxgt-versions.yml` are copied into
   nxgt-core (the script byte for byte but its header, the spec but the one
   package it expects to find, `@nxgt/ory-sdk`) and nxgt-data, which
@@ -252,6 +303,19 @@ and a diff that grows one is a finding.
   and `janus-webhooks/src/conformance/{assert,describe}.ts`. Both `isOurs`
   take the error's `name`, because the bundle renames `StoreFailure` to
   `StoreFailure2`, and their bodies are identical; the copy has no `isNull`.
+- The integrations' reading of `janus()` and of a refusal — `Auth`,
+  `UserOfAuth`, and the fields a client may read from a `JanusError`
+  (`issues`, `minLength`, `attemptsLeft`) — in
+  `janus-hono/src/{session,errors}.ts` (`bodyOf`) and
+  `janus-graphql/src/{types,errors}.ts` (`actionable`). The status table is
+  not duplicated: both answer `@nxgt/janus`'s `statusOf`, and a third copy
+  of it is a finding. Never `reason`, `login` or a cause in either.
+- The characters no object id may hold (`@`, `#`, parentheses) and the empty
+  id, in `janus/src/permissions/input.ts` (`RESERVED`, `idOf`) and
+  `janus-graphql/src/directives/permission/enforce.ts` (`UNNAMEABLE`):
+  `can()` refuses such an id with a `TypeError`, `@permission` answers it
+  `NOT_FOUND` before asking. One changed without the other turns an id the
+  core refuses into a 500.
 - `janus-mail`'s committed `src/generated/mail.ts`, whose header says to
   git-ignore it — a declared divergence; the header is the generator's.
 
@@ -269,7 +333,10 @@ drift the table does not describe.
   imports. The sibling peers, *observed in the manifests*:
   `janus-webhooks-redis` peers `@nxgt/janus-webhooks` (required), and
   `janus-kit` peers `@nxgt/janus-drizzle`, `@nxgt/janus-mongo` and
-  `@nxgt/janus-telemetry` (optional). A new edge between siblings is a
+  `@nxgt/janus-telemetry` (optional). `janus-graphql` peers no sibling but
+  the core; its other peers are `graphql` (`^16.9.0 || ^17.0.0`: 17.0.2 in the
+  `ci` job, 16.9.0 in *Floors*), `@envelop/core` (`^5.0.0`) and `@graphql-tools/utils`
+  (`>=10.0.0 <13`), whose floors *Floors* runs. A new edge between siblings is a
   question; a sibling in `dependencies` other than the kit's `janus-redis` is
   a finding, since `AGENTS.md` forbids factoring across packages.
 - `./conformance` is product surface, not a test helper: a change to a suite
