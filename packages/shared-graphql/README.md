@@ -255,7 +255,11 @@ describes them (`sub`, `uid`, `scope`). It is not `Principal`, which is the
 header-derived shape used by the REST services.
 
 `createYogaHono` / `honoYoga` (from this package's integrations) mount Yoga on
-Hono. `sandboxExplorer` serves Apollo Sandbox. Subscriptions go over Redis
+Hono. `sandboxExplorer` serves Apollo Sandbox, started at the GraphQL endpoint
+of the server that served the page — the request's own origin, behind a proxy
+and over HTTPS alike — unless `port`, `hostname`, `protocol` or a whole
+`initialEndpoint` pins it; `createYogaHono` points it at `yoga.graphqlEndpoint`.
+Subscriptions go over Redis
 (`graphql-subscriptions` is re-exported). `DataLoader` is re-exported so a
 subgraph does not take a second copy.
 
