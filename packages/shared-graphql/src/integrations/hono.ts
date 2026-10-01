@@ -5,9 +5,24 @@ import { createMiddleware } from 'hono/factory';
 import { languageDetector } from 'hono/language';
 import { type RenderSandboxOptions, renderSandbox } from '../utils/sandbox';
 
+/**
+ * Serves Apollo Sandbox. Given neither `port`, `hostname` nor `protocol`, it
+ * starts at `graphqlEndpoint` on the server that served the page — the
+ * request's own origin, behind a proxy and over HTTPS alike.
+ */
 export function sandboxExplorer(options: RenderSandboxOptions) {
+	const pinned =
+		options.port !== undefined ||
+		options.hostname !== undefined ||
+		options.protocol !== undefined ||
+		options.initialEndpoint !== undefined;
 	return createMiddleware(async (ctx) => {
-		return ctx.html(renderSandbox(options));
+		if (pinned) return ctx.html(renderSandbox(options));
+		const origin = new URL(ctx.req.url).origin;
+		const endpoint = (options.graphqlEndpoint ?? 'graphql').replace(/^\/+/, '');
+		return ctx.html(
+			renderSandbox({ ...options, initialEndpoint: `${origin}/${endpoint}` }),
+		);
 	});
 }
 
@@ -51,7 +66,10 @@ export function createYogaHono<
 
 	app.get(
 		options?.sandbox?.endpoint || 'sandbox',
-		sandboxExplorer(options?.sandbox || {}),
+		sandboxExplorer({
+			graphqlEndpoint: yoga.graphqlEndpoint,
+			...options?.sandbox,
+		}),
 	);
 
 	app.use(yoga.graphqlEndpoint, honoYoga(yoga));
