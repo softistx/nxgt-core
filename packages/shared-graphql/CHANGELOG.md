@@ -1,5 +1,20 @@
 # @nxgt/shared-graphql
 
+## 3.1.0
+
+### Minor Changes
+
+- [#169](https://github.com/softistx/nxgt-core/pull/169) [`e307f99`](https://github.com/softistx/nxgt-core/commit/e307f99c98775754516d113ff918d0c3963c151c) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `@nxgt/i18n` no longer reads the Hono request context: `getLanguage()` asks the language sources registered with `registerLanguageSource()`, then `localStorage`, then the fallback, and the package no longer depends on `hono`. `@nxgt/shared-hono` registers the Hono source (`honoLanguageSource`, `useHonoLanguage()`) when imported and declares `c.get('language')`; `@nxgt/shared-graphql`'s `createYogaHono()` registers it too. An app on `@nxgt/shared-hono` sees no difference; one that used `@nxgt/i18n` beside Hono without it calls `useHonoLanguage()`.
+
+- [#171](https://github.com/softistx/nxgt-core/pull/171) [`6e47ab1`](https://github.com/softistx/nxgt-core/commit/6e47ab1b39db72e219374fdbcde4794c0f6bd37d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `sandboxExplorer` starts Apollo Sandbox at the GraphQL endpoint of the server that served the page — the request's own origin — when neither `port`, `hostname` nor `protocol` pins it, instead of `http://localhost:8080/graphql`. A new `initialEndpoint` option sets the whole URL. `createYogaHono` points it at `yoga.graphqlEndpoint`, and a leading slash in `graphqlEndpoint` no longer doubles.
+
+### Patch Changes
+
+- Updated dependencies [[`e307f99`](https://github.com/softistx/nxgt-core/commit/e307f99c98775754516d113ff918d0c3963c151c)]:
+  - @nxgt/i18n@2.0.0
+  - @nxgt/shared-exceptions@1.0.5
+  - @nxgt/shared-mongo@1.1.5
+
 ## 3.0.1
 
 ### Patch Changes

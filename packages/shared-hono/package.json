@@ -1,6 +1,6 @@
 {
 	"name": "@nxgt/shared-hono",
-	"version": "4.0.0",
+	"version": "4.1.0",
 	"license": "MIT",
 	"type": "module",
 	"main": "./dist/index.js",

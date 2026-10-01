@@ -1,5 +1,18 @@
 # @nxgt/shared-hono
 
+## 4.1.0
+
+### Minor Changes
+
+- [#169](https://github.com/softistx/nxgt-core/pull/169) [`e307f99`](https://github.com/softistx/nxgt-core/commit/e307f99c98775754516d113ff918d0c3963c151c) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `@nxgt/i18n` no longer reads the Hono request context: `getLanguage()` asks the language sources registered with `registerLanguageSource()`, then `localStorage`, then the fallback, and the package no longer depends on `hono`. `@nxgt/shared-hono` registers the Hono source (`honoLanguageSource`, `useHonoLanguage()`) when imported and declares `c.get('language')`; `@nxgt/shared-graphql`'s `createYogaHono()` registers it too. An app on `@nxgt/shared-hono` sees no difference; one that used `@nxgt/i18n` beside Hono without it calls `useHonoLanguage()`.
+
+### Patch Changes
+
+- Updated dependencies [[`e307f99`](https://github.com/softistx/nxgt-core/commit/e307f99c98775754516d113ff918d0c3963c151c)]:
+  - @nxgt/i18n@2.0.0
+  - @nxgt/shared-exceptions@1.0.5
+  - @nxgt/shared-mongo@1.1.5
+
 ## 4.0.0
 
 ### Major Changes
