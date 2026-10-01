@@ -1,5 +1,14 @@
 # @nxgt/shared-storage
 
+## 1.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`e307f99`](https://github.com/softistx/nxgt-core/commit/e307f99c98775754516d113ff918d0c3963c151c)]:
+  - @nxgt/i18n@2.0.0
+  - @nxgt/shared-exceptions@1.0.5
+  - @nxgt/shared-mongo@1.1.5
+
 ## 1.0.6
 
 ### Patch Changes

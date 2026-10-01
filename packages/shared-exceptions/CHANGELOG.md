@@ -1,5 +1,12 @@
 # @nxgt/shared-exceptions
 
+## 1.0.5
+
+### Patch Changes
+
+- Updated dependencies [[`e307f99`](https://github.com/softistx/nxgt-core/commit/e307f99c98775754516d113ff918d0c3963c151c)]:
+  - @nxgt/i18n@2.0.0
+
 ## 1.0.4
 
 ### Patch Changes
