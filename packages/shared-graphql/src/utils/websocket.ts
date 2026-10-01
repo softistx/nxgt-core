@@ -20,7 +20,6 @@ export function setupYogaWebSocketServer<
 		path: yoga.graphqlEndpoint,
 	});
 
-	// biome-ignore lint/correctness/useHookAtTopLevel: Not react related
 	useServer(
 		{
 			execute: (args: any) => args.rootValue.execute(args),

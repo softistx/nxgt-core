@@ -1,8 +1,8 @@
-import { tryGetContext } from 'hono/context-storage';
 import { IntlMessageFormat } from 'intl-messageformat';
 import _ from 'lodash';
 import { FALLBACK_LANGUAGE, LANGUAGE_KEY, SUPPORTED_LANGUAGES } from './consts';
 import { resources } from './resources';
+import { languageFromSources } from './sources';
 import type {
 	Language,
 	LanguageProvider,
@@ -11,25 +11,25 @@ import type {
 } from './types';
 
 /**
- * Where the language comes from when the caller does not say.
+ * Where the language comes from when the caller does not say, most specific
+ * first:
  *
- * The two repositories had forked exactly this: sellix-monorepo read
- * `localStorage`, nxgt-federation read the Hono request context, and neither
- * could run where the other did — federation's fell back to `'en'` outside a
- * request, sellix's knew nothing about one. Asking both, most specific first,
- * serves either without a caller changing anything.
+ * 1. a registered source — `registerLanguageSource()`: a server's request
+ *    context, which `@nxgt/shared-hono` registers for Hono and
+ *    `@alxia/i18n` for alxia;
+ * 2. `localStorage`, when that object exists;
+ * 3. the fallback language.
+ *
+ * Until 2.0 this read Hono's request context itself, through
+ * `hono/context-storage`, which tied every consumer — a browser bundle, an
+ * alxia server — to Hono. The Hono part lives in `@nxgt/shared-hono` now.
  *
  * `createTranslator` still takes a provider, so a caller that wants one source
- * and not the other passes it.
+ * and not the others passes it.
  */
 export function getLanguage(): Language {
-	const fromRequest: unknown = tryGetContext()?.get(LANGUAGE_KEY as never);
-	if (
-		typeof fromRequest === 'string' &&
-		SUPPORTED_LANGUAGES.includes(fromRequest as Language)
-	) {
-		return fromRequest as Language;
-	}
+	const fromSource = languageFromSources();
+	if (fromSource !== undefined) return fromSource;
 	if (typeof localStorage !== 'undefined') {
 		const stored = localStorage.getItem(LANGUAGE_KEY);
 		if (SUPPORTED_LANGUAGES.includes(stored as Language)) {

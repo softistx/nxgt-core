@@ -1,6 +1,7 @@
+import { LANGUAGE_KEY, registerLanguageSource } from '@nxgt/i18n';
 import type { YogaInitialContext, YogaServerInstance } from 'graphql-yoga';
 import { Hono } from 'hono';
-import { contextStorage } from 'hono/context-storage';
+import { contextStorage, tryGetContext } from 'hono/context-storage';
 import { createMiddleware } from 'hono/factory';
 import { languageDetector } from 'hono/language';
 import { type RenderSandboxOptions, renderSandbox } from '../utils/sandbox';
@@ -26,6 +27,21 @@ export function sandboxExplorer(options: RenderSandboxOptions) {
 	});
 }
 
+/**
+ * The Hono request's language, for `@nxgt/i18n`'s `getLanguage()`: the
+ * `languageDetector()` below sets it, and the errors this package formats are
+ * translated in it.
+ *
+ * `@nxgt/shared-hono`'s `honoLanguageSource`, kept twice on purpose: this
+ * package does not depend on `@nxgt/shared-hono`, and an app may serve Yoga
+ * without it. Registered once, whichever registers first; the registry keeps
+ * one of each.
+ */
+const honoLanguage = () => {
+	const language: unknown = tryGetContext()?.get(LANGUAGE_KEY as never);
+	return typeof language === 'string' ? language : undefined;
+};
+
 type HonoYogaOptions = {
 	sandbox?: RenderSandboxOptions & { endpoint?: string };
 };
@@ -50,6 +66,7 @@ export function createYogaHono<
 ) {
 	const app = new Hono();
 
+	registerLanguageSource(honoLanguage);
 	app.use(contextStorage());
 	app.use(
 		languageDetector({
