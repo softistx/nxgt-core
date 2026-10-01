@@ -32,6 +32,25 @@ subpaths — not an application factory.
 The error handler answers with `CustomException.code` as the HTTP status — that
 is the contract that keeps `code` numeric in `@nxgt/shared-exceptions`.
 
+## Language
+
+Importing this package registers `honoLanguageSource` with `@nxgt/i18n`: its
+`getLanguage()`, `translate` and the error handler below speak the request's
+language — the `language` variable `hono/language`'s `languageDetector()`
+sets, read through `contextStorage()`.
+
+```ts
+import { contextStorage } from 'hono/context-storage';
+import { languageDetector } from 'hono/language';
+
+app.use(contextStorage());
+app.use(languageDetector({ supportedLanguages: ['en', 'fr'], fallbackLanguage: 'en' }));
+```
+
+`@nxgt/i18n` did this itself until 2.0. `useHonoLanguage()` registers it
+explicitly, and answers the function that removes it; `c.get('language')` is
+typed as `@nxgt/i18n`'s `Language` by this package's `ContextVariableMap`.
+
 ## Error handler
 
 ```ts
