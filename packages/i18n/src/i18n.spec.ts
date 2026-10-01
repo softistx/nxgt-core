@@ -41,26 +41,22 @@ describe('getLanguage', () => {
 
 	it('reads localStorage when it holds a supported language', () => {
 		const original = globalThis.localStorage;
-		// biome-ignore lint/suspicious/noExplicitAny: minimal stand-in for the DOM API
 		(globalThis as any).localStorage = {
 			getItem: (k: string) => (k === 'language' ? 'fr' : null),
 		};
 		try {
 			expect(getLanguage()).toBe('fr');
 		} finally {
-			// biome-ignore lint/suspicious/noExplicitAny: restoring the stand-in
 			(globalThis as any).localStorage = original;
 		}
 	});
 
 	it('ignores a stored value that is not a supported language', () => {
 		const original = globalThis.localStorage;
-		// biome-ignore lint/suspicious/noExplicitAny: minimal stand-in for the DOM API
 		(globalThis as any).localStorage = { getItem: () => 'klingon' };
 		try {
 			expect(getLanguage()).toBe('en');
 		} finally {
-			// biome-ignore lint/suspicious/noExplicitAny: restoring the stand-in
 			(globalThis as any).localStorage = original;
 		}
 	});
