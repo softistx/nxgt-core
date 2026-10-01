@@ -51,9 +51,30 @@ and `errors.service-unavailable`.
 
 `getLanguage()` asks, most specific first:
 
-1. the Hono request context (`LANGUAGE_KEY`, `'language'`)
+1. every registered **language source**, in the order registered
 2. `localStorage.language`, when that object exists
 3. `FALLBACK_LANGUAGE` (`'en'`)
+
+A source is a function answering the current request's language, or nothing.
+This package knows no server; the server says where its request keeps the
+language:
+
+```ts
+import { registerLanguageSource } from '@nxgt/i18n';
+
+const remove = registerLanguageSource(() => currentRequest()?.language);
+```
+
+| server | its source |
+| --- | --- |
+| Hono | `@nxgt/shared-hono` registers `honoLanguageSource` when imported: the `language` variable `languageDetector()` sets, read through `contextStorage()` |
+| GraphQL Yoga on Hono | `@nxgt/shared-graphql`'s `createYogaHono()` registers the same |
+| alxia | `@alxia/i18n`'s `createI18n()` registers the request's language |
+
+A source that answers nothing, a language no catalogue has, or throws is
+skipped. Registering one twice keeps one. The registry is on `globalThis`, so
+two copies of this package in one app — one a dependency of
+`@nxgt/shared-hono`, one the app's own — share it.
 
 The two consuming monorepos had forked exactly this — one read the request, the
 other read `localStorage` — and neither could run where the other did. Asking
@@ -63,19 +84,29 @@ and not the other.
 
 `SUPPORTED_LANGUAGES` is derived from the catalogue keys, not typed out.
 
+### Since 2.0
+
+Until 2.0, `getLanguage()` read the Hono request context itself, through
+`hono/context-storage`: every consumer depended on Hono, and a server on
+anything else got the fallback. The Hono part lives in `@nxgt/shared-hono`
+now, with the `ContextVariableMap` augmentation that types `c.get('language')`.
+An app that imports `@nxgt/shared-hono` sees no difference; one that used
+`@nxgt/i18n` beside Hono without it calls `useHonoLanguage()` from
+`@nxgt/shared-hono` once, or registers its own source.
+
 ## In a browser bundle
 
 Nothing to change: `import { translate } from '@nxgt/i18n'` is the same import
 whether the code runs in Node, Bun, or a bundler that resolves the `browser`
-export condition (Vite, Nuxt's client build). Under `browser`, `getLanguage()`
-drops step 1 above — there is no Hono request to read from inside a browser —
-and answers from `localStorage`, then `FALLBACK_LANGUAGE`. Everything else,
-including `translate` and `createTranslator`, behaves the same. The point of
-the condition is what it leaves out of the bundle: no `hono/context-storage`,
-and nothing Node-only, ships to the client.
+export condition (Vite, Nuxt's client build). Since 2.0 nothing in the package
+is Node-only, and the `browser` entry is the same code; a client app registers
+a source as a server does, or relies on `localStorage`.
 
 ## Things that bite
 
+- **A server's language is a registered source.** Without one, every
+  request is translated in `localStorage`'s language — none, on a server — or
+  the fallback.
 - **Messages are keys.** Rendering at the throw site (or translating in a
   service) freezes the language of whoever threw, not of whoever reads.
 - **ICU formatting failures are swallowed** (`console.error`) and the

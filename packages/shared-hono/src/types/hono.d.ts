@@ -1,9 +1,16 @@
+import type { Language } from '@nxgt/i18n';
 import type { OryPrincipal } from '@nxgt/ory-sdk';
 import type { Principal } from '@nxgt/shared/models';
 import type { KetoChecker } from '../middlewares/keto-check';
 
 declare module 'hono' {
 	interface ContextVariableMap {
+		/**
+		 * The request's language: what `hono/language`'s `languageDetector()`
+		 * sets, and what `@nxgt/i18n` translates in. Declared by
+		 * `@nxgt/i18n` itself until 2.0.
+		 */
+		language?: Language;
 		principal?: Principal | null;
 		/** The Bearer token the caller sent, when that is how they signed in. */
 		accessToken?: string | null;

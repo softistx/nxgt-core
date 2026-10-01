@@ -680,6 +680,7 @@ The following pairs exist on purpose:
 | `Principal` and `TokenPrincipal` | gateway-header shape vs JWT-claims shape — two different models of "the authenticated caller" |
 | the REST filter helpers and the GraphQL filter DSL | two filter philosophies that shared a filename and two function names |
 | `objectIdFromString` and `toObjectId` | the same conversion under two names; one aliases the other |
+| `honoLanguageSource` in `shared-hono/src/i18n/language.ts` and its copy in `shared-graphql/src/integrations/hono.ts` | `@nxgt/i18n` knows no server since 2.0: each Hono integration registers the request's language. `shared-graphql` does not depend on `shared-hono`, and an app may serve Yoga without it. Change both together |
 
 Converging each pair onto one implementation is real work with real decisions
 in it. It is not a tidy-up, and it is not this repository's to do unasked.
