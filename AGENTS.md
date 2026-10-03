@@ -154,8 +154,8 @@ first that fails; each lives in `scripts/artifacts/`, one module per
 responsibility, with a spec beside each pure one: `packages.ts` reads the
 workspace, `tarball.ts` a tarball's entries, `manifest.ts` its dependency
 fields, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
-`browser.ts` (the `browser` condition, which only this repository has) and
-`classes.ts`. The split follows nxgt-janus's copy module for module, as
+`browser.ts` (the `browser` condition, which only this repository has),
+`classes.ts` and `emit.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
 port to the others. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
@@ -168,6 +168,25 @@ copied from nxgt-janus, the script byte for byte but for its header comment
 and the spec but for the one package it expects to find (`@nxgt/ory-sdk`);
 nxgt-data has a copy too, which also reads `examples/*`. nxgt-http has none:
 every `@nxgt/*` package there depends only on its siblings.
+
+Last, it emits the declarations of each package's `test/declarations/*.ts`
+against the install, under a consumer's strict settings with this
+repository's `@types/bun` (`emit.ts`, from softistx/alxia#87). An exported
+value whose inferred type holds a type the entry does not export fails there
+with TS2883 ("cannot be named without a reference to …"), and nowhere else:
+inside the workspace a package resolves to its own folder through a symlink,
+so tsc names the type by a relative path, even with the declaration build
+on. `shared-hono`'s fixture is an app made of its middleware — `currentUser`,
+`oryAuth`, `oryChecks`, `requireAuthenticated`, `secured`, `ketoCheck`,
+`acceptQuery`, `rateLimiter`, the error handler — plus the `openapi-fetch`
+client and `createMcpServerApp`; `shared-graphql`'s the Yoga plugins, the
+Keto checker and the Hono mount. A middleware, plugin or builder whose type
+ends up in an app's gets a case there. Neither package's `tsconfig.json`
+includes `test/`, so this stage is the only compiler that reads the
+fixtures; Biome lints them, and they are never built or shipped. `emit.ts`
+takes the tsc run as a parameter, so `emit.spec.ts` covers it without a
+pack, and it compiles with Bun's types where alxia's #87 had `types: []`,
+which made a type from `bun` an error type that `skipLibCheck` hid.
 
 It fails a `files` entry the tarball holds nothing under, with
 `<package>: files lists <entry>, which the tarball does not hold — build it
