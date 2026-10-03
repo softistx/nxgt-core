@@ -186,7 +186,10 @@ includes `test/`, so this stage is the only compiler that reads the
 fixtures; Biome lints them, and they are never built or shipped. `emit.ts`
 takes the tsc run as a parameter, so `emit.spec.ts` covers it without a
 pack, and it compiles with Bun's types where alxia's #87 had `types: []`,
-which made a type from `bun` an error type that `skipLibCheck` hid. Here
+which made a type from `bun` an error type that `skipLibCheck` hid; alxia's
+copy takes these back in softistx/alxia#94, and softistx/nxgt-http#98,
+softistx/nxgt-data#146 and softistx/nxgt-janus#186 carry the same module
+and spec. Here
 that is a precaution: neither fixture reaches a `bun` type today (measured:
 the emitted `.d.ts` are the same either way), though `shared` and others
 import from `'bun'`.
