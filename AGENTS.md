@@ -186,7 +186,10 @@ includes `test/`, so this stage is the only compiler that reads the
 fixtures; Biome lints them, and they are never built or shipped. `emit.ts`
 takes the tsc run as a parameter, so `emit.spec.ts` covers it without a
 pack, and it compiles with Bun's types where alxia's #87 had `types: []`,
-which made a type from `bun` an error type that `skipLibCheck` hid.
+which made a type from `bun` an error type that `skipLibCheck` hid. Here
+that is a precaution: neither fixture reaches a `bun` type today (measured:
+the emitted `.d.ts` are the same either way), though `shared` and others
+import from `'bun'`.
 
 It fails a `files` entry the tarball holds nothing under, with
 `<package>: files lists <entry>, which the tarball does not hold — build it
