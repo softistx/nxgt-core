@@ -45,4 +45,10 @@ When the variable is unset, the `SessionStart` hook says so.
 
 ## Opt out
 
-`NXGT_ECONOMY_DISABLE=1` (or `true`) in the environment turns both hooks off.
+`NXGT_ECONOMY_DISABLE=1` (or `true`) in the environment turns both hooks off. Installed through `nxgt-base`,
+the plugin cannot be disabled on its own, so set it in the `env` block of `~/.claude/settings.json`
+(or a project's `.claude/settings.json`):
+
+```json
+{ "env": { "NXGT_ECONOMY_DISABLE": "1" } }
+```
