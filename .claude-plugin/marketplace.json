@@ -50,6 +50,10 @@
 			"source": "./plugins/nxgt-base"
 		},
 		{
+			"name": "nxgt-economy",
+			"source": "./plugins/nxgt-economy"
+		},
+		{
 			"name": "nxgt-crew",
 			"source": "./plugins/nxgt-crew"
 		},

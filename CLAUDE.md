@@ -32,8 +32,9 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-compose` | `compose-a-stack`, with a `references/<repo>.md` per repository |
 | `nxgt-product` | `lay-out-a-product-repository`, `extract-a-product-from-a-monorepo`, with a `references/<product>.md` per product repository |
 | `nxgt-autonomy` | `work-autonomously`, `plan-the-roadmap`; agents `work-queue-auditor`, `improvement-scout`, `green-bar-verifier`; a `SessionStart` hook that makes autonomy the default mode of every session in a git repository (`NXGT_AUTONOMY_DISABLE=1` opts out) — see its README |
+| `nxgt-economy` | no skills; a `SessionStart` hook that puts the token-economy rule in context, and a `PreToolUse` hook on `Agent` that reminds the session to pass a `model` (`NXGT_ECONOMY_DISABLE=1` opts out) — see its README |
 | `nxgt-monorepo` | `lay-out-a-library-monorepo` — the skeleton nxgt-data, nxgt-http, nxgt-telemetry and nxgt-janus share |
-| `nxgt-base` | none — a bundle whose `dependencies` are `nxgt-monorepo`, `nxgt-review`, `nxgt-docs` and `nxgt-autonomy`; `claude plugin install nxgt-base@nxgt-core --scope user` makes all four active in every project |
+| `nxgt-base` | none — a bundle whose `dependencies` are `nxgt-monorepo`, `nxgt-review`, `nxgt-docs`, `nxgt-autonomy` and `nxgt-economy`; `claude plugin install nxgt-base@nxgt-core --scope user` makes all five active in every project |
 | `nxgt-crew` | `crew`; agent `session-coordinator`; hooks that keep a registry of live sessions and block an edit to a file another session holds, or a checkout, reset or worktree removal where it works — see its README |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
