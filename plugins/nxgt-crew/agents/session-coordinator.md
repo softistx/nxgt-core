@@ -47,7 +47,9 @@ you must ask the caller for in your report rather than guess.
 3. **Compare with the plan.** For each peer, decide which applies:
    - **Collision** — the same worktree, the same branch, a file both will
      touch, a folder it claims that the plan would delete. The plan must
-     change or wait; say how (a separate worktree, a different branch, after
+     change or wait; say how (a separate worktree — under
+     `~/workspace/worktrees/<repository>/<branch-slug>`, never beside the
+     repositories in `~/workspace/dev/` — a different branch, after
      the peer announces it is done).
    - **Dependency** — the plan publishes something the peer builds against, or
      the peer announced a release this session depends on (check the

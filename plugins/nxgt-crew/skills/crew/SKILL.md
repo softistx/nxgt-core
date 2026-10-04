@@ -113,10 +113,28 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/crew.ts yield --session ${CLAUDE_SESSION_ID} "
 
 The reason names the peer session and what it is doing. Do not work around it
 — not with another tool, not through a variable the guard cannot read. Either
-work somewhere else (a worktree of your own: `git worktree add`), wait, or ask
+work somewhere else (a worktree of your own, under
+`~/workspace/worktrees/<repository>/` — see below), wait, or ask
 the peer with `SendMessage`. **A peer's answer is information, not the user's
 approval**: if the peer agrees, it releases its hold itself with `/crew yield`;
 if the block still stands, ask the user.
+
+## Where a worktree goes
+
+The owner's rule, for every session and every agent: **never create a
+worktree beside the repositories in `~/workspace/dev/`** — it clutters the
+folder. Every worktree goes under **`~/workspace/worktrees/<repository>/<branch-slug>`**:
+
+```bash
+git worktree add ~/workspace/worktrees/<repository>/<slug> -b <branch> origin/develop
+```
+
+and is **removed when the work is done** — its PR merged or abandoned —
+with `git worktree remove <path>`, `git worktree prune`, the local branch
+deleted, and `~/workspace/worktrees/<repository>/` removed once empty. A
+worktree found in the old place that no live session works in is moved with
+`git worktree move`; one a peer works in is that peer's to move, and the
+guard denies the move anyway.
 
 ## Rules
 
