@@ -1,0 +1,30 @@
+{
+	"description": "nxgt-economy: put the token-economy rule in context at session start, and remind the session to pass a model when it spawns an agent without one. Changes no permission, never blocks, fails open, and NXGT_ECONOMY_DISABLE=1 turns it off.",
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.ts"],
+						"timeout": 10
+					}
+				]
+			}
+		],
+		"PreToolUse": [
+			{
+				"matcher": "Agent",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-agent.ts"],
+						"timeout": 10
+					}
+				]
+			}
+		]
+	}
+}

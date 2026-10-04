@@ -1,0 +1,8 @@
+{
+	"name": "nxgt-economy",
+	"description": "Token economy as the default of every session: the main session runs on the strongest model, and light work is delegated to lighter ones through the Agent tool's model parameter. A SessionStart hook puts the rule in context and a PreToolUse hook on Agent reminds the session to pass a model. Changes no permission, never blocks, and NXGT_ECONOMY_DISABLE=1 turns it off.",
+	"version": "1.0.0",
+	"author": {
+		"name": "softistx"
+	}
+}
