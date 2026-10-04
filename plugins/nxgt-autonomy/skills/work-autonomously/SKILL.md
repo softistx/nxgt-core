@@ -86,7 +86,10 @@ Per item, in this order, and nothing skipped:
 1. **Branch off the default branch** (`develop` everywhere in this parc), named
    for what it does: `feat/…`, `fix/…`, `chore/…`, `docs/…`. When the item
    comes from a roadmap entry, `roadmap-keeper` moves that entry to **Now** in
-   this first PR.
+   this first PR. Work on it in a worktree of its own when the main checkout
+   is busy or another session is in the repository — under
+   `~/workspace/worktrees/<repository>/<branch-slug>`, **never beside the
+   repositories in `~/workspace/dev/`**.
 2. **Do the work**, smallest coherent slice first.
 3. **Measure it** — the repo's own green bar (`bun run check`, `typecheck`,
    `build`, the tests CI cannot run), and the behaviour itself where behaviour
@@ -99,7 +102,9 @@ Per item, in this order, and nothing skipped:
    `docs/` troubleshooting and roadmap included. Both, on every PR, in that
    order.
 6. **Open the PR**, wait for CI, **merge it**, delete the branch, pull the
-   default branch. **Merges and releases follow the repository's `AGENTS.md`**
+   default branch, and **remove the item's worktree** if it had one
+   (`git worktree remove`, `git worktree prune`, and its
+   `~/workspace/worktrees/<repository>/` folder once empty). **Merges and releases follow the repository's `AGENTS.md`**
    (who may merge, merge commits or squash, when a Version PR lands); where it
    is silent, open the PR and ask.
 7. **Cross the item off the queue with the PR number**, keeping its slice
