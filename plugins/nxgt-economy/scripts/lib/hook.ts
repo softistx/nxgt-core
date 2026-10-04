@@ -5,19 +5,25 @@
  * the session goes on as if the hook were absent.
  */
 
-import { disabled, type ToolInput } from './economy';
+import { disabled } from './economy';
+
+/** The fields of the event the hooks read; each hook narrows what it needs. */
+export interface HookInput {
+	readonly tool_name?: string;
+	readonly tool_input?: Record<string, unknown>;
+}
 
 export type HookOutput = Record<string, unknown>;
 
 export async function runHook(
 	name: string,
-	handler: (input: ToolInput) => HookOutput | undefined,
+	handler: (input: HookInput) => HookOutput | undefined,
 ): Promise<never> {
 	let output: HookOutput | undefined;
 	try {
 		if (!disabled(process.env)) {
 			const text = await Bun.stdin.text();
-			output = handler(text.trim() ? (JSON.parse(text) as ToolInput) : {});
+			output = handler(text.trim() ? (JSON.parse(text) as HookInput) : {});
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);

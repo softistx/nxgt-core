@@ -21,12 +21,9 @@ The hooks need `bun` on the `PATH`.
 
 ## The rule
 
-- `haiku`: mechanical and read-only work — locating a file, symbol or log line; reading a log or CI output and reporting what failed; one question to a docs page; polling a status; listing, counting, comparing; a rename or one-line fix with an exact spec.
-- `sonnet`: implementation from a clear plan, writing or fixing specs, documentation, read-only review of a small diff, a multi-file search that needs judgement.
-- `opus`, passed explicitly: architecture and plans, a hard bug of unknown cause, the review before a PR into develop, anything costly to undo.
-- Don't spawn an agent for a single lookup one command does. Run independent agents in parallel with self-contained prompts. Don't re-read a file you just edited. Never dump a whole log or transcript into context.
-
-The text lives in `scripts/lib/economy.ts`.
+Haiku for mechanical and read-only work, sonnet for ordinary implementation, opus
+passed explicitly for architecture and costly mistakes; the full text is in
+`scripts/lib/economy.ts`.
 
 ## Make sonnet the subagent default
 

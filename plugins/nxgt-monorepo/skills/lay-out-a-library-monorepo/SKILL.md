@@ -182,8 +182,8 @@ A repository commits the marketplace and the plugins it expects in
 ```
 
 `nxgt-base` is a bundle: it has no skill of its own and depends on
-`nxgt-monorepo` (this skill), `nxgt-review`, `nxgt-docs` and `nxgt-autonomy`.
-Installing it installs and enables all four.
+`nxgt-monorepo` (this skill), `nxgt-review`, `nxgt-docs`, `nxgt-autonomy` and
+`nxgt-economy`. Installing it installs and enables all five.
 
 Trusting the folder adds the marketplace, but **a plugin that is only enabled
 in a project's settings does not load until it is installed**. Installed at

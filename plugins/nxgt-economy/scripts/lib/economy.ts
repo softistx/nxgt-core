@@ -13,7 +13,7 @@ export function disabled(env: Env): boolean {
 }
 
 const RULE = [
-	"nxgt-economy: token economy. The main session runs on the strongest model; delegate light work to a lighter one with the Agent tool's `model` parameter. NXGT_ECONOMY_DISABLE=1 turns this off.",
+	"nxgt-economy: token economy. The main session should run on the strongest model; delegate light work to a lighter one with the Agent tool's `model` parameter. NXGT_ECONOMY_DISABLE=1 turns this off.",
 	'- `haiku`: mechanical and read-only work — locating a file, symbol or log line; reading a log or CI output and reporting what failed; one question to a docs page; polling a status; listing, counting, comparing; a rename or one-line fix with an exact spec.',
 	'- `sonnet` (the subagent default when CLAUDE_CODE_SUBAGENT_MODEL=sonnet): implementation from a clear plan, writing or fixing specs, documentation, read-only review of a small diff, a multi-file search that needs judgement.',
 	'- `opus`, passed explicitly: architecture and plans, a hard bug of unknown cause, the review before a PR into develop, anything costly to undo.',
