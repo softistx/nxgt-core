@@ -50,5 +50,5 @@ export function agentReminder(input: ToolInput, env: Env): string | undefined {
 	if (args.subagent_type === 'fork') return undefined;
 	const running =
 		env.CLAUDE_CODE_SUBAGENT_MODEL?.trim() || "the main session's model";
-	return `nxgt-economy: this agent will run on ${running}. Pass model: "haiku" for mechanical or read-only work, or model: "opus" for architecture, a hard bug or the review before a PR.`;
+	return `nxgt-economy: this agent will run on ${running}, unless its definition pins a model. Pass model: "haiku" for mechanical or read-only work, or model: "opus" for architecture, a hard bug or the review before a PR.`;
 }
