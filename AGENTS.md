@@ -153,7 +153,7 @@ already wired into `changeset:publish`, which runs
 first that fails; each lives in `scripts/artifacts/`, one module per
 responsibility, with a spec beside each pure one: `packages.ts` reads the
 workspace, `tarball.ts` a tarball's entries, `manifest.ts` its dependency
-fields, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
+fields, `siblings.ts` its sibling ranges against the workspace's `workspace:` specs, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
 `browser.ts` (the `browser` condition, which only this repository has),
 `classes.ts`, `imports.ts` (served by `declarations.ts`) and `emit.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
@@ -166,8 +166,7 @@ byte copies of nxgt-data's (softistx/nxgt-data#192), as in nxgt-janus, nxgt-http
 bracket access on a manifest (`manifest['name']`), which this repository's
 `noPropertyAccessFromIndexSignature` requires. A file Bun's
 scanner cannot read is reported (`scanFailure`), not a crash; nxgt-http's earlier
-drift is gone, since nxgt-data took it. This copy and nxgt-http read a sibling's version from the
-packed manifests, where nxgt-janus and nxgt-data read it from the workspace.
+drift is gone, since nxgt-data took it. `siblings.spec.ts` is a byte copy of nxgt-data's (softistx/nxgt-data#193) and `siblings.ts` too but for four bracket accesses (`m['name']`, `source.get(dep)?.['version']`) that `noPropertyAccessFromIndexSignature` requires, as in `accessProblems`: it reads each source `package.json` for the spec, and is exact rather than `Bun.semver.satisfies`, because a lock stale within one minor packs `^0.19.0` beside 0.19.1, which satisfies it and lets a consumer keep 0.19.0, and `satisfies` answers `true` for `garbage!!`, `latest` and `''`. `manifest.ts` also refuses a `workspace:` left in a packed field. nxgt-janus and nxgt-telemetry still run the `satisfies` check until they take it.
 Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
 `check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
 copied from nxgt-janus, the script byte for byte but for its header comment
@@ -615,8 +614,9 @@ answered 500 instead of 503.
 
 `changeset:version` is therefore `changeset version && bun install`, and the
 **updated `bun.lock` belongs in the Version Packages PR**. `verify-artifacts.ts`
-fails any tarball whose sibling range excludes the sibling being published
-beside it, which is the check that would have caught it.
+fails any tarball whose sibling range is not exactly the one its `workspace:`
+spec produces beside the sibling's version in the workspace (`siblings.ts`), which
+is the check that would have caught it, and a stale lock within one minor too.
 
 ### `typescript` is a peer, pinned to 6, and it is load-bearing
 

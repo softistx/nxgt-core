@@ -21,14 +21,16 @@ describe('manifestShapeProblems', () => {
 		).toEqual([expect.stringContaining('pins a sibling exactly')]);
 	});
 
-	test('refuses a sibling range that excludes the sibling published beside it', () => {
+	test('refuses a workspace: left in a field a consumer installs, and not in devDependencies', () => {
 		expect(
-			manifestShapeProblems([mongo, hono({ '@nxgt/shared-mongo': '^1.2.0' })]),
-		).toEqual([
-			expect.stringContaining(
-				'excludes @nxgt/shared-mongo@1.1.0, which is being published beside it',
-			),
-		]);
+			manifestShapeProblems([
+				{
+					name: '@nxgt/shared-mongo',
+					dependencies: { a: 'workspace:^' },
+					devDependencies: { b: 'workspace:*' },
+				},
+			]),
+		).toEqual([expect.stringContaining('dependencies.a = workspace:^')]);
 	});
 
 	test('refuses a package that lists itself', () => {
