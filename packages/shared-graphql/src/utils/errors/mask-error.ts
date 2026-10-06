@@ -9,6 +9,10 @@ import { GraphQLError } from 'graphql';
 import type { MaskError } from 'graphql-yoga';
 import { denialMessageKey } from './denial';
 import { isOryUnavailable, serviceUnavailableError } from './ory-unavailable';
+import {
+	isOriginalGraphQLError,
+	unexpectedErrorExtensions,
+} from './unexpected';
 
 type Translate<K extends LocaleKey> = (
 	message: K,
@@ -63,12 +67,7 @@ export function createMaskError<K extends LocaleKey>(
 		if (isOriginalGraphQLError(error)) return error;
 		return new GraphQLError(message, {
 			...locationOf(error),
-			extensions: isDev
-				? {
-						code: ErrorCode.InternalServerError,
-						debugMessage: String(original),
-					}
-				: { code: ErrorCode.InternalServerError },
+			extensions: unexpectedErrorExtensions(original, isDev),
 		});
 	};
 }
@@ -97,19 +96,6 @@ function exceptionError<K extends LocaleKey>(
 			},
 		},
 	);
-}
-
-/**
- * Yoga's own test: a `GraphQLError` is "original" when it — or the error it
- * wraps, all the way down — was a `GraphQLError` to begin with. Graphql-js
- * wraps every resolver error in one, so `instanceof GraphQLError` alone lets
- * a plain `Error`'s message through.
- */
-function isOriginalGraphQLError(error: unknown): error is GraphQLError {
-	if (!(error instanceof GraphQLError)) return false;
-	return error.originalError == null
-		? true
-		: isOriginalGraphQLError(error.originalError);
 }
 
 /** Where the masked error happened, kept so the client still sees a `path`. */

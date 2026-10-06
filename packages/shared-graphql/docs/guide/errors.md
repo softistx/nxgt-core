@@ -87,14 +87,51 @@ decides it.
 | Thrown | `extensions.code` | message |
 | --- | --- | --- |
 | a `denial()` | its code (`http.status` answers the transport) | its key, translated with your `translate` |
-| a `CustomException` or a Mongoose error | its `errorCode` (plus `debugMessage`) | translated key |
+| a `CustomException` or a Mongoose error | its `errorCode` (plus `debugMessage` outside production) | translated key |
 | `OryUnavailable` | `SERVICE_UNAVAILABLE`, `http: { status: 503 }` in `extensions` | `ory: keto is unavailable` |
-| an Apollo validation or parse error | its own | translated `errors.<code>` |
-| anything else | as Apollo formats it | as Apollo formats it — not masked here |
+| an Apollo validation or parse error | its own (plus `debugMessage` outside production) | translated `errors.<code>` |
+| a `GraphQLError` thrown on purpose | its own | its own |
+| anything else, outside production | as Apollo formats it | as Apollo formats it |
+| anything else, in production | `INTERNAL_SERVER_ERROR` | `Unexpected error.` |
 
 `formatError` shapes the error body; it does not set the response's status,
 so `http.status` is information for the client, not the transport's answer.
-The stack trace is removed when the second argument, `production`, is true.
+
+### In production
+
+The second argument, `production`, hides every internal detail from the
+client:
+
+- an unexpected error — a plain `Error` a resolver threw, or anything thrown
+  that is not an `Error` — answers `Unexpected error.` with
+  `INTERNAL_SERVER_ERROR`, its `path` and `locations` kept, as
+  `createMaskError` masks it under Yoga;
+- no error carries `extensions.debugMessage` or `extensions.stacktrace`,
+  whatever set them — a `CustomException`'s `debugMessage`, the text of an
+  Apollo validation error, an outage's cause, a `GraphQLError` of your own.
+
+```ts
+new ApolloServer({
+	formatError: createFormatError(translate, process.env.NODE_ENV === 'production'),
+});
+```
+
+```json
+{
+	"errors": [
+		{
+			"message": "Unexpected error.",
+			"locations": [{ "line": 1, "column": 3 }],
+			"path": ["note"],
+			"extensions": { "code": "INTERNAL_SERVER_ERROR" }
+		}
+	]
+}
+```
+
+Left out or `false`, the client receives everything above, `debugMessage` and
+the stack trace included. Log on the server what you need to read there: the
+client no longer carries it in production.
 
 ## An outage is a 503, never a denial
 

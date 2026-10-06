@@ -236,6 +236,15 @@ above, or throw `denial(code, message)` from the resolver.
 does. Throw a `CustomException`, a `denial()` or a `GraphQLError` for a
 message meant for the caller.
 
+### `Unexpected error.` from Apollo Server, and no `debugMessage`, in production
+
+`createFormatError(translate, true)` masks an unexpected error and removes
+every `extensions.debugMessage` and `extensions.stacktrace` in production: a
+client reads no internal detail. Read the cause in the server's log — an
+Apollo plugin's `didEncounterErrors` sees the original error — and throw a
+`CustomException`, a `denial()` or a `GraphQLError` for a message meant for
+the caller. Outside production, pass `false` or leave the argument out.
+
 ## Traps that throw nothing
 
 ### Every caller is anonymous behind the gateway

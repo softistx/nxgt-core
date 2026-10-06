@@ -234,8 +234,17 @@ status and translated message; `OryUnavailable` into `SERVICE_UNAVAILABLE`
 
 Under Apollo, `createFormatError` sets the `code` and the translated message
 (and `SERVICE_UNAVAILABLE` for an outage, with `http.status` in `extensions`
-only — `formatError` cannot change the transport status). It masks nothing
-Apollo would not.
+only — `formatError` cannot change the transport status). Pass `true` as its
+second argument in production, and the client reads no internal detail: an
+unexpected error answers `Unexpected error.` with `INTERNAL_SERVER_ERROR`, as
+`createMaskError` masks it, and no error carries `debugMessage` or a stack
+trace.
+
+```ts
+new ApolloServer({
+	formatError: createFormatError(translate, process.env.NODE_ENV === 'production'),
+});
+```
 
 ## Plugins and context
 
