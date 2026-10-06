@@ -126,6 +126,57 @@ describe('aggregate on a soft-delete schema (no database)', () => {
 	});
 });
 
+describe('find and countDocuments on a soft-delete schema (no database)', () => {
+	it('adds the not-deleted condition to a filter that does not name deleted', () => {
+		expect(Item.find({ label: 'a' }).getFilter()).toEqual({
+			label: 'a',
+			deleted: { $ne: true },
+		});
+		expect(Item.find().getFilter()).toEqual({ deleted: { $ne: true } });
+		expect(Item.countDocuments({ label: 'a' }).getFilter()).toEqual({
+			label: 'a',
+			deleted: { $ne: true },
+		});
+	});
+
+	it('combines with a caller deleted instead of overwriting it', () => {
+		for (const deleted of [true, false, { $exists: false }]) {
+			const expected = {
+				$and: [{ label: 'a', deleted }, { deleted: { $ne: true } }],
+			};
+			expect(Item.find({ label: 'a', deleted }).getFilter()).toEqual(expected);
+			expect(Item.countDocuments({ label: 'a', deleted }).getFilter()).toEqual(
+				expected,
+			);
+		}
+	});
+
+	it('does not mutate the caller filter', () => {
+		const filter = { deleted: true };
+		Item.find(filter);
+		Item.countDocuments(filter);
+		expect(filter).toEqual({ deleted: true });
+	});
+
+	it('findDeleted and countDocumentsDeleted combine the same way', () => {
+		expect(Item.findDeleted({ label: 'a' }).getFilter()).toEqual({
+			label: 'a',
+			deleted: true,
+		});
+		const expected = { $and: [{ deleted: false }, { deleted: true }] };
+		expect(Item.findDeleted({ deleted: false }).getFilter()).toEqual(expected);
+		expect(Item.countDocumentsDeleted({ deleted: false }).getFilter()).toEqual(
+			expected,
+		);
+	});
+
+	it('the WithDeleted variants leave the filter alone', () => {
+		expect(Item.findWithDeleted({ deleted: true }).getFilter()).toEqual({
+			deleted: true,
+		});
+	});
+});
+
 /**
  * The same, against a server: CI starts one; locally the suite is skipped
  * unless `MONGODB_URI` names a host (see `hasMongoHost`).
@@ -205,5 +256,27 @@ describe.skipIf(!hasMongoHost())('soft-delete statics (MongoDB)', () => {
 	it('countDocumentsDeleted counts the deleted documents only', async () => {
 		expect(await Item.countDocumentsDeleted({})).toBe(1);
 		expect(await Item.countDocumentsDeleted({ label: 'a' })).toBe(1);
+	});
+
+	it('find with a caller deleted still excludes deleted documents', async () => {
+		const ns = async (filter: object) =>
+			(await Item.find(filter).lean()).map((doc: any) => doc.n).sort();
+		expect(await ns({ deleted: true })).toEqual([]);
+		expect(await ns({ deleted: false })).toEqual([2]);
+		expect(await ns({ deleted: { $exists: false } })).toEqual([1, 8]);
+		expect(await ns({ label: 'a' })).toEqual([1, 2]);
+	});
+
+	it('countDocuments with a caller deleted still excludes deleted documents', async () => {
+		expect(await Item.countDocuments({ deleted: true })).toBe(0);
+		expect(await Item.countDocuments({ deleted: false })).toBe(1);
+		expect(await Item.countDocuments({ deleted: { $exists: false } })).toBe(2);
+		expect(await Item.countDocuments({ label: 'a' })).toBe(2);
+	});
+
+	it('findDeleted with a caller deleted:false finds nothing', async () => {
+		expect(await Item.findDeleted({ deleted: false }).lean()).toHaveLength(0);
+		expect(await Item.countDocumentsDeleted({ deleted: false })).toBe(0);
+		expect(await Item.countDocumentsDeleted({ deleted: true })).toBe(1);
 	});
 });

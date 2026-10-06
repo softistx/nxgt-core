@@ -49,13 +49,13 @@ export function applySoftDeleteOperations(schema: Schema) {
 			schema.static(method, function () {
 				const args: any[] = [];
 				Array.prototype.push.apply(args, arguments as any);
-				args[0] = { ...args?.[0], deleted: { $ne: true } };
+				args[0] = withDeletedCondition(args?.[0], { $ne: true });
 				return (Model as any)[method].apply(this, args);
 			});
 			schema.static(`${method}Deleted`, function () {
 				const args: any[] = [];
 				Array.prototype.push.apply(args, arguments as any);
-				args[0] = { ...args?.[0], deleted: true };
+				args[0] = withDeletedCondition(args?.[0], true);
 				return (Model as any)[method].apply(this, args);
 			});
 			schema.static(`${method}WithDeleted`, function () {
@@ -141,4 +141,21 @@ function withLeadingMatch(
 		stages.splice(at, 0, { $match });
 	}
 	return stages;
+}
+
+/**
+ * `filter` with the plugin's condition on `deleted` added. A filter that names
+ * `deleted` itself is combined with it through `$and` rather than overwritten,
+ * so the caller's condition still applies and the plugin's still holds — the
+ * same rule `withLeadingMatch` follows for a pipeline. The caller's object is
+ * left as it was.
+ */
+function withDeletedCondition(
+	filter: Record<string, unknown> | undefined,
+	deleted: unknown,
+): Record<string, unknown> {
+	if (filter && 'deleted' in filter) {
+		return { $and: [filter, { deleted }] };
+	}
+	return { ...filter, deleted };
 }
