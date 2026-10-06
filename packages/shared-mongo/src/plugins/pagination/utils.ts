@@ -6,6 +6,7 @@ import type {
 	NestedPaginationOptions,
 	PaginationOptions,
 } from '../../models/pagination';
+import { type SoftDeleteScope, softDeleteSuffix } from './soft-delete-scope';
 import type {
 	CursorPaginateOptions,
 	NestedOffsetPaginationOptions,
@@ -34,14 +35,12 @@ const MAX_SIZE = 100;
 export function applyPagination(schema: Schema) {
 	schema.static('paginate', async function () {
 		const options =
-			<PaginationOptions & { deleted?: 'Deleted' | 'WithDeleted' }>(
-				arguments?.[0]
-			) ?? {};
+			<PaginationOptions & { deleted?: SoftDeleteScope }>arguments?.[0] ?? {};
 
 		const { first, last, before, after, extraFilter } = options;
 
 		let filter = options.filter ?? {};
-		const deleted = options.deleted ?? '';
+		const deleted = softDeleteSuffix(options.deleted);
 
 		const countDocuments = (f: any) =>
 			this[`countDocuments${deleted}`]?.(f) ?? this.countDocuments(f);
@@ -114,7 +113,7 @@ export function applyPagination(schema: Schema) {
 		const filter = options.filter ?? {};
 		const sort = options.sort ?? {};
 		const populate = options.populate ?? [];
-		const deleted = options.deleted ?? '';
+		const deleted = softDeleteSuffix(options.deleted);
 
 		const count = await ((this as any)[`countDocuments${deleted}`]?.(filter) ??
 			this.countDocuments(filter));
@@ -173,7 +172,7 @@ export function applyPagination(schema: Schema) {
 		const options = <CursorPaginateOptions>arguments?.[0] ?? {};
 		const filter = options.filter ?? {};
 		const populate = options.populate ?? [];
-		const deleted = options.deleted ?? '';
+		const deleted = softDeleteSuffix(options.deleted);
 
 		const { after, before } = options;
 		const first =

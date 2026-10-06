@@ -82,9 +82,12 @@ export function applySoftDeleteOperations(schema: Schema) {
 						);
 					},
 				);
-				schema.static(`${method}WidthDeleted`, function () {
+				// `aggregateWidthDeleted`: the original misspelling, kept as an alias.
+				schema.statics[`${method}WithDeleted`] = schema.statics[
+					`${method}WidthDeleted`
+				] = function () {
 					return (Model as any)[method].apply(this, arguments);
-				});
+				};
 			} else {
 				schema.statics[method] = function () {
 					return (Model as any)[method]

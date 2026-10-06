@@ -1,4 +1,7 @@
 import type { PopulateOptions } from 'mongoose';
+import type { SoftDeleteScope } from './soft-delete-scope';
+
+export type { SoftDeleteScope, WidthDeleted } from './soft-delete-scope';
 
 /**
  * Offset pagination — page and size.
@@ -37,7 +40,7 @@ export interface IPaginatedType<T> {
 }
 
 export type PaginateOffsetOptions = OffsetPaginationOptions & {
-	deleted?: 'Deleted' | 'WidthDeleted';
+	deleted?: SoftDeleteScope;
 } & {
 	populate?: string | PopulateOptions | (string | PopulateOptions)[];
 };
@@ -63,7 +66,7 @@ export interface ICursorPaginatedType<T> {
 }
 
 export type CursorPaginateOptions = CursorPaginationOptions & {
-	deleted?: 'Deleted' | 'WidthDeleted';
+	deleted?: SoftDeleteScope;
 } & {
 	populate?: string | PopulateOptions | (string | PopulateOptions)[];
 };
