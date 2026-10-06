@@ -119,3 +119,19 @@ under `.name` puts every blocker in the process under one key.
   stopped one production wipe.
 - **`objectIdFromString` and `toObjectId`** are the same conversion under two
   names; one aliases the other. Both stay.
+- **A list patch changes a path one way per update.** The operator builders
+  `buildListStringPatch` and `buildListStringPatchUpdate` emit `$addToSet` for
+  `add`, `$pullAll` for `remove` and a `$set` for `replace`. Any two on one
+  path make MongoDB refuse the update (code 40, "Updating the path 'tags'
+  would create a conflict at 'tags'"), so they throw a 400,
+  `errors.list-patch-one-operation-per-path`, before any query. An empty
+  array does not count. Send separate updates, or resolve the whole list and
+  assign it:
+
+  ```ts
+  doc.tags = await resolveListStringPatch(doc.tags, Tag, { add, remove });
+  await doc.save();
+  ```
+
+  The operator builders only work through `findOneAndUpdate` and friends:
+  assigned onto a document and saved, `$addToSet` is dropped without a word.

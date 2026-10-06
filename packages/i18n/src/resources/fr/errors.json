@@ -21,5 +21,6 @@
 	"persisted-query-not-supported": "Les requêtes persistantes ne sont pas prises en charge sur ce serveur.",
 	"bad-user-input": "Données saisies invalides. Veuillez vérifier vos informations et réessayer.",
 	"operation-resolution-failure": "Échec de la résolution de l'opération GraphQL.",
-	"bad-request": "La requête est invalide ou mal formée. Veuillez vérifier le format de la requête."
+	"bad-request": "La requête est invalide ou mal formée. Veuillez vérifier le format de la requête.",
+	"list-patch-one-operation-per-path": "Une seule des opérations ''replace'', ''add'' et ''remove'' peut modifier ''{path}'' dans une même mise à jour. Envoyez-les dans des mises à jour distinctes."
 }
