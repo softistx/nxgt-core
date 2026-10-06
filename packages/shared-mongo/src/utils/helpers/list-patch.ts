@@ -5,25 +5,6 @@ import type { Populated } from '../models';
 import { isValidObjectID } from '../object-id.utils';
 
 /**
- * Resolves a list patch against the values a document already holds and
- * returns the whole resulting list.
- *
- * Use this from `buildUpdateData`. Its sibling `buildListStringPatch` returns
- * MongoDB update operators, which only mean anything to `findOneAndUpdate` —
- * `MongoCrudService.update()` assigns onto a document and calls `save()`, where
- * a key named `$addToSet` is an unknown property Mongoose drops without a
- * word. An `add` then looked applied and changed nothing.
- *
- * Ids are validated against `model` exactly like the operator builder does, so
- * an unknown id is dropped rather than stored.
- *
- * @param current - The list the document holds today; populated docs, raw ids or ObjectIds all work.
- * @param model - The Mongoose model of the items in the list.
- * @param value - The add / remove / replace patch, if the caller sent one.
- * @param filter - Extra conditions the referenced items must satisfy.
- * @returns The resulting list of ids, or undefined when there is nothing to change.
- */
-/**
  * Applies a list patch to a plain list of strings.
  *
  * Synchronous, and therefore purely syntactic: unlike
@@ -64,6 +45,25 @@ export function patchListObjectId(
 		.map((id) => new mongoose.Types.ObjectId(id));
 }
 
+/**
+ * Resolves a list patch against the values a document already holds and
+ * returns the whole resulting list.
+ *
+ * Use this from `buildUpdateData`. Its sibling `buildListStringPatch` returns
+ * MongoDB update operators, which only mean anything to `findOneAndUpdate` —
+ * `MongoCrudService.update()` assigns onto a document and calls `save()`, where
+ * a key named `$addToSet` is an unknown property Mongoose drops without a
+ * word. An `add` then looked applied and changed nothing.
+ *
+ * Ids are validated against `model` exactly like the operator builder does, so
+ * an unknown id is dropped rather than stored.
+ *
+ * @param current - The list the document holds today; populated docs, raw ids or ObjectIds all work.
+ * @param model - The Mongoose model of the items in the list.
+ * @param value - The add / remove / replace patch, if the caller sent one.
+ * @param filter - Extra conditions the referenced items must satisfy.
+ * @returns The resulting list of ids, or undefined when there is nothing to change.
+ */
 export async function resolveListStringPatch<T>(
 	current: unknown,
 	model: Model<T, any, any, any, any, any, any>,
