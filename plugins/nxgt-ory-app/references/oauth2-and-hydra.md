@@ -191,8 +191,8 @@ write-once-value and whole-record-`PUT` lessons, now taught on Kratos.
 
 ## What else named Hydra
 
-The sentences removed elsewhere on 2026-09-22, so that whoever writes
-`nxgt-ory-oauth2` knows what to put back rather than rediscovering it:
+The sentences removed elsewhere on 2026-09-22, so that whoever reopens
+the question of a plugin knows what to put back rather than rediscovering it:
 
 | Where | What was there |
 | --- | --- |
