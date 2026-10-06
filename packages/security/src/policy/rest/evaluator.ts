@@ -1,5 +1,5 @@
 import type { PolicyClaims } from '../claims.types';
-import type { CompiledPolicy } from '../compile';
+import type { CompiledPolicy, CompiledRestRoute } from '../compile';
 import {
 	checkAuthorities,
 	isAuthenticated,
@@ -7,6 +7,7 @@ import {
 } from '../evaluation.utils';
 import { evaluateKetoRungs, type KetoDeps } from '../keto-rungs';
 import { objectsOfTerm } from './permission-paths';
+import { ruleSetsForMethod } from './routes';
 
 // ---------------------------------------------------------------------------
 // Input / output types
@@ -62,7 +63,10 @@ export interface EvaluateResult {
  * Evaluate a REST request against a policy precompiled by `compilePolicy`.
  *
  * Matching strategy (first match wins, evaluated in rules document order):
- *   1. Routes for the request's HTTP method looked up directly (O(1))
+ *   1. Routes for the request's HTTP method looked up directly (O(1)) —
+ *      for HEAD, two sets: its own routes and the GET ones. A matching HEAD
+ *      rule must allow, and so must the GET evaluation, `global.unmatched`
+ *      fallback included (`ruleSetsForMethod`)
  *   2. Path pattern matched via each precompiled path-to-regexp matcher,
  *      in document order, until one matches
  *   3. Authority groups checked (AND outer / OR inner) — DENY on failure
@@ -93,86 +97,54 @@ export async function evaluateRest(
 	deps: RestEvaluateDeps = {},
 ): Promise<EvaluateResult> {
 	const method = input.method.toUpperCase();
-	const routes = policy.restRoutesByMethod.get(method);
+	// Every rule set the method faces must allow — two for HEAD, see
+	// `ruleSetsForMethod`. The last set is the one for the handler that will
+	// run, so it alone falls back to `global.unmatched` when nothing in it
+	// matches; an earlier set (HEAD's own rules) only adds a check when one
+	// of its rules matches.
+	const sets = ruleSetsForMethod(policy, method);
+	let allowed: EvaluateResult | undefined;
+	for (const [index, routes] of sets.entries()) {
+		const result =
+			(await firstMatching(routes, method, input, deps)) ??
+			(index === sets.length - 1
+				? unmatched(policy, method, input)
+				: undefined);
+		if (!result || result.decision === 'NOT_APPLICABLE') continue;
+		if (result.decision !== 'ALLOW') return result;
+		allowed = result;
+	}
+	return (
+		allowed ?? {
+			decision: 'NOT_APPLICABLE',
+			reason: `No rule matched ${method} ${input.path}`,
+		}
+	);
+}
 
-	if (routes) {
-		for (const route of routes) {
-			const result = route.matcher(input.path);
-			if (result === false) continue;
-
-			// Merge path captures with caller-supplied params; caller wins on collision
-			const mergedParams: Record<string, string> = {
-				...(result.params as Record<string, string>),
-				...(input.req?.params ?? {}),
-			};
-
-			const req = { ...(input.req ?? {}), params: mergedParams };
-
-			// Authentication floor — before authorities, so a route that asks
-			// for nothing in particular still refuses anonymous callers.
-			if (!route.rule.public && !isAuthenticated(input.claims)) {
-				return {
-					decision: 'UNAUTHENTICATED',
-					reason: `${method} ${route.pattern} requires an authenticated caller`,
-				};
-			}
-
-			// Substitute `$domain` into a LOCAL copy of the authority groups — never
-			// write back onto `route.rule.authorities`, which lives inside the
-			// long-lived, shared compiled policy reused across every request.
-			// Mutating it in place would permanently bake the first request's
-			// domain value into the cached rule, corrupting authority checks for
-			// every subsequent request (including ones for a different domain).
-			let authorities = route.rule.authorities;
-			if (route.hasDomainPlaceholder && result.params['domain']) {
-				const domainValue = result.params['domain'].toString();
-				authorities = authorities?.map((group) =>
-					group.map((authority) =>
-						authority.replaceAll('$domain', domainValue),
-					),
-				);
-			}
-
-			// Authority check
-			if (!checkAuthorities({ authorities }, input.claims)) {
-				return {
-					decision: 'DENY',
-					reason: `Insufficient authorities for ${method} ${input.path}`,
-				};
-			}
-
-			// Expression check
-			if (route.compiledExpression) {
-				const exprResult = runCompiledExpression(
-					route.compiledExpression,
-					input.claims,
-					req,
-				);
-				if (!exprResult.passed) {
-					return { decision: 'DENY', reason: exprResult.message };
-				}
-			}
-
-			// Keto rungs, in document order, each with its own denial — the
-			// 404-then-403 ladder. Walked by the one function the GraphQL
-			// evaluator also calls.
-			const refusal = await evaluateKetoRungs(
-				route.rule.keto,
-				deps,
-				(term) => objectsOfTerm(term, req),
-				`${method} ${route.pattern}`,
-				`${method} ${input.path}`,
-			);
-			if (refusal) return refusal;
-
-			return {
-				decision: 'ALLOW',
-				reason: `Matched rule for ${method} ${route.pattern}`,
-			};
+/** The decision of the first route in `routes` matching the path, if any. */
+async function firstMatching(
+	routes: readonly CompiledRestRoute[],
+	method: string,
+	input: RestEvaluateInput,
+	deps: RestEvaluateDeps,
+): Promise<EvaluateResult | undefined> {
+	for (const route of routes) {
+		const result = route.matcher(input.path);
+		if (result !== false) {
+			return evaluateRoute(route, result.params, method, input, deps);
 		}
 	}
+	return undefined;
+}
 
-	const unmatched = `No rule matched ${method} ${input.path}`;
+/** What a path no rule names gets: open, unless `global.unmatched` is deny. */
+function unmatched(
+	policy: CompiledPolicy,
+	method: string,
+	input: RestEvaluateInput,
+): EvaluateResult {
+	const reason = `No rule matched ${method} ${input.path}`;
 
 	if (policy.global?.unmatched === 'deny') {
 		// The same 401-then-403 split a matched rule makes, for the same
@@ -180,13 +152,90 @@ export async function evaluateRest(
 		return isAuthenticated(input.claims)
 			? {
 					decision: 'DENY',
-					reason: `${unmatched}, and \`global.unmatched\` is deny`,
+					reason: `${reason}, and \`global.unmatched\` is deny`,
 				}
 			: {
 					decision: 'UNAUTHENTICATED',
-					reason: `${unmatched}, and \`global.unmatched\` is deny`,
+					reason: `${reason}, and \`global.unmatched\` is deny`,
 				};
 	}
 
-	return { decision: 'NOT_APPLICABLE', reason: unmatched };
+	return { decision: 'NOT_APPLICABLE', reason };
+}
+
+/** One matched route's checks, in order: floor, authorities, expression, keto. */
+async function evaluateRoute(
+	route: CompiledRestRoute,
+	params: Partial<Record<string, string | string[]>>,
+	method: string,
+	input: RestEvaluateInput,
+	deps: RestEvaluateDeps,
+): Promise<EvaluateResult> {
+	// Merge path captures with caller-supplied params; caller wins on collision
+	const mergedParams: Record<string, string> = {
+		...(params as Record<string, string>),
+		...(input.req?.params ?? {}),
+	};
+
+	const req = { ...(input.req ?? {}), params: mergedParams };
+
+	// Authentication floor — before authorities, so a route that asks
+	// for nothing in particular still refuses anonymous callers.
+	if (!route.rule.public && !isAuthenticated(input.claims)) {
+		return {
+			decision: 'UNAUTHENTICATED',
+			reason: `${method} ${route.pattern} requires an authenticated caller`,
+		};
+	}
+
+	// Substitute `$domain` into a LOCAL copy of the authority groups — never
+	// write back onto `route.rule.authorities`, which lives inside the
+	// long-lived, shared compiled policy reused across every request.
+	// Mutating it in place would permanently bake the first request's
+	// domain value into the cached rule, corrupting authority checks for
+	// every subsequent request (including ones for a different domain).
+	let authorities = route.rule.authorities;
+	if (route.hasDomainPlaceholder && params['domain']) {
+		const domainValue = params['domain'].toString();
+		authorities = authorities?.map((group) =>
+			group.map((authority) => authority.replaceAll('$domain', domainValue)),
+		);
+	}
+
+	// Authority check
+	if (!checkAuthorities({ authorities }, input.claims)) {
+		return {
+			decision: 'DENY',
+			reason: `Insufficient authorities for ${method} ${input.path}`,
+		};
+	}
+
+	// Expression check
+	if (route.compiledExpression) {
+		const exprResult = runCompiledExpression(
+			route.compiledExpression,
+			input.claims,
+			req,
+		);
+		if (!exprResult.passed) {
+			return { decision: 'DENY', reason: exprResult.message };
+		}
+	}
+
+	// Keto rungs, in document order, each with its own denial — the
+	// 404-then-403 ladder. Walked by the one function the GraphQL
+	// evaluator also calls.
+	const refusal = await evaluateKetoRungs(
+		route.rule.keto,
+		deps,
+		(term) => objectsOfTerm(term, req),
+		`${method} ${route.pattern}`,
+		`${method} ${input.path}`,
+	);
+	if (refusal) return refusal;
+
+	return {
+		decision: 'ALLOW',
+		reason: `Matched rule for ${method} ${route.pattern}`,
+	};
 }

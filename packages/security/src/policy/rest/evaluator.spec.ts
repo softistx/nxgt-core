@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, test } from 'bun:test';
 import { compilePolicy } from '../compile';
 import { evaluateGraphql } from '../graphql/evaluator';
 import type { PermissionEvaluator } from '../permissions.types';
 import type { Rules } from '../rules.schema';
-import { evaluateRest } from './evaluator';
+import { type EvaluateResult, evaluateRest } from './evaluator';
 
 describe('evaluateRest — $domain authority templating', () => {
 	it("does not leak one request's domain substitution into the next", async () => {
@@ -558,4 +558,179 @@ describe('evaluateRest — `global.unmatched`', () => {
 			} as Rules),
 		).toThrow(/REST-only/);
 	});
+});
+
+describe('evaluateRest — HEAD faces its own rule and the GET rule', () => {
+	// Hono, and most servers, answer HEAD by running the GET route, so a HEAD
+	// request must pass the GET rule too; its own HEAD rule can only add to
+	// that. Deciding it here, not in each guard, means every consumer of
+	// `evaluateRest` inherits it.
+	const policy = compilePolicy({
+		rest: {
+			'/things/:id': { GET: { authorities: [['ADMIN']] } },
+			'/status': { HEAD: { public: true }, GET: { authorities: [['ADMIN']] } },
+			'/reports': {
+				HEAD: { authorities: [['AUDITOR']] },
+				GET: { authenticated: true },
+			},
+			'/ping': { HEAD: { public: true } },
+		},
+	} as Rules);
+
+	it('falls back to the GET rule when no HEAD rule matches', async () => {
+		const anonymous = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/things/t1',
+			claims: {} as never,
+		});
+		expect(anonymous.decision).toBe('UNAUTHENTICATED');
+
+		const user = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'head',
+			path: '/things/t1',
+			claims: { sub: 'u1' },
+		});
+		expect(user.decision).toBe('DENY');
+
+		const admin = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/things/t1',
+			claims: { sub: 'u1', authorities: ['ADMIN'] },
+		});
+		expect(admin.decision).toBe('ALLOW');
+		expect(admin.reason).toBe('Matched rule for HEAD /things/:id');
+	});
+
+	it('a HEAD rule cannot open what the GET rule closes', async () => {
+		const anonymous = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/status',
+			claims: {} as never,
+		});
+		expect(anonymous.decision).toBe('UNAUTHENTICATED');
+
+		const admin = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/status',
+			claims: { sub: 'u1', authorities: ['ADMIN'] },
+		});
+		expect(admin.decision).toBe('ALLOW');
+	});
+
+	it('a HEAD rule can restrict what the GET rule allows', async () => {
+		const user = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/reports',
+			claims: { sub: 'u1' },
+		});
+		expect(user.decision).toBe('DENY');
+		expect(user.reason).toBe('Insufficient authorities for HEAD /reports');
+
+		const auditor = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/reports',
+			claims: { sub: 'u1', authorities: ['AUDITOR'] },
+		});
+		expect(auditor.decision).toBe('ALLOW');
+
+		const get = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'GET',
+			path: '/reports',
+			claims: { sub: 'u1' },
+		});
+		expect(get.decision).toBe('ALLOW');
+	});
+
+	it('with no GET rule on the path, the HEAD rule alone applies', async () => {
+		const result = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/ping',
+			claims: {} as never,
+		});
+		expect(result.decision).toBe('ALLOW');
+	});
+
+	it('leaves a path naming neither NOT_APPLICABLE', async () => {
+		const result = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'HEAD',
+			path: '/elsewhere',
+			claims: {} as never,
+		});
+		expect(result.decision).toBe('NOT_APPLICABLE');
+	});
+
+	it('does not lend GET rules to any other method', async () => {
+		const result = await evaluateRest(policy, {
+			type: 'rest',
+			method: 'OPTIONS',
+			path: '/things/t1',
+			claims: {} as never,
+		});
+		expect(result.decision).toBe('NOT_APPLICABLE');
+	});
+});
+
+describe('evaluateRest — HEAD faces what GET would face, unmatched fallback included', () => {
+	// A HEAD request runs the GET handler, so it passes only when its own
+	// HEAD rule (if one matches) allows AND the GET evaluation allows — the
+	// `global.unmatched` fallback included.
+	type Rule = 'absent' | 'allow' | 'deny';
+	const entry = (rule: Rule) =>
+		rule === 'allow'
+			? { authenticated: true }
+			: rule === 'deny'
+				? { authorities: [['NOBODY']] }
+				: undefined;
+
+	test.each<[Rule, Rule, 'allow' | 'deny', EvaluateResult['decision']]>([
+		// HEAD     GET       unmatched  decision
+		['absent', 'absent', 'allow', 'NOT_APPLICABLE'],
+		['absent', 'allow', 'allow', 'ALLOW'],
+		['absent', 'deny', 'allow', 'DENY'],
+		['allow', 'absent', 'allow', 'ALLOW'],
+		['allow', 'allow', 'allow', 'ALLOW'],
+		['allow', 'deny', 'allow', 'DENY'],
+		['deny', 'absent', 'allow', 'DENY'],
+		['deny', 'allow', 'allow', 'DENY'],
+		['deny', 'deny', 'allow', 'DENY'],
+		['absent', 'absent', 'deny', 'DENY'],
+		['absent', 'allow', 'deny', 'ALLOW'],
+		['absent', 'deny', 'deny', 'DENY'],
+		['allow', 'absent', 'deny', 'DENY'],
+		['allow', 'allow', 'deny', 'ALLOW'],
+		['allow', 'deny', 'deny', 'DENY'],
+		['deny', 'absent', 'deny', 'DENY'],
+		['deny', 'allow', 'deny', 'DENY'],
+		['deny', 'deny', 'deny', 'DENY'],
+	])(
+		'HEAD %s, GET %s, unmatched %s → %s',
+		async (head, get, unmatched, decision) => {
+			const policy = compilePolicy({
+				global: { unmatched },
+				rest: {
+					'/doc': {
+						...(entry(head) ? { HEAD: entry(head) } : {}),
+						...(entry(get) ? { GET: entry(get) } : {}),
+					},
+				},
+			} as Rules);
+			const result = await evaluateRest(policy, {
+				type: 'rest',
+				method: 'HEAD',
+				path: '/doc',
+				claims: { sub: 'u1' },
+			});
+			expect(result.decision).toBe(decision);
+		},
+	);
 });

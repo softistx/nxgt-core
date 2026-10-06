@@ -1,4 +1,5 @@
 import type { CompiledPolicy } from '../compile';
+import { ruleSetsForMethod } from './routes';
 
 /** One operation a service exposes: an uppercase method and a path pattern. */
 export interface OperationRef {
@@ -118,8 +119,12 @@ export function unnamedOperations(
 			.replace(/\{[^}]+\}/g, placeholder)
 			.replace(/:[A-Za-z0-9_]+/g, placeholder);
 
-		const routes = policy.restRoutesByMethod.get(method) ?? [];
-		if (!routes.some((route) => route.matcher(concrete) !== false)) {
+		// Named when any rule set the method faces matches it — HEAD is
+		// named by a HEAD rule or a GET one.
+		const named = ruleSetsForMethod(policy, method).some((routes) =>
+			routes.some((route) => route.matcher(concrete) !== false),
+		);
+		if (!named) {
 			missing.push(operation);
 		}
 	}
