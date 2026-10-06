@@ -115,6 +115,22 @@ authorities, as the guard always documented. Grant the client the scope the
 route names — `secured([['SCOPE_users:read']])` passes a token carrying
 `SCOPE_users:read` — or add that scope to the route's OR group.
 
+### A production response has no `debugMessage`
+
+Since 4.1.3, `createErrorHandler()` leaves `debugMessage` out of every body
+under `NODE_ENV=production`: a client, a gateway or a test against a deployed
+service that read it finds the key missing. Read `status` and the translated
+`message` instead, and put what a client must see in the
+`CustomException`'s message key and `options`. The detail is in the service's
+log — unless the handler was built with `logToConsole: false`. See [the
+error handler guide](./guide/error-handler.md).
+
+### A deployed service still answers a `debugMessage`
+
+`NODE_ENV` is not `production` where it runs. An unset `NODE_ENV` is
+`development`, which answers the detail. Set `NODE_ENV=production` in the
+service's environment.
+
 ### `principalFromMockHeaders` always names a caller
 
 It returns a promise since 4.0, and a promise is truthy. `await` it.

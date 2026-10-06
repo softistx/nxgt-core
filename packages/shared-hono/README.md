@@ -61,7 +61,14 @@ app.onError(createErrorHandler(translate));
 ```
 
 `CustomException` becomes `{ status, message, debugMessage, timestamp }` with
-`message` translated. `HTTPException` is forwarded. Anything else is a 500.
+`message` translated. `HTTPException` keeps its status and message. Anything
+else is a 500 with the translated `errors.internal-server-error`.
+
+**Under `NODE_ENV=production` the body has no `debugMessage`** — no
+exception detail, no stack, no error message: only `status`, the translated
+`message` and `timestamp`. That detail goes to the logger instead.
+`development` and `test` (and an unset `NODE_ENV`, which is `development`)
+still answer it. See [the error handler guide](./docs/guide/error-handler.md).
 
 ## Auth
 
