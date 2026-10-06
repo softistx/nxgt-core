@@ -224,8 +224,10 @@ it follows `PORT`.
   write.
 - **Without `x-forwarded-for`, every caller shares one counter.** The
   default key is then `''`, so one caller can spend the limit for all the
-  others. A service reached directly, or through a proxy that does not set
-  the header, needs a `keyGenerator`:
+  others. Pass a `keyGenerator`. Behind a proxy, key on what the proxy
+  writes and the client cannot, or on the authenticated principal: the
+  socket address is the proxy's, the same for everyone. A service reached
+  directly and served by `Bun.serve` can key on the socket address:
 
   ```ts
   import { getConnInfo } from 'hono/bun';
@@ -234,6 +236,9 @@ it follows `PORT`.
     keyGenerator: (c) => getConnInfo(c).remote.address ?? 'unknown',
   }));
   ```
+
+  `getConnInfo` reads the Bun server from `c.env`, so it throws under
+  `app.request()` in a spec; there, pass a `keyGenerator` that reads a header.
 - **`openfetchServiceUser` reads the Hono context at construction.** Call it
   inside a request (or from `tryGetContext()`-aware code), not at module
   scope, or it captures an empty context forever.

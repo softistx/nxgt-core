@@ -221,6 +221,23 @@ describe('secured() — roles', () => {
 });
 
 describe('secured() — confidential client', () => {
+	test.each([
+		['an empty username', ''],
+		['a null username', null],
+	] as const)(
+		'%s with a clientId reads as a client, held to its scopes under ADMIN',
+		async (_, username) => {
+			const admin = client({
+				username: username as never,
+				roles: ['ADMIN'],
+				authorities: ['users:read'],
+			});
+
+			expect((await call(admin, [['users:read']])).status).toBe(403);
+			expect((await call(admin, [['ADMIN']])).status).toBe(403);
+		},
+	);
+
 	test('only SCOPE_* authorities count', async () => {
 		const backoffice = client({
 			authorities: ['SCOPE_users:read', 'users:read'],
