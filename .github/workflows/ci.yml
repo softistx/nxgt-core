@@ -106,3 +106,51 @@ jobs:
       - name: Changeset present
         if: github.head_ref != 'changeset-release/develop'
         run: bun run changeset:status
+
+  newest-peers:
+    # The job above runs the lockfile's toolchain: the exact versions each
+    # package pins as a devDependency, the oldest end of each peer range. This
+    # one runs the newest end — the latest stx-sdk, graphql, nuxt, zod and the
+    # rest each range accepts, and TypeScript within `~6.0.3` — so a range
+    # stays true after the release that would break it. It resolves without a
+    # lockfile, so an upstream release can turn it red with no change here:
+    # read it, do not make it a required check.
+    name: Newest peers
+    runs-on: ubuntu-latest
+    # The job above's, which it repeats after an install without a lockfile;
+    # revisit once its own runs are measured.
+    timeout-minutes: 8
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup
+        uses: ./.github/actions/setup
+      # Rewrites the manifests in this checkout only, then installs what they
+      # now name. The lockfile goes: its versions satisfy the rewritten
+      # ranges, so an install that kept it would test the oldest end again.
+      - name: Use the newest peers
+        run: bun scripts/newest-peers.ts && rm bun.lock && bun install
+      - name: Build packages
+        run: bun run build
+      - name: Type checking
+        run: bun run typecheck
+      # The same single-node replica set as the job above.
+      - name: Start MongoDB
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for _ in $(seq 30); do
+            docker exec mongo mongosh --quiet --eval 'db.runCommand({ ping: 1 })' >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec mongo mongosh --quiet --eval \
+            'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+          for _ in $(seq 30); do
+            docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true && break
+            sleep 1
+          done
+      - name: Run tests
+        env:
+          MONGODB_URI: mongodb://localhost:27017/shared-mongo-test?replicaSet=rs0
+        run: bun run test
+      - name: Verify the built artifacts load
+        run: bun run verify:artifacts
