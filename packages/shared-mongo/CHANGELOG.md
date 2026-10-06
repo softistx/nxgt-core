@@ -1,5 +1,13 @@
 # @nxgt/shared-mongo
 
+## 1.1.9
+
+### Patch Changes
+
+- [#198](https://github.com/softistx/nxgt-core/pull/198) [`fc5e453`](https://github.com/softistx/nxgt-core/commit/fc5e4538fb971f725c8eb111cd45dfffa28820b8) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Type-check cleanly with `skipLibCheck: false`. The three `Model` augmentations (pagination, soft delete, `ensureExists`/`requireById`) now repeat only mongoose's type parameter names, leaving defaults and heritage to mongoose, and no longer redeclare `schema`. This removes the TS2428 "All declarations of 'Model' must have identical type parameters" and TS2717 "Property 'schema' must be of type …" errors a consumer saw from `dist/types/*.d.ts` and `mongoose/types/models.d.ts`. Every augmented member keeps the same type; `Model#schema` is mongoose's own declaration, which was already the one in effect.
+- Updated dependencies [[`c8a1595`](https://github.com/softistx/nxgt-core/commit/c8a1595b25d062afc0322e005adcbce240eaca37)]:
+  - @nxgt/shared@1.0.7
+
 ## 1.1.8
 
 ### Patch Changes
