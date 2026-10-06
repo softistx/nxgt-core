@@ -1,5 +1,20 @@
 # @nxgt/shared-mongo
 
+## 1.1.10
+
+### Patch Changes
+
+- [#202](https://github.com/softistx/nxgt-core/pull/202) [`d1fb6a1`](https://github.com/softistx/nxgt-core/commit/d1fb6a1f0c41b2edda591ffaa33b1a90580a67b9) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Fix the statics of the soft-delete plugin. This affects models that apply the soft-delete plugin, which the package does not export yet (it is neither exported nor in `MONGOOSE_PLUGINS`), so no consumer can reach these today.
+  
+  - `aggregate`, `aggregateDeleted` and `aggregateWidthDeleted` no longer throw. Their overrides pushed the caller's arguments onto the model instead of onto their own argument list, so every call threw `TypeError: Cannot assign to read only property 'length'` before reaching the server, and they read their arguments as one stage each (mongoose 4's shape), so the caller's pipeline would have been dropped even with the push fixed. They now take mongoose's `(pipeline, options)`.
+  - `aggregate` adds `$match: { deleted: { $ne: true } }` and `aggregateDeleted` adds `$match: { deleted: { $eq: true } }` at the head of the pipeline, or right after a stage that must stay first (`$geoNear`, `$search`, `$searchMeta`, `$vectorSearch`). The condition is folded into a `$match` already in that place unless that one names `deleted`, in which case it goes in as a separate stage: a caller's own condition on `deleted` is kept, not overwritten. The caller's pipeline array and stages are no longer mutated.
+  - `aggregateWidthDeleted` passes the pipeline through unfiltered. It used to inject `$match: { deleted: undefined }`, which the driver sends as `null` and which would have excluded every document carrying a `deleted` field.
+  - **Behaviour change:** `findDeleted` and `countDocumentsDeleted` now return and count the deleted documents only. They built the `deleted: true` filter and then passed the caller's original arguments instead, so they returned and counted every document matching the caller's filter, deleted or not.
+
+- [#203](https://github.com/softistx/nxgt-core/pull/203) [`37f4863`](https://github.com/softistx/nxgt-core/commit/37f4863da7587f66d4e4d2634d6a3e84e3497f4c) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Make the paginators' `deleted` option include deleted documents when asked to. This affects models that apply the soft-delete plugin, which the package does not export yet (it is neither exported nor in `MONGOOSE_PLUGINS`), so no consumer can reach this today.
+  
+  The option was typed `'Deleted' | 'WidthDeleted'`, a misspelling: `paginate`, `paginateOffset` and `cursorPaginate` looked up `findWidthDeleted` and `countDocumentsWidthDeleted`, which the plugin never registered, and silently fell back to `find` and `countDocuments`, so `deleted: 'WidthDeleted'` returned only the documents that were *not* deleted. The option now accepts `'WithDeleted'`, matching the `findWithDeleted` / `countDocumentsWithDeleted` statics. `'WidthDeleted'` is still accepted and now behaves like `'WithDeleted'`, so a caller passing it will now also receive deleted documents, which is what the option asked for. It is deprecated, but only the exported `WidthDeleted` type name carries `@deprecated`: a `'WidthDeleted'` literal is accepted, not flagged by editors. The option's type is exported as `SoftDeleteScope`. The plugin also registers `aggregateWithDeleted`, the consistently named form of `aggregateWidthDeleted`, which remains as an alias.
+
 ## 1.1.9
 
 ### Patch Changes
