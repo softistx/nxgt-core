@@ -69,6 +69,14 @@ package because they differ only in their entry points. It produces two things:
   `tsconfig.build.json` — which excludes `*.spec.ts`, while `tsconfig.json`
   still typechecks them.
 
+Every check runs with `skipLibCheck: true`, which also skips the hand-written
+`packages/shared-mongo/src/types/*.d.ts` that augment mongoose's `Model`.
+`bun run typecheck:declarations` (part of `typecheck`, so CI runs it) re-checks
+shared-mongo with `--skipLibCheck false` and fails only on diagnostics in its
+own files, or a TS2428/TS2717 naming a declaration it augments — third-party
+noise such as `@types/nodemailer`'s TS2430 is ignored. TS2428 is reported on
+both declarations; the shared-mongo half is always present.
+
 Entry points are declared per package under `nxgt.entrypoints` in its
 `package.json`, and each one must have a matching key in `exports`. A consumer
 importing `@nxgt/shared/helpers` resolves through that map; adding a subpath
