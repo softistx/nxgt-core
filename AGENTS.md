@@ -163,7 +163,7 @@ responsibility, with a spec beside each pure one: `packages.ts` reads the
 workspace, `tarball.ts` a tarball's entries, `manifest.ts` its dependency
 fields, `siblings.ts` its sibling ranges against the workspace's `workspace:` specs, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
 `browser.ts` (the `browser` condition, which only this repository has),
-`classes.ts`, `imports.ts` (served by `declarations.ts`) and `emit.ts`. The split follows nxgt-janus's copy module for module, as
+`classes.ts`, `imports.ts` (served by `declarations.ts`), `types.ts` (served by `resolve-types.ts`) and `emit.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
 port to the others. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
@@ -175,12 +175,14 @@ bracket access on a manifest (`manifest['name']`), which this repository's
 `noPropertyAccessFromIndexSignature` requires. A file Bun's
 scanner cannot read is reported (`scanFailure`), not a crash; nxgt-http's earlier
 drift is gone, since nxgt-data took it. `siblings.ts` and `siblings.spec.ts` are byte copies of nxgt-data's (softistx/nxgt-data#193, #194): `siblings.ts` reads each source `package.json` for the spec, and is exact rather than `Bun.semver.satisfies`, because a lock stale within one minor packs `^0.19.0` beside 0.19.1, which satisfies it and lets a consumer keep 0.19.0, and `satisfies` answers `true` for `garbage!!`, `latest` and `''`. `manifest.ts` also refuses a `workspace:` left in a packed field.
-Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
+`types.ts`, `resolve-types.ts` and their specs, the check that each `.d.ts` import's types reach a consumer, are byte copies of nxgt-data's (softistx/nxgt-data#195) in all five repositories, with nxgt-data's `imports.ts`, which exports `RUNTIME_FIELDS` and `isRuntime` for it, and a `typesReachConsumer` stage after `importsDeclared` in `verify-artifacts.ts`. Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
 `check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
 copied from nxgt-janus, the script byte for byte but for its header comment
 and the spec but for the one package it expects to find (`@nxgt/ory-sdk`);
 nxgt-data has a copy too, which also reads `examples/*`. nxgt-http has none:
 every `@nxgt/*` package there depends only on its siblings.
+
+Then it reads each `.d.ts` import's types (`types.ts`, with `resolve-types.ts`): every package a built declaration file names must resolve types for a consumer, either its own or an `@types` package (`@scope/x` → `@types/scope__x`) in `dependencies`, `peerDependencies` or `optionalDependencies`, found in the install by Node's lookup (`<package>: dist/<file> imports "<specifier>", which ships no types, and @types/<name> is not declared`). Its own types are read for the import's subpath, close to how tsc under `bundler`, Bun's resolution, reads them, not by tsc itself: with `exports`, only that subpath's entry counts (the exact key, then the longest `*` pattern, the longer key at a tie), and in it only the conditions tsc matches there (`import`, `types`, `types@…` and `default`, in order, stopping at a `null`), never `node`, which only `node16` adds, nor `require` or `browser`. A target passes as a declaration file or TypeScript source that is there, or with a declaration file beside it (`.d.mts` beside `.mjs`). yargs 18 types `./browser` alone, so `yargs` itself fails. Without `exports`, `types`, `typings`, `main` or an `index.d.ts`, an extensionless path read as `<path>.d.ts` or `<path>/index.d.ts`; a `typesVersions` there counts as typed unresolved, since its ranges match the consumer's TypeScript. An `@types` left in `devDependencies` passes everything else, since the workspace installs it, and gives a consumer TS7016, or a silent `any` under `skipLibCheck`: nxgt-core's `@nxgt/shared` shipped that with `nodemailer` (softistx/nxgt-core#194). The runtime's own (`bun`, `bun:*`, Node's built-ins, `/// <reference types="node" />`) is exempt: every package here targets Bun and lists `@types/bun` as a devDependency only, as in all five repositories, so the consumer's own `@types/bun` or `@types/node` supplies them, and an `@types/node` dependency would pin one on every consumer. A package the install does not hold (an optional peer on no registry) is printed as `skip`, not failed. Like `imports.ts`, it reads `.d.ts` files only, not a `.d.mts` or `.d.cts` a build emits.
 
 Last, it emits the declarations of each package's `test/declarations/*.ts`
 against the install, under a consumer's strict settings with this
