@@ -1,5 +1,13 @@
 # @nxgt/shared-graphql
 
+## 3.1.2
+
+### Patch Changes
+
+- [#199](https://github.com/softistx/nxgt-core/pull/199) [`224be68`](https://github.com/softistx/nxgt-core/commit/224be68d8e70e071a1d2e68c95ed4203e8c1b26d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Ship `@types/graphql-upload` as a dependency. The built `dist/upload.d.ts` imports `graphql-upload/graphqlUploadExpress.mjs`, and `graphql-upload` 18 ships no types of its own, so the types were only a devDependency: a consumer with `skipLibCheck: false` got TS7016 and with `skipLibCheck: true` got the upload middleware as `any`.
+- Updated dependencies [[`d1fb6a1`](https://github.com/softistx/nxgt-core/commit/d1fb6a1f0c41b2edda591ffaa33b1a90580a67b9), [`37f4863`](https://github.com/softistx/nxgt-core/commit/37f4863da7587f66d4e4d2634d6a3e84e3497f4c)]:
+  - @nxgt/shared-mongo@1.1.10
+
 ## 3.1.1
 
 ### Patch Changes
