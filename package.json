@@ -7,8 +7,9 @@
 	],
 	"scripts": {
 		"build": "bun run --filter './packages/*' build",
-		"typecheck": "bun run typecheck:scripts && bun run typecheck:plugins && bun run --filter './packages/*' typecheck",
+		"typecheck": "bun run typecheck:scripts && bun run typecheck:plugins && bun run typecheck:declarations && bun run --filter './packages/*' typecheck",
 		"typecheck:scripts": "tsc --noEmit -p scripts/tsconfig.json",
+		"typecheck:declarations": "bun scripts/check-shared-mongo-declarations.ts",
 		"typecheck:plugins": "tsc --noEmit -p plugins/tsconfig.json",
 		"test": "bun run --filter '*' test && bun test ./scripts/",
 		"test:plugins": "bun test ./plugins/",
