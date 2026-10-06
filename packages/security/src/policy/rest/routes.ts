@@ -1,4 +1,14 @@
 import type { CompiledPolicy, CompiledRestRoute } from '../compile';
+import { zRestRules } from './schema';
+
+/**
+ * Every method a rules file can name, read off the schema's method map so the
+ * two cannot drift. `unnamedOperations` needs it to decide whether an
+ * any-method route is fully named.
+ */
+export const REST_METHODS: readonly string[] = Object.keys(
+	zRestRules.valueType.shape,
+);
 
 /**
  * The rule sets a request with this method must pass, each searched for its

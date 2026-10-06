@@ -1,10 +1,17 @@
 import type { CompiledPolicy } from '../compile';
-import { ruleSetsForMethod } from './routes';
+import { REST_METHODS, ruleSetsForMethod } from './routes';
 
 /** One operation a service exposes: an uppercase method and a path pattern. */
 export interface OperationRef {
 	method: string;
 	path: string;
+	/**
+	 * The handler registered for it, when the operations come from a route
+	 * table (a Hono `app.routes` entry carries one). Read structurally, so this
+	 * module imports nothing from a framework; only used to tell a middleware
+	 * mounted on an exact path from a handler that answers every method.
+	 */
+	handler?: unknown;
 }
 
 export interface CoverageOptions {
@@ -77,8 +84,11 @@ export function openapiOperations(
  * (which `evaluateRest` demands of any route carrying a `keto` term) and no
  * expression to run.
  *
- * Wildcard mounts (`/api/*`) and `ALL` are skipped: those are middleware, not
- * operations. Duplicates are collapsed.
+ * Wildcard mounts (`/api/*`, any method) are skipped: those are middleware,
+ * not operations. An `ALL` on an exact path is reported unless every method
+ * the rules schema knows is named for it — except a middleware mounted on that
+ * path in front of a later route (`app.use('/x', …)` then `app.get('/x', …)`),
+ * which is skipped: see `isMiddlewareMount`. Duplicates are collapsed.
  *
  * ```ts
  * // From the app's own route table — the mounted surface, which is the one
@@ -100,12 +110,25 @@ export function unnamedOperations(
 	const missing: OperationRef[] = [];
 	const seen = new Set<string>();
 
-	for (const { method: rawMethod, path } of operations) {
+	for (const [
+		index,
+		{ method: rawMethod, path, handler },
+	] of operations.entries()) {
 		const method = rawMethod.toUpperCase();
 		// `app.use('/api/*', …)` registers as ALL on a wildcard path. It is the
 		// guard itself, among others — never something to demand a rule for.
-		if (method === 'ALL' || path.includes('*')) continue;
+		// An ALL on an exact path (`app.all('/api/doc', …)`) is a handler that
+		// answers every method, so it is checked below like any other.
+		if (path.includes('*')) continue;
 		if (options.mountedOn && !path.startsWith(options.mountedOn)) continue;
+		// Before the duplicate check, so a skipped middleware never hides an
+		// `app.all` handler registered later on the same path.
+		if (
+			method === 'ALL' &&
+			isMiddlewareMount(handler, path, operations.slice(index + 1))
+		) {
+			continue;
+		}
 
 		const key = `${method} ${path}`;
 		if (seen.has(key)) continue;
@@ -121,13 +144,57 @@ export function unnamedOperations(
 
 		// Named when any rule set the method faces matches it — HEAD is
 		// named by a HEAD rule or a GET one.
-		const named = ruleSetsForMethod(policy, method).some((routes) =>
-			routes.some((route) => route.matcher(concrete) !== false),
-		);
+		const isNamed = (m: string) =>
+			ruleSetsForMethod(policy, m).some((routes) =>
+				routes.some((route) => route.matcher(concrete) !== false),
+			);
+		// ALL is named only when every method a rules file can name is: a
+		// method left out reaches the handler with no rule applied. Methods
+		// the schema cannot name at all (`PURGE`) are out of reach here —
+		// `global.unmatched: deny` is what closes those.
+		const named =
+			method === 'ALL' ? REST_METHODS.every(isNamed) : isNamed(method);
 		if (!named) {
 			missing.push(operation);
 		}
 	}
 
 	return missing;
+}
+
+/**
+ * Whether an exact-path `ALL` entry is a middleware in front of a route
+ * rather than a handler that answers every method — both register as `ALL`
+ * in Hono (`app.use('/x', mw)` and `app.all('/x', h)`).
+ *
+ * Both must hold:
+ *
+ * - the handler is middleware-shaped: it takes `next`. This is Hono's own
+ *   test (`isMiddleware` / `findTargetHandler` in `hono/utils/handler`, the
+ *   ones `hono/dev`'s `inspectRoutes` uses): unwrap `__COMPOSED_HANDLER`,
+ *   which `app.route()` sets when it wraps a sub-app's handlers in that
+ *   sub-app's `onError`, then check `length > 1`;
+ * - a later entry has the same path, so there is a route for it to pass to.
+ *   A middleware with nothing after it answers every method itself.
+ *
+ * An entry with no handler (an OpenAPI document, a hand-written list) is
+ * never a middleware mount.
+ */
+function isMiddlewareMount(
+	handler: unknown,
+	path: string,
+	later: readonly OperationRef[],
+): boolean {
+	let target = handler;
+	while (
+		typeof target === 'function' &&
+		(target as { __COMPOSED_HANDLER?: unknown }).__COMPOSED_HANDLER
+	) {
+		target = (target as { __COMPOSED_HANDLER?: unknown }).__COMPOSED_HANDLER;
+	}
+	return (
+		typeof target === 'function' &&
+		target.length > 1 &&
+		later.some((operation) => operation.path === path)
+	);
 }
