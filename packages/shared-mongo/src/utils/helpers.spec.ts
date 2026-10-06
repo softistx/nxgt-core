@@ -51,6 +51,40 @@ function fakeModel(known: string[]) {
 	return { model: model as any, queries };
 }
 
+/**
+ * Two of `replace`, `add` and `remove` on one path cannot share an update: the
+ * builders would name the path under two operators (a bare `replace` becomes
+ * a `$set`), and MongoDB answers code 40, "Updating the path 'tags' would
+ * create a conflict at 'tags'". The operator builders refuse the combination
+ * as a bad request instead.
+ */
+async function expectOneOperationPerPath(
+	update: Promise<unknown>,
+	path: string,
+) {
+	let thrown: unknown;
+	try {
+		await update;
+	} catch (error) {
+		thrown = error;
+	}
+	expect(thrown).toBeInstanceOf(CustomException);
+	expect(thrown).toMatchObject({
+		code: 400,
+		errorCode: 'BAD_REQUEST',
+		message: 'errors.list-patch-one-operation-per-path',
+		options: { path },
+	});
+}
+
+/** Every combination that would name one path under two operators. */
+const CONFLICTING = [
+	{ add: [A], remove: [B] },
+	{ replace: [A], add: [B] },
+	{ replace: [A], remove: [B] },
+	{ replace: [A], add: [B], remove: [C] },
+];
+
 describe('patchListString', () => {
 	it('returns the list itself when there is no patch', () => {
 		const list = [A, B];
@@ -249,14 +283,45 @@ describe('buildListStringPatch (stand-in model)', () => {
 		).toEqual({ $addToSet: { tags: { $each: [] } } });
 	});
 
-	it('add and remove together name the path under two operators', async () => {
+	for (const patch of CONFLICTING) {
+		const name = Object.keys(patch).join(' and ');
+		it(`${name} together: refused before any query`, async () => {
+			const { model, queries } = fakeModel([A, B, C]);
+			await expectOneOperationPerPath(
+				buildListStringPatch(source, 'tags', model, patch),
+				'tags',
+			);
+			expect(queries).toEqual([]);
+		});
+	}
+
+	it('add and remove together: refused even when every id is unknown', async () => {
+		const { model } = fakeModel([]);
+		await expectOneOperationPerPath(
+			buildListStringPatch(source, 'tags', model, {
+				add: [UNKNOWN],
+				remove: [UNKNOWN],
+			}),
+			'tags',
+		);
+	});
+
+	it('an empty array emits nothing, so it does not count', async () => {
 		const { model } = fakeModel([A, B]);
 		expect(
 			await buildListStringPatch(source, 'tags', model, {
+				replace: [],
 				add: [A],
-				remove: [B],
+				remove: null,
 			}),
-		).toEqual({ $addToSet: { tags: { $each: [A] } }, $pullAll: { tags: [B] } });
+		).toEqual({ $addToSet: { tags: { $each: [A] } } });
+		expect(
+			await buildListStringPatch(source, 'tags', model, {
+				replace: [B],
+				add: [],
+				remove: [],
+			}),
+		).toEqual({ tags: [B] });
 	});
 
 	it('passes the filter into each existence query', async () => {
@@ -300,10 +365,23 @@ describe('buildListStringPatchUpdate', () => {
 		).toEqual({});
 	});
 
-	it('add and remove together name the path under two operators', async () => {
+	for (const patch of CONFLICTING) {
+		const name = Object.keys(patch).join(' and ');
+		it(`${name} together: refused`, async () => {
+			await expectOneOperationPerPath(
+				buildListStringPatchUpdate('tags', patch),
+				'tags',
+			);
+		});
+	}
+
+	it('an empty array emits nothing, so it does not count', async () => {
 		expect(
-			await buildListStringPatchUpdate('tags', { add: [A], remove: [B] }),
-		).toEqual({ $addToSet: { tags: { $each: [A] } }, $pullAll: { tags: [B] } });
+			await buildListStringPatchUpdate('tags', { replace: [], remove: [A] }),
+		).toEqual({ $pullAll: { tags: [A] } });
+		expect(
+			await buildListStringPatchUpdate('tags', { replace: [A], add: [] }),
+		).toEqual({ tags: [A] });
 	});
 });
 
@@ -419,17 +497,55 @@ describe.skipIf(!hasMongoHost())('list-patch helpers (MongoDB)', () => {
 			expect(await tagsOf()).toEqual([a]);
 		});
 
-		it('add and remove together are refused by the server (code 40)', async () => {
-			const update = await buildListStringPatch(Owner, 'tags', Tag, {
-				add: [b],
-				remove: [a],
+		for (const [name, patch] of [
+			['add and remove', () => ({ add: [b], remove: [a] })],
+			['replace and add', () => ({ replace: [a], add: [b] })],
+			['replace and remove', () => ({ replace: [b], remove: [a] })],
+		] as const) {
+			it(`${name} together are refused before the server, and nothing changes`, async () => {
+				await expectOneOperationPerPath(
+					buildListStringPatch(Owner, 'tags', Tag, patch()),
+					'tags',
+				);
+				expect(await tagsOf()).toEqual([a]);
 			});
-			await expect(apply(update)).rejects.toMatchObject({
-				code: 40,
-				codeName: 'ConflictingUpdateOperators',
-				message: "Updating the path 'tags' would create a conflict at 'tags'",
+		}
+
+		for (const [name, update] of [
+			[
+				'$addToSet and $pullAll',
+				() => ({
+					$addToSet: { tags: { $each: [b] } },
+					$pullAll: { tags: [a] },
+				}),
+			],
+			[
+				'$addToSet and a bare path',
+				() => ({ $addToSet: { tags: { $each: [b] } }, tags: [a] }),
+			],
+			[
+				'$pullAll and a bare path',
+				() => ({ $pullAll: { tags: [a] }, tags: [b] }),
+			],
+		] as const) {
+			it(`${name} on one path, sent anyway, is what MongoDB refuses (code 40)`, async () => {
+				await expect(apply(update())).rejects.toMatchObject({
+					code: 40,
+					codeName: 'ConflictingUpdateOperators',
+					message: "Updating the path 'tags' would create a conflict at 'tags'",
+				});
+				expect(await tagsOf()).toEqual([a]);
 			});
-			expect(await tagsOf()).toEqual([a]);
+		}
+
+		it('replace: [] beside add is no conflict, and applies the add', async () => {
+			await apply(
+				await buildListStringPatch(Owner, 'tags', Tag, {
+					replace: [],
+					add: [b],
+				}),
+			);
+			expect(await tagsOf()).toEqual([a, b]);
 		});
 
 		it('is not a document assignment: assigned and saved, an add changes nothing', async () => {

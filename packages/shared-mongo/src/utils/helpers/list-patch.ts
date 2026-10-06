@@ -1,4 +1,5 @@
 import type { ListStringPatch } from '@nxgt/shared/models';
+import { CustomException } from '@nxgt/shared-exceptions';
 import type { Model, QueryFilter, UpdateQuery } from 'mongoose';
 import mongoose from 'mongoose';
 import type { Populated } from '../models';
@@ -107,10 +108,45 @@ export async function resolveListStringPatch<T>(
 }
 
 /**
+ * Refuses a patch that would name `path` under two operators.
+ *
+ * The operator builders emit one operator per non-empty field of the patch:
+ * `$addToSet` for `add`, `$pullAll` for `remove`, and the bare path for
+ * `replace`, which Mongoose sends as a `$set`. Any two of them on one path
+ * make MongoDB refuse the whole update: code 40, `ConflictingUpdateOperators`,
+ * "Updating the path 'x' would create a conflict at 'x'". A schema with the
+ * errors plugin turned that into a generic 400, `errors.something-went-wrong`;
+ * without the plugin the raw `MongoServerError` surfaced. It is now a 400
+ * that names the path, raised before any query.
+ *
+ * An empty or missing field emits nothing, so it does not count.
+ */
+function refuseTwoOperationsOnOnePath(
+	path: PropertyKey,
+	value?: ListStringPatch,
+): void {
+	const given = [value?.replace, value?.add, value?.remove].filter(
+		(field) => field?.length,
+	);
+	if (given.length > 1) {
+		throw CustomException.badRequest({
+			message: 'errors.list-patch-one-operation-per-path',
+			options: { path: String(path) },
+			debugMessage: `replace, add and remove on '${String(path)}' in one update conflict at the server (code 40); send one per update, or use resolveListStringPatch`,
+		});
+	}
+}
+
+/**
  * Builds a MongoDB update query for adding, removing, or replacing items in a list of strings.
  *
  * Only usable through `findOneAndUpdate` and friends — see
  * `resolveListStringPatch` for the document-assignment path.
+ *
+ * Only one of `replace`, `add` and `remove` may be given: any two would name
+ * `path` under two operators, which MongoDB refuses as a conflict. Send them
+ * as separate updates, or resolve the whole list with
+ * `resolveListStringPatch`, which accepts all three together.
  *
  * @param _source - The Mongoose model of the source document.
  * @param path - The path of the list field to be updated.
@@ -118,6 +154,7 @@ export async function resolveListStringPatch<T>(
  * @param value - An object containing arrays of strings to add, remove, or replace.
  * @param filter - An optional filter to apply when validating the existence of items to be added, removed, or replaced.
  * @returns An update query object for MongoDB.
+ * @throws CustomException (400, `errors.list-patch-one-operation-per-path`) when more than one of `replace`, `add` and `remove` is non-empty.
  */
 export async function buildListStringPatch<T, S>(
 	_source: Model<S, any, any, any, any, any, any>,
@@ -126,6 +163,7 @@ export async function buildListStringPatch<T, S>(
 	value?: ListStringPatch,
 	filter: QueryFilter<T> = {},
 ): Promise<UpdateQuery<S>> {
+	refuseTwoOperationsOnOnePath(path, value);
 	const add = value?.add?.length
 		? (
 				await model
@@ -178,14 +216,19 @@ export async function buildListStringPatch<T, S>(
 /**
  * Builds a MongoDB update query for adding, removing, or replacing items in a list of strings.
  *
+ * Only one of `replace`, `add` and `remove` may be given, as with
+ * {@link buildListStringPatch}.
+ *
  * @param path - The path of the list field to be updated.
  * @param value - An object containing arrays of strings to add, remove, or replace.
  * @returns An update query object for MongoDB.
+ * @throws CustomException (400, `errors.list-patch-one-operation-per-path`) when more than one of `replace`, `add` and `remove` is non-empty.
  */
 export async function buildListStringPatchUpdate<T>(
 	path: keyof T,
 	value?: ListStringPatch,
 ): Promise<UpdateQuery<T>> {
+	refuseTwoOperationsOnOnePath(path, value);
 	const add = value?.add ?? [];
 	const remove = value?.remove ?? [];
 	const replace = value?.replace ?? [];

@@ -21,5 +21,6 @@
 	"persisted-query-not-supported": "Persisted queries are not supported on this server.",
 	"bad-user-input": "Invalid input provided. Please check your data and try again.",
 	"operation-resolution-failure": "Failed to resolve the GraphQL operation.",
-	"bad-request": "The request is invalid or malformed. Please verify the request format."
+	"bad-request": "The request is invalid or malformed. Please verify the request format.",
+	"list-patch-one-operation-per-path": "Only one of ''replace'', ''add'' and ''remove'' can change ''{path}'' in one update. Send them as separate updates."
 }
