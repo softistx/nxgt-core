@@ -4,10 +4,10 @@ import { logger } from './logger';
 
 export function loggerProvider() {
 	return createMiddleware(async (ctx, next) => {
-		logger.child({
-			requestId: ctx.get('requestId') || randomUUIDv7(),
-		});
-		ctx.set('logger', logger);
+		ctx.set(
+			'logger',
+			logger.child({ requestId: ctx.get('requestId') || randomUUIDv7() }),
+		);
 		await next();
 	});
 }

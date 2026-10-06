@@ -30,7 +30,8 @@
 	},
 	"scripts": {
 		"build": "bun run ../../build.ts",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"test": "bun test src"
 	},
 	"nxgt": {
 		"entrypoints": [

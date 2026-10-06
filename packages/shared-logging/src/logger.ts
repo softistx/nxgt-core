@@ -22,9 +22,14 @@ export function createLogger(options: {
 }): Logger {
 	const { colorize, combine, timestamp, label, printf } = format;
 
-	const customFormat = printf(({ level, message, label, timestamp }) => {
-		return `[${timestamp}] [${label}] [${level}] ${message}`;
-	});
+	// `requestId` is child-logger metadata (see `loggerProvider`). A line
+	// without one keeps the original `[ts] [label] [level] message` bytes.
+	const customFormat = printf(
+		({ level, message, label, timestamp, requestId }) => {
+			const id = requestId ? ` [requestId=${requestId}]` : '';
+			return `[${timestamp}] [${label}] [${level}]${id} ${message}`;
+		},
+	);
 
 	const fileRotateTransport = new winston.transports.DailyRotateFile({
 		filename: `logs/${options.name}-%DATE%.log`,
