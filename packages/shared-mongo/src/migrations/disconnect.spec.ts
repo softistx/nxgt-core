@@ -3,26 +3,19 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mongoose } from '../mongoose';
+import { hasMongoHost } from '../test/has-mongo-host';
 import { disconnectQuietly } from './disconnect';
 import { MigrationModel } from './migration.model';
 
-function uri(): string {
-	const value = Bun.env['MONGODB_URI'];
-	if (!value) {
-		throw new Error('MONGODB_URI is required — run with --env-file=.env.test');
-	}
-	return value;
-}
-
-describe('disconnectQuietly', () => {
+describe.skipIf(!hasMongoHost())('disconnectQuietly', () => {
 	test('Should close after a query without throwing', async () => {
-		await mongoose.connect(uri());
+		await mongoose.connect(Bun.env['MONGODB_URI'] as string);
 		await MigrationModel.find({}).lean().exec();
 		await disconnectQuietly();
 	});
 });
 
-describe('migration CLI teardown', () => {
+describe.skipIf(!hasMongoHost())('migration CLI teardown', () => {
 	let dir: string;
 
 	afterEach(async () => {
@@ -38,7 +31,7 @@ describe('migration CLI teardown', () => {
 				cwd: join(import.meta.dir, '../..'),
 				env: {
 					...process.env,
-					MONGODB_URI: uri(),
+					MONGODB_URI: Bun.env['MONGODB_URI'] as string,
 					NODE_ENV: 'test',
 					LOG_LEVEL: 'error',
 				},
