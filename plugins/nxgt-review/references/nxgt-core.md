@@ -25,11 +25,15 @@ bun run test               # one process per package, then scripts/; known state
 bun run verify:artifacts   # packs, installs as a consumer, imports every subpath
 bun run changeset:status
 bunx biome ci
+bun run test:graphql17     # CI runs it after the artifact check; see below
 ```
 
 You may run all of them. `bun run test` needs the local MongoDB replica set
-for `shared-mongo`; the S3 suites skip themselves without `S3_*`, which is
-not a failure. **Never** run `changeset:publish`, `scripts/publish.ts`,
+for `shared-mongo`, whose `test` script reads `.env.test` (CI passes
+`MONGODB_URI` in the environment, which beats it); the S3 suites skip themselves without `S3_*`, which is
+not a failure. `test:graphql17` temporarily moves `graphql` to 17 in the package's
+`package.json` and `bun.lock` and puts them back: run it in a worktree you
+can discard, and check `git status` after. **Never** run `changeset:publish`, `scripts/publish.ts`,
 `bun publish` or `bun changeset`.
 
 ## Invariants
@@ -137,8 +141,12 @@ From the table in `AGENTS.md`:
   spec except the one package it expects to find (`@nxgt/ory-sdk`).
   nxgt-data holds the third copy, adapted to read `examples/*`; nxgt-http
   has none.
-- `@nxgt/ory-sdk`'s open peer range `>=0.1.0` in `security`, `shared-hono`
-  and `shared-graphql`: the owner's decision, not moved by a lock bump.
+- `@nxgt/ory-sdk`'s peer range `>=0.1.0 <1` in `security` (optional),
+  `shared-hono` and `shared-graphql`: the owner's decision, with the `<1`
+  ceiling set in `shared-graphql` 3.0, not moved by a lock bump.
+- `honoLanguageSource` in `shared-hono/src/i18n/language.ts` and its copy in
+  `shared-graphql/src/integrations/hono.ts`: `shared-graphql` does not depend
+  on `shared-hono`. Report a change made to one and not the other.
 
 ## Layering and packaging
 

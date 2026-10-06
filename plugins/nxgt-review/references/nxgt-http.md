@@ -1,6 +1,6 @@
 # `code-reviewer` in nxgt-http
 
-nxgt-http is the Bun workspace behind the public `@nxgt/*` HTTP packages. They are `httpyz`, `openapi-codegen`, `openapi-hono`, `openapi-httpyz`, `httpyz-query`, `datasource-rest`, `openapi-msw` and `openapi-nuxt`, all published to npm with changesets. The client is standalone first: a feature lands in `@nxgt/httpyz` before any OpenAPI binding. Most defects here would not show in a diff and would still pass the tests: a build that bundles a sibling, a dependency cycle, a manifest that breaks installs, and generated code that fails under an app's strict tsconfig.
+nxgt-http is the Bun workspace behind the public `@nxgt/*` HTTP packages. They are `httpyz`, `openapi-codegen`, `openapi-hono`, `openapi-httpyz`, `httpyz-query`, `datasource-rest`, `openapi-msw`, `openapi-nuxt` and `typespec` (a TypeSpec library of nxgt's HTTP conventions), all published to npm with changesets. The client is standalone first: a feature lands in `@nxgt/httpyz` before any OpenAPI binding. Most defects here would not show in a diff and would still pass the tests: a build that bundles a sibling, a dependency cycle, a manifest that breaks installs, and generated code that fails under an app's strict tsconfig.
 
 ## Measure
 
@@ -23,7 +23,7 @@ bun run verify:artifacts   # packs, installs, imports every subpath, runs every 
 bun run changeset:status   # skipped on changeset-release/develop
 ```
 
-The reviewer may run the measure commands, `biome ci`, `build`, `typecheck`, `test` and `verify:artifacts`, because they write only to `dist/` and to generated fixtures. The reviewer must never run `changeset:publish`, `scripts/publish.ts` or `bun changeset`. Any test failure counts as a finding. It is not "pre-existing".
+The reviewer may run the measure commands, `biome ci`, `build`, `typecheck`, `test` and `verify:artifacts`, because they write only to `dist/` and to generated fixtures. The reviewer must never run `changeset:publish`, `scripts/publish.ts` or `bun changeset`. Any test failure counts as a finding. It is not "pre-existing". On macOS, run `test` with `TMPDIR` outside `/var/folders`, or the generator's `shared-components` symlink spec fails for a reason that is not the diff's.
 
 ## Invariants
 
@@ -33,16 +33,18 @@ The reviewer may run the measure commands, `biome ci`, `build`, `typecheck`, `te
 - **`export * from '<external package>'` appears only in an entry point.** Below one, Bun emits a re-export of an undeclared variable, and the built file throws at import while `build` still exits 0. A star re-export in any file that `nxgt.entrypoints` does not list is a finding.
   `grep -rn "export \* from '[^.]" packages/*/src`
 - **Every entry point has a matching key in `exports`.** A new file under `nxgt.entrypoints` with no `exports` key, or the reverse, is a finding. A build that exits 0 does not prove the artifact loads; `verify:artifacts` does.
-- **Siblings are declared with `workspace:^`, never `workspace:*`, and imported by their published name.** A `workspace:*` publishes an exact pin, so the consumer ends up with two copies. A relative import into another package, or a new tsconfig `paths` entry to a sibling, is also a finding. The only allowed `paths` entry is openapi-hono's own name, in `packages/openapi-hono/tsconfig.json`.
+- **Siblings are declared with `workspace:^`, never `workspace:*`, and imported by their published name.** A `workspace:*` publishes an exact pin, so the consumer ends up with two copies. A relative import into another package, or a new tsconfig `paths` entry to a sibling, is also a finding. The `paths` entries that exist are openapi-hono's own name, in `packages/openapi-hono/tsconfig.json`, and the generator's stand-in for `@alxia/core` (`test/alxia/core.ts`), in its `tsconfig.json` and `tsconfig.generated.json`.
   `grep -rn 'workspace:\*' packages/*/package.json; grep -rn "from '\.\./\.\./\.\./" packages/*/src`
 - **A consumer-resolved manifest field never holds `link:` or `file:`, and a required peer never names a package that is on no registry.** Either one breaks an install.
-- **Package metadata is fixed.** Every package keeps `"license": "MIT"`, lists `LICENSE` in `files`, and has a copy of the root `LICENSE` in its own directory. `typescript` is a peer at `^6.0.3` in every package, and raising it in one package alone is a finding. `private: true` is always a finding, even for an unfinished package.
+- **Package metadata is fixed.** Every package keeps `"license": "MIT"`, lists `LICENSE` in `files`, and has a copy of the root `LICENSE` in its own directory. `typescript` is a peer at `^6.0.3 || ^7.0.0` in every package, and changing it in one package alone is a finding (`scripts/newest-peers.ts` fails on two ranges of different majors). `private: true` is always a finding, even for an unfinished package.
 - **Peer shapes are fixed. Report any drift.**
+  - `typespec` has `@typespec/compiler`, `@typespec/http` and `@typespec/openapi` as peers. The generator and `@nxgt/openapi-hono` are only devDependencies, for its fixtures.
   - `openapi-msw` must not depend on `@nxgt/openapi-hono`, because that pulls in Hono.
   - `openapi-nuxt` must not depend on `openapi-hono`. Its only `dependencies` are `@nuxt/kit`, `@nuxt/schema` and `h3`.
   - `httpyz-query` imports only types from `@tanstack/query-core`. A runtime import is a finding.
   - `datasource-rest` depends on no exception package, because `DataSourceError` is its own.
   - `openapi-codegen` depends on no sibling.
+- **The tsconfig skeleton is the strictest one.** `tsconfig.base.json` has `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature` and the other strict flags, and no `allowJs`, no decorators and no `strictPropertyInitialization: false`. A package's `tsconfig.json` turns no check on or off; only `scripts/tsconfig.json` relaxes `noPropertyAccessFromIndexSignature` and `exactOptionalPropertyTypes`. A key off an index signature is read with brackets.
 - **Generated code compiles under the strictest settings.** It lands in an app's own source, and `typecheck:generated` checks it against `tsconfig.generated.json` and the built packages. A fixture excluded to make typecheck pass counts as a generator bug, and the exclusion is the finding. Specs must call the generated code, never a hand-written copy of it.
 - **Imports carry no extension.** An import ending in `.js`/`.ts` in `src`, specs or README examples is a finding. So is a generator change that makes `importExtension` default to anything other than `''`.
   `grep -rnE "from '\.{1,2}/[^']+\.(js|ts)'" packages/*/src`
@@ -56,13 +58,15 @@ Each of these copies must be changed together with its twin. Report a change to 
 - **`unroutable`**: in `packages/openapi-hono/src/routable.ts` and `packages/openapi-codegen/src/emit/routable.ts`. The runtime refuses the route and the generator warns. Importing one from the other would make the runtime a dependency of the generator.
 - **`LICENSE`**: at the root and in every `packages/*/`. npm ships only the package's own copy.
 - **How a request is read and refused**: in `packages/openapi-hono/src/engine.ts` and `packages/openapi-msw/src/request/read-request.ts`. The mock must return the server's 400, with the same issues in the same order, without depending on Hono.
+- **The pinned `tsp compile` and its drift check**: in `packages/openapi-codegen/test/typespec.ts` and `packages/typespec/test/generate.ts`. Neither package can import the other: that is a relative import into a sibling, or a cycle.
+- **alxia's `RouteOperation`, `StatusCode` and `eventStream`** in `packages/openapi-codegen/test/alxia/core.ts`, its router's rules in `src/emit/alxia/routable.ts` and its `ValidationErrorBody` in `src/ir/validation-errors.ts`: the generator depends on no framework it writes for. They change when alxia's do.
 - **`packages/openapi-codegen/test/fixtures/shared-components/`**: a copy of nxgt-core's `@nxgt/shared-openapi` components. It is a fixture, not a dependency.
 - **The openapi-hono tsconfig `paths` entry for its own name**: it exists so that generated `hono.ts` fixtures run the engine from `src`.
 - **The generator's fixtures' `hono.ts`**: excluded from openapi-codegen's own typecheck, because openapi-hono type-checks and runs them.
 
 ## Layering and packaging
 
-- **Layers:** `httpyz` is the base, with `openapi-httpyz` and `httpyz-query` on it. `datasource-rest`, `openapi-msw` and `openapi-nuxt` sit on `openapi-httpyz`. `openapi-codegen` stands alone, with `openapi-hono` under it as a dev-only fixture consumer. Siblings are peers plus devDependencies to build against. The generator is only ever a devDependency, for fixtures.
+- **Layers:** `httpyz` is the base, with `openapi-httpyz` and `httpyz-query` on it. `datasource-rest`, `openapi-msw` and `openapi-nuxt` sit on `openapi-httpyz`. `openapi-codegen` stands alone, with `openapi-hono` under it as a dev-only fixture consumer. `typespec` sits on the generator and `openapi-hono`, both devDependencies. Siblings are peers plus devDependencies to build against. The generator is only ever a devDependency, for fixtures.
 - **Optional peers:** `httpyz-query`'s `./openapi` subpath has `@nxgt/openapi-httpyz` as an optional peer, for types only. For `openapi-nuxt`, `hono` is an optional peer for `./hono`, and `@nxgt/httpyz-query`, `@tanstack/vue-query` and `vue` are optional peers for `./query`.
 - **Build:** the root `build.ts` builds each package with `Bun.build` for JS and `tsc --emitDeclarationOnly` against `tsconfig.build.json`, which excludes `*.spec.ts`.
 - **Releases:** changesets with independent versions. Merging to `develop` opens the "Version packages" PR, and merging that PR publishes. Publishing goes through `bun publish` via `scripts/publish.ts`, in dependency order, skipping versions already published. It never uses `changeset publish`. `changeset:publish` runs `verify:artifacts` first.
@@ -70,7 +74,7 @@ Each of these copies must be changed together with its twin. Report a change to 
 - **Import rule:** the `Types`/`ObjectId`-from-`@nxgt/shared-mongo` rule is not stated here, because no package in this repo depends on Mongo.
 - **Conventions:**
   - Biome, with tabs and single quotes.
-  - Commits follow `<type>: <Capitalized summary>`, with `feat|fix|update|chore|docs|typo`.
+  - Commits follow `<type>: <Capitalized summary>`, with `feat|fix|update|chore|docs|typo|ci` (`ci` for the workflows and the setup action).
   - Repo scripts are TypeScript run by Bun Shell, never `.sh`.
   - Specs sit next to the code they test, in folders by role (`client/`, `request/`, `reply/`, `middleware/`).
   - A package `README.md` is its npm page: organized by section, with a copy-paste example each, and it never names a private application.
