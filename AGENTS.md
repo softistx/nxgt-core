@@ -373,6 +373,8 @@ tree. Today that is `stx-sdk` `>=1.1.0` (locked at 1.2.0, npm latest 3.0.0),
 job runs green against all of them: 3.0.0 dropped `./ory`, `./kratos`,
 `./keto` and `./hydra`, and nothing here imports them.
 
+Run the script on a throwaway checkout, never commit what it writes.
+
 **When it is red.** An upstream release can turn it red with no change here,
 which is its job: it is not a required check. Read the failing step. A peer
 range that no longer holds is narrowed (`<3`, say) or the code is fixed, as a
@@ -386,7 +388,6 @@ rewrite or test: `@hey-api/openapi-ts` and `openapi-typescript`, the tools
 `vite`. Any other peer nobody installs still fails the script. Without it the
 script fails at once on `@hey-api/openapi-ts`. The job also keeps its own
 `timeout-minutes` of 8, as CI's.
-Run it on a throwaway checkout, never commit what it writes.
 
 ### A new `@nxgt/ory-sdk` is found by a schedule, not by memory
 
