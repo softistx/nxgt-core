@@ -9,7 +9,7 @@ import {
 	type S3Options,
 } from 'bun';
 import { env } from '../env';
-import { translate } from '../i18n';
+import type { StorageLocaleKey } from '../i18n';
 import { MinioService } from './minio.service';
 
 export const S3_CREDENTIALS = {
@@ -43,25 +43,17 @@ export class StorageService {
 
 	async write(key: string, body: S3ClientWriteBody, options: S3Options = {}) {
 		try {
-			return this.s3.write(key, body, { ...options });
+			return await this.s3.write(key, body, { ...options });
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.write-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.write-failed');
 		}
 	}
 
 	async list(input: S3ListObjectsOptions = {}, options: S3Options = {}) {
 		try {
-			return this.s3.list(input, options);
+			return await this.s3.list(input, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.list-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.list-failed');
 		}
 	}
 
@@ -69,23 +61,15 @@ export class StorageService {
 		try {
 			return this.s3.file(key, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.file-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.file-failed');
 		}
 	}
 
 	async exists(key: string, options: S3Options = {}) {
 		try {
-			return this.s3.exists(key, options);
+			return await this.s3.exists(key, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.exists-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.exists-failed');
 		}
 	}
 
@@ -93,63 +77,43 @@ export class StorageService {
 		try {
 			return this.s3.presign(key, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.presign-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.presign-failed');
 		}
 	}
 
 	async delete(key: string, options: S3Options = {}) {
 		try {
 			await this.ensureExists(key, options);
-			return this.s3.delete(key, options);
+			return await this.s3.delete(key, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.delete-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.delete-failed');
 		}
 	}
 
 	async size(key: string, options: S3Options = {}) {
 		try {
 			await this.ensureExists(key, options);
-			return this.s3.size(key, options);
+			return await this.s3.size(key, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.size-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.size-failed');
 		}
 	}
 
 	async stat(key: string, options: S3Options = {}) {
 		try {
 			await this.ensureExists(key, options);
-			return this.s3.stat(key, options);
+			return await this.s3.stat(key, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.stat-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.stat-failed');
 		}
 	}
 
 	async unlink(key: string, options: S3Options = {}) {
 		try {
 			await this.ensureExists(key, options);
-			return this.s3.unlink(key, options);
+			return await this.s3.unlink(key, options);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.unlink-failed',
-				debugMessage: (error as Error).message,
-			});
+			throw this.failure(error, 'storage.errors.unlink-failed');
 		}
 	}
 
@@ -162,7 +126,7 @@ export class StorageService {
 	) {
 		try {
 			await this.ensureExists(input, bucket === undefined ? {} : { bucket });
-			return fetch(
+			return await fetch(
 				STRINGS_UTILS.normalizeUrl(`s3://${bucket ?? this.bucket}/${input}`),
 				{
 					...options,
@@ -170,19 +134,39 @@ export class StorageService {
 				},
 			);
 		} catch (error) {
-			this.logger.error(error);
-			throw CustomException.internal({
-				message: 'storage.errors.fetch-failed',
-				debugMessage: (error as Error).message,
+			throw this.failure(error, 'storage.errors.fetch-failed');
+		}
+	}
+
+	/**
+	 * A missing key is a 404 the caller can act on. The message is the key,
+	 * not its text: whoever renders the exception (`shared-hono`'s error
+	 * handler, `shared-graphql`'s) translates `message` with `options`, so
+	 * text here would be translated a second time.
+	 */
+	private async ensureExists(key: string, options: S3Options = {}) {
+		if (!(await this.s3.exists(key, options))) {
+			throw CustomException.notFound<StorageLocaleKey>({
+				message: 'storage.errors.file-not-found',
+				options: { key },
 			});
 		}
 	}
 
-	private async ensureExists(key: string, options: S3Options = {}) {
-		if (!(await this.s3.exists(key, options))) {
-			throw CustomException.notFound({
-				message: translate('storage.errors.file-not-found', { key }) as any,
-			});
+	/**
+	 * What a method's `catch` throws. A `CustomException` — the 404 from
+	 * {@link ensureExists} — already says what went wrong and passes through
+	 * unchanged; anything else is an SDK error, logged and wrapped in a 500
+	 * carrying the method's own message key.
+	 */
+	private failure(error: unknown, message: StorageLocaleKey): CustomException {
+		if (error instanceof CustomException) {
+			return error;
 		}
+		this.logger.error(error);
+		return CustomException.internal<StorageLocaleKey>({
+			message,
+			debugMessage: error instanceof Error ? error.message : String(error),
+		});
 	}
 }
