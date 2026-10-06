@@ -10,6 +10,7 @@ import type {
 	PolicySubject,
 } from '../../policy';
 import { evaluateRest, parseRules } from '../../policy';
+import { lazyKetoDeps } from '../../policy/keto-rungs';
 
 /**
  * Everything a rule carrying `keto` needs, for one request.
@@ -30,7 +31,9 @@ export interface PolicyGuardOptions {
 	/**
 	 * Supplies the caller and the Keto evaluator for rules that carry `keto`.
 	 * Use `ketoPermissions()` from `@nxgt/security/integrations/hono/keto`,
-	 * mounted after `oryChecks(ory)`. Rules with no `keto` term need nothing.
+	 * mounted after `oryChecks(ory)`. Rules with no `keto` term need nothing,
+	 * and the provider is called only for a request whose matched rule
+	 * reaches a `keto` rung — once, however many rungs it has.
 	 */
 	permissions?: PermissionsProvider;
 }
@@ -109,8 +112,11 @@ export function policyGuard(
 		);
 
 		// Per request, because both halves are: the subject is this caller, and
-		// the evaluator closes over this request's Keto answer cache.
-		const permissions = options.permissions?.(ctx);
+		// the evaluator closes over this request's Keto answer cache. And only
+		// once the matched rule reaches a `keto` rung: `ketoPermissions()`
+		// throws when `oryChecks` is not mounted, which must not break a route
+		// that never asks Keto anything.
+		const permissions = lazyKetoDeps(() => options.permissions?.(ctx));
 
 		const result = await evaluateRest(
 			compiledPolicy,
@@ -126,10 +132,7 @@ export function policyGuard(
 					headers: ctx.req.header(),
 				},
 			},
-			{
-				evaluatePermissions: permissions?.evaluatePermissions,
-				subject: permissions?.subject,
-			},
+			permissions,
 		);
 
 		if (result.decision === 'UNAUTHENTICATED') {
