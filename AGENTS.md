@@ -359,6 +359,36 @@ typecheck and suite, and puts `package.json` and `bun.lock` back whatever
 happened. CI runs it after the artifact check. `@nxgt/security` depends on
 graphql 17 directly and is not part of this run.
 
+### CI's "Newest peers" job tests the other end of every peer range
+
+The CI job runs the lockfile: the version each peer resolved to at the last
+install, older as the lock ages. `scripts/newest-peers.ts`, nxgt-data's copy
+(softistx/nxgt-data, after alxia's), rewrites every manifest that installs a
+peer to the newest end of its range: the last alternative of an `a || b`
+range, else the range itself. The job then deletes `bun.lock`, installs,
+builds, typechecks, tests (the MongoDB replica set included) and verifies the
+artifacts. One range is written everywhere, so there is one version in the
+tree. Today that is `stx-sdk` `>=1.1.0` (locked at 1.2.0, npm latest 3.0.0),
+`nuxt` `^4.0.0`, `vue`, `graphql` `^17.0.0` and `typescript` `^6.0.3`. The
+job runs green against all of them: 3.0.0 dropped `./ory`, `./kratos`,
+`./keto` and `./hydra`, and nothing here imports them.
+
+Run the script on a throwaway checkout, never commit what it writes.
+
+**When it is red.** An upstream release can turn it red with no change here,
+which is its job: it is not a required check. Read the failing step. A peer
+range that no longer holds is narrowed (`<3`, say) or the code is fixed, as a
+package change with a changeset. The script itself fails when a peer is
+installed by nobody, or when two packages' ranges disagree.
+
+**The one departure from nxgt-data's copy.** `UNINSTALLED` in the script
+(and its spec) names three peers no workspace installs, so there is nothing to
+rewrite or test: `@hey-api/openapi-ts` and `openapi-typescript`, the tools
+`@nxgt/shared-openapi`'s templates are run with, and `@nxgt/i18n-vue`'s optional
+`vite`. Any other peer nobody installs still fails the script. Without it the
+script fails at once on `@hey-api/openapi-ts`. The job also keeps its own
+`timeout-minutes` of 8, as CI's.
+
 ### A new `@nxgt/ory-sdk` is found by a schedule, not by memory
 
 Three packages peer `@nxgt/ory-sdk` by `>=0.1.0 <1` —
@@ -731,6 +761,7 @@ The following pairs exist on purpose:
 
 | Both kept | Why |
 | --- | --- |
+| `scripts/newest-peers.ts` and its spec, with the "Newest peers" job in `ci.yml` | nxgt-data's copy (alxia's before it; nxgt-http and nxgt-telemetry have it too), not shared: each repository releases on its own. This copy adds `UNINSTALLED` and a spec for it; the other lines are byte for byte. Change every copy the reason applies to |
 | `paginate` (offset) and `paginateCursor` (Relay) | sellix pages by offset, federation by cursor; same name, incompatible signatures |
 | `Principal` and `TokenPrincipal` | gateway-header shape vs JWT-claims shape — two different models of "the authenticated caller" |
 | the REST filter helpers and the GraphQL filter DSL | two filter philosophies that shared a filename and two function names |
