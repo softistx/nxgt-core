@@ -285,9 +285,7 @@ diff that grows one is a finding.
   checks: the test-code check, the `newestMtime` guard that reports an
   unbuilt package as `no dist/`, and `missingFiles`, whose spec holds that a
   `files` entry `dis` is not covered by `dist/`. The differences that remain
-  are declared: `browser.ts` is nxgt-core's alone; this copy and nxgt-data
-  read a sibling's version from the workspace, nxgt-http and nxgt-core from
-  the packed manifests; and `check-changesets.ts`, the two floor scripts
+  are declared: `browser.ts` is nxgt-core's alone; and `check-changesets.ts`, the two floor scripts
   `run-on-peer-floor.ts` and `run-in-floor-project.ts`, and their
   `scripts/peer-floor/` and `scripts/floor-project/`, are this copy's alone.
   `check-nxgt-versions.ts`, its spec and `nxgt-versions.yml` are copied into
