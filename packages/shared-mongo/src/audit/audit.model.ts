@@ -1,6 +1,6 @@
 import { logger } from '@nxgt/shared-logging';
 import { redis } from 'bun';
-import type { HydratedDocument, Model } from 'mongoose';
+import type { HydratedDocument, Model, mongo } from 'mongoose';
 import { model, Schema } from 'mongoose';
 import { pagination } from '../plugins/pagination';
 import { CommitType } from './audit.types';
@@ -46,13 +46,16 @@ const schema = new Schema<AuditDocument, AuditModel, object, object, object>(
 
 export const AuditModel = model('Audit', schema);
 
-export const AUDIT_CHANGE_STREAM = AuditModel.watch([
-	{
-		$match: {
-			operationType: 'insert',
+// Typed through mongoose's own `mongo`, so the declaration never names
+// `mongodb`, which this package does not declare.
+export const AUDIT_CHANGE_STREAM: mongo.ChangeStream<any, any> =
+	AuditModel.watch([
+		{
+			$match: {
+				operationType: 'insert',
+			},
 		},
-	},
-]);
+	]);
 
 (() => {
 	AUDIT_CHANGE_STREAM.on('change', async (data) => {
