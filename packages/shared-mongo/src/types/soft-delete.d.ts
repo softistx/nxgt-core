@@ -1,3 +1,5 @@
+import type { mongo } from 'mongoose';
+
 declare module 'mongoose' {
 	export interface Model<
 		TRawDocType,
@@ -19,7 +21,7 @@ declare module 'mongoose' {
 		schema: Schema<TRawDocType>;
 
 		softDeleteById<ResultDoc = THydratedDocumentType>(
-			id: mongodb.ObjectId | any,
+			id: mongo.ObjectId | any,
 			autor?: string,
 			options?: QueryOptions<TRawDocType> | null,
 		): QueryWithHelpers<
@@ -32,7 +34,7 @@ declare module 'mongoose' {
 		>;
 
 		restoreById<ResultDoc = THydratedDocumentType>(
-			id: mongodb.ObjectId | any,
+			id: mongo.ObjectId | any,
 			autor?: string,
 			options?: QueryOptions<TRawDocType> | null,
 		): QueryWithHelpers<
@@ -47,7 +49,7 @@ declare module 'mongoose' {
 		countDocumentsDeleted(
 			filter?: QueryFilter<TRawDocType>,
 			options?:
-				| (mongodb.CountOptions & MongooseBaseQueryOptions<TRawDocType>)
+				| (mongo.CountOptions & MongooseBaseQueryOptions<TRawDocType>)
 				| null,
 		): QueryWithHelpers<
 			number,
@@ -61,7 +63,7 @@ declare module 'mongoose' {
 		countDocumentsWithDeleted(
 			filter?: QueryFilter<TRawDocType>,
 			options?:
-				| (mongodb.CountOptions & MongooseBaseQueryOptions<TRawDocType>)
+				| (mongo.CountOptions & MongooseBaseQueryOptions<TRawDocType>)
 				| null,
 		): QueryWithHelpers<
 			number,
@@ -537,9 +539,7 @@ declare module 'mongoose' {
 		replaceOneDeleted<ResultDoc = THydratedDocumentType>(
 			filter?: QueryFilter<TRawDocType>,
 			replacement?: TRawDocType | AnyObject,
-			options?:
-				| (mongodb.ReplaceOptions & MongooseQueryOptions<TRawDocType>)
-				| null,
+			options?: (mongo.ReplaceOptions & QueryOptions<TRawDocType>) | null,
 		): QueryWithHelpers<
 			UpdateWriteOpResult,
 			ResultDoc,
@@ -552,9 +552,7 @@ declare module 'mongoose' {
 		replaceOneWithDeleted<ResultDoc = THydratedDocumentType>(
 			filter?: QueryFilter<TRawDocType>,
 			replacement?: TRawDocType | AnyObject,
-			options?:
-				| (mongodb.ReplaceOptions & MongooseQueryOptions<TRawDocType>)
-				| null,
+			options?: (mongo.ReplaceOptions & QueryOptions<TRawDocType>) | null,
 		): QueryWithHelpers<
 			UpdateWriteOpResult,
 			ResultDoc,
@@ -568,7 +566,7 @@ declare module 'mongoose' {
 			filter?: QueryFilter<TRawDocType>,
 			update?: UpdateQuery<TRawDocType> | UpdateWithAggregationPipeline,
 			options?:
-				| (mongodb.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
+				| (mongo.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
 				| null,
 		): QueryWithHelpers<
 			UpdateWriteOpResult,
@@ -583,7 +581,7 @@ declare module 'mongoose' {
 			filter?: QueryFilter<TRawDocType>,
 			update?: UpdateQuery<TRawDocType> | UpdateWithAggregationPipeline,
 			options?:
-				| (mongodb.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
+				| (mongo.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
 				| null,
 		): QueryWithHelpers<
 			UpdateWriteOpResult,
@@ -598,7 +596,7 @@ declare module 'mongoose' {
 			filter?: QueryFilter<TRawDocType>,
 			update?: UpdateQuery<TRawDocType> | UpdateWithAggregationPipeline,
 			options?:
-				| (mongodb.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
+				| (mongo.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
 				| null,
 		): QueryWithHelpers<
 			UpdateWriteOpResult,
@@ -613,7 +611,7 @@ declare module 'mongoose' {
 			filter?: QueryFilter<TRawDocType>,
 			update?: UpdateQuery<TRawDocType> | UpdateWithAggregationPipeline,
 			options?:
-				| (mongodb.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
+				| (mongo.UpdateOptions & MongooseUpdateQueryOptions<TRawDocType>)
 				| null,
 		): QueryWithHelpers<
 			UpdateWriteOpResult,
