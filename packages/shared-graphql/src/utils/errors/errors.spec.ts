@@ -65,7 +65,7 @@ describe('createMaskError', () => {
 			'Unexpected error.',
 			false,
 		) as GraphQLError;
-		expect(error.extensions.code).toBe(ErrorCode.ServiceUnavailable);
+		expect(error.extensions['code']).toBe(ErrorCode.ServiceUnavailable);
 	});
 
 	it('masks a plain Error a resolver threw, keeping its path', () => {
@@ -75,7 +75,7 @@ describe('createMaskError', () => {
 			false,
 		) as GraphQLError;
 		expect(error.message).toBe('Unexpected error.');
-		expect(error.extensions.code).toBe(ErrorCode.InternalServerError);
+		expect(error.extensions['code']).toBe(ErrorCode.InternalServerError);
 		expect(error.path).toEqual(['note']);
 	});
 

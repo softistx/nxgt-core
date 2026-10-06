@@ -55,7 +55,7 @@ describe('@permission on a subscription', () => {
 			document: parse('subscription { byArg(id: "n2") }'),
 			contextValue: context,
 		})) as ExecutionResult;
-		expect(refused.errors?.[0]?.extensions?.code).toBe(ErrorCode.NotFound);
+		expect(refused.errors?.[0]?.extensions?.['code']).toBe(ErrorCode.NotFound);
 		expect(opened.count).toBe(0);
 	});
 

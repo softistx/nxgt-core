@@ -27,7 +27,7 @@ type Manifest = { devDependencies?: Record<string, string> };
 
 /** The manifest with its `graphql` devDependency moved to `range`. */
 export function withGraphql<M extends Manifest>(manifest: M, range: string): M {
-	if (!manifest.devDependencies?.graphql) {
+	if (!manifest.devDependencies?.['graphql']) {
 		throw new Error(
 			'@nxgt/shared-graphql has no graphql devDependency to move — the peer is no longer tested in the workspace',
 		);

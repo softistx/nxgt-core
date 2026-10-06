@@ -8,7 +8,7 @@ export function pattern(args: ValidatorOptions<string>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.(
+		message: options.message(
 			{ pattern: options.value },
 			'validation.errors.pattern',
 		),

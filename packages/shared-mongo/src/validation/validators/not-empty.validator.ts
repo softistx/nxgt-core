@@ -7,7 +7,7 @@ export function notEmpty(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.not-empty'),
+		message: options.message({}, 'validation.errors.not-empty'),
 		validator(value) {
 			return (
 				isNil(value) ||

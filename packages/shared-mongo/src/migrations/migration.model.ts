@@ -46,5 +46,5 @@ const migrationSchema = new Schema<MigrationDocument, MigrationModel>(
 // `model()` throws `OverwriteModelError` the second time, at import, before any
 // test body runs.
 export const MigrationModel =
-	(models.Migration as MigrationModel | undefined) ??
+	(models['Migration'] as MigrationModel | undefined) ??
 	model<MigrationDocument, MigrationModel>('Migration', migrationSchema);

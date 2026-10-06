@@ -89,7 +89,7 @@ export class CustomException<T extends string = LocaleKey> extends Error {
 	code: StatusCode;
 	/** The symbolic code, always consistent with `code`. */
 	errorCode: ErrorCode;
-	debugMessage?: string | null;
+	debugMessage?: string | null | undefined;
 	options?: any;
 
 	constructor(params?: ICustomExceptionParams<T>);
@@ -105,18 +105,23 @@ export class CustomException<T extends string = LocaleKey> extends Error {
 		options?: object,
 		debugMessage?: string | null,
 	) {
-		const params: ICustomExceptionParams<T> =
-			typeof messageOrParams === 'object' && messageOrParams !== null
-				? messageOrParams
-				: { message: messageOrParams, code, options, debugMessage };
+		// Read each field from whichever call shape arrived, rather than building
+		// an `ICustomExceptionParams` from the positional arguments: those are
+		// `undefined` when omitted, which `exactOptionalPropertyTypes` rejects
+		// as a value for an optional property.
+		const isParams =
+			typeof messageOrParams === 'object' && messageOrParams !== null;
+		const message = isParams ? messageOrParams.message : messageOrParams;
 
-		super(params.message ?? undefined);
+		super(message ?? undefined);
 
-		const resolved = resolveCode(params.code ?? 400);
+		const resolved = resolveCode(
+			(isParams ? messageOrParams.code : code) ?? 400,
+		);
 		this.code = resolved.status;
 		this.errorCode = resolved.errorCode;
-		this.debugMessage = params.debugMessage;
-		this.options = params.options;
+		this.debugMessage = isParams ? messageOrParams.debugMessage : debugMessage;
+		this.options = isParams ? messageOrParams.options : options;
 	}
 
 	static from<T extends string = LocaleKey>(

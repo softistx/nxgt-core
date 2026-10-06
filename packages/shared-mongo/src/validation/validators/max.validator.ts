@@ -7,7 +7,7 @@ export function max(args: ValidatorOptions<number>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({ max: options.value }, 'validation.errors.max'),
+		message: options.message({ max: options.value }, 'validation.errors.max'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'number' && value <= options.value)

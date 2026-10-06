@@ -80,7 +80,13 @@ export function cleanObject<T extends object>(
  * @param target - The target object to which properties will be assigned.
  * @param sources - One or more source objects from which properties will be copied. Properties with undefined values in the source objects will be ignored.
  */
-export function assign<T extends object>(target: T, ...sources: Partial<T>[]) {
+export function assign<T extends object>(
+	target: T,
+	// `| undefined` per property: skipping an explicit `undefined` is this
+	// function's documented job, which `Partial<T>` alone forbids under
+	// `exactOptionalPropertyTypes`.
+	...sources: { [K in keyof T]?: T[K] | undefined }[]
+) {
 	for (const source of sources) {
 		Object.assign(target, cleanObject(source));
 	}

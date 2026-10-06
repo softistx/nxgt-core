@@ -59,17 +59,22 @@ export function readPermissions(
 			[{ namespace: args.type, permit: args.name, id: args.id }],
 		];
 		assertRequirementShape(permissions, scope);
-		return { permissions, onDeny: args.onDeny, message: args.message };
+		return {
+			permissions,
+			onDeny: args.onDeny,
+			...(args.message === undefined ? {} : { message: args.message }),
+		};
 	});
 }
 
 function permissionArgs(raw: Record<string, unknown>): PermissionArgs {
+	const message = (raw['message'] as string | null | undefined) ?? undefined;
 	return {
-		name: raw.name as string,
-		type: raw.type as string,
-		id: (raw.id as string | null | undefined) ?? DEFAULT_ID_PATH,
-		onDeny: (raw.onDeny ?? 'NOT_FOUND') as PermissionDenial,
-		message: (raw.message as string | null | undefined) ?? undefined,
+		name: raw['name'] as string,
+		type: raw['type'] as string,
+		id: (raw['id'] as string | null | undefined) ?? DEFAULT_ID_PATH,
+		onDeny: (raw['onDeny'] ?? 'NOT_FOUND') as PermissionDenial,
+		...(message === undefined ? {} : { message }),
 	};
 }
 

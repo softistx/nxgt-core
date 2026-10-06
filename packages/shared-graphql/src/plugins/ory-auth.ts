@@ -37,7 +37,7 @@ export type OryContext = {
 	 * Produced by the same `claimsFromOryPrincipal` the REST middleware uses,
 	 * so one rule reads the same on both transports.
 	 */
-	claims?: PolicyClaims;
+	claims?: PolicyClaims | undefined;
 };
 
 /**
@@ -52,15 +52,18 @@ export type OryContext = {
  */
 export function toPrincipal(ory: OryPrincipal): TokenPrincipal {
 	const email = ory.identity?.email;
+	const scope = ory.scopes.join(' ');
 	return {
 		sub: ory.subject,
 		uid: ory.subject,
 		name: email ?? ory.clientId ?? ory.subject,
-		username: email,
-		clientId: ory.clientId,
-		scope: ory.scopes.join(' ') || undefined,
+		...(email === undefined ? {} : { username: email }),
+		...(ory.clientId === undefined ? {} : { clientId: ory.clientId }),
+		...(scope ? { scope } : {}),
 		tokenType: ory.kind,
-		exp: ory.expiresAt ? Math.floor(ory.expiresAt.getTime() / 1000) : undefined,
+		...(ory.expiresAt
+			? { exp: Math.floor(ory.expiresAt.getTime() / 1000) }
+			: {}),
 		authorities: [],
 		roles: [],
 	};
@@ -86,7 +89,9 @@ export function oryUnavailableError(error: OryUnavailable): GraphQLError {
 export async function resolveOryPrincipal(
 	ory: Ory,
 	headers: Headers,
-): Promise<OryContext & { user?: TokenPrincipal; token?: string }> {
+): Promise<
+	OryContext & { user?: TokenPrincipal | undefined; token?: string | undefined }
+> {
 	let principal: OryPrincipal | null;
 	try {
 		principal = await ory.resolve(headers);

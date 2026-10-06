@@ -10,7 +10,7 @@ import type { EvaluateResult } from './rest/evaluator';
 export interface KetoRung {
 	permissions: PermissionRequirement;
 	onDeny: 'NOT_FOUND' | 'FORBIDDEN';
-	message?: string;
+	message?: string | undefined;
 }
 
 /** What a caller must supply for a rule carrying `keto` to be answerable. */
@@ -20,9 +20,9 @@ export interface KetoDeps {
 	 * batching, memoising loader. See `permissions.types.ts` for why the core
 	 * takes it rather than importing one.
 	 */
-	evaluatePermissions?: PermissionEvaluator;
+	evaluatePermissions?: PermissionEvaluator | undefined;
 	/** The Keto subject. In an Ory-native app this is `claims.sub`. */
-	subject?: PolicySubject | null;
+	subject?: PolicySubject | null | undefined;
 }
 
 /**

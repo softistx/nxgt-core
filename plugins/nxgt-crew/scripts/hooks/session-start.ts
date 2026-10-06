@@ -42,7 +42,7 @@ await runHook(async (input) => {
 		remove(session.home, id);
 	}
 
-	const envFile = process.env.CLAUDE_ENV_FILE;
+	const envFile = process.env['CLAUDE_ENV_FILE'];
 	if (envFile) {
 		appendFileSync(
 			envFile,

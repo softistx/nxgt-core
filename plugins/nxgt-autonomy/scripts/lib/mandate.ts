@@ -9,7 +9,7 @@ export type Env = Record<string, string | undefined>;
 
 /** `NXGT_AUTONOMY_DISABLE=1` (or `true`) turns the hook off. */
 export function disabled(env: Env): boolean {
-	const value = env.NXGT_AUTONOMY_DISABLE?.trim().toLowerCase();
+	const value = env['NXGT_AUTONOMY_DISABLE']?.trim().toLowerCase();
 	return value === '1' || value === 'true';
 }
 

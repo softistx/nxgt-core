@@ -8,7 +8,7 @@ export function email(args: ValidatorOptions<{ domains?: string[] }>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.(
+		message: options.message(
 			{
 				domains: options.value.domains?.join(', '),
 				numberOfDomains: options.value.domains?.length ?? 0,

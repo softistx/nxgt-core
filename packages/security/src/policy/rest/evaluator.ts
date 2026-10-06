@@ -124,8 +124,8 @@ export async function evaluateRest(
 			// domain value into the cached rule, corrupting authority checks for
 			// every subsequent request (including ones for a different domain).
 			let authorities = route.rule.authorities;
-			if (route.hasDomainPlaceholder && result.params.domain) {
-				const domainValue = result.params.domain.toString();
+			if (route.hasDomainPlaceholder && result.params['domain']) {
+				const domainValue = result.params['domain'].toString();
 				authorities = authorities?.map((group) =>
 					group.map((authority) =>
 						authority.replaceAll('$domain', domainValue),

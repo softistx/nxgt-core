@@ -91,6 +91,108 @@ function compileExpression(
 	};
 }
 
+type Compile = ReturnType<typeof createExpressionCompiler>;
+
+/** One REST rule, checked for contradictions and precomputed for the request path. */
+function compileRestRoute(
+	rule: RestRuleEntry,
+	method: string,
+	pattern: string,
+	matcher: CompiledRestRoute['matcher'],
+	compile: Compile,
+): CompiledRestRoute {
+	if (rule.authenticated && rule.public) {
+		throw new Error(
+			`Invalid rule for ${method} ${pattern}: \`authenticated\` and ` +
+				'`public` are contradictory — a route either requires a ' +
+				'signed-in caller or admits anonymous ones.',
+		);
+	}
+
+	// A Keto term asks what THIS caller may do to an object; a public
+	// rule has no caller to ask about. Refused here, next to the
+	// `authenticated` + `public` contradiction, for the same reason.
+	// The GraphQL side is checked in `compileGraphqlEntry`.
+	//
+	// Nothing else needs checking at this point: the schema already
+	// refuses `[]` ("admits nobody"), `[[]]` (a conjunction over no
+	// terms is vacuously true, so it would admit EVERYONE) and an `id`
+	// that is not a readable path — at parse time, with a message that
+	// names the offending key.
+	if (rule.public && rule.keto?.length) {
+		throw new Error(
+			`Invalid rule for ${method} ${pattern}: \`public\` and \`keto\` are ` +
+				'contradictory — a Keto term asks what the caller may do to an ' +
+				'object, and a public rule admits callers there is nothing to ask ' +
+				'about.',
+		);
+	}
+
+	const ketoReadsBody = Boolean(
+		rule.keto?.some((check) =>
+			check.permissions.some((group) =>
+				group.some((term) => term.id.startsWith('json.')),
+			),
+		),
+	);
+
+	const hasDomainPlaceholder = Boolean(
+		rule.authorities?.some((group) =>
+			group.some((authority) => authority.includes('$domain')),
+		),
+	);
+
+	const compiledExpression = compileExpression(
+		rule.expression,
+		compile,
+		REST_SCOPE,
+	);
+	return {
+		pattern,
+		matcher,
+		rule,
+		hasDomainPlaceholder,
+		...(compiledExpression ? { compiledExpression } : {}),
+		ketoReadsBody,
+	};
+}
+
+/** One GraphQL rule as a `[field, entry]` pair, checked for contradictions. */
+function compileGraphqlEntry(
+	rule: GraphqlRuleEntry,
+	operationType: string,
+	field: string,
+	compile: Compile,
+): [string, CompiledGraphqlEntry] {
+	if (rule.authenticated && rule.public) {
+		throw new Error(
+			`Invalid rule for ${operationType}.${field}: \`authenticated\` ` +
+				'and `public` are contradictory — a field either requires ' +
+				'a signed-in caller or admits anonymous ones.',
+		);
+	}
+	if (rule.public && rule.keto?.length) {
+		throw new Error(
+			`Invalid rule for ${operationType}.${field}: \`public\` and ` +
+				'`keto` are contradictory — a Keto term asks what the ' +
+				'caller may do to an object, and a public rule admits ' +
+				'callers there is nothing to ask about.',
+		);
+	}
+	const compiledExpression = compileExpression(
+		rule.expression,
+		compile,
+		GRAPHQL_SCOPE,
+	);
+	return [
+		field,
+		{
+			rule,
+			...(compiledExpression ? { compiledExpression } : {}),
+		} satisfies CompiledGraphqlEntry,
+	];
+}
+
 // ---------------------------------------------------------------------------
 // compilePolicy
 // ---------------------------------------------------------------------------
@@ -138,60 +240,7 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 		for (const [method, rule] of Object.entries(
 			(methodMap ?? {}) as Record<string, RestRuleEntry>,
 		)) {
-			if (rule.authenticated && rule.public) {
-				throw new Error(
-					`Invalid rule for ${method} ${pattern}: \`authenticated\` and ` +
-						'`public` are contradictory — a route either requires a ' +
-						'signed-in caller or admits anonymous ones.',
-				);
-			}
-
-			// A Keto term asks what THIS caller may do to an object; a public
-			// rule has no caller to ask about. Refused here, next to the
-			// `authenticated` + `public` contradiction, for the same reason.
-			// The GraphQL side is checked in its own loop below.
-			//
-			// Nothing else needs checking at this point: the schema already
-			// refuses `[]` ("admits nobody"), `[[]]` (a conjunction over no
-			// terms is vacuously true, so it would admit EVERYONE) and an `id`
-			// that is not a readable path — at parse time, with a message that
-			// names the offending key.
-			if (rule.public && rule.keto?.length) {
-				throw new Error(
-					`Invalid rule for ${method} ${pattern}: \`public\` and \`keto\` are ` +
-						'contradictory — a Keto term asks what the caller may do to an ' +
-						'object, and a public rule admits callers there is nothing to ask ' +
-						'about.',
-				);
-			}
-
-			const ketoReadsBody = Boolean(
-				rule.keto?.some((check) =>
-					check.permissions.some((group) =>
-						group.some((term) => term.id.startsWith('json.')),
-					),
-				),
-			);
-
-			const hasDomainPlaceholder = Boolean(
-				rule.authorities?.some((group) =>
-					group.some((authority) => authority.includes('$domain')),
-				),
-			);
-
-			const route: CompiledRestRoute = {
-				pattern,
-				matcher,
-				rule,
-				hasDomainPlaceholder,
-				compiledExpression: compileExpression(
-					rule.expression,
-					compile,
-					REST_SCOPE,
-				),
-				ketoReadsBody,
-			};
-
+			const route = compileRestRoute(rule, method, pattern, matcher, compile);
 			const existing = restRoutesByMethod.get(method);
 			if (existing) existing.push(route);
 			else restRoutesByMethod.set(method, [route]);
@@ -205,38 +254,17 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 					Object.fromEntries(
 						Object.entries(
 							(fields ?? {}) as Record<string, GraphqlRuleEntry>,
-						).map(([field, rule]) => {
-							if (rule.authenticated && rule.public) {
-								throw new Error(
-									`Invalid rule for ${operationType}.${field}: \`authenticated\` ` +
-										'and `public` are contradictory — a field either requires ' +
-										'a signed-in caller or admits anonymous ones.',
-								);
-							}
-							if (rule.public && rule.keto?.length) {
-								throw new Error(
-									`Invalid rule for ${operationType}.${field}: \`public\` and ` +
-										'`keto` are contradictory — a Keto term asks what the ' +
-										'caller may do to an object, and a public rule admits ' +
-										'callers there is nothing to ask about.',
-								);
-							}
-							return [
-								field,
-								{
-									rule,
-									compiledExpression: compileExpression(
-										rule.expression,
-										compile,
-										GRAPHQL_SCOPE,
-									),
-								} satisfies CompiledGraphqlEntry,
-							];
-						}),
+						).map(([field, rule]) =>
+							compileGraphqlEntry(rule, operationType, field, compile),
+						),
 					),
 				]),
 			)
 		: undefined;
 
-	return { global: rules.global, restRoutesByMethod, graphql };
+	return {
+		...(rules.global ? { global: rules.global } : {}),
+		restRoutesByMethod,
+		...(graphql ? { graphql } : {}),
+	};
 }

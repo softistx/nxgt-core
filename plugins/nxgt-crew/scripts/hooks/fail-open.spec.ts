@@ -32,7 +32,7 @@ describe('fail open', () => {
 		);
 		expect(r.code).toBe(0);
 		expect(decision(r)).toBeUndefined();
-		expect(r.out?.systemMessage).toContain('registry unavailable');
+		expect(r.out?.['systemMessage']).toContain('registry unavailable');
 	});
 
 	test('unparseable input warns and blocks nothing', async () => {
@@ -53,7 +53,7 @@ describe('fail open', () => {
 			file_path: join(repo, 'a.ts'),
 		});
 		expect(r.code).toBe(0);
-		expect(r.out?.systemMessage).toBeUndefined();
+		expect(r.out?.['systemMessage']).toBeUndefined();
 	});
 
 	test('NXGT_CREW_DISABLE=1 turns every hook into a no-op', async () => {

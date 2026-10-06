@@ -15,7 +15,7 @@ function createContext() {
 						collection: string,
 						args: unknown,
 					) => {
-						calls.byCollection = [collection, args];
+						calls['byCollection'] = [collection, args];
 						return 'by-collection';
 					},
 					findChangesPaginatedByCollectionAndOid: (
@@ -23,7 +23,7 @@ function createContext() {
 						collection: string,
 						args: unknown,
 					) => {
-						calls.byOid = [oid, collection, args];
+						calls['byOid'] = [oid, collection, args];
 						return 'by-oid';
 					},
 					extractId: (audit: any) => audit.globalId.split('/')[1],
@@ -63,10 +63,10 @@ describe('createChangeResolvers', () => {
 		const { context, calls } = createContext();
 		const args = { first: 10 };
 
-		await expect(changes.Query.bedChanges({}, args, context)).resolves.toBe(
+		await expect(changes.Query['bedChanges']({}, args, context)).resolves.toBe(
 			'by-collection',
 		);
-		expect(calls.byCollection).toEqual([COLLECTION, args]);
+		expect(calls['byCollection']).toEqual([COLLECTION, args]);
 	});
 
 	it('Should delegate the by-id changes query with the requested oid', async () => {
@@ -74,17 +74,17 @@ describe('createChangeResolvers', () => {
 		const { context, calls } = createContext();
 		const args = { id: 'oid-1', first: 10 };
 
-		await expect(changes.Query.bedChangesById({}, args, context)).resolves.toBe(
-			'by-oid',
-		);
-		expect(calls.byOid).toEqual(['oid-1', COLLECTION, args]);
+		await expect(
+			changes.Query['bedChangesById']({}, args, context),
+		).resolves.toBe('by-oid');
+		expect(calls['byOid']).toEqual(['oid-1', COLLECTION, args]);
 	});
 
 	it('Should resolve the changed payload with the current entity state', async () => {
 		const changes = createResolvers();
 		const { context } = createContext();
 
-		const result = await changes.Subscription.bedChanged.resolve(
+		const result = await changes.Subscription['bedChanged'].resolve(
 			{
 				globalId: `${COLLECTION}/oid-1`,
 				type: 'UPDATE',
@@ -105,7 +105,7 @@ describe('createChangeResolvers', () => {
 		const changes = createResolvers();
 		const { context } = createContext();
 
-		const result = await changes.Subscription.bedChanged.resolve(
+		const result = await changes.Subscription['bedChanged'].resolve(
 			{
 				globalId: `${COLLECTION}/oid-1`,
 				type: 'TERMINAL',
@@ -121,7 +121,9 @@ describe('createChangeResolvers', () => {
 	it('Should expose a subscribe function', () => {
 		const changes = createResolvers();
 
-		expect(typeof changes.Subscription.bedChanged.subscribe).toBe('function');
+		expect(typeof changes.Subscription['bedChanged'].subscribe).toBe(
+			'function',
+		);
 	});
 
 	it('Should resolve the pubsub lazily when given a getter', () => {
@@ -137,6 +139,8 @@ describe('createChangeResolvers', () => {
 		});
 
 		expect(instances).toBe(0);
-		expect(typeof changes.Subscription.bedChanged.subscribe).toBe('function');
+		expect(typeof changes.Subscription['bedChanged'].subscribe).toBe(
+			'function',
+		);
 	});
 });

@@ -26,7 +26,9 @@ export function scopeOf(
 	return {
 		where,
 		argumentNames: argumentNamesOf(node),
-		namespaces: options.namespaces,
+		...(options.namespaces === undefined
+			? {}
+			: { namespaces: options.namespaces }),
 	};
 }
 

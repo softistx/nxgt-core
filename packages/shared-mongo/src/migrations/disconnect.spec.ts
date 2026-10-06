@@ -7,7 +7,7 @@ import { disconnectQuietly } from './disconnect';
 import { MigrationModel } from './migration.model';
 
 function uri(): string {
-	const value = Bun.env.MONGODB_URI;
+	const value = Bun.env['MONGODB_URI'];
 	if (!value) {
 		throw new Error('MONGODB_URI is required — run with --env-file=.env.test');
 	}

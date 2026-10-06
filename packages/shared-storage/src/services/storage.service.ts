@@ -161,7 +161,7 @@ export class StorageService {
 		}: BunFetchRequestInit & Pick<S3Options, 'bucket'> = {},
 	) {
 		try {
-			await this.ensureExists(input, { bucket });
+			await this.ensureExists(input, bucket === undefined ? {} : { bucket });
 			return fetch(
 				STRINGS_UTILS.normalizeUrl(`s3://${bucket ?? this.bucket}/${input}`),
 				{

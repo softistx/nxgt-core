@@ -186,7 +186,7 @@ describe('layerCatalogues', () => {
 		expect(
 			layerCatalogues([ui, { en: { common: { greeting: 'Hey {name},' } } }], {
 				en: {},
-			}).en,
+			})['en'],
 		).toEqual({ common: { greeting: 'Hey {name},', footer: { why: 'Why' } } });
 	});
 
@@ -194,14 +194,14 @@ describe('layerCatalogues', () => {
 		expect(
 			layerCatalogues([{ en: { a: 'A', b: { c: 'C' } } }], {
 				en: { a: { d: 'D' }, b: 'B' },
-			}).en,
+			})['en'],
 		).toEqual({ a: { d: 'D' }, b: 'B' });
 	});
 
 	test('keeps a __proto__ key a key, for the check to refuse', () => {
 		const project = JSON.parse('{"en":{"__proto__":{"x":"y"}}}');
 		const merged = layerCatalogues([{ en: { a: 'A' } }], project);
-		expect(Object.keys(merged.en as object)).toEqual(['a', '__proto__']);
+		expect(Object.keys(merged['en'] as object)).toEqual(['a', '__proto__']);
 		expect(() => checkCatalogues(merged, ['en'], 'en')).toThrow(
 			'i18n: en: __proto__ is not camelCase',
 		);

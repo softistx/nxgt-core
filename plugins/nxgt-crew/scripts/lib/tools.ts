@@ -12,7 +12,7 @@ export function editedPath(
 	input: Record<string, unknown> | undefined,
 ): string | undefined {
 	if (!tool || !EDIT_TOOLS.has(tool) || !input) return undefined;
-	const path = input.file_path ?? input.notebook_path;
+	const path = input['file_path'] ?? input['notebook_path'];
 	return typeof path === 'string' && isAbsolute(path) ? path : undefined;
 }
 
@@ -30,14 +30,14 @@ export function claimsFromMktemp(
 		'/private/var/folders/',
 	],
 ): string[] {
-	const command = input?.command;
+	const command = input?.['command'];
 	if (typeof command !== 'string' || !/\bmktemp\b/.test(command)) return [];
 	const stdout =
 		typeof response === 'object' && response !== null
-			? (response as Record<string, unknown>).stdout
+			? (response as Record<string, unknown>)['stdout']
 			: undefined;
 	if (typeof stdout !== 'string') return [];
-	const roots = [...tmpRoots, process.env.TMPDIR]
+	const roots = [...tmpRoots, process.env['TMPDIR']]
 		.filter((r): r is string => typeof r === 'string' && r.length > 1)
 		.map((r) => (r.endsWith('/') ? r : `${r}/`));
 	return stdout

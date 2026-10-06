@@ -60,7 +60,7 @@ describe('MigrationRunner', () => {
 	let runner: MigrationRunner;
 
 	beforeAll(async () => {
-		const uri = Bun.env.MONGODB_URI;
+		const uri = Bun.env['MONGODB_URI'];
 		if (!uri) {
 			throw new Error(
 				'MONGODB_URI is required — run with --env-file=.env.test',

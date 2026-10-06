@@ -31,7 +31,7 @@ export function extractJwtPlugin(
 		async requestDidStart({ request, contextValue }) {
 			const headers = request.http?.headers;
 			if (!headers || !(await trusted(headers))) return;
-			const payload = principalOf(request.extensions?.payload);
+			const payload = principalOf(request.extensions?.['payload']);
 			if (payload) contextValue.jwt = { payload };
 		},
 	};

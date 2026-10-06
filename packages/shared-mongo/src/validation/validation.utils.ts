@@ -5,7 +5,7 @@ import type { MessageType, ValidatorOptions } from './validation.types';
 
 export function parseValidatorOptions<T>(args: ValidatorOptions<T>): {
 	value: T;
-	message?: (
+	message: (
 		options?: object,
 		defaultMessage?: MessageType,
 	) => (props: any) => string;

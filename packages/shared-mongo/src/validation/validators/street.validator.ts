@@ -8,7 +8,7 @@ export function street(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.street'),
+		message: options.message({}, 'validation.errors.street'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.street.test(value))

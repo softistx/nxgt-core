@@ -7,7 +7,7 @@ export function positive(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.positive'),
+		message: options.message({}, 'validation.errors.positive'),
 		validator(value) {
 			return isNil(value) || (typeof value === 'number' && value >= 0);
 		},

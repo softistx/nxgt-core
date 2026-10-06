@@ -25,7 +25,7 @@ export interface MigrateOptions {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function resolveUri(options: MigrateOptions): string {
-	const uri = options.uri ?? Bun.env.MONGODB_URI;
+	const uri = options.uri ?? Bun.env['MONGODB_URI'];
 	if (!uri) {
 		throw new Error(
 			'migrations.errors.missing-uri: provide `uri` in options or set MONGODB_URI',

@@ -177,17 +177,21 @@ function oryPrincipalFromMock(mock: Principal): OryPrincipal {
 	return {
 		subject: mock.id ?? mock.clientId ?? 'mock',
 		kind: mock.clientId && !mock.id ? 'token' : 'session',
-		identity: mock.email
+		// `@nxgt/ory-sdk`'s optional properties do not accept an explicit
+		// `undefined`, so an absent value is an absent key.
+		...(mock.email
 			? {
-					email: mock.email,
-					name: {
-						first: mock.firstName ?? undefined,
-						last: mock.lastName ?? undefined,
+					identity: {
+						email: mock.email,
+						name: {
+							...(mock.firstName != null ? { first: mock.firstName } : {}),
+							...(mock.lastName != null ? { last: mock.lastName } : {}),
+						},
+						verified: true,
 					},
-					verified: true,
 				}
-			: undefined,
+			: {}),
 		scopes: mock.scopes ?? [],
-		clientId: mock.clientId ?? undefined,
+		...(mock.clientId != null ? { clientId: mock.clientId } : {}),
 	};
 }

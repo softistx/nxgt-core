@@ -44,10 +44,10 @@ describe('RulesSchema — REST path map', () => {
 				},
 			},
 		});
-		expect(rules.graphql?.User?.email).toEqual({
+		expect(rules.graphql?.['User']?.['email']).toEqual({
 			authorities: [['ADMIN', 'users:read']],
 		});
-		expect(rules.graphql?.Employee?.salary).toEqual({
+		expect(rules.graphql?.['Employee']?.['salary']).toEqual({
 			authorities: [['ADMIN', 'payroll:read']],
 		});
 	});
@@ -83,7 +83,7 @@ describe('RulesSchema — REST path map', () => {
 			windowMs: 60_000,
 			limit: 10,
 		});
-		expect(rules.graphql?.Query?.widgets?.cors?.origins).toEqual([
+		expect(rules.graphql?.Query?.['widgets']?.cors?.origins).toEqual([
 			'https://example.com',
 		]);
 	});
@@ -231,7 +231,7 @@ describe('RulesSchema — Keto terms', () => {
 				},
 			},
 		});
-		const rungs = rules.graphql?.Mutation?.updateNote?.keto ?? [];
+		const rungs = rules.graphql?.Mutation?.['updateNote']?.keto ?? [];
 		expect(rungs.map((r) => r.onDeny)).toEqual(['NOT_FOUND', 'FORBIDDEN']);
 		expect(rungs[0]?.permissions[0]?.[0]?.id).toBe('args.id');
 	});

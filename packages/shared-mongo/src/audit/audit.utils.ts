@@ -58,7 +58,7 @@ export function auditChanges(
 						);
 			await AuditModel.create({
 				type: data.operationType === 'delete' ? 'TERMINAL' : 'UPDATE',
-				author: options.author,
+				...(options.author === undefined ? {} : { author: options.author }),
 				changes,
 				properties: changes.flatMap((change) => change.path.toString()),
 				state: state ??
@@ -80,7 +80,7 @@ export function auditChanges(
 			const changes = diff({}, omit(state, options.omitFields ?? []));
 			await AuditModel.create({
 				type: 'INITIAL',
-				author: options.author,
+				...(options.author === undefined ? {} : { author: options.author }),
 				changes,
 				version: 0,
 				properties: changes.flatMap((change) => change.path.toString()),

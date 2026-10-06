@@ -45,7 +45,7 @@ export function readAuthenticated(
 	const [found] =
 		getDirective(schema, node, AUTHENTICATED_DIRECTIVE_NAME) ?? [];
 	if (!found) return null;
-	const types = found.type as unknown;
+	const types = found['type'] as unknown;
 	if (types === undefined || types === null) return {};
 	if (!Array.isArray(types) || types.length === 0) {
 		throw new TypeError(

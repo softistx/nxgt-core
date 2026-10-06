@@ -116,7 +116,7 @@ function isOriginalGraphQLError(error: unknown): error is GraphQLError {
 function locationOf(error: unknown) {
 	if (!(error instanceof GraphQLError)) return {};
 	return {
-		nodes: error.nodes,
+		nodes: error.nodes ?? null,
 		source: error.source,
 		positions: error.positions,
 		path: error.path,

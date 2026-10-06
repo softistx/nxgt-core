@@ -8,7 +8,7 @@ export function uuid(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.uuid'),
+		message: options.message({}, 'validation.errors.uuid'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.uuid.test(value))

@@ -8,7 +8,7 @@ export type Env = Record<string, string | undefined>;
 
 /** `NXGT_ECONOMY_DISABLE=1` (or `true`) turns the plugin off. */
 export function disabled(env: Env): boolean {
-	const value = env.NXGT_ECONOMY_DISABLE?.trim().toLowerCase();
+	const value = env['NXGT_ECONOMY_DISABLE']?.trim().toLowerCase();
 	return value === '1' || value === 'true';
 }
 
@@ -25,7 +25,7 @@ const UNSET_NOTE =
 
 /** The SessionStart context: the rule, plus a note when the subagent default is unset. */
 export function buildRule(env: Env): string {
-	return env.CLAUDE_CODE_SUBAGENT_MODEL?.trim()
+	return env['CLAUDE_CODE_SUBAGENT_MODEL']?.trim()
 		? RULE
 		: `${RULE}\n${UNSET_NOTE}`;
 }
@@ -49,6 +49,6 @@ export function agentReminder(input: ToolInput, env: Env): string | undefined {
 	if (typeof args.model === 'string' && args.model.trim()) return undefined;
 	if (args.subagent_type === 'fork') return undefined;
 	const running =
-		env.CLAUDE_CODE_SUBAGENT_MODEL?.trim() || "the main session's model";
+		env['CLAUDE_CODE_SUBAGENT_MODEL']?.trim() || "the main session's model";
 	return `nxgt-economy: this agent will run on ${running}, unless its definition pins a model. Pass model: "haiku" for mechanical or read-only work, or model: "opus" for architecture, a hard bug or the review before a PR.`;
 }

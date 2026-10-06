@@ -66,7 +66,7 @@ const take = (flag: string): string | undefined => {
 const json = argv.includes('--json');
 if (json) argv.splice(argv.indexOf('--json'), 1);
 const sessionId =
-	take('--session') || process.env.NXGT_CREW_SESSION_ID || undefined;
+	take('--session') || process.env['NXGT_CREW_SESSION_ID'] || undefined;
 const kindArg = take('--kind');
 const entryArg = take('--entry');
 const scopeArg = take('--scope');

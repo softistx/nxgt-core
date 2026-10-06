@@ -33,7 +33,7 @@ describe('a session’s life', () => {
 			{ CLAUDE_ENV_FILE: envFile },
 		);
 		expect(r.code).toBe(0);
-		expect(r.out?.hookSpecificOutput?.additionalContext).toContain(
+		expect(r.out?.['hookSpecificOutput']?.additionalContext).toContain(
 			'No other live session',
 		);
 		expect(readFileSync(envFile, 'utf8')).toBe(
@@ -57,7 +57,7 @@ describe('a session’s life', () => {
 			hook_event_name: 'SessionStart',
 			source: 'startup',
 		});
-		const context: string = r.out?.hookSpecificOutput?.additionalContext;
+		const context: string = r.out?.['hookSpecificOutput']?.additionalContext;
 		expect(context).toContain('1 other live session');
 		expect(context).toContain('Same repository:');
 		expect(context).toContain('aaaaaaaa');
@@ -88,7 +88,7 @@ describe('a session’s life', () => {
 		});
 		expect(r.code).toBe(0);
 		expect(decision(r)).toBe('deny');
-		expect(r.out?.hookSpecificOutput?.permissionDecisionReason).toContain(
+		expect(r.out?.['hookSpecificOutput']?.permissionDecisionReason).toContain(
 			'aaaaaaaa',
 		);
 	});
@@ -98,7 +98,7 @@ describe('a session’s life', () => {
 			file_path: join(repo, 'new/b.ts'),
 		});
 		expect(decision(r)).toBeUndefined();
-		expect(r.out?.hookSpecificOutput?.additionalContext).toContain(
+		expect(r.out?.['hookSpecificOutput']?.additionalContext).toContain(
 			'is shared with another live session',
 		);
 	});
@@ -126,7 +126,7 @@ describe('a session’s life', () => {
 	test('B publishing is allowed and recorded; A reads it at its next prompt', async () => {
 		const r = await pre('bbbbbbbb-2', 'Bash', { command: 'bun publish' });
 		expect(decision(r)).toBeUndefined();
-		expect(r.out?.hookSpecificOutput?.additionalContext).toContain(
+		expect(r.out?.['hookSpecificOutput']?.additionalContext).toContain(
 			'this command publishes',
 		);
 		const prompt = await run('prompt.ts', {
@@ -135,7 +135,7 @@ describe('a session’s life', () => {
 			hook_event_name: 'UserPromptSubmit',
 			prompt: 'hi',
 		});
-		expect(prompt.out?.hookSpecificOutput?.additionalContext).toContain(
+		expect(prompt.out?.['hookSpecificOutput']?.additionalContext).toContain(
 			'release: publishing: bun publish',
 		);
 		const again = await run('prompt.ts', {

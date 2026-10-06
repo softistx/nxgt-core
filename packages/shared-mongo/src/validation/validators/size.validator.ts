@@ -13,7 +13,7 @@ export function size(args: ValidatorOptions<[number, number]>) {
 	}
 
 	return {
-		message: options.message?.(
+		message: options.message(
 			{ min: options.value[0], max: options.value[1] },
 			'validation.errors.size',
 		),

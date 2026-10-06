@@ -27,8 +27,8 @@ const parseEnv = (value: Record<string, unknown>): Env => {
 
 // Export validated and typed environment variables
 export const env = parseEnv({
-	S3_ENDPOINT: Bun.env.S3_ENDPOINT,
-	S3_USER: Bun.env.S3_USER,
-	S3_PASSWORD: Bun.env.S3_PASSWORD,
-	S3_BUCKET: Bun.env.S3_BUCKET,
+	S3_ENDPOINT: Bun.env['S3_ENDPOINT'],
+	S3_USER: Bun.env['S3_USER'],
+	S3_PASSWORD: Bun.env['S3_PASSWORD'],
+	S3_BUCKET: Bun.env['S3_BUCKET'],
 });

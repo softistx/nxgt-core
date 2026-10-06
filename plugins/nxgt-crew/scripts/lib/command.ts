@@ -13,26 +13,30 @@ import { deletion, gitOps } from './git-ops';
 import { items, positional, redact, resolvePath, stripPrefix } from './shell';
 
 export type Op =
-	| { readonly kind: 'tree'; readonly verb: string; readonly dir?: string }
+	| {
+			readonly kind: 'tree';
+			readonly verb: string;
+			readonly dir?: string | undefined;
+	  }
 	| {
 			readonly kind: 'worktree-remove';
-			readonly dir?: string;
-			readonly target?: string;
+			readonly dir?: string | undefined;
+			readonly target?: string | undefined;
 	  }
 	| {
 			readonly kind: 'branch-delete';
-			readonly dir?: string;
+			readonly dir?: string | undefined;
 			readonly branches: readonly string[];
 	  }
 	| {
 			readonly kind: 'force-push';
-			readonly dir?: string;
+			readonly dir?: string | undefined;
 			/** Absent means the branch checked out in `dir`. */
-			readonly branch?: string;
+			readonly branch?: string | undefined;
 	  }
 	| {
 			readonly kind: 'delete';
-			readonly dir?: string;
+			readonly dir?: string | undefined;
 			/** Paths removed with everything under them. */
 			readonly paths: readonly string[];
 			/** Absolute globs in the last component (`/r/*.log`): only matching entries go. */
@@ -40,7 +44,7 @@ export type Op =
 	  }
 	| {
 			readonly kind: 'publish';
-			readonly dir?: string;
+			readonly dir?: string | undefined;
 			/** The publishing command, assignments dropped and credentials masked. */
 			readonly text: string;
 	  };

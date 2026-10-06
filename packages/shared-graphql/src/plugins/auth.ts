@@ -32,9 +32,9 @@ export function useAuth(options: UseAuthOptions): Plugin<GraphQLBaseContext> {
 			const headers = context.request?.headers;
 			if (typeof headers?.get !== 'function') return;
 			if (!(await trusted(headers))) return;
-			const user = principalOf(context.params?.extensions?.user);
+			const user = principalOf(context.params?.extensions?.['user']);
 			if (!user) return;
-			const token = context.params.extensions?.token;
+			const token = context.params.extensions?.['token'];
 			extendContext({
 				user,
 				token: typeof token === 'string' ? token : undefined,

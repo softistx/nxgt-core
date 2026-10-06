@@ -44,7 +44,7 @@ async function me(headers: Record<string, string>): Promise<unknown> {
 		{ contextValue: {} },
 	);
 	if (response.body.kind !== 'single') throw new Error('expected one result');
-	return response.body.singleResult.data?.me;
+	return response.body.singleResult.data?.['me'];
 }
 
 describe.skipIf(!ON_APOLLO)(

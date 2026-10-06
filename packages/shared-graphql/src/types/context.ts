@@ -11,8 +11,8 @@ import type { TokenPrincipal } from '@nxgt/shared';
 import type { YogaInitialContext } from 'graphql-yoga';
 
 export interface GraphQLBaseContext extends YogaInitialContext {
-	user?: TokenPrincipal;
-	token?: string;
+	user?: TokenPrincipal | undefined;
+	token?: string | undefined;
 }
 
 export type ServerContext = {
@@ -20,6 +20,6 @@ export type ServerContext = {
 };
 
 export type PrincipalContext = {
-	user?: TokenPrincipal;
-	token?: string;
+	user?: TokenPrincipal | undefined;
+	token?: string | undefined;
 };

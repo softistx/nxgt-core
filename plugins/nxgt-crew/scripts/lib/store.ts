@@ -23,8 +23,8 @@ import { merge } from './merge';
 import { isRecord, type SessionRecord } from './record';
 
 export function crewHome(env: Record<string, string | undefined>): string {
-	if (env.NXGT_CREW_HOME) return env.NXGT_CREW_HOME;
-	const config = env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
+	if (env['NXGT_CREW_HOME']) return env['NXGT_CREW_HOME'];
+	const config = env['CLAUDE_CONFIG_DIR'] || join(homedir(), '.claude');
 	return join(config, 'nxgt-crew');
 }
 

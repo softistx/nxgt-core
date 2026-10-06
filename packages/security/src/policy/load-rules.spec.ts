@@ -69,7 +69,7 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 			'rest:\n  /fallback:\n    GET:\n      authorities: []\n',
 		);
 
-		process.env.TEST_RULES_FILE = envPath;
+		process.env['TEST_RULES_FILE'] = envPath;
 		try {
 			const policy = await loadRulesFromEnv({
 				envVar: 'TEST_RULES_FILE',
@@ -86,7 +86,7 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 				).decision,
 			).toBe('ALLOW');
 		} finally {
-			delete process.env.TEST_RULES_FILE;
+			delete process.env['TEST_RULES_FILE'];
 		}
 	});
 
@@ -97,7 +97,7 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 			fallbackPath,
 			'rest:\n  /fallback:\n    GET:\n      authorities: []\n',
 		);
-		delete process.env.TEST_RULES_FILE_UNSET;
+		delete process.env['TEST_RULES_FILE_UNSET'];
 
 		const policy = await loadRulesFromEnv({
 			envVar: 'TEST_RULES_FILE_UNSET',
@@ -116,7 +116,7 @@ describe('loadRulesFromFile / loadRulesFromEnv', () => {
 	});
 
 	it('loadRulesFromEnv throws when neither the env var nor a fallback is given', async () => {
-		delete process.env.TEST_RULES_FILE_UNSET;
+		delete process.env['TEST_RULES_FILE_UNSET'];
 		await expect(
 			loadRulesFromEnv({ envVar: 'TEST_RULES_FILE_UNSET' }),
 		).rejects.toThrow(/environment variable/i);
@@ -157,7 +157,7 @@ describe('loadRawRulesFromFile / loadRawRulesFromEnv', () => {
 			'rest:\n  /fallback:\n    GET:\n      authorities: []\n',
 		);
 
-		process.env.TEST_RULES_FILE = envPath;
+		process.env['TEST_RULES_FILE'] = envPath;
 		try {
 			const raw = await loadRawRulesFromEnv({
 				envVar: 'TEST_RULES_FILE',
@@ -165,7 +165,7 @@ describe('loadRawRulesFromFile / loadRawRulesFromEnv', () => {
 			});
 			expect(raw.rest).toHaveProperty('/from-env');
 		} finally {
-			delete process.env.TEST_RULES_FILE;
+			delete process.env['TEST_RULES_FILE'];
 		}
 	});
 

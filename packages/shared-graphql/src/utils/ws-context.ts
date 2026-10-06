@@ -27,8 +27,8 @@ export async function resolveWsUser(
 	authClient: AuthClient,
 ): Promise<ResolvedWsUser> {
 	const rawToken =
-		(connectionParams?.authorization as string | undefined) ??
-		(connectionParams?.Authorization as string | undefined);
+		(connectionParams?.['authorization'] as string | undefined) ??
+		(connectionParams?.['Authorization'] as string | undefined);
 	const token = rawToken?.replace('Bearer ', '');
 
 	const { data } = token

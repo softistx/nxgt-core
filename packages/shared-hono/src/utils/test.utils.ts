@@ -109,7 +109,7 @@ export const asQueryMethod: Middleware = {
 		return new Request(url, {
 			method: 'QUERY',
 			headers: request.headers,
-			body: body || undefined,
+			...(body ? { body } : {}),
 		});
 	},
 };

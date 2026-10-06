@@ -8,7 +8,7 @@ export function zipCode(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.zip-code'),
+		message: options.message({}, 'validation.errors.zip-code'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.zipCode.test(value))

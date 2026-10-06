@@ -8,7 +8,7 @@ export function guid(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.guid'),
+		message: options.message({}, 'validation.errors.guid'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.guid.test(value))

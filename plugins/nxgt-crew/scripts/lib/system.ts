@@ -107,7 +107,7 @@ export const probePid: PidProbe = (record) => {
 
 export interface ClaudeProcess {
 	readonly pid: number;
-	readonly pidStart?: string;
+	readonly pidStart?: string | undefined;
 	readonly host: string;
 }
 

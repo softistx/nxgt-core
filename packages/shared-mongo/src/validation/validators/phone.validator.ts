@@ -8,7 +8,7 @@ export function phone(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.phone'),
+		message: options.message({}, 'validation.errors.phone'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.phone.test(value))

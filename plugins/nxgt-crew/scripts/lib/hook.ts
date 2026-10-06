@@ -24,7 +24,9 @@ export type HookOutput = Record<string, unknown>;
 export type SessionInput = HookInput & { readonly session_id: string };
 
 export function disabled(env: Record<string, string | undefined>): boolean {
-	return env.NXGT_CREW_DISABLE === '1' || env.NXGT_CREW_DISABLE === 'true';
+	return (
+		env['NXGT_CREW_DISABLE'] === '1' || env['NXGT_CREW_DISABLE'] === 'true'
+	);
 }
 
 export async function runHook(

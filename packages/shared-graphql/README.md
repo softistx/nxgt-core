@@ -96,7 +96,9 @@ new ApolloServer({ plugins: [extractJwtPlugin({ trustedGateway })] });
 
 - `useOryAuth(ory)` resolves the caller through Kratos or Hydra, and sets
   `user`, `claims`, `token` and `ory`. An Ory outage is a 503, never an
-  anonymous caller.
+  anonymous caller. Yoga runs your context factory first; on a request with no
+  credential `useOryAuth` sets `user`, `claims` and `token` to `undefined`, so
+  the plugin is the single source of the caller.
 - `useAuth()` and `extractJwtPlugin()` read the caller a gateway put in the
   GraphQL request's `extensions` — **only** for a request `trustedGateway`
   vouches for. `gatewaySecret({ secret, header? })` holds for a request whose

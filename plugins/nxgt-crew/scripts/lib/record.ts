@@ -41,61 +41,61 @@ export interface PlanFields {
 export interface Edit {
 	readonly path: string;
 	/** The git worktree the file belongs to, when it is in one. */
-	readonly worktree?: string;
+	readonly worktree?: string | undefined;
 	readonly at: string;
 }
 
 export interface Claim {
 	/** An absolute path this session owns: its scratch folder, a worktree it made. */
 	readonly path: string;
-	readonly note?: string;
+	readonly note?: string | undefined;
 	readonly at: string;
 }
 
 /** Where a directory sits in git. Every field is absent outside a repository. */
 export interface GitPlace {
 	/** `git rev-parse --show-toplevel`: the worktree root. */
-	readonly worktree?: string;
+	readonly worktree?: string | undefined;
 	/** The absolute common git dir, shared by every worktree of one clone. */
-	readonly repo?: string;
+	readonly repo?: string | undefined;
 	/** `remote.origin.url`, which identifies two clones of one repository. */
-	readonly remote?: string;
+	readonly remote?: string | undefined;
 	/** Absent on a detached HEAD. */
-	readonly branch?: string;
+	readonly branch?: string | undefined;
 }
 
 export interface SessionRecord extends GitPlace {
 	readonly version: 1;
 	readonly sessionId: string;
-	readonly title?: string;
+	readonly title?: string | undefined;
 	/** The Claude Code process, when it could be identified; used to spot a crashed session. */
-	readonly pid?: number;
+	readonly pid?: number | undefined;
 	/** That process's start time, so a reused pid is not mistaken for it. */
-	readonly pidStart?: string;
+	readonly pidStart?: string | undefined;
 	/** The machine the pid belongs to: a pid means nothing on another host or namespace. */
-	readonly host?: string;
+	readonly host?: string | undefined;
 	readonly cwd: string;
 	readonly startedAt: string;
 	readonly lastSeen: string;
 	/** When the git place was last read, to throttle `git` calls. */
-	readonly gitCheckedAt?: string;
+	readonly gitCheckedAt?: string | undefined;
 	readonly edits: readonly Edit[];
 	readonly claims: readonly Claim[];
 	readonly announcements: readonly Announcement[];
 	/** Peer announcements up to this instant were already shown to this session. */
-	readonly seenUntil?: string;
+	readonly seenUntil?: string | undefined;
 	/** Per peer, when this session was last told it shares a worktree with it. */
-	readonly warned?: Readonly<Record<string, string>>;
+	readonly warned?: Readonly<Record<string, string>> | undefined;
 }
 
 export interface Registration extends GitPlace {
 	readonly sessionId: string;
 	readonly cwd: string;
-	readonly title?: string;
-	readonly pid?: number;
-	readonly pidStart?: string;
-	readonly host?: string;
-	readonly scratchpad?: string;
+	readonly title?: string | undefined;
+	readonly pid?: number | undefined;
+	readonly pidStart?: string | undefined;
+	readonly host?: string | undefined;
+	readonly scratchpad?: string | undefined;
 }
 
 /**
@@ -141,7 +141,7 @@ export function register(
 export function heartbeat(
 	record: SessionRecord,
 	now: Date,
-	update: { cwd?: string; place?: GitPlace } = {},
+	update: { cwd?: string | undefined; place?: GitPlace | undefined } = {},
 ): SessionRecord {
 	const at = now.toISOString();
 	const next: SessionRecord = {
@@ -183,12 +183,12 @@ export function isRecord(value: unknown): value is SessionRecord {
 	if (typeof value !== 'object' || value === null) return false;
 	const v = value as Record<string, unknown>;
 	return (
-		v.version === 1 &&
-		typeof v.sessionId === 'string' &&
-		typeof v.cwd === 'string' &&
-		typeof v.lastSeen === 'string' &&
-		Array.isArray(v.edits) &&
-		Array.isArray(v.claims) &&
-		Array.isArray(v.announcements)
+		v['version'] === 1 &&
+		typeof v['sessionId'] === 'string' &&
+		typeof v['cwd'] === 'string' &&
+		typeof v['lastSeen'] === 'string' &&
+		Array.isArray(v['edits']) &&
+		Array.isArray(v['claims']) &&
+		Array.isArray(v['announcements'])
 	);
 }

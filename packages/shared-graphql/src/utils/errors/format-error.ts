@@ -33,8 +33,8 @@ export function createFormatError<
 	production?: boolean,
 ): ApolloServerOptions<C>['formatError'] {
 	return (formattedError, graphQLError) => {
-		if (production && formattedError.extensions?.stacktrace) {
-			formattedError.extensions.stacktrace = undefined;
+		if (production && formattedError.extensions?.['stacktrace']) {
+			formattedError.extensions['stacktrace'] = undefined;
 		}
 		const error = unwrapResolverError(graphQLError);
 		if (isOryUnavailable(error)) {
@@ -79,12 +79,12 @@ export function createFormatError<
 				ApolloServerErrorCode.OPERATION_RESOLUTION_FAILURE,
 				ApolloServerErrorCode.PERSISTED_QUERY_NOT_FOUND,
 				ApolloServerErrorCode.PERSISTED_QUERY_NOT_SUPPORTED,
-			].includes(formattedError.extensions?.code as any)
+			].includes(formattedError.extensions?.['code'] as any)
 		) {
 			return {
 				...formattedError,
 				message: translate(
-					`errors.${kebabCase(formattedError.extensions?.code as string)}` as K,
+					`errors.${kebabCase(formattedError.extensions?.['code'] as string)}` as K,
 					{},
 				),
 				extensions: {

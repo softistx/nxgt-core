@@ -7,7 +7,7 @@ export function min(args: ValidatorOptions<number>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({ min: options.value }, 'validation.errors.min'),
+		message: options.message({ min: options.value }, 'validation.errors.min'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'number' && value >= options.value)

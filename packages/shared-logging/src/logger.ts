@@ -33,7 +33,7 @@ export function createLogger(options: {
 	});
 
 	return winston.createLogger({
-		level: Bun.env.LOG_LEVEL || 'info',
+		level: Bun.env['LOG_LEVEL'] || 'info',
 		format: combine(
 			colorize({ all: true }),
 			label({ label: options.tag ?? 'sellix' }),
