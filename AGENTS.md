@@ -166,7 +166,7 @@ byte copies of nxgt-data's (softistx/nxgt-data#192), as in nxgt-janus, nxgt-http
 bracket access on a manifest (`manifest['name']`), which this repository's
 `noPropertyAccessFromIndexSignature` requires. A file Bun's
 scanner cannot read is reported (`scanFailure`), not a crash; nxgt-http's earlier
-drift is gone, since nxgt-data took it. `siblings.spec.ts` is a byte copy of nxgt-data's (softistx/nxgt-data#193) and `siblings.ts` too but for four bracket accesses (`m['name']`, `source.get(dep)?.['version']`) that `noPropertyAccessFromIndexSignature` requires, as in `accessProblems`: it reads each source `package.json` for the spec, and is exact rather than `Bun.semver.satisfies`, because a lock stale within one minor packs `^0.19.0` beside 0.19.1, which satisfies it and lets a consumer keep 0.19.0, and `satisfies` answers `true` for `garbage!!`, `latest` and `''`. `manifest.ts` also refuses a `workspace:` left in a packed field. nxgt-janus and nxgt-telemetry still run the `satisfies` check until they take it.
+drift is gone, since nxgt-data took it. `siblings.ts` and `siblings.spec.ts` are byte copies of nxgt-data's (softistx/nxgt-data#193, #194): `siblings.ts` reads each source `package.json` for the spec, and is exact rather than `Bun.semver.satisfies`, because a lock stale within one minor packs `^0.19.0` beside 0.19.1, which satisfies it and lets a consumer keep 0.19.0, and `satisfies` answers `true` for `garbage!!`, `latest` and `''`. `manifest.ts` also refuses a `workspace:` left in a packed field.
 Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
 `check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
 copied from nxgt-janus, the script byte for byte but for its header comment
