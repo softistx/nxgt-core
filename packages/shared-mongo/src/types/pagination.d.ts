@@ -10,6 +10,7 @@ import type {
 	IPaginatedType,
 	NestedOffsetPaginationOptions,
 	PaginateOffsetOptions,
+	SoftDeleteScope,
 } from '../plugins/pagination/types';
 
 /**
@@ -39,7 +40,7 @@ declare module 'mongoose' {
 	> {
 		paginate<_ResultDoc = THydratedDocumentType>(
 			filter: PaginationOptions & {
-				deleted?: 'Deleted' | 'WidthDeleted';
+				deleted?: SoftDeleteScope;
 			} & {
 				populate?: string | PopulateOptions | (string | PopulateOptions)[];
 			},

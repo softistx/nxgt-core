@@ -10,9 +10,23 @@ import type {
 	CursorPaginateOptions,
 	NestedOffsetPaginationOptions,
 	PaginateOffsetOptions,
+	SoftDeleteScope,
 } from './types';
 
 const MAX_SIZE = 100;
+
+/**
+ * The suffix of the soft-delete statics a paginator reads through —
+ * `find${suffix}`, `countDocuments${suffix}`. The deprecated `'WidthDeleted'`
+ * maps to `'WithDeleted'`: taken literally it named `findWidthDeleted`, which
+ * does not exist, and the paginator fell back to `find` — excluding exactly
+ * the deleted documents it was asked to include.
+ */
+export function softDeleteSuffix(
+	deleted: SoftDeleteScope | undefined,
+): '' | 'Deleted' | 'WithDeleted' {
+	return deleted === 'WidthDeleted' ? 'WithDeleted' : (deleted ?? '');
+}
 
 /**
  * Both repositories put a `paginate` static on every schema, and they meant
@@ -34,14 +48,12 @@ const MAX_SIZE = 100;
 export function applyPagination(schema: Schema) {
 	schema.static('paginate', async function () {
 		const options =
-			<PaginationOptions & { deleted?: 'Deleted' | 'WithDeleted' }>(
-				arguments?.[0]
-			) ?? {};
+			<PaginationOptions & { deleted?: SoftDeleteScope }>arguments?.[0] ?? {};
 
 		const { first, last, before, after, extraFilter } = options;
 
 		let filter = options.filter ?? {};
-		const deleted = options.deleted ?? '';
+		const deleted = softDeleteSuffix(options.deleted);
 
 		const countDocuments = (f: any) =>
 			this[`countDocuments${deleted}`]?.(f) ?? this.countDocuments(f);
@@ -114,7 +126,7 @@ export function applyPagination(schema: Schema) {
 		const filter = options.filter ?? {};
 		const sort = options.sort ?? {};
 		const populate = options.populate ?? [];
-		const deleted = options.deleted ?? '';
+		const deleted = softDeleteSuffix(options.deleted);
 
 		const count = await ((this as any)[`countDocuments${deleted}`]?.(filter) ??
 			this.countDocuments(filter));
@@ -173,7 +185,7 @@ export function applyPagination(schema: Schema) {
 		const options = <CursorPaginateOptions>arguments?.[0] ?? {};
 		const filter = options.filter ?? {};
 		const populate = options.populate ?? [];
-		const deleted = options.deleted ?? '';
+		const deleted = softDeleteSuffix(options.deleted);
 
 		const { after, before } = options;
 		const first =
