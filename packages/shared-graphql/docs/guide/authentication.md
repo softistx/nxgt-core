@@ -31,6 +31,11 @@ It reads `Authorization: Bearer`, then `X-Session-Token`, then the Kratos
 cookie, and puts `user`, `claims`, `token` and `ory` on the context. An Ory
 outage throws a 503 `SERVICE_UNAVAILABLE`, never an anonymous caller.
 
+Yoga runs your context factory before plugins, and `useOryAuth()` is the single
+source of the caller. On an anonymous request it sets `user`, `claims` and
+`token` to `undefined` as own keys, so a value your factory put there is
+cleared (`ory` is `null`).
+
 ## `useAuth()` and `extractJwtPlugin()` — behind a gateway
 
 A gateway that authenticated the caller can forward it to subgraphs in the
@@ -79,7 +84,9 @@ Apollo Server; both answer `get`.
 ### What is read
 
 - `useAuth()`: `extensions.user` when it is an object with a non-empty string
-  `sub`, and `extensions.token` when it is a string. Otherwise nothing.
+  `sub`, and `extensions.token` when it is a string. A valid `user` with no
+  string `token` sets `token` to `undefined`, clearing any earlier value. With
+  no valid `user`, nothing is written.
 - `extractJwtPlugin()`: `extensions.payload`, under the same `sub` rule, on
   `context.jwt.payload`.
 - A request that fails the proof leaves `user`, `token` and `jwt` as they
