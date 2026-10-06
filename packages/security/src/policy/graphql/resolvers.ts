@@ -2,6 +2,7 @@ import { MapperKind, mapSchema } from '@graphql-tools/utils';
 import type { GraphQLSchema } from 'graphql';
 import { defaultFieldResolver, GraphQLError, isNonNullType } from 'graphql';
 import type { PolicyClaims } from '../claims.types';
+import { lazyKetoDeps } from '../keto-rungs';
 import { parseRules } from '../load-rules';
 import type { PermissionEvaluator, PolicySubject } from '../permissions.types';
 import { evaluateGraphql } from './evaluator';
@@ -20,7 +21,8 @@ export interface ApplyGraphqlPolicyOptions {
 	 * `keto`. Use `ketoPermissions()` from
 	 * `@nxgt/security/integrations/graphql/keto`, on a server whose context
 	 * carries what `useOryAuth(ory)` and `useKetoChecks(ory)` publish. Rules
-	 * with no `keto` term need nothing.
+	 * with no `keto` term need nothing, and it is called only when the
+	 * field's rule reaches a `keto` rung — once per resolution.
 	 *
 	 * Declared structurally rather than imported from that module, because it
 	 * imports `stx-sdk` and this file must not — a server whose rules ask Keto
@@ -114,8 +116,13 @@ export function applyGraphqlPolicy(
 					const claims = options.getClaims(context);
 					// Per request, because both halves are: the subject is this
 					// caller, and the evaluator closes over this request's Keto
-					// answer cache.
-					const permissions = options.permissions?.(context);
+					// answer cache. And only once this field's rule reaches a
+					// `keto` rung: `ketoPermissions()` throws without
+					// `useKetoChecks`, which must not break a field that never
+					// asks Keto anything.
+					const permissions = lazyKetoDeps(() =>
+						options.permissions?.(context),
+					);
 
 					const result = await evaluateGraphql(
 						compiledPolicy,
@@ -128,10 +135,7 @@ export function applyGraphqlPolicy(
 							source,
 							info,
 						},
-						{
-							evaluatePermissions: permissions?.evaluatePermissions,
-							subject: permissions?.subject,
-						},
+						permissions,
 					);
 
 					// UNAUTHENTICATED used to fall through here, so a field under a

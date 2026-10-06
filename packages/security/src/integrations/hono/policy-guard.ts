@@ -10,6 +10,8 @@ import type {
 	PolicySubject,
 } from '../../policy';
 import { evaluateRest, parseRules } from '../../policy';
+import { lazyKetoDeps } from '../../policy/keto-rungs';
+import { readPolicyRequest } from './policy-request';
 
 /**
  * Everything a rule carrying `keto` needs, for one request.
@@ -30,7 +32,9 @@ export interface PolicyGuardOptions {
 	/**
 	 * Supplies the caller and the Keto evaluator for rules that carry `keto`.
 	 * Use `ketoPermissions()` from `@nxgt/security/integrations/hono/keto`,
-	 * mounted after `oryChecks(ory)`. Rules with no `keto` term need nothing.
+	 * mounted after `oryChecks(ory)`. Rules with no `keto` term need nothing,
+	 * and the provider is called only for a request whose matched rule
+	 * reaches a `keto` rung — once, however many rungs it has.
 	 */
 	permissions?: PermissionsProvider;
 }
@@ -53,10 +57,12 @@ export interface PolicyGuardOptions {
  * unless it is marked `public`, so this guard — not a `secured()` further
  * down the chain — is what answers an expired session.
  *
- * Body handling:
- *   For `application/json` requests the body is buffered and passed to the
- *   expression evaluator as `req.body`. The raw request is cloned first so
- *   that downstream handlers (e.g. a reverse proxy) can still read the stream.
+ * Request reading (`readPolicyRequest`):
+ *   `req.query` and `req.cookies` are what the handler reads from
+ *   `ctx.req.query()` and `getCookie(ctx)` — first value of a repeated name,
+ *   decoded. A JSON body (content type detected as Hono's validator does) is
+ *   buffered as `req.body`; the raw request is cloned first so that
+ *   downstream handlers (e.g. a reverse proxy) can still read the stream.
  *
  * `rawRules` is a raw/unvalidated rules document (e.g. a static YAML import,
  * or `loadRawRulesFromEnv`'s output) — validated and compiled internally via
@@ -76,41 +82,15 @@ export function policyGuard(
 ): MiddlewareHandler {
 	const compiledPolicy = parseRules(rawRules);
 	return createMiddleware(async (ctx, next) => {
-		const clonedRaw = ctx.req.raw.clone();
-
 		const claims: PolicyClaims = ctx.get(USER_HEADERS.CLAIMS) ?? ({} as any);
-
-		let body: unknown;
-		const contentType = ctx.req.header('content-type') ?? '';
-		if (contentType.includes('application/json')) {
-			try {
-				body = await ctx.req.json();
-			} catch {
-				// Malformed or empty body — leave body undefined
-			}
-		}
-
-		ctx.req.raw = clonedRaw;
-
-		const cookies: Record<string, string> = {};
-		const cookieHeader = ctx.req.header('cookie');
-		if (cookieHeader) {
-			for (const part of cookieHeader.split(';')) {
-				const eqIdx = part.indexOf('=');
-				if (eqIdx === -1) continue;
-				const key = part.slice(0, eqIdx).trim();
-				const val = part.slice(eqIdx + 1).trim();
-				if (key) cookies[key] = val;
-			}
-		}
-
-		const query: Record<string, string> = Object.fromEntries(
-			new URL(ctx.req.url).searchParams,
-		);
+		const req = await readPolicyRequest(ctx);
 
 		// Per request, because both halves are: the subject is this caller, and
-		// the evaluator closes over this request's Keto answer cache.
-		const permissions = options.permissions?.(ctx);
+		// the evaluator closes over this request's Keto answer cache. And only
+		// once the matched rule reaches a `keto` rung: `ketoPermissions()`
+		// throws when `oryChecks` is not mounted, which must not break a route
+		// that never asks Keto anything.
+		const permissions = lazyKetoDeps(() => options.permissions?.(ctx));
 
 		const result = await evaluateRest(
 			compiledPolicy,
@@ -119,17 +99,9 @@ export function policyGuard(
 				method: ctx.req.method,
 				path: ctx.req.path,
 				claims,
-				req: {
-					body,
-					query,
-					cookies,
-					headers: ctx.req.header(),
-				},
+				req,
 			},
-			{
-				evaluatePermissions: permissions?.evaluatePermissions,
-				subject: permissions?.subject,
-			},
+			permissions,
 		);
 
 		if (result.decision === 'UNAUTHENTICATED') {

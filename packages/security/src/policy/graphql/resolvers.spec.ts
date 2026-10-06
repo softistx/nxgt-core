@@ -359,3 +359,57 @@ describe('applyGraphqlPolicy — the decisions it used to drop', () => {
 		expect(result.errors?.[0]?.extensions?.['code']).toBe('NOT_FOUND');
 	});
 });
+
+describe('applyGraphqlPolicy — the permissions provider is called lazily', () => {
+	it('only for a field whose rule reaches a keto rung, once per resolution', async () => {
+		const calls: unknown[] = [];
+		const schema = applyGraphqlPolicy(
+			buildSchema(),
+			{
+				graphql: {
+					Query: { widgets: { authenticated: true } },
+					User: {
+						email: {
+							keto: [
+								{
+									permissions: [
+										[{ namespace: 'User', permit: 'a', id: 'source.id' }],
+									],
+									onDeny: 'NOT_FOUND',
+								},
+								{
+									permissions: [
+										[{ namespace: 'User', permit: 'b', id: 'source.id' }],
+									],
+									onDeny: 'NOT_FOUND',
+								},
+							],
+						},
+					},
+				},
+			} as Rules,
+			{
+				getClaims: () => ({ sub: 'idn-7' }),
+				permissions: (context) => {
+					calls.push(context);
+					return { subject: 'idn-7', evaluatePermissions: async () => true };
+				},
+			},
+		);
+
+		const plain = await graphql({ schema, source: '{ widgets me { id } }' });
+		expect(plain.errors).toBeUndefined();
+		expect(calls).toHaveLength(0);
+
+		for (const contextValue of [{ n: 1 }, { n: 2 }]) {
+			const guarded = await graphql({
+				schema,
+				source: '{ me { email } }',
+				contextValue,
+			});
+			expect(guarded.errors).toBeUndefined();
+		}
+		// Two rungs, two resolutions: one call each, with that request's context.
+		expect(calls).toEqual([{ n: 1 }, { n: 2 }]);
+	});
+});

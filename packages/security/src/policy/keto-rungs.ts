@@ -26,6 +26,34 @@ export interface KetoDeps {
 }
 
 /**
+ * Deps that are worked out only when a Keto rung first reads them.
+ *
+ * The guard and the GraphQL wrapper run before they know which rule applies,
+ * and the provider they are given (`ketoPermissions()`) throws when the app
+ * has no Keto loader — which is right for a rule that asks Keto something and
+ * wrong for every other one. `evaluateKetoRungs` reads these two fields only
+ * after it has found a rung, so a request whose rule has no `keto` term never
+ * calls `resolve`. The result is remembered, so a rule with several rungs
+ * calls it once. A `resolve` that throws throws from the first rung, with its
+ * own message.
+ */
+export function lazyKetoDeps(resolve: () => KetoDeps | undefined): KetoDeps {
+	let resolved: { deps: KetoDeps | undefined } | undefined;
+	const deps = () => {
+		resolved ??= { deps: resolve() };
+		return resolved.deps;
+	};
+	return {
+		get evaluatePermissions() {
+			return deps()?.evaluatePermissions;
+		},
+		get subject() {
+			return deps()?.subject;
+		},
+	};
+}
+
+/**
  * Walk a rule's Keto rungs in declaration order.
  *
  * Returns the refusal of the first rung that fails, or `undefined` when every
@@ -58,9 +86,12 @@ export async function evaluateKetoRungs(
 			);
 		}
 		if (!deps.subject) {
-			// Only reachable on a `public` rule, which compilePolicy refuses to
-			// pair with `keto` — kept so the invariant is stated where it is
-			// relied on, not only where it is enforced.
+			// The caller passed the authentication floor (its claims name a
+			// `sub` or a `clientId`), but the provider has no Keto subject for
+			// it — claims from another resolver than `oryAuth()` /
+			// `useOryAuth()`, say. There is nobody to ask Keto about, so this
+			// fails closed. (A `public` rule would land here too, which is why
+			// compilePolicy refuses to pair it with `keto`.)
 			return {
 				decision: 'UNAUTHENTICATED',
 				reason: `${where} needs a subject to ask Keto about`,
