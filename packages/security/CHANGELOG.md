@@ -1,5 +1,17 @@
 # @nxgt/security
 
+## 4.2.2
+
+### Patch Changes
+
+- [#218](https://github.com/softistx/nxgt-core/pull/218) [`c8d24fb`](https://github.com/softistx/nxgt-core/commit/c8d24fb147c49cc1d868bb0377a6d6f2d41d5b6d) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `unnamedOperations` reports an `ALL` route on an exact path (`app.all('/doc', …)`) unless every method the rules schema knows is named for it. A middleware mounted on an exact path in front of a later route on that path (`app.use('/doc', mw)` then `app.get('/doc', …)`) is still skipped, as is `ALL` on a wildcard path. `OperationRef` takes an optional `handler`, which a Hono `app.routes` entry already carries.
+
+- [#218](https://github.com/softistx/nxgt-core/pull/218) [`3cfbc48`](https://github.com/softistx/nxgt-core/commit/3cfbc48714a0edcf128f7af596e5b5e18462b6f9) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `policyGuard` reads `req.query` and `req.cookies` through `c.req.query()` and `getCookie()`, as the handler does — first value of a repeated name, decoded, cookie quotes stripped — and detects a JSON body as Hono's validator does (`application/json` or `application/<x>+json`, any case).
+
+- [#218](https://github.com/softistx/nxgt-core/pull/218) [`29aa7c6`](https://github.com/softistx/nxgt-core/commit/29aa7c69eb052f9a655ac2028c169869525c786c) Thanks [@SteveGT96](https://github.com/SteveGT96)! - A HEAD request is checked against the GET rule as well as its own: servers answer HEAD by running the GET route, so a HEAD request passes only when the GET evaluation for its path allows it — the `global.unmatched` fallback included — and its `HEAD` rule, when one matches, allows it too. A rules file that names only `GET` covers HEAD; a `HEAD` entry can restrict that, never relax it. `evaluateRest`, and so `policyGuard`, and `unnamedOperations` all apply this.
+
+- [#218](https://github.com/softistx/nxgt-core/pull/218) [`a76b303`](https://github.com/softistx/nxgt-core/commit/a76b303b790c8c36ee123fd36013613686fd55fb) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `policyGuard` and `applyGraphqlPolicy` now call the `permissions` provider only when the matched rule carries a `keto` term, once per request or field resolution. Before, they called it on every request (every policed field), so `ketoPermissions()` failed with "a rule carries a `keto` check" on routes and fields that ask Keto nothing when `oryChecks(ory)` / `useKetoChecks(ory)` was not mounted for them. A rule that does carry a `keto` term still fails with that error.
+
 ## 4.2.1
 
 ### Patch Changes
