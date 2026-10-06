@@ -7,7 +7,7 @@
  */
 
 import { afterAll, beforeAll } from 'bun:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { $ } from 'bun';
@@ -22,7 +22,9 @@ export let repo = '';
 /** A fresh registry and repository for the spec file that calls it. */
 export function sandbox(): void {
 	beforeAll(async () => {
-		scratch = mkdtempSync(join(tmpdir(), 'nxgt-crew-spec-'));
+		// Resolved: on macOS tmpdir() is under /var, a symlink to /private/var, and
+		// git reports the resolved path as the worktree root.
+		scratch = realpathSync(mkdtempSync(join(tmpdir(), 'nxgt-crew-spec-')));
 		home = join(scratch, 'crew');
 		repo = join(scratch, 'repo');
 		await $`git init -q -b develop ${repo} && git -C ${repo} -c user.email=t@t -c user.name=t commit -q --allow-empty -m init`.quiet();
