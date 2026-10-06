@@ -56,48 +56,34 @@ export function applySoftDeleteOperations(schema: Schema) {
 				const args: any[] = [];
 				Array.prototype.push.apply(args, arguments as any);
 				args[0] = { ...args?.[0], deleted: true };
-				return (Model as any)[method].apply(this, arguments);
+				return (Model as any)[method].apply(this, args);
 			});
 			schema.static(`${method}WithDeleted`, function () {
 				return (Model as any)[method].apply(this, arguments);
 			});
 		} else {
 			if (method === 'aggregate') {
-				schema.static(method, function () {
-					const $match = {
-						deleted: { $ne: true },
-					};
-					const args: any[] = [];
-					Array.prototype.push.apply(this, arguments as any);
-					if (args.length && args[0].$match) {
-						args[0].$match = { ...args[0].$match, ...$match };
-					} else {
-						args.unshift({ $match });
-					}
-					return (Model as any)[method].apply(this, args as any);
+				// mongoose's signature is aggregate(pipeline?, options?): the stages
+				// arrive as one array, not one argument each.
+				schema.static(method, function (pipeline?: any[], options?: any) {
+					return (Model as any)[method].call(
+						this,
+						withLeadingMatch(pipeline, { deleted: { $ne: true } }),
+						options,
+					);
 				});
-				schema.static(`${method}Deleted`, function () {
-					const $match = {
-						deleted: { $eq: true },
-					};
-					const args: any[] = [];
-					Array.prototype.push.apply(this, arguments as any);
-					if (args.length && args[0].$match) {
-						args[0].$match = { ...args[0].$match, ...$match };
-					} else {
-						args.unshift({ $match });
-					}
-					return (Model as any)[method].apply(this, args as any);
-				});
+				schema.static(
+					`${method}Deleted`,
+					function (pipeline?: any[], options?: any) {
+						return (Model as any)[method].call(
+							this,
+							withLeadingMatch(pipeline, { deleted: { $eq: true } }),
+							options,
+						);
+					},
+				);
 				schema.static(`${method}WidthDeleted`, function () {
-					const args: any[] = [];
-					Array.prototype.push.apply(this, arguments as any);
-					if (args.length && args[0].$match) {
-						args[0].$match = { ...args[0].$match, deleted: undefined };
-					} else {
-						args.unshift({ $match: { deleted: undefined } });
-					}
-					return (Model as any)[method].apply(this, args as any);
+					return (Model as any)[method].apply(this, arguments);
 				});
 			} else {
 				schema.statics[method] = function () {
@@ -118,4 +104,38 @@ export function applySoftDeleteOperations(schema: Schema) {
 			}
 		}
 	});
+}
+
+/**
+ * Stages the server only accepts at the head of a pipeline.
+ */
+const FIRST_STAGE_ONLY = [
+	'$geoNear',
+	'$search',
+	'$searchMeta',
+	'$vectorSearch',
+];
+
+/**
+ * `pipeline` with `$match` placed at its head — or right after a stage that
+ * must stay first, such as `$geoNear`. It is folded into a `$match` already in
+ * that place unless that one names `deleted` itself, in which case it goes in
+ * as a stage of its own, so the caller's condition is never overwritten (the
+ * server merges adjacent `$match` stages). The caller's array and stage
+ * objects are left as they were.
+ */
+function withLeadingMatch(
+	pipeline: any[] | undefined,
+	$match: Record<string, unknown>,
+): any[] {
+	const stages = [...(pipeline ?? [])];
+	const head = stages[0];
+	const at = head && FIRST_STAGE_ONLY.some((stage) => stage in head) ? 1 : 0;
+	const target = stages[at];
+	if (target?.$match && !('deleted' in target.$match)) {
+		stages[at] = { ...target, $match: { ...target.$match, ...$match } };
+	} else {
+		stages.splice(at, 0, { $match });
+	}
+	return stages;
 }
