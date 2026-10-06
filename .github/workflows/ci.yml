@@ -69,6 +69,38 @@ jobs:
             docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true && break
             sleep 1
           done
+      # `@nxgt/shared-storage`'s specs talk to a real S3 and skip themselves
+      # when `S3_*` is unset, so without this they report "0 pass 0 fail".
+      # SeaweedFS's gateway, one binary from its GitHub releases, fetched by
+      # scripts/seaweedfs.ts — byte for byte nxgt-data's, which says why it is
+      # not MinIO. Cached, keyed on the script that pins the version.
+      - name: Cache the SeaweedFS binary
+        uses: actions/cache@v4
+        with:
+          path: .cache/seaweedfs
+          key: seaweedfs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/seaweedfs.ts') }}
+      # One gateway on 8333 with the credentials the Run tests step passes.
+      # Without an identities file every signed request is refused. The
+      # Iceberg and Lance listeners take fixed ports and are not used. The
+      # bucket is created by the first write, so the loop waits on a write:
+      # the gateway answers before the filer behind it is ready.
+      - name: Start SeaweedFS
+        run: |
+          weed="$(bun scripts/seaweedfs.ts)"
+          mkdir -p "$RUNNER_TEMP/seaweedfs/data"
+          cat > "$RUNNER_TEMP/seaweedfs/s3.json" <<'JSON'
+          {"identities":[{"name":"test","credentials":[{"accessKey":"nxgt-test","secretKey":"nxgt-test-secret"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+          JSON
+          nohup "$weed" server -dir="$RUNNER_TEMP/seaweedfs/data" -s3 -s3.port=8333 \
+            -s3.config="$RUNNER_TEMP/seaweedfs/s3.json" -s3.port.iceberg=0 -s3.port.lance=0 \
+            -master.volumeSizeLimitMB=64 -volume.max=100 -ip=127.0.0.1 \
+            > "$RUNNER_TEMP/seaweedfs/weed.log" 2>&1 &
+          for _ in $(seq 60); do
+            bun -e "await new Bun.S3Client({ endpoint: 'http://127.0.0.1:8333', accessKeyId: 'nxgt-test', secretAccessKey: 'nxgt-test-secret', bucket: 'nxgt-test' }).write('.ready', 'ok')" >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/seaweedfs/weed.log"
+          exit 1
       # Per package, not one `bun test` for the whole workspace. One process for
       # everything made three test files fail for reasons that were not theirs:
       # `crypto.subtle` replaced by another file's mock, a mongoose model
@@ -78,6 +110,10 @@ jobs:
       - name: Run tests
         env:
           MONGODB_URI: mongodb://localhost:27017/shared-mongo-test?replicaSet=rs0
+          S3_ENDPOINT: http://127.0.0.1:8333
+          S3_BUCKET: nxgt-test
+          S3_USER: nxgt-test
+          S3_PASSWORD: nxgt-test-secret
         run: bun run test
       # The plugins' own specs — nxgt-autonomy's SessionStart hook, nxgt-crew's
       # hooks and CLI. Outside the workspaces, so `bun run test` above never
@@ -150,9 +186,45 @@ jobs:
             docker exec mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' | grep -q true && break
             sleep 1
           done
+      # `@nxgt/shared-storage`'s specs talk to a real S3 and skip themselves
+      # when `S3_*` is unset, so without this they report "0 pass 0 fail".
+      # SeaweedFS's gateway, one binary from its GitHub releases, fetched by
+      # scripts/seaweedfs.ts — byte for byte nxgt-data's, which says why it is
+      # not MinIO. Cached, keyed on the script that pins the version.
+      - name: Cache the SeaweedFS binary
+        uses: actions/cache@v4
+        with:
+          path: .cache/seaweedfs
+          key: seaweedfs-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/seaweedfs.ts') }}
+      # One gateway on 8333 with the credentials the Run tests step passes.
+      # Without an identities file every signed request is refused. The
+      # Iceberg and Lance listeners take fixed ports and are not used. The
+      # bucket is created by the first write, so the loop waits on a write:
+      # the gateway answers before the filer behind it is ready.
+      - name: Start SeaweedFS
+        run: |
+          weed="$(bun scripts/seaweedfs.ts)"
+          mkdir -p "$RUNNER_TEMP/seaweedfs/data"
+          cat > "$RUNNER_TEMP/seaweedfs/s3.json" <<'JSON'
+          {"identities":[{"name":"test","credentials":[{"accessKey":"nxgt-test","secretKey":"nxgt-test-secret"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+          JSON
+          nohup "$weed" server -dir="$RUNNER_TEMP/seaweedfs/data" -s3 -s3.port=8333 \
+            -s3.config="$RUNNER_TEMP/seaweedfs/s3.json" -s3.port.iceberg=0 -s3.port.lance=0 \
+            -master.volumeSizeLimitMB=64 -volume.max=100 -ip=127.0.0.1 \
+            > "$RUNNER_TEMP/seaweedfs/weed.log" 2>&1 &
+          for _ in $(seq 60); do
+            bun -e "await new Bun.S3Client({ endpoint: 'http://127.0.0.1:8333', accessKeyId: 'nxgt-test', secretAccessKey: 'nxgt-test-secret', bucket: 'nxgt-test' }).write('.ready', 'ok')" >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/seaweedfs/weed.log"
+          exit 1
       - name: Run tests
         env:
           MONGODB_URI: mongodb://localhost:27017/shared-mongo-test?replicaSet=rs0
+          S3_ENDPOINT: http://127.0.0.1:8333
+          S3_BUCKET: nxgt-test
+          S3_USER: nxgt-test
+          S3_PASSWORD: nxgt-test-secret
         run: bun run test
       - name: Verify the built artifacts load
         run: bun run verify:artifacts

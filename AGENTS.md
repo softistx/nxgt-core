@@ -762,6 +762,7 @@ The following pairs exist on purpose:
 | Both kept | Why |
 | --- | --- |
 | `scripts/newest-peers.ts` and its spec, with the "Newest peers" job in `ci.yml` | nxgt-data's copy (alxia's before it; nxgt-http and nxgt-telemetry have it too), not shared: each repository releases on its own. This copy adds `UNINSTALLED` and a spec for it; the other lines are byte for byte. Change every copy the reason applies to |
+| `scripts/seaweedfs.ts` and its spec, with the "Start SeaweedFS" steps in `ci.yml` | nxgt-data's copy, not shared (this repo's tsconfig forbids `process.env.WEED_BIN`, so those lines read `process.env['WEED_BIN']`; the rest is byte for byte): each repository releases on its own. It only fetches the `weed` binary (cached under `.cache/seaweedfs`, CI keys on this file's hash); nxgt-data's specs start a gateway per file, here CI starts one on 8333 for `shared-storage`. The workflow steps are this repository's own. Raise `SEAWEEDFS_VERSION` in every copy |
 | `paginate` (offset) and `paginateCursor` (Relay) | sellix pages by offset, federation by cursor; same name, incompatible signatures |
 | `Principal` and `TokenPrincipal` | gateway-header shape vs JWT-claims shape — two different models of "the authenticated caller" |
 | the REST filter helpers and the GraphQL filter DSL | two filter philosophies that shared a filename and two function names |
@@ -819,10 +820,11 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **592 pass, 9 skip, 0 fail** on 2026-09-28: 558 in the
-packages (the 9 are `shared-storage`'s S3 suites; `i18n-vue`'s 115 include a
-real `nuxt build`), then 43 in `scripts/`, 16 of them
-`check-nxgt-versions.spec.ts`'s. Treat any failure as yours.
+`bun run test` is **989 pass, 4 skip, 0 fail** on 2026-10-06 with MongoDB
+and an S3 up: 862 in the packages (the 4 skips are `shared-hono`'s;
+`shared-storage` runs its 6 against the S3 and reports 0 pass 0 fail
+without one; `i18n-vue`'s 115 include a real `nuxt build`), then 127 in
+`scripts/`. Without an S3 the storage suites skip. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running the packages together in one
@@ -852,4 +854,4 @@ across 30 files, every plugin spec under a `scripts/` folder included.
 
 CI starts a single-node MongoDB **replica set** (the migration suite asserts on
 transactions) and passes `MONGODB_URI` in the environment, which beats
-`--env-file`. There is no S3 in CI, so those suites report as skipped there; the Mongo ones run.
+`--env-file`. CI also starts a SeaweedFS S3 gateway (`scripts/seaweedfs.ts` fetches the binary) and passes the four `S3_*` variables on the same step, so `shared-storage`'s suites run there; a local run with no S3 still skips them.
