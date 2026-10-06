@@ -169,13 +169,13 @@ port to the others. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
 spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
 is this copy's alone. `imports.ts`, `declarations.ts` and their specs are
-byte copies of nxgt-data's (softistx/nxgt-data#192), as in nxgt-janus, nxgt-http and nxgt-telemetry, as is
+byte copies of nxgt-data's (softistx/nxgt-data#192), as in nxgt-janus, nxgt-http, nxgt-telemetry and nxgt-di, as is
 `accessProblems` in `manifest.ts`, whose only difference is this file's
 bracket access on a manifest (`manifest['name']`), which this repository's
 `noPropertyAccessFromIndexSignature` requires. A file Bun's
 scanner cannot read is reported (`scanFailure`), not a crash; nxgt-http's earlier
 drift is gone, since nxgt-data took it. `siblings.ts` and `siblings.spec.ts` are byte copies of nxgt-data's (softistx/nxgt-data#193, #194): `siblings.ts` reads each source `package.json` for the spec, and is exact rather than `Bun.semver.satisfies`, because a lock stale within one minor packs `^0.19.0` beside 0.19.1, which satisfies it and lets a consumer keep 0.19.0, and `satisfies` answers `true` for `garbage!!`, `latest` and `''`. `manifest.ts` also refuses a `workspace:` left in a packed field.
-`types.ts`, `resolve-types.ts` and their specs, the check that each `.d.ts` import's types reach a consumer, are byte copies of nxgt-data's (softistx/nxgt-data#195) in all five repositories, with nxgt-data's `imports.ts`, which exports `RUNTIME_FIELDS` and `isRuntime` for it, and a `typesReachConsumer` stage after `importsDeclared` in `verify-artifacts.ts`. Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
+`types.ts`, `resolve-types.ts` and their specs, the check that each `.d.ts` import's types reach a consumer, are byte copies of nxgt-data's (softistx/nxgt-data#195) in all six repositories (nxgt-data, nxgt-janus, nxgt-core, nxgt-http, nxgt-telemetry, nxgt-di), with nxgt-data's `imports.ts`, which exports `RUNTIME_FIELDS` and `isRuntime` for it, and a `typesReachConsumer` stage after `importsDeclared` in `verify-artifacts.ts`. Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
 `check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
 copied from nxgt-janus, the script byte for byte but for its header comment
 and the spec but for the one package it expects to find (`@nxgt/ory-sdk`);
