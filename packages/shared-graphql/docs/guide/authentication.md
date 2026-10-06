@@ -32,9 +32,10 @@ cookie, and puts `user`, `claims`, `token` and `ory` on the context. An Ory
 outage throws a 503 `SERVICE_UNAVAILABLE`, never an anonymous caller.
 
 Yoga runs your context factory before plugins, and `useOryAuth()` is the single
-source of the caller. On an anonymous request it sets `user`, `claims` and
-`token` to `undefined` as own keys, so a value your factory put there is
-cleared (`ory` is `null`).
+source of the caller. On a request with no credential it sets `user`, `claims`
+and `token` to `undefined` as own keys, so a value your factory put there is
+cleared (`ory` is `null`). A Bearer token that Ory rejects leaves `user` and
+`claims` `undefined`, but `token` holds the rejected string.
 
 ## `useAuth()` and `extractJwtPlugin()` — behind a gateway
 
