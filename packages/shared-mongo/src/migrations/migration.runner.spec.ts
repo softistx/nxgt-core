@@ -11,6 +11,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mongoose } from '../mongoose';
+import { hasMongoHost } from '../test/has-mongo-host';
 import { clearDatabase } from '../utils/clear-database';
 import { disconnectQuietly } from './disconnect';
 import { MigrationModel } from './migration.model';
@@ -55,18 +56,12 @@ async function probeCount(): Promise<number> {
 	return db.collection('probe').countDocuments();
 }
 
-describe('MigrationRunner', () => {
+describe.skipIf(!hasMongoHost())('MigrationRunner', () => {
 	let dir: string;
 	let runner: MigrationRunner;
 
 	beforeAll(async () => {
-		const uri = Bun.env['MONGODB_URI'];
-		if (!uri) {
-			throw new Error(
-				'MONGODB_URI is required — run with --env-file=.env.test',
-			);
-		}
-		await mongoose.connect(uri);
+		await mongoose.connect(Bun.env['MONGODB_URI'] as string);
 	});
 
 	afterAll(async () => {

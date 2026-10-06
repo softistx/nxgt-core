@@ -807,8 +807,12 @@ test that reported it:
 
 So each package with specs carries `"test": "bun test src"`, `shared-mongo`
 keeps its `--env-file=.env.test`, the `Migration` model reuses an already
-compiled one, and the S3 suites skip themselves unless all four `S3_*`
-variables are set — infrastructure that is absent is not a failing test.
+compiled one, the S3 suites skip themselves unless all four `S3_*`
+variables are set, and `shared-mongo`'s Mongo-backed suites skip themselves
+(`describe.skipIf(!hasMongoHost())`, from `src/test/has-mongo-host.ts`) when
+`MONGODB_URI` has no host — infrastructure that is absent is not a failing
+test. Only an absent host skips: a host whose database name does not end in
+`-test` is still refused by `clearDatabase`, loudly.
 
 Then `bun test ./scripts/` runs the repository scripts' own specs, which no
 package's run reaches. The `./` and the trailing slash matter: a bare
@@ -817,4 +821,4 @@ across 30 files, every plugin spec under a `scripts/` folder included.
 
 CI starts a single-node MongoDB **replica set** (the migration suite asserts on
 transactions) and passes `MONGODB_URI` in the environment, which beats
-`--env-file`. There is no S3 in CI, so those suites report as skipped there.
+`--env-file`. There is no S3 in CI, so those suites report as skipped there; the Mongo ones run.
