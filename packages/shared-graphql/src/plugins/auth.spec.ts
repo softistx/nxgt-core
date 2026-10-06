@@ -85,3 +85,44 @@ describe('useAuth — the caller comes from a trusted gateway only', () => {
 		expect(extended).toEqual([]);
 	});
 });
+
+describe('useAuth — a trusted request clears the token the context factory set', () => {
+	// Yoga runs the context factory before user plugins and Envelop merges
+	// `extendContext` with `Object.assign`: a caller the gateway vouches for
+	// who sent no string token must not inherit the factory's `token`.
+	it('token is an own key holding undefined when the gateway sent none', async () => {
+		let seen: Record<string, unknown> = {};
+		const probe = createYoga<object, GraphQLBaseContext>({
+			schema: createSchema<GraphQLBaseContext>({
+				typeDefs: 'type Query { ok: Boolean }',
+				resolvers: {
+					Query: {
+						ok: (_s, _a, ctx) => {
+							seen = ctx as unknown as Record<string, unknown>;
+							return true;
+						},
+					},
+				},
+			}),
+			context: () => ({ token: 'from-factory' }) as never,
+			plugins: [useAuth({ trustedGateway: gatewaySecret({ secret: SECRET }) })],
+		});
+
+		const response = await probe.fetch('http://api.test/graphql', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				[GATEWAY_SECRET_HEADER]: SECRET,
+			},
+			body: JSON.stringify({
+				query: '{ ok }',
+				extensions: { user: { sub: 'idn-1', uid: 'idn-1' } },
+			}),
+		});
+		expect(response.status).toBe(200);
+
+		expect((seen['user'] as { sub: string }).sub).toBe('idn-1');
+		expect(seen['token']).toBe(undefined);
+		expect(Object.hasOwn(seen, 'token')).toBe(true);
+	});
+});

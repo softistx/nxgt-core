@@ -37,7 +37,7 @@ export type OryContext = {
 	 * Produced by the same `claimsFromOryPrincipal` the REST middleware uses,
 	 * so one rule reads the same on both transports.
 	 */
-	claims?: PolicyClaims;
+	claims?: PolicyClaims | undefined;
 };
 
 /**
@@ -89,7 +89,9 @@ export function oryUnavailableError(error: OryUnavailable): GraphQLError {
 export async function resolveOryPrincipal(
 	ory: Ory,
 	headers: Headers,
-): Promise<OryContext & { user?: TokenPrincipal; token?: string }> {
+): Promise<
+	OryContext & { user?: TokenPrincipal | undefined; token?: string | undefined }
+> {
 	let principal: OryPrincipal | null;
 	try {
 		principal = await ory.resolve(headers);
@@ -98,16 +100,11 @@ export async function resolveOryPrincipal(
 		throw error;
 	}
 
-	const token = bearerOf(headers);
 	return {
 		ory: principal,
-		...(principal
-			? {
-					user: toPrincipal(principal),
-					claims: claimsFromOryPrincipal(principal),
-				}
-			: {}),
-		...(token == null ? {} : { token }),
+		user: principal ? toPrincipal(principal) : undefined,
+		claims: principal ? claimsFromOryPrincipal(principal) : undefined,
+		token: bearerOf(headers) ?? undefined,
 	};
 }
 

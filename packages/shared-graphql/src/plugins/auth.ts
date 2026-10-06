@@ -37,7 +37,7 @@ export function useAuth(options: UseAuthOptions): Plugin<GraphQLBaseContext> {
 			const token = context.params.extensions?.['token'];
 			extendContext({
 				user,
-				...(typeof token === 'string' ? { token } : {}),
+				token: typeof token === 'string' ? token : undefined,
 			});
 		},
 	};

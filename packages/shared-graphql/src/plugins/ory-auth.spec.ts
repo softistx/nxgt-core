@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { Ory, OryPrincipal } from '@nxgt/ory-sdk';
 import { OryUnavailable } from '@nxgt/ory-sdk';
-import { resolveOryPrincipal } from './ory-auth';
+import { createSchema, createYoga } from 'graphql-yoga';
+import { resolveOryPrincipal, useOryAuth } from './ory-auth';
 
 const expiry = new Date('2026-09-07T12:00:00.000Z');
 
@@ -76,5 +77,47 @@ describe('resolveOryPrincipal', () => {
 		).rejects.toMatchObject({
 			extensions: { code: 'SERVICE_UNAVAILABLE', http: { status: 503 } },
 		});
+	});
+});
+
+describe('useOryAuth — an anonymous request clears what the context factory set', () => {
+	// Yoga runs the app's context factory BEFORE user plugins, and Envelop
+	// merges `extendContext` with `Object.assign`: only an explicit key, even
+	// one holding `undefined`, overwrites. An absent key leaves a `user` the
+	// factory set standing for a caller who presented no credential.
+	test('user, claims and token are own keys holding undefined', async () => {
+		let seen: Record<string, unknown> = {};
+		const yoga = createYoga<object, never>({
+			schema: createSchema<never>({
+				typeDefs: 'type Query { ok: Boolean }',
+				resolvers: {
+					Query: {
+						ok: (_s, _a, ctx) => {
+							seen = ctx as Record<string, unknown>;
+							return true;
+						},
+					},
+				},
+			}),
+			context: () =>
+				({
+					user: { sub: 'from-factory' },
+					claims: { sub: 'from-factory' },
+					token: 'from-factory',
+				}) as never,
+			plugins: [useOryAuth(stubOry(async () => null)) as never],
+		});
+
+		const response = await yoga.fetch('http://api.test/graphql', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ query: '{ ok }' }),
+		});
+		expect(response.status).toBe(200);
+
+		for (const key of ['user', 'claims', 'token']) {
+			expect(seen[key]).toBe(undefined);
+			expect(key in seen).toBe(true);
+		}
 	});
 });
