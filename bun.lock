@@ -102,6 +102,7 @@
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/shared-events": "workspace:^",
         "@nxgt/shared-logging": "workspace:^",
+        "@types/nodemailer": "^8.0.1",
         "bullmq": "^6.1.1",
         "camelcase-keys": "^10.0.2",
         "croner": "^10.0.1",
@@ -116,7 +117,6 @@
       "devDependencies": {
         "@types/bun": "^1.4.0",
         "@types/lodash": "^4.17.25",
-        "@types/nodemailer": "^8.0.1",
       },
       "peerDependencies": {
         "typescript": "^6.0.3",
