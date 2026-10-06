@@ -1,25 +1,22 @@
 import type { mongo } from 'mongoose';
 
 declare module 'mongoose' {
+	/*
+	 * Same type parameter names as mongoose's own `interface Model` (types/models.d.ts),
+	 * without defaults, constraints or heritage: TypeScript takes those from mongoose's
+	 * declaration, and any that differ — `object` for `{}`, a redeclared `schema` — is
+	 * TS2428/TS2717 for every consumer that checks libraries (`skipLibCheck: false`).
+	 * See the note in shared.d.ts.
+	 */
 	export interface Model<
 		TRawDocType,
-		TQueryHelpers = object,
-		TInstanceMethods = object,
-		TVirtuals = object,
-		THydratedDocumentType = HydratedDocument<
-			TRawDocType,
-			TVirtuals & TInstanceMethods,
-			TQueryHelpers,
-			TVirtuals
-		>,
-		TSchema = any,
-		TLeanResultType = TRawDocType,
-	> extends NodeJS.EventEmitter,
-			IndexManager,
-			SessionStarter {
-		/** Schema the model uses. */
-		schema: Schema<TRawDocType>;
-
+		TQueryHelpers,
+		TInstanceMethods,
+		TVirtuals,
+		THydratedDocumentType,
+		TSchema,
+		TLeanResultType,
+	> {
 		softDeleteById<ResultDoc = THydratedDocumentType>(
 			id: mongo.ObjectId | any,
 			autor?: string,
