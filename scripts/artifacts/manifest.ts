@@ -33,6 +33,11 @@ import { type Tarball, tarballProblems } from './tarball';
  *     the consumer's own version, and a `bun.lock` entry no manifest declared.
  *     A package self-references through its `name` and `exports`; it never
  *     needs to depend on itself.
+ *   - a **scoped package without `publishConfig.access: "public"`**.
+ *     `scripts/publish.ts` runs `bun publish`, which never reads the
+ *     changeset config's `access`, and npm publishes a scoped package as
+ *     restricted by default: refused on a free organisation, private on a
+ *     paid one.
  *   - a **license other than MIT, or no `LICENSE` in the tarball**. npm only
  *     ships the `LICENSE` in the package's own directory, never the root's.
  *   - a **`files` entry the tarball does not hold**. npm skips an entry that
@@ -48,6 +53,7 @@ export async function manifestProblems(
 	const problems = [
 		...tarballs.flatMap(tarballProblems),
 		...manifestShapeProblems(manifests),
+		...manifests.flatMap(accessProblems),
 	];
 	const own = new Set(manifests.map((m) => m['name'] as string));
 
@@ -70,6 +76,20 @@ export async function manifestProblems(
 	}
 
 	return problems;
+}
+
+/** A scoped package that `bun publish` would publish as restricted. */
+export function accessProblems(manifest: Record<string, unknown>): string[] {
+	const name = manifest['name'] as string;
+	const access = (
+		manifest['publishConfig'] as Record<string, unknown> | undefined
+	)?.['access'];
+	return name.startsWith('@') && access !== 'public'
+		? [
+				`${name}: publishConfig.access is not "public"; bun publish would ` +
+					'publish this scoped package as restricted',
+			]
+		: [];
 }
 
 /**

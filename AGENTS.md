@@ -155,12 +155,17 @@ responsibility, with a spec beside each pure one: `packages.ts` reads the
 workspace, `tarball.ts` a tarball's entries, `manifest.ts` its dependency
 fields, `registry.ts` asks npm, then `stale.ts`, `install.ts`, `load.ts`,
 `browser.ts` (the `browser` condition, which only this repository has),
-`classes.ts` and `emit.ts`. The split follows nxgt-janus's copy module for module, as
+`classes.ts`, `imports.ts` (served by `declarations.ts`) and `emit.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
 port to the others. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
 spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
-is this copy's alone. This copy and nxgt-http read a sibling's version from the
+is this copy's alone. `imports.ts`, `declarations.ts` and their specs are
+byte for byte nxgt-data's (and nxgt-http's, softistx/nxgt-http#97), as is
+`accessProblems` in `manifest.ts`, whose only difference is this file's
+bracket access on a manifest (`manifest['name']`), which this repository's
+`noPropertyAccessFromIndexSignature` requires; nxgt-janus has them in its own
+port. This copy and nxgt-http read a sibling's version from the
 packed manifests, where nxgt-janus and nxgt-data read it from the workspace.
 Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
 `check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
@@ -639,7 +644,21 @@ CI enforces two things a green build does not:
   manifest that would break an install — a `link:` or `file:` in a field a
   consumer resolves, or a **required** peer that is on no registry — and a
   package that is not MIT or ships no `LICENSE`, or a tarball that ships
-  test code or holds nothing under one of its `files` entries. It reads the
+  test code or holds nothing under one of its `files` entries, or a scoped
+  package without `publishConfig.access: "public"` (`bun publish` never reads
+  the changeset config's `access`, and npm publishes a scoped package as
+  restricted by default). Once the tarballs are installed it also reads every
+  built import, the `.js` through Bun's own scanner and the `.d.ts` through
+  `declarations.ts` (a declaration file's imports are type-only, which Bun's
+  scanner drops), and fails one naming a package the manifest does not
+  declare in `dependencies`, `peerDependencies` or `optionalDependencies`
+  (`<package>: dist/<file> imports "<specifier>"`): the install holds every
+  sibling side by side, so an undeclared import loads there and fails for a
+  consumer. Only literal specifiers are read, and a bin's `#!` line is skipped
+  first, since Bun's scanner refuses it. Its first run here found two, both in
+  `@nxgt/shared-mongo`'s declarations: `import("mongodb")`, inferred for
+  `AUDIT_CHANGE_STREAM`, and `hono/utils/http-status`, for `requireById`'s
+  `errorProps` (now `StatusCode` from `@nxgt/shared-exceptions`). It reads the
   subpath list from each `exports` map, so a new entry point is covered as
   soon as it is declared.
   `changeset:publish` runs it too, so a broken artifact cannot be published.

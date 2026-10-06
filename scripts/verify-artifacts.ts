@@ -24,6 +24,10 @@
  * consumer's install does. Optional peers are installed too, the way a
  * consumer who uses the subpath that needs one would.
  *
+ * Every built import must name something the manifest declares: the
+ * install holds every sibling, so an undeclared one would load here and
+ * fail for a consumer.
+ *
  * A package's `test/declarations/*.ts` is compiled with the declaration
  * build on, against the install: a type a consumer's `.d.ts` must name and
  * the entry does not export fails there with TS2883, and nowhere else.
@@ -47,6 +51,7 @@ import { join } from 'node:path';
 import { browserSubpathsStayClear } from './artifacts/browser';
 import { classesDefinedOnce } from './artifacts/classes';
 import { declarationsEmit } from './artifacts/emit';
+import { importsDeclared } from './artifacts/imports';
 import { installAsConsumer, type Packed, pack } from './artifacts/install';
 import { binsRun, subpathsLoad } from './artifacts/load';
 import { manifestProblems } from './artifacts/manifest';
@@ -78,7 +83,8 @@ async function tarballsSound({ tarballs }: Packed): Promise<boolean> {
 			'on no registry, an exact pin on a sibling, a sibling range that\n' +
 			'excludes the sibling published beside it, a package that lists\n' +
 			'itself, a license other than MIT or no LICENSE shipped, a `files`\n' +
-			'entry the tarball does not hold, or test code shipped. See AGENTS.md.',
+			'entry the tarball does not hold, test code shipped, or a scoped\n' +
+			'package not published as public. See AGENTS.md.',
 	);
 	return false;
 }
@@ -96,6 +102,7 @@ async function main(): Promise<boolean> {
 			(await subpathsLoad(workdir, packages)) &&
 			(await browserSubpathsStayClear(workdir, packages)) &&
 			(await classesDefinedOnce(workdir, packages)) &&
+			(await importsDeclared(workdir, packages)) &&
 			(await binsRun(workdir, packages)) &&
 			(await declarationsEmit(workdir, packages))
 		);

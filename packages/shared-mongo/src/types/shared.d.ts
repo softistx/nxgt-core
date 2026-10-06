@@ -1,6 +1,5 @@
 import type { LocaleKey } from '@nxgt/i18n';
-import type { ErrorProps } from '@nxgt/shared-exceptions';
-import type { StatusCode } from 'hono/utils/http-status';
+import type { ErrorProps, StatusCode } from '@nxgt/shared-exceptions';
 
 declare module 'mongoose' {
 	export interface SaveOptions extends SessionOption {
