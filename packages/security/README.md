@@ -87,6 +87,21 @@ Within a path's method map (or a GraphQL type's field list), matching is
 first-match-wins in document order — more specific literal patterns must be
 declared before overlapping `:param` ones.
 
+**A HEAD request faces what a GET would, plus its own HEAD rule when one
+matches.** Servers answer HEAD by running the GET route (Hono does), so a file
+that names only `GET` covers HEAD too. A `HEAD` entry can only add to that —
+`HEAD: { public: true }` beside an authenticated `GET` still refuses an
+anonymous HEAD. On a path with no GET rule, the GET side is what
+`global.unmatched` says of it: open by default, so the HEAD rule decides; but
+refused under `unmatched: deny`, whatever the HEAD rule says. No other method
+borrows another's rules. `evaluateRest` makes this decision, so
+`policyGuard`, a dry run and `unnamedOperations` all agree on it.
+
+**There is no any-method entry**: each method is named explicitly. A route
+that answers every method (`app.all('/doc', …)`), or a method the schema
+cannot name (`PURGE`, say), is closed by `global.unmatched: deny`, not by
+naming methods — see below.
+
 **Declarative-only fields:** `global.rateLimit`, `global.cors`,
 `global.providers`, and the per-rule `cors` / `rateLimit` overrides validate
 and round-trip, but no evaluator in this package reads them. Real CORS and
@@ -204,6 +219,16 @@ not "would it allow this caller" — so there are no claims to invent, no Keto
 evaluator to stub and no expression to run. It collapses duplicates, skips
 wildcard mounts and anything outside `mountedOn`, and catches a **method** the
 file forgot on a path it does name.
+
+An `ALL` route on an exact path (`app.all('/api/doc', …)`) is reported unless
+every method the schema knows is named for that path: any method left out
+reaches the handler with no rule. `app.use('/api/doc', mw)` registers as `ALL`
+too; it is skipped when its handler takes `next` (Hono's own middleware test,
+through any `app.route()` wrapping) and a later route has the same path. The
+limit: a middleware that itself answers some methods and passes the others on
+to a later GET looks like any other middleware, and its answering methods are
+not reported. Methods the schema cannot name never appear as gaps either, so
+for any-method routes and for those methods, prefer `global.unmatched: deny`.
 
 **`unmatched` is REST-only.** `applyGraphqlPolicy` leaves a field with no rule
 entry completely untouched: its resolver is never wrapped. Making one apply
@@ -338,6 +363,18 @@ Must run after the token-resolution middleware (`bearerAuth` / `currentUser` /
 `oryAuth` / …) that populates the `USER_HEADERS` **context variables** — not
 request headers, so nothing a client sends can reach the decision directly.
 
+A rule's `req` is read the way the handler reads the request: `req.query` is
+`c.req.query()` and `req.cookies` is `getCookie(c)` — the first value of a
+repeated name, decoded once, quotes stripped. So the value a rule checks is
+the value the handler acts on. `req.body` is the parsed JSON body when the
+content type is JSON as Hono's validator detects it (`application/json` or
+`application/<x>+json`, any case), and `undefined` otherwise or when it does
+not parse. A handler that calls `c.req.json()` without checking the content
+type parses what the guard did not, so write a body expression to fail on
+`undefined` (`req.body?.ownerId === claims.sub`, never a negation). The
+handler still reads the exact bytes sent, through `c.req.text()` or
+`c.req.raw`, which a signature check needs.
+
 On DENY it throws a 403 `CustomException` — or a 404 when the refusal came from
 a `keto` rung declaring `onDeny: NOT_FOUND`. On ALLOW / NOT_APPLICABLE it calls
 `next()`.
@@ -373,6 +410,13 @@ so the rules file and `ketoCheck()` cannot disagree about
 term never imports this subpath. A rule that carries a `keto` term with no
 evaluator supplied **throws**; it is never an allow.
 
+The guard calls `permissions` only when the rule it matched reaches a `keto`
+rung, once per request. A route with no `keto` term, and a path no rule
+names, never call it, so they keep working on an app where `oryChecks(ory)`
+is mounted on a narrower prefix than the guard, or not at all. A `keto` rule
+on such an app fails with
+`` policyGuard: a rule carries a `keto` check, but oryChecks(ory) is not mounted on this app — mount it before the guard. ``
+
 ### `ketoPermissions` for GraphQL (`@nxgt/security/integrations/graphql/keto`)
 
 ```ts
@@ -391,6 +435,11 @@ publish, so `useKetoChecks` must be registered before the policed schema is
 served. Same consequence as REST: a `@permission` on the field and a `keto` rung
 asking the same question cost one round trip.
 
+As on REST, `permissions` is called only for a field whose rule reaches a
+`keto` rung. Other policed fields resolve without `useKetoChecks`; a `keto`
+field without it fails with
+`` applyGraphqlPolicy: a rule carries a `keto` check, but useKetoChecks(ory) is not registered on this server ``.
+
 ## Things that bite
 
 - **`authorities` AND/OR vs `keto` OR/AND.** Do not "make them consistent".
@@ -398,7 +447,12 @@ asking the same question cost one round trip.
 - **`param.` is the rules-file pattern, not the Hono route.**
 - **`global.unmatched: deny` is REST-only**; combining it with `graphql:`
   throws at compile.
-- **A `keto` term without an evaluator throws**, never allows.
+- **A `keto` term without an evaluator throws**, never allows. Only a rule
+  that carries one needs the evaluator: the provider is called lazily.
+- **HEAD faces what a GET would**, `unmatched` included; a `HEAD` entry can
+  only restrict it.
+- **No any-method entry.** Close `app.all` routes and methods the schema
+  cannot name with `global.unmatched: deny`.
 - **`rateLimit` / `cors` / `providers` validate and go nowhere.**
 - **A rule reading `req.headers` reads what the client wrote.** An
   `expression` on a header is no proof of who sent it; identity comes from
