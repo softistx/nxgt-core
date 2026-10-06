@@ -39,7 +39,7 @@ getLogger().info('from a service, uses the request logger when there is one');
 | `createLogger({ name, tag?, disableConsole? })` | a Winston logger that writes `logs/<name>-%DATE%.log`, rotating daily, kept 14 days |
 | `logger` | the default instance, `name: 'server'` |
 | `getLogger()` | the request logger from Hono context, or `logger` outside a request |
-| `loggerProvider()` | Hono middleware: `ctx.set('logger', …)` with a `requestId` child |
+| `loggerProvider()` | Hono middleware: `ctx.set('logger', …)` with a child logger carrying `requestId` (the context's own, else a fresh UUIDv7) |
 | `Logger` | this package's export of Winston's type |
 
 `Logger` is this package's export, not `winston.Logger`. Naming winston's type
@@ -48,6 +48,19 @@ consumer installing from the registry.
 
 Level comes from `LOG_LEVEL`, default `info`. `tag` defaults to `'sellix'`.
 Pass `disableConsole: true` to keep only the file transport.
+
+## Line format
+
+```
+[2026-06-10 22:40:20] [sellix] [info] ready
+[2026-06-10 22:40:20] [sellix] [info] [requestId=01a1135f-fc30-779d-bd81-e43fc2cfb636] from the handler
+```
+
+`[timestamp] [label] [level] message`. A logger that carries a `requestId` (the
+one `loggerProvider()` puts on the context, so `getLogger()` inside a request)
+adds ` [requestId=<id>]` after the level; a line without one is unchanged. The
+timestamp pattern is `YYYY-DD-MM HH:mm:ss` — day before month — as it has always
+been; parsers may depend on it.
 
 ## Things that bite
 
