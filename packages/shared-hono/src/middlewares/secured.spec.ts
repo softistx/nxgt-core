@@ -221,6 +221,23 @@ describe('secured() — roles', () => {
 });
 
 describe('secured() — confidential client', () => {
+	test.each([
+		['an empty username', ''],
+		['a null username', null],
+	] as const)(
+		'%s with a clientId reads as a client, held to its scopes under ADMIN',
+		async (_, username) => {
+			const admin = client({
+				username: username as never,
+				roles: ['ADMIN'],
+				authorities: ['users:read'],
+			});
+
+			expect((await call(admin, [['users:read']])).status).toBe(403);
+			expect((await call(admin, [['ADMIN']])).status).toBe(403);
+		},
+	);
+
 	test('only SCOPE_* authorities count', async () => {
 		const backoffice = client({
 			authorities: ['SCOPE_users:read', 'users:read'],
@@ -266,18 +283,43 @@ describe('secured() — confidential client', () => {
 		).toBe(403);
 	});
 
-	test("roles: ['ADMIN'] lets a client through before the SCOPE_* filter", async () => {
-		// OPEN QUESTION for the owner — pinned, not fixed. The JSDoc on
-		// `secured()` says a confidential client is held to SCOPE_* authorities
-		// only, but the ADMIN-role bypass runs first and does not look at
-		// whether the principal is a client. A client whose principal carries
-		// `roles: ['ADMIN']` therefore passes a guard it holds no scope for.
-		// Whether a client may ever carry that role (and whether the bypass
-		// should skip clients) is the owner's call; this spec records today's
-		// behaviour so a change to it is deliberate.
+	test("roles: ['ADMIN'] does not let a client past a scope it lacks", async () => {
+		// A confidential client is held to its SCOPE_* authorities only, as the
+		// JSDoc on `secured()` says: the ADMIN-role bypass is for users.
 		const adminClient = client({ roles: ['ADMIN'], authorities: [] });
 
+		const { status, body } = await call(adminClient, [['SCOPE_users:read']]);
+
+		expect(status).toBe(403);
+		expect(body).toEqual({
+			status: 403,
+			message: 'errors.forbidden',
+			timestamp: expect.any(String),
+		});
+		expect((await call(adminClient, [['ADMIN']])).status).toBe(403);
+	});
+
+	test("roles: ['ADMIN'] on a client holding the scope passes on the scope", async () => {
+		const adminClient = client({
+			roles: ['ADMIN'],
+			authorities: ['SCOPE_users:read'],
+		});
+
 		expect((await call(adminClient, [['SCOPE_users:read']])).status).toBe(200);
+	});
+
+	test("roles: ['ADMIN'] on a client still passes a guard naming no authority", async () => {
+		const adminClient = client({ roles: ['ADMIN'], authorities: [] });
+
+		expect((await call(adminClient)).status).toBe(200);
+		expect((await call(adminClient, [[]])).status).toBe(200);
+	});
+
+	test("roles: ['ADMIN'] still bypasses for a user acting through a client", async () => {
+		// A clientId with a username is a user: the bypass applies.
+		const onBehalf = client({ username: 'ada', roles: ['ADMIN'] });
+
+		expect((await call(onBehalf, [['SCOPE_users:read']])).status).toBe(200);
 	});
 });
 
@@ -316,12 +358,20 @@ describe('secured() — logging', () => {
 		});
 	});
 
-	test('logs no caller line for an ADMIN, who returns before it', async () => {
+	test('logs no caller line for an ADMIN user, who returns before it', async () => {
 		const logged: Logged = [];
 		await app(user({ roles: ['ADMIN'] }), [['x']], logged).request('/x');
 
 		expect(logged).toEqual([
 			{ level: 'info', message: 'Secured middleware: checking authorities' },
 		]);
+	});
+});
+
+describe('secured() — ADMIN user unchanged', () => {
+	test('an ADMIN user still passes a guard it holds no authority for', async () => {
+		const admin = user({ roles: ['ADMIN'], authorities: [] });
+
+		expect((await call(admin, [['SCOPE_users:read']])).status).toBe(200);
 	});
 });
