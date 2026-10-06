@@ -16,8 +16,12 @@ import type { MiddlewareHandler } from 'hono/types';
  *   secured([['ADMIN', 'users:read']]) — ADMIN or users:read
  *   secured([['ADMIN'], ['users:read']]) — ADMIN and users:read
  *
+ * A user whose `roles` include `ADMIN` passes every guard.
+ *
  * For confidential-client principals (clientId present, no username) only
- * SCOPE_* authorities are considered — role/permission entries are ignored.
+ * SCOPE_* authorities are considered — role/permission entries are ignored,
+ * and the ADMIN-role bypass does not apply: a client is held to its scopes
+ * whatever `roles` its principal carries.
  */
 export function secured(authorities: string[][] = []): MiddlewareHandler {
 	return createMiddleware(async (ctx, next) => {
@@ -33,7 +37,10 @@ export function secured(authorities: string[][] = []): MiddlewareHandler {
 			});
 		}
 
-		if (user.roles?.includes('ADMIN')) {
+		// A confidential client is a clientId with no username.
+		const isClient = !!user.clientId && !user.username;
+
+		if (!isClient && user.roles?.includes('ADMIN')) {
 			return next();
 		}
 
@@ -48,7 +55,6 @@ export function secured(authorities: string[][] = []): MiddlewareHandler {
 		// For confidential clients, only SCOPE_* authorities are considered —
 		// role/permission entries are ignored. If the client lacks the required
 		// scope authority it is denied.
-		const isClient = !!user.clientId && !user.username;
 		const userAuthorities = user.authorities ?? [];
 		const effectiveUserAuthorities = isClient
 			? userAuthorities.filter(isScopeAuthority)

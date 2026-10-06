@@ -17,7 +17,9 @@ Nothing planned that changes what a consumer gets. See Later.
 
 - **A rate-limit key that is not a client header.** `rateLimiter()` keys on
   `x-forwarded-for` unless given a `keyGenerator`; a key read from a header
-  only your proxy writes would make the default safe.
+  only your proxy writes would make the default safe. Without that header the
+  default key is `''`, so every such caller shares one counter and one of
+  them can exhaust it for all; until then, pass a `keyGenerator`.
 - **The MCP introspection URL as an option**, rather than the hardcoded
   `http://localhost:8080/api`.
 

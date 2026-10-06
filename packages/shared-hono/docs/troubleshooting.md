@@ -106,6 +106,15 @@ A call made with `openfetchServiceUser()` reaches a service on 4.0, which
 ignores the forwarded `X-User-*` headers. Pass the secret that service's
 `gatewaySecret` holds: `openfetchServiceUser({ secret })`.
 
+### A confidential client with the ADMIN role gets 403
+
+A principal with a `clientId` and no `username` carries `roles: ['ADMIN']`,
+and a `secured()` route it used to pass answers 403. Since 4.1.2 the `ADMIN`
+bypass is for users only: a confidential client is held to its `SCOPE_*`
+authorities, as the guard always documented. Grant the client the scope the
+route names — `secured([['SCOPE_users:read']])` passes a token carrying
+`SCOPE_users:read` — or add that scope to the route's OR group.
+
 ### `principalFromMockHeaders` always names a caller
 
 It returns a promise since 4.0, and a promise is truthy. `await` it.

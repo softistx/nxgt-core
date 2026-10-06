@@ -92,8 +92,17 @@ caller)` is the same refusal, for a middleware of your own that reads the
 headers.
 
 `secured([['ADMIN'], ['users:read']])` is Apollo-federation `requireScopes`
-semantics: outer AND, inner OR. Confidential clients (a `clientId` and no
-`username`) only match `SCOPE_*`.
+semantics: outer AND, inner OR. A user whose `roles` include `ADMIN` passes
+every guard. A confidential client (a `clientId` and no `username`) only
+matches `SCOPE_*` authorities, and the `ADMIN` role does not let it past a
+scope it lacks:
+
+```ts
+app.get('/api/users', secured([['SCOPE_users:read']]), handler);
+// { clientId: 'backoffice', roles: ['ADMIN'], authorities: [] }               → 403
+// { clientId: 'backoffice', authorities: ['SCOPE_users:read'] }               → 200
+// { username: 'ada', roles: ['ADMIN'], authorities: [] }                      → 200
+```
 
 In a route spec, send the caller and the secret together:
 `client.use(mockAuthMiddleware(mockUser({ username: 'ada' }), { secret }))`.
@@ -213,6 +222,18 @@ it follows `PORT`.
   can set when nothing in front of the service overwrites it. Behind a proxy
   that does not, pass a `keyGenerator` reading something the client cannot
   write.
+- **Without `x-forwarded-for`, every caller shares one counter.** The
+  default key is then `''`, so one caller can spend the limit for all the
+  others. A service reached directly, or through a proxy that does not set
+  the header, needs a `keyGenerator`:
+
+  ```ts
+  import { getConnInfo } from 'hono/bun';
+
+  app.use('/api/*', rateLimiter({
+    keyGenerator: (c) => getConnInfo(c).remote.address ?? 'unknown',
+  }));
+  ```
 - **`openfetchServiceUser` reads the Hono context at construction.** Call it
   inside a request (or from `tryGetContext()`-aware code), not at module
   scope, or it captures an empty context forever.
