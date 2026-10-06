@@ -1,5 +1,11 @@
 # @nxgt/shared-mongo
 
+## 1.1.8
+
+### Patch Changes
+
+- [#192](https://github.com/softistx/nxgt-core/pull/192) [`e6724b9`](https://github.com/softistx/nxgt-core/commit/e6724b968b85e5c4b72f5d40b0f52dc018ae67a4) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Fix the soft-delete type augmentation referring to a global `mongodb.` namespace that was never imported. A consumer with `skipLibCheck: false` got TS2833 and TS2503, and with `skipLibCheck: true` those types silently became `any`. It now imports `mongo` from mongoose as a type, and uses mongoose's own `QueryOptions` where it named the non-existent `MongooseQueryOptions`.
+
 ## 1.1.7
 
 ### Patch Changes
