@@ -34,8 +34,8 @@ export type FieldGuard = {
 type Guarded = {
 	guards: FieldGuard[];
 	resolve: Resolver;
-	subscribe?: Resolver;
-	wrapped: { resolve: Resolver; subscribe?: Resolver };
+	subscribe?: Resolver | undefined;
+	wrapped: { resolve: Resolver; subscribe?: Resolver | undefined };
 };
 
 const GUARDS = '@nxgt/shared-graphql:guards';
@@ -98,7 +98,7 @@ export function guardField(
 			[GUARDS]: { guards, ...base, wrapped } satisfies Guarded,
 		},
 		resolve: wrapped.resolve,
-		subscribe: wrapped.subscribe,
+		...(wrapped.subscribe ? { subscribe: wrapped.subscribe } : {}),
 	};
 }
 

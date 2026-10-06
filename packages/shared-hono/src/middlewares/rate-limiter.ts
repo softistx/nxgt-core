@@ -64,11 +64,13 @@ export function rateLimiter(options?: RateLimiterOptions) {
 		limit: options?.limit ?? 10,
 		keyGenerator:
 			options?.keyGenerator ?? ((c) => c.req.header('x-forwarded-for') ?? ''),
-		store: options?.redisUrl
-			? new RedisStore({
-					client: redisClientFor(options.redisUrl, options.redisToken),
-					prefix: options.prefix,
-				})
-			: undefined,
+		...(options?.redisUrl
+			? {
+					store: new RedisStore({
+						client: redisClientFor(options.redisUrl, options.redisToken),
+						...(options.prefix === undefined ? {} : { prefix: options.prefix }),
+					}),
+				}
+			: {}),
 	});
 }

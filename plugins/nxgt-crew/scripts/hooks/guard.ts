@@ -31,7 +31,7 @@ await runHook(async (input) => {
 
 	let verdict: Verdict = { decision: 'allow', warned: [] };
 	const file = editedPath(input.tool_name, input.tool_input);
-	const command = input.tool_input?.command;
+	const command = input.tool_input?.['command'];
 	if (file && peers.length) {
 		verdict = evaluateEdit(file, await gitPlace(file), ctx);
 	} else if (input.tool_name === 'Bash' && typeof command === 'string') {

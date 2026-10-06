@@ -73,7 +73,7 @@ function signedIn(held: string[]) {
 function refusalOf(result: ExecutionResult) {
 	const error = result.errors?.[0];
 	return {
-		code: error?.extensions?.code,
+		code: error?.extensions?.['code'],
 		key: denialMessageKey(error?.originalError),
 	};
 }
@@ -99,7 +99,7 @@ describe('@permission', () => {
 			'Note:n1#view@idn-7',
 		]);
 		expect(result.errors).toBeUndefined();
-		expect(result.data?.note).toEqual({ id: 'n1' });
+		expect(result.data?.['note']).toEqual({ id: 'n1' });
 		expect(asked).toEqual(['Note:n1#view@idn-7']);
 	});
 
@@ -107,7 +107,7 @@ describe('@permission', () => {
 		const { code, key, result } = await run('{ note(id: "n1") { id } }', []);
 		expect(code).toBe(ErrorCode.NotFound);
 		expect(key).toBe('errors.not-found');
-		expect(result.data?.note).toBeNull();
+		expect(result.data?.['note']).toBeNull();
 	});
 
 	it('is AND when repeated, in declaration order: 404 for a stranger, 403 for a viewer', async () => {
@@ -160,7 +160,7 @@ describe('@permission', () => {
 			source: '{ open }',
 			contextValue: {},
 		});
-		expect(result.data?.open).toBe('anyone');
+		expect(result.data?.['open']).toBe('anyone');
 	});
 
 	it('reads the id where `id` points: another argument', async () => {

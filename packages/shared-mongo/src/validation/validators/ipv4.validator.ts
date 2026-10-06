@@ -8,7 +8,7 @@ export function ipv4(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.ipv4'),
+		message: options.message({}, 'validation.errors.ipv4'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.ipv4.test(value))

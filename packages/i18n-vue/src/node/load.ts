@@ -81,8 +81,8 @@ export function checkCatalogueSource(
 		throw new TypeError(`${name}: locales holds the same locale twice`);
 	}
 	if (
-		options.fallbackLocale !== undefined &&
-		!locales.includes(options.fallbackLocale)
+		options['fallbackLocale'] !== undefined &&
+		!locales.includes(options['fallbackLocale'])
 	) {
 		throw new TypeError(`${name}: fallbackLocale must be one of locales`);
 	}
@@ -389,7 +389,7 @@ export async function loadMessages(
 			`i18n: ${path} has no default export — export the resources object, or a function that returns it`,
 		);
 	}
-	let resources = loaded.default;
+	let resources = loaded['default'];
 	if (typeof resources === 'function') {
 		try {
 			resources = await resources();

@@ -15,7 +15,7 @@ export function future(
 	const limit = DateTime.now().minus(omit(options.value, 'datetime'));
 
 	return {
-		message: options.message?.(
+		message: options.message(
 			{
 				limit: limit
 					.setLocale(i18next.language)

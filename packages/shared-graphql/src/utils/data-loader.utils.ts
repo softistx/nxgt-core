@@ -93,7 +93,7 @@ export function createSimpleListDataLoader<K, V>(
 			const ids = doc[path] ?? [];
 			return isArray(ids) ? cast<mongoose.Schema.Types.ObjectId[]>(ids) : [];
 		});
-		filter._id = ids;
+		filter['_id'] = ids;
 		const query = model.find(filter);
 		const data: HydratedDocument<V>[] = await query.exec();
 		return cast(

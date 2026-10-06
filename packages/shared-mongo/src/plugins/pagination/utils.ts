@@ -187,8 +187,8 @@ export function applyPagination(schema: Schema) {
 		}
 
 		const cursorFilter: QueryFilter<any> = filter;
-		if (after) cursorFilter._id = { $gt: after };
-		if (before) cursorFilter._id = { $lt: before };
+		if (after) cursorFilter['_id'] = { $gt: after };
+		if (before) cursorFilter['_id'] = { $lt: before };
 
 		const limit = Math.min(first ?? last ?? MAX_SIZE, MAX_SIZE);
 		const querySort = { _id: last || before ? -1 : 1 };

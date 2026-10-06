@@ -164,8 +164,8 @@ describe('createI18n', () => {
 		const fr: Record<string, string> = { a: 'Salut {name}' };
 		const first = createI18n({ catalogues: { en, fr } });
 		// Seen only if the catalogues were checked again: the cache hides it.
-		en.b = 'Late';
-		fr.b = 'Tard';
+		en['b'] = 'Late';
+		fr['b'] = 'Tard';
 		const second = createI18n({ catalogues: { en, fr }, locale: 'fr' });
 		expect(second.has('b')).toBe(false);
 		expect(second.t('a', { name: 'Ada' })).toBe('Salut Ada');

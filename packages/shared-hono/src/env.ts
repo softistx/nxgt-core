@@ -33,5 +33,5 @@ const parseEnv = (value: Record<string, unknown>): Env => {
 // Export validated and typed environment variables
 export const env = parseEnv({
 	NODE_ENV: Bun.env.NODE_ENV,
-	PORT: Bun.env.PORT,
+	PORT: Bun.env['PORT'],
 });

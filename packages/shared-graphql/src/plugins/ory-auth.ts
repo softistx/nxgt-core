@@ -52,15 +52,18 @@ export type OryContext = {
  */
 export function toPrincipal(ory: OryPrincipal): TokenPrincipal {
 	const email = ory.identity?.email;
+	const scope = ory.scopes.join(' ');
 	return {
 		sub: ory.subject,
 		uid: ory.subject,
 		name: email ?? ory.clientId ?? ory.subject,
-		username: email,
-		clientId: ory.clientId,
-		scope: ory.scopes.join(' ') || undefined,
+		...(email === undefined ? {} : { username: email }),
+		...(ory.clientId === undefined ? {} : { clientId: ory.clientId }),
+		...(scope ? { scope } : {}),
 		tokenType: ory.kind,
-		exp: ory.expiresAt ? Math.floor(ory.expiresAt.getTime() / 1000) : undefined,
+		...(ory.expiresAt
+			? { exp: Math.floor(ory.expiresAt.getTime() / 1000) }
+			: {}),
 		authorities: [],
 		roles: [],
 	};
@@ -95,11 +98,16 @@ export async function resolveOryPrincipal(
 		throw error;
 	}
 
+	const token = bearerOf(headers);
 	return {
 		ory: principal,
-		user: principal ? toPrincipal(principal) : undefined,
-		claims: principal ? claimsFromOryPrincipal(principal) : undefined,
-		token: bearerOf(headers) ?? undefined,
+		...(principal
+			? {
+					user: toPrincipal(principal),
+					claims: claimsFromOryPrincipal(principal),
+				}
+			: {}),
+		...(token == null ? {} : { token }),
 	};
 }
 

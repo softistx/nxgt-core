@@ -31,22 +31,22 @@ const trimmed = (value: unknown): string =>
  */
 export function planOf(a: Announcement): Plan | undefined {
 	const raw = a as unknown as Record<string, unknown>;
-	if (raw.kind !== 'plan') return undefined;
-	const entry = trimmed(raw.entry);
+	if (raw['kind'] !== 'plan') return undefined;
+	const entry = trimmed(raw['entry']);
 	if (!entry) return undefined;
-	const at = trimmed(raw.at);
+	const at = trimmed(raw['at']);
 	if (!at || Number.isNaN(Date.parse(at))) return undefined;
-	const scope = trimmed(raw.scope);
-	const needs = Array.isArray(raw.needs)
-		? raw.needs.map(trimmed).filter(Boolean)
+	const scope = trimmed(raw['scope']);
+	const needs = Array.isArray(raw['needs'])
+		? raw['needs'].map(trimmed).filter(Boolean)
 		: [];
 	return {
 		entry,
 		at,
-		text: trimmed(raw.text),
+		text: trimmed(raw['text']),
 		...(scope ? { scope } : {}),
 		...(needs.length ? { needs } : {}),
-		...(raw.dropped === true ? { dropped: true as const } : {}),
+		...(raw['dropped'] === true ? { dropped: true as const } : {}),
 	};
 }
 

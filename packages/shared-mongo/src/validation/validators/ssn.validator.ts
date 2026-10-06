@@ -8,7 +8,7 @@ export function ssn(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.ssn'),
+		message: options.message({}, 'validation.errors.ssn'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.ssn.test(value))

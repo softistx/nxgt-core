@@ -69,4 +69,4 @@ export const pre = (
 	});
 
 export const decision = (r: Run) =>
-	r.out?.hookSpecificOutput?.permissionDecision;
+	r.out?.['hookSpecificOutput']?.permissionDecision;

@@ -126,10 +126,10 @@ describe('applyGraphqlPolicy', () => {
 			contextValue: {},
 		});
 
-		expect(result.data?.me).toEqual({ email: null });
+		expect(result.data?.['me']).toEqual({ email: null });
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors?.[0]?.message).toContain('Insufficient authorities');
-		expect(result.errors?.[0]?.extensions?.code).toBe('FORBIDDEN');
+		expect(result.errors?.[0]?.extensions?.['code']).toBe('FORBIDDEN');
 	});
 
 	it('extracts claims via the getClaims callback with the real resolver context', async () => {
@@ -197,7 +197,7 @@ describe('applyGraphqlPolicy', () => {
 			source: '{ me { email } }',
 			contextValue: {},
 		});
-		expect(denied.data?.me).toEqual({ email: null });
+		expect(denied.data?.['me']).toEqual({ email: null });
 		expect(denied.errors).toHaveLength(1);
 
 		const schemaForOwner = applyGraphqlPolicy(buildSchema(), rules, {
@@ -300,9 +300,9 @@ describe('applyGraphqlPolicy — the decisions it used to drop', () => {
 
 		const result = await graphql({ schema, source: '{ me { id } }' });
 
-		expect(result.data?.me).toBeNull();
+		expect(result.data?.['me']).toBeNull();
 		expect(result.errors?.[0]?.message).toBe('errors.unauthenticated');
-		expect(result.errors?.[0]?.extensions?.code).toBe('UNAUTHENTICATED');
+		expect(result.errors?.[0]?.extensions?.['code']).toBe('UNAUTHENTICATED');
 	});
 
 	it('carries a Keto rung’s denial and message onto the error', async () => {
@@ -353,9 +353,9 @@ describe('applyGraphqlPolicy — the decisions it used to drop', () => {
 
 		// The id came off the parent object, not off an argument.
 		expect(asked).toEqual(['1']);
-		expect((result.data?.me as any)?.email).toBeNull();
-		expect((result.data?.me as any)?.id).toBe('1');
+		expect((result.data?.['me'] as any)?.email).toBeNull();
+		expect((result.data?.['me'] as any)?.id).toBe('1');
 		expect(result.errors?.[0]?.message).toBe('users.errors.not-found');
-		expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND');
+		expect(result.errors?.[0]?.extensions?.['code']).toBe('NOT_FOUND');
 	});
 });

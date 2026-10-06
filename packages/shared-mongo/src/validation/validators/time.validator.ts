@@ -8,7 +8,7 @@ export function time(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.time'),
+		message: options.message({}, 'validation.errors.time'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.time.test(value))

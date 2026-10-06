@@ -44,7 +44,7 @@ const run = (source: string, contextValue: object, over = schema) =>
 	graphql({ schema: over, source, contextValue });
 
 const codeOf = (result: ExecutionResult) =>
-	result.errors?.[0]?.extensions?.code;
+	result.errors?.[0]?.extensions?.['code'];
 
 describe('@authenticated', () => {
 	it('refuses an anonymous caller UNAUTHENTICATED (401), and leaves open fields open', async () => {
@@ -180,7 +180,7 @@ describe('@authenticated on what a field returns, and on a subscription', () => 
 	it('guards every field returning a guarded scalar or enum', async () => {
 		const anonymous = await run('{ secret level }', {}, guarded);
 		expect(anonymous.data).toEqual({ secret: null, level: null });
-		expect(anonymous.errors?.map((e) => e.extensions.code)).toEqual([
+		expect(anonymous.errors?.map((e) => e.extensions['code'])).toEqual([
 			ErrorCode.Unauthenticated,
 			ErrorCode.Unauthenticated,
 		]);
@@ -199,7 +199,7 @@ describe('@authenticated on what a field returns, and on a subscription', () => 
 			document: parse('subscription { tick }'),
 			contextValue: {},
 		});
-		expect((refused as ExecutionResult).errors?.[0]?.extensions?.code).toBe(
+		expect((refused as ExecutionResult).errors?.[0]?.extensions?.['code']).toBe(
 			ErrorCode.Unauthenticated,
 		);
 		expect(opened).toBe(0);

@@ -49,7 +49,7 @@ const { positionals, values } = parseArgs({
 const command = positionals[2];
 const migrationsDir = resolve(values.dir);
 const targetName = values.name;
-const mongoUri = values.uri ?? Bun.env.MONGODB_URI;
+const mongoUri = values.uri ?? Bun.env['MONGODB_URI'];
 const dryRun = values['dry-run'];
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -145,13 +145,19 @@ async function main(): Promise<void> {
 		connection: mongoose.connection,
 	});
 
+	// An absent flag stays an absent key: `exactOptionalPropertyTypes` rejects `undefined`.
+	const runOptions = {
+		...(targetName === undefined ? {} : { name: targetName }),
+		...(dryRun === undefined ? {} : { dryRun }),
+	};
+
 	switch (command) {
 		case 'up':
-			await runner.up({ name: targetName, dryRun });
+			await runner.up(runOptions);
 			break;
 
 		case 'down':
-			await runner.down({ name: targetName, dryRun });
+			await runner.down(runOptions);
 			break;
 
 		case 'list': {

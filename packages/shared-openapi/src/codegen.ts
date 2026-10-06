@@ -39,6 +39,7 @@ export async function generateOpenapiTS(
 					questionToken: true,
 				};
 			}
+			return undefined;
 		},
 	});
 

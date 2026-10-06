@@ -7,7 +7,7 @@ export function maxLength(args: ValidatorOptions<number>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.(
+		message: options.message(
 			{ maxLength: options.value },
 			'validation.errors.max-length',
 		),

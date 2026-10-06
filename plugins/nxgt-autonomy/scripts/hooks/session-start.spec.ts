@@ -35,7 +35,7 @@ async function run(
 	cwd?: string,
 ) {
 	const proc = Bun.spawn(['bun', SCRIPT], {
-		cwd,
+		...(cwd === undefined ? {} : { cwd }),
 		stdin: new Blob([stdin]),
 		stdout: 'pipe',
 		stderr: 'pipe',

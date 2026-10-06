@@ -10,7 +10,7 @@ type DemoFilter = {
 	name?: { operator: 'CONTAINS'; value?: string | null } | null;
 	active?: boolean | null;
 	AND?: DemoFilter[] | null;
-	OR?: DemoFilter[] | null;
+	OR?: DemoFilter[] | null | undefined;
 	NOT?: DemoFilter | null;
 };
 
@@ -26,7 +26,7 @@ function buildDemoFilter(filter?: DemoFilter | null): QueryFilter<any> {
 	addFilterCondition(mongoFilter, 'name', buildStringFilter(filter.name));
 
 	if (typeof filter.active === 'boolean') {
-		mongoFilter.active = filter.active;
+		mongoFilter['active'] = filter.active;
 	}
 
 	return mongoFilter;
@@ -55,7 +55,7 @@ describe('buildLogicalFilter', () => {
 	it('Should map a non-array NOT combinator to $not', () => {
 		const result = buildDemoFilter({ NOT: { active: true } });
 
-		expect(result.$not).toEqual({ active: true });
+		expect(result['$not']).toEqual({ active: true });
 	});
 
 	it('Should recurse so nested combinators are built too', () => {
@@ -74,7 +74,7 @@ describe('buildLogicalFilter', () => {
 			AND: [{ active: false }],
 		});
 
-		expect(result.active).toBe(true);
+		expect(result['active']).toBe(true);
 		expect(result.$and).toEqual([{ active: false }]);
 	});
 

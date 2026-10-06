@@ -6,7 +6,7 @@ import { GraphQLError } from 'graphql';
 import { createKetoChecks } from './keto-checker';
 import { can, requireUser } from './keto-helpers';
 
-const codeOf = (error: unknown) => (error as GraphQLError).extensions?.code;
+const codeOf = (error: unknown) => (error as GraphQLError).extensions?.['code'];
 
 describe('requireUser', () => {
 	it('returns the caller', () => {

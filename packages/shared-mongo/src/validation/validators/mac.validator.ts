@@ -8,7 +8,7 @@ export function mac(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.mac'),
+		message: options.message({}, 'validation.errors.mac'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.mac.test(value))

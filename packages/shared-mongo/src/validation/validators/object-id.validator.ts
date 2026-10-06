@@ -8,7 +8,7 @@ export function objectId(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.object-id'),
+		message: options.message({}, 'validation.errors.object-id'),
 		validator(value) {
 			return (
 				isNil(value) ||

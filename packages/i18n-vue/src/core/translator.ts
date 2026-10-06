@@ -29,7 +29,7 @@ export function lookup(catalogue: Catalogue, key: string): string | null {
 	let node: string | Catalogue | undefined = catalogue;
 	for (const segment of key.split('.')) {
 		if (typeof node !== 'object' || node === null) return null;
-		const found = Object.hasOwn(node, segment)
+		const found: string | undefined = Object.hasOwn(node, segment)
 			? segment
 			: Object.keys(node).find((candidate) => sameSegment(candidate, segment));
 		if (found === undefined) return null;

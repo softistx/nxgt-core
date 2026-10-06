@@ -199,7 +199,7 @@ describe('loadCatalogues', () => {
 			'locales/fr/auth/sign-in.json': '{ "title": "Se connecter" }',
 		});
 		const loaded = await loadCatalogues(root, { locales: ['en', 'fr'] });
-		expect(loaded.catalogues.en).toEqual({
+		expect(loaded.catalogues['en']).toEqual({
 			home: { title: 'Home' },
 			mails: { welcome: { subject: 'Welcome' } },
 			auth: { 'sign-in': { title: 'Sign in' } },

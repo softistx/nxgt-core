@@ -136,7 +136,7 @@ describe('a @permission of another shape', () => {
 				resolvers: { Query: { note: () => 'open' } },
 			}),
 		);
-		const resolve = schema.getQueryType()?.getFields().note?.resolve;
+		const resolve = schema.getQueryType()?.getFields()['note']?.resolve;
 		expect(resolve?.(null, {}, {}, {} as never)).toBe('open');
 	});
 });

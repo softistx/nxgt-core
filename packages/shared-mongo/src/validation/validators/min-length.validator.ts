@@ -7,7 +7,7 @@ export function minLength(args: ValidatorOptions<number>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.(
+		message: options.message(
 			{ minLength: options.value },
 			'validation.errors.min-length',
 		),

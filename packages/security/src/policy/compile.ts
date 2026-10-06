@@ -179,16 +179,17 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 				),
 			);
 
+			const compiledExpression = compileExpression(
+				rule.expression,
+				compile,
+				REST_SCOPE,
+			);
 			const route: CompiledRestRoute = {
 				pattern,
 				matcher,
 				rule,
 				hasDomainPlaceholder,
-				compiledExpression: compileExpression(
-					rule.expression,
-					compile,
-					REST_SCOPE,
-				),
+				...(compiledExpression ? { compiledExpression } : {}),
 				ketoReadsBody,
 			};
 
@@ -221,15 +222,16 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 										'callers there is nothing to ask about.',
 								);
 							}
+							const compiledExpression = compileExpression(
+								rule.expression,
+								compile,
+								GRAPHQL_SCOPE,
+							);
 							return [
 								field,
 								{
 									rule,
-									compiledExpression: compileExpression(
-										rule.expression,
-										compile,
-										GRAPHQL_SCOPE,
-									),
+									...(compiledExpression ? { compiledExpression } : {}),
 								} satisfies CompiledGraphqlEntry,
 							];
 						}),
@@ -238,5 +240,9 @@ export function compilePolicy(rules: Rules): CompiledPolicy {
 			)
 		: undefined;
 
-	return { global: rules.global, restRoutesByMethod, graphql };
+	return {
+		...(rules.global ? { global: rules.global } : {}),
+		restRoutesByMethod,
+		...(graphql ? { graphql } : {}),
+	};
 }

@@ -32,7 +32,7 @@ export function requireGatewayTrust(
 		caller,
 		reads: 'the X-User-* headers',
 		alternative: 'oryAuth(ory)',
-		call,
+		...(call === undefined ? {} : { call }),
 	});
 }
 

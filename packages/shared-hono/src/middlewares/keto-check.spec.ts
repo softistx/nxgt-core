@@ -23,7 +23,7 @@ function stack(held: string[], status = 200) {
 			JSON.stringify({
 				results: tuples.map((t) => ({
 					allowed: held.includes(
-						`${t.namespace}:${t.object}#${t.relation}@${t.subject_id}`,
+						`${t['namespace']}:${t['object']}#${t['relation']}@${t['subject_id']}`,
 					),
 				})),
 			}),

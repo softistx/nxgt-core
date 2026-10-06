@@ -8,7 +8,7 @@ export function ip(args: ValidatorOptions<true>) {
 	const options = parseValidatorOptions(args);
 
 	return {
-		message: options.message?.({}, 'validation.errors.ip'),
+		message: options.message({}, 'validation.errors.ip'),
 		validator(value) {
 			return (
 				isNil(value) || (typeof value === 'string' && REGEX.ip.test(value))
