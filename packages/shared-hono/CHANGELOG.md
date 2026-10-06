@@ -1,5 +1,18 @@
 # @nxgt/shared-hono
 
+## 4.1.1
+
+### Patch Changes
+
+- [#183](https://github.com/softistx/nxgt-core/pull/183) [`46d6137`](https://github.com/softistx/nxgt-core/commit/46d61372f3551c97bc6dd9be93b011a792cd4845) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `rateLimiter` and `oryPrincipalFromMock` omit a key instead of passing `undefined` (`store`, `prefix`, `identity`, `clientId`, `name.first`, `name.last`). Every reader uses `?.` or a default, so behaviour is the same.
+  
+  `gateway-trust` omits `call` when it is undefined.
+- Updated dependencies [[`750a1f7`](https://github.com/softistx/nxgt-core/commit/750a1f7a447d5c558b16ab021a612ad6ce3aedd7)]:
+  - @nxgt/security@4.2.1
+  - @nxgt/shared@1.0.6
+  - @nxgt/shared-exceptions@1.0.6
+  - @nxgt/shared-mongo@1.1.6
+
 ## 4.1.0
 
 ### Minor Changes
