@@ -56,7 +56,7 @@ export function applySoftDeleteOperations(schema: Schema) {
 				const args: any[] = [];
 				Array.prototype.push.apply(args, arguments as any);
 				args[0] = { ...args?.[0], deleted: true };
-				return (Model as any)[method].apply(this, arguments);
+				return (Model as any)[method].apply(this, args);
 			});
 			schema.static(`${method}WithDeleted`, function () {
 				return (Model as any)[method].apply(this, arguments);
@@ -107,19 +107,35 @@ export function applySoftDeleteOperations(schema: Schema) {
 }
 
 /**
- * `pipeline` with `$match` folded into its first stage when that stage is a
- * `$match`, or prepended as a stage of its own otherwise. The caller's array
- * and stage objects are left as they were.
+ * Stages the server only accepts at the head of a pipeline.
+ */
+const FIRST_STAGE_ONLY = [
+	'$geoNear',
+	'$search',
+	'$searchMeta',
+	'$vectorSearch',
+];
+
+/**
+ * `pipeline` with `$match` placed at its head — or right after a stage that
+ * must stay first, such as `$geoNear`. It is folded into a `$match` already in
+ * that place unless that one names `deleted` itself, in which case it goes in
+ * as a stage of its own, so the caller's condition is never overwritten (the
+ * server merges adjacent `$match` stages). The caller's array and stage
+ * objects are left as they were.
  */
 function withLeadingMatch(
 	pipeline: any[] | undefined,
 	$match: Record<string, unknown>,
 ): any[] {
 	const stages = [...(pipeline ?? [])];
-	if (stages[0]?.$match) {
-		stages[0] = { ...stages[0], $match: { ...stages[0].$match, ...$match } };
+	const head = stages[0];
+	const at = head && FIRST_STAGE_ONLY.some((stage) => stage in head) ? 1 : 0;
+	const target = stages[at];
+	if (target?.$match && !('deleted' in target.$match)) {
+		stages[at] = { ...target, $match: { ...target.$match, ...$match } };
 	} else {
-		stages.unshift({ $match });
+		stages.splice(at, 0, { $match });
 	}
 	return stages;
 }

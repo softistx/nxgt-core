@@ -8,6 +8,7 @@ import {
 } from 'bun:test';
 import mongoose from 'mongoose';
 import { disconnectQuietly } from '../../migrations/disconnect';
+import { hasMongoHost } from '../../test/has-mongo-host';
 import { softDelete } from './index';
 
 /**
@@ -23,7 +24,7 @@ import { softDelete } from './index';
  * `Aggregate` whose `pipeline()` is exactly what would be sent.
  */
 
-const schema = new mongoose.Schema({ label: String, n: Number });
+const schema = new mongoose.Schema({ label: String, n: Number, loc: [Number] });
 schema.plugin(softDelete);
 const Item = mongoose.model('SoftDeleteAggregateSpec', schema) as any;
 
@@ -70,6 +71,52 @@ describe('aggregate on a soft-delete schema (no database)', () => {
 		]);
 	});
 
+	it('keeps a caller $match naming deleted, and prepends its own', () => {
+		const pipeline = [{ $match: { deleted: false } }, { $limit: 1 }];
+		expect(Item.aggregate(pipeline).pipeline()).toEqual([
+			{ $match: { deleted: { $ne: true } } },
+			{ $match: { deleted: false } },
+			{ $limit: 1 },
+		]);
+		expect(Item.aggregateDeleted(pipeline).pipeline()).toEqual([
+			{ $match: { deleted: { $eq: true } } },
+			{ $match: { deleted: false } },
+			{ $limit: 1 },
+		]);
+	});
+
+	const firstStages = [
+		{ $geoNear: { near: [0, 0], key: 'loc', distanceField: 'dist' } },
+		{ $search: { text: { query: 'a', path: 'label' } } },
+		{ $searchMeta: { count: { type: 'total' } } },
+		{
+			$vectorSearch: {
+				index: 'v',
+				path: 'embedding',
+				queryVector: [0.1],
+				numCandidates: 10,
+				limit: 1,
+			},
+		},
+	];
+	for (const first of firstStages) {
+		const name = Object.keys(first)[0];
+		it(`leaves ${name} first and puts the $match right after it`, () => {
+			expect(Item.aggregate([first, { $limit: 1 }]).pipeline()).toEqual([
+				first,
+				{ $match: { deleted: { $ne: true } } },
+				{ $limit: 1 },
+			]);
+		});
+	}
+
+	it('folds into a $match that follows a first-only stage', () => {
+		const geoNear = firstStages[0];
+		expect(
+			Item.aggregateDeleted([geoNear, { $match: { label: 'a' } }]).pipeline(),
+		).toEqual([geoNear, { $match: { label: 'a', deleted: { $eq: true } } }]);
+	});
+
 	it('aggregateWidthDeleted passes the pipeline through untouched', () => {
 		const pipeline = [{ $match: { label: 'a' } }, { $limit: 1 }];
 		expect(Item.aggregateWidthDeleted(pipeline).pipeline()).toEqual([
@@ -80,59 +127,83 @@ describe('aggregate on a soft-delete schema (no database)', () => {
 });
 
 /**
- * The same, against a server. CI starts one and sets `MONGODB_URI`; locally
- * `.env.test` expands to a URI with no host when the Mongo variables are unset,
- * and an absent database is not a failing test.
+ * The same, against a server: CI starts one; locally the suite is skipped
+ * unless `MONGODB_URI` names a host (see `hasMongoHost`).
  */
-function hasMongoHost(uri: string | undefined): boolean {
-	if (!uri) return false;
-	try {
-		return new URL(uri).host !== '';
-	} catch {
-		return false;
-	}
-}
+describe.skipIf(!hasMongoHost())('soft-delete statics (MongoDB)', () => {
+	beforeAll(async () => {
+		await mongoose.connect(Bun.env['MONGODB_URI'] as string);
+	});
 
-describe.skipIf(!hasMongoHost(Bun.env['MONGODB_URI']))(
-	'aggregate on a soft-delete schema (MongoDB)',
-	() => {
-		beforeAll(async () => {
-			await mongoose.connect(Bun.env['MONGODB_URI'] as string);
-		});
+	afterAll(async () => {
+		await disconnectQuietly();
+	});
 
-		afterAll(async () => {
-			await disconnectQuietly();
-		});
+	beforeEach(async () => {
+		await Item.collection.deleteMany({});
+		await Item.collection.insertMany([
+			{ label: 'a', n: 1, loc: [0, 1] },
+			{ label: 'a', n: 2, loc: [0, 2], deleted: false },
+			{ label: 'a', n: 4, loc: [0, 3], deleted: true },
+			{ label: 'b', n: 8, loc: [0, 4] },
+		]);
+		await Item.collection.createIndex({ loc: '2d' });
+	});
 
-		beforeEach(async () => {
-			await Item.collection.deleteMany({});
-			await Item.collection.insertMany([
-				{ label: 'a', n: 1 },
-				{ label: 'a', n: 2, deleted: false },
-				{ label: 'a', n: 4, deleted: true },
-				{ label: 'b', n: 8 },
-			]);
-		});
+	const sumOfA = [
+		{ $match: { label: 'a' } },
+		{ $group: { _id: null, total: { $sum: '$n' } } },
+	];
 
-		const sumOfA = [
-			{ $match: { label: 'a' } },
+	it('runs the caller pipeline over documents not deleted', async () => {
+		expect(await Item.aggregate(sumOfA)).toEqual([{ _id: null, total: 3 }]);
+	});
+
+	it('aggregateDeleted runs it over deleted documents only', async () => {
+		expect(await Item.aggregateDeleted(sumOfA)).toEqual([
+			{ _id: null, total: 4 },
+		]);
+	});
+
+	it('aggregateWidthDeleted runs it over every document', async () => {
+		expect(await Item.aggregateWidthDeleted(sumOfA)).toEqual([
+			{ _id: null, total: 7 },
+		]);
+	});
+
+	it('respects a caller $match on deleted instead of overwriting it', async () => {
+		const notDeletedByFlag = [
+			{ $match: { deleted: false } },
 			{ $group: { _id: null, total: { $sum: '$n' } } },
 		];
+		expect(await Item.aggregate(notDeletedByFlag)).toEqual([
+			{ _id: null, total: 2 },
+		]);
+		expect(await Item.aggregate([{ $match: { deleted: true } }])).toHaveLength(
+			0,
+		);
+	});
 
-		it('runs the caller pipeline over documents not deleted', async () => {
-			expect(await Item.aggregate(sumOfA)).toEqual([{ _id: null, total: 3 }]);
-		});
+	it('keeps $geoNear first, which the server requires', async () => {
+		const nearest = await Item.aggregate([
+			{ $geoNear: { near: [0, 0], key: 'loc', distanceField: 'dist' } },
+			{ $project: { n: 1 } },
+		]);
+		expect(nearest.map((doc: any) => doc.n)).toEqual([1, 2, 8]);
+		const deleted = await Item.aggregateDeleted([
+			{ $geoNear: { near: [0, 0], key: 'loc', distanceField: 'dist' } },
+		]);
+		expect(deleted.map((doc: any) => doc.n)).toEqual([4]);
+	});
 
-		it('aggregateDeleted runs it over deleted documents only', async () => {
-			expect(await Item.aggregateDeleted(sumOfA)).toEqual([
-				{ _id: null, total: 4 },
-			]);
-		});
+	it('findDeleted returns the deleted documents only', async () => {
+		const found = await Item.findDeleted({}).lean();
+		expect(found.map((doc: any) => doc.n)).toEqual([4]);
+		expect((await Item.findDeleted({ label: 'b' }).lean()).length).toBe(0);
+	});
 
-		it('aggregateWidthDeleted runs it over every document', async () => {
-			expect(await Item.aggregateWidthDeleted(sumOfA)).toEqual([
-				{ _id: null, total: 7 },
-			]);
-		});
-	},
-);
+	it('countDocumentsDeleted counts the deleted documents only', async () => {
+		expect(await Item.countDocumentsDeleted({})).toBe(1);
+		expect(await Item.countDocumentsDeleted({ label: 'a' })).toBe(1);
+	});
+});
