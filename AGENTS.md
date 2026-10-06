@@ -161,11 +161,14 @@ port to the others. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
 spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
 is this copy's alone. `imports.ts`, `declarations.ts` and their specs are
-byte for byte nxgt-data's (and nxgt-http's, softistx/nxgt-http#97), as is
+byte for byte nxgt-data's and nxgt-janus's (softistx/nxgt-janus#191), as is
 `accessProblems` in `manifest.ts`, whose only difference is this file's
 bracket access on a manifest (`manifest['name']`), which this repository's
-`noPropertyAccessFromIndexSignature` requires; nxgt-janus has them in its own
-port. This copy and nxgt-http read a sibling's version from the
+`noPropertyAccessFromIndexSignature` requires. nxgt-http's copy
+(softistx/nxgt-http#97) has drifted: its `imports.ts` reports a file Bun's
+scanner cannot read (`scanFailure`) instead of crashing, and its specs have
+their own fixtures, without nxgt-data's later bin spec — a difference to
+converge, not a choice. This copy and nxgt-http read a sibling's version from the
 packed manifests, where nxgt-janus and nxgt-data read it from the workspace.
 Outside `scripts/artifacts/`, `check-changesets.ts` is nxgt-janus's alone.
 `check-nxgt-versions.ts`, its spec and `.github/workflows/nxgt-versions.yml` are
