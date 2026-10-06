@@ -1,5 +1,11 @@
 # @nxgt/shared-mongo
 
+## 1.1.7
+
+### Patch Changes
+
+- [#189](https://github.com/softistx/nxgt-core/pull/189) [`34af85b`](https://github.com/softistx/nxgt-core/commit/34af85b2cd9a25e1c38bae2c3b9cdf765906310c) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The published declarations no longer import packages the manifest does not declare. `AUDIT_CHANGE_STREAM` is typed `mongo.ChangeStream` through `mongoose` instead of inferring `import("mongodb").ChangeStream`, and `requireById`'s `errorProps` takes `StatusCode` from `@nxgt/shared-exceptions` instead of `hono/utils/http-status`. A consumer without `hono` or `mongodb` hoisted no longer resolves either to `any`.
+
 ## 1.1.6
 
 ### Patch Changes
