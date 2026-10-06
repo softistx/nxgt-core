@@ -63,41 +63,27 @@ export function applySoftDeleteOperations(schema: Schema) {
 			});
 		} else {
 			if (method === 'aggregate') {
-				schema.static(method, function () {
-					const $match = {
-						deleted: { $ne: true },
-					};
-					const args: any[] = [];
-					Array.prototype.push.apply(this, arguments as any);
-					if (args.length && args[0].$match) {
-						args[0].$match = { ...args[0].$match, ...$match };
-					} else {
-						args.unshift({ $match });
-					}
-					return (Model as any)[method].apply(this, args as any);
+				// mongoose's signature is aggregate(pipeline?, options?): the stages
+				// arrive as one array, not one argument each.
+				schema.static(method, function (pipeline?: any[], options?: any) {
+					return (Model as any)[method].call(
+						this,
+						withLeadingMatch(pipeline, { deleted: { $ne: true } }),
+						options,
+					);
 				});
-				schema.static(`${method}Deleted`, function () {
-					const $match = {
-						deleted: { $eq: true },
-					};
-					const args: any[] = [];
-					Array.prototype.push.apply(this, arguments as any);
-					if (args.length && args[0].$match) {
-						args[0].$match = { ...args[0].$match, ...$match };
-					} else {
-						args.unshift({ $match });
-					}
-					return (Model as any)[method].apply(this, args as any);
-				});
+				schema.static(
+					`${method}Deleted`,
+					function (pipeline?: any[], options?: any) {
+						return (Model as any)[method].call(
+							this,
+							withLeadingMatch(pipeline, { deleted: { $eq: true } }),
+							options,
+						);
+					},
+				);
 				schema.static(`${method}WidthDeleted`, function () {
-					const args: any[] = [];
-					Array.prototype.push.apply(this, arguments as any);
-					if (args.length && args[0].$match) {
-						args[0].$match = { ...args[0].$match, deleted: undefined };
-					} else {
-						args.unshift({ $match: { deleted: undefined } });
-					}
-					return (Model as any)[method].apply(this, args as any);
+					return (Model as any)[method].apply(this, arguments);
 				});
 			} else {
 				schema.statics[method] = function () {
@@ -118,4 +104,22 @@ export function applySoftDeleteOperations(schema: Schema) {
 			}
 		}
 	});
+}
+
+/**
+ * `pipeline` with `$match` folded into its first stage when that stage is a
+ * `$match`, or prepended as a stage of its own otherwise. The caller's array
+ * and stage objects are left as they were.
+ */
+function withLeadingMatch(
+	pipeline: any[] | undefined,
+	$match: Record<string, unknown>,
+): any[] {
+	const stages = [...(pipeline ?? [])];
+	if (stages[0]?.$match) {
+		stages[0] = { ...stages[0], $match: { ...stages[0].$match, ...$match } };
+	} else {
+		stages.unshift({ $match });
+	}
+	return stages;
 }
