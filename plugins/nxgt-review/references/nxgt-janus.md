@@ -27,7 +27,7 @@ git ls-files ':(glob)packages/*/src/**/*.ts' ':(glob,exclude)packages/*/src/**/*
 git ls-files ':(glob)packages/*/src/**/*.spec.ts' | xargs wc -l | sort -rn | head -15
 ```
 
-Functions with the agent's brace-bounded `awk`, over the same file list (342
+Functions with the agent's brace-bounded `awk`, over the same file list (383
 source files on `develop`, the `*.fixtures.ts` included). Then measure what
 the pathspecs above leave out — the scripts and every package's `test/`,
 `test/types/` included — the same way, files with `wc -l` and functions with
@@ -50,7 +50,7 @@ bun run build              # before typecheck: siblings resolve through dist/
 git diff --exit-code -- 'packages/*/src/generated'   # the committed generated code is current
 test -z "$(git status --porcelain -- 'packages/*/src/generated')"   # and none is left uncommitted
 bun run typecheck          # includes every test/types/ — the type-safety measurement
-bun run test               # per package, then `bun test ./scripts/`: the root scripts/ specs, 147 tests in 21 files
+bun run test               # per package, then `bun test ./scripts/`: the root scripts/ specs
 bun run verify:artifacts   # loads every subpath; one JanusError, one StoreFailure; no test code shipped
 bun run changeset:status   # pull requests only, not on changeset-release/develop
 ```
@@ -72,8 +72,9 @@ each the exact lower bound of its peer range:
   floors, asserts one copy of each `--single` floor and that the sources and
   the packed package resolve every floor, runs the command in a copy of the
   package, and removes the project — `@nxgt/janus-graphql` on `graphql`
-  16.9.0 (`--single`), `@envelop/core` 5.0.0 and `@graphql-tools/utils`
-  10.0.0.
+  16.9.0 (`--single`), `@envelop/core` 5.0.0, `@graphql-tools/utils`
+  10.0.0 and `graphql-ws` 6.0.0, an optional peer whose WebSocket specs
+  run there too.
 
 Both forward SIGINT and SIGTERM through `scripts/peer-floor/forward.ts`, and
 their specs hold that everything is put back after a success, a failure and
@@ -91,8 +92,9 @@ at a time** — `(cd packages/<name> && bun run test)`, which is
 `bun test src` but for `janus-mail`'s `bun test src scripts`. The Redis,
 mongod and PostgreSQL suites start their own servers (Redis built once into
 `.cache/redis`, mongod from `.cache/mongodb`, PGlite in process unless
-`JANUS_POSTGRES_URL` points at a server), so no live stack is needed, but
-running them in parallel races the caches.
+`JANUS_POSTGRES_URL` points at a server), so no live stack is needed. The
+root `test` runs the packages in parallel, and `test/build-lock.ts` lets one
+of up to three suites build the Redis while the others wait.
 
 ## Invariants
 
@@ -130,7 +132,7 @@ running them in parallel races the caches.
   reverted in #17).
   `grep -rnE "from '\.[^']*\.(js|ts)'" packages/*/src`
 - **Generated code lives in a `generated/` folder** (`src/generated/mail.ts`,
-  `src/generated/locales.ts` in `janus-mail`), never as a `.generated.ts` or
+  `src/generated/locales.ts`, `src/generated/codes-left.ts` in `janus-mail`), never as a `.generated.ts` or
   `.gen.ts` suffix. It is committed, excluded from Biome by `!**/generated`,
   and CI diffs it after the build.
 - **Type safety is counted.** A public method that refuses something has a
@@ -143,8 +145,12 @@ running them in parallel races the caches.
   `src/permissions/completions.*.spec.ts` measure that.
 - **No `any` in the public surface** — `noExplicitAny` stays on, as do
   `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. `AGENTS.md`
-  names the last for `packages/janus`; every package's `tsconfig.json` sets
-  it — *observed*, and a package that drops it is a question.
+  names the last for `packages/janus`. The strict flags live in the root
+  `tsconfig.base.json`, which every package's `tsconfig.json` extends; the
+  base has no `experimentalDecorators`, `emitDecoratorMetadata`, `allowJs` or
+  `strictPropertyInitialization: false`, and a package that turns a flag off
+  or puts one back is a question — *observed in the tsconfigs, not stated in
+  `AGENTS.md`*.
 - **Two sides, each usable alone.** `.` never loads `src/permissions/`,
   `./permissions` never loads `src/auth/`; `src/entries.spec.ts` walks the
   runtime graph. Something both need goes in a shared directory
@@ -162,12 +168,10 @@ running them in parallel races the caches.
   that throws on one, or a grant that answers it quietly, is a finding.
 - **A new package starts `"private": true`, and a private package gets no
   changeset.** Removing the flag is a commit of its own, with the changeset
-  that versions it. `changeset:private` enforces the second half. Ten of the
-  eleven packages are public; `@nxgt/janus-graphql` is still private on
-  `develop`, and softistx/nxgt-janus#155 removes the flag with the changeset
-  that publishes it at 0.1.0. Until it lands, a changeset whose front
-  matter names `janus-graphql` anywhere else is the finding; an empty one
-  whose text mentions it (`.changeset/janus-graphql-floors.md`) is not.
+  that versions it. `changeset:private` enforces the second half. All
+  eleven packages are public now, `@nxgt/janus-graphql` the last to lose the
+  flag: a `"private": true` in an existing package's manifest is a finding,
+  and a new package starts with it.
 
 ## Structure
 
@@ -218,21 +222,22 @@ running them in parallel races the caches.
   the cases runs across the folder. `test/types/refusals.ts` stays the
   top-level list.
 
-**Known debt to split** (measured on `develop` at `e53ef7b`, 2026-09-28,
-after #154, with #155 open) — each stays in the tally until it is gone, and a
+**Known debt to split** (measured on `develop` at `fccb5cd`, 2026-10-06) — each stays in the tally until it is gone, and a
 diff that grows one is a finding.
 
 - Files over 250: **none** under `packages/*/src`, `janus-graphql`,
   `janus-webhooks` and `janus-webhooks-redis` included. Closest to the line:
-  `janus-redis/src/scripts.ts` 249, `janus/src/permissions/list.fixtures.ts`
-  247, `janus/src/permissions/reverse.ts` 245,
-  `janus-webhooks-redis/src/queue.ts` 229, `janus-redis/src/stores.ts` 228 —
-  a diff that pushes one over is the finding. The second factor's steps were
-  split one module per step (#139): `lifecycle.ts` is 69, and
-  `janus-mail/src/options.ts` is down to 212.
+  `janus/src/permissions/list.fixtures.ts` 247,
+  `janus/src/permissions/reverse.ts` 245, `janus-redis/src/stores.ts` 237,
+  `janus-webhooks-redis/src/queue.ts` 229,
+  `janus-webhooks/src/conformance/cases/queue.ts` 228 and
+  `janus-hono/src/permission.ts` 225 — a diff that pushes one over is the
+  finding. `janus-redis/src/scripts/` is a folder now, `sessions.ts` its
+  longest at 137. The second factor's steps were split one module per step
+  (#139): `lifecycle.ts` is 69, and `janus-mail/src/options.ts` is 215.
 - Functions over 80, by the agent's `awk`: **none**. Longest:
-  `memorySessionStore` (`janus/src/auth/port/memory/sessions.ts:11`) 71,
-  `sessionStore` (`janus-drizzle/src/stores/sessions.ts:8`) 68.
+  `signIn` (`janus/src/auth/users/sign-in.ts:28`) 74, `sessionStore`
+  (`janus-drizzle/src/stores/sessions.ts:8`) 73.
 - Class bodies, which the `awk` does not see: `class Reverse`
   (`janus/src/permissions/reverse.ts:35`) 211 lines and `class Walk`
   (`janus/src/permissions/walk.ts:22`) 142 — each one traversal's state and
@@ -244,25 +249,24 @@ diff that grows one is a finding.
   the folder in `directives/`. Adding the `index.ts` and moving the specs in
   is a move with no spec's content touched.
 - No spec under `packages/*/src` is over 250 (the longest,
-  `auth/sessions/index.spec.ts` and `auth/second-factor/flows.events.spec.ts`,
-  229 each).
-- Outside the pathspecs, one function over 80: `secondFactor`
-  (`janus/test/types/auth/second-factor.ts:15`) 95 — the type-safety cases
-  21–28 and 35–38 in one never-run function. Splitting it by behaviour, with
-  the case numbering kept, is the move; a case added to it is the finding.
-  No file over 250. The longest files are
-  `janus/test/types/refusals.ts` 236, `scripts/check-nxgt-versions.spec.ts`
-  221, `janus-mail/test/types/option-refusals.ts` 204,
-  `janus-graphql/test/harness.ts` 196, `scripts/publish.ts` 180,
-  `scripts/run-in-floor-project.ts` 178, and `janus-hono/test/app.ts` and
-  `janus-drizzle/test/db.ts` 175 each (`run-on-peer-floor.ts` 141,
-  `scripts/artifacts/manifest.ts` 137, `scripts/floor-project/copies.ts` 120;
-  `scripts/verify-artifacts.ts` 90, `janus-mail/scripts/build-mail.ts` 171).
-  The next longest functions are near the line: `isolatedInstallPerCase`
-  (`scripts/run-on-peer-floor.fixtures.ts:42`) 77, `setup`
-  (`janus-graphql/test/harness.ts:37`) 76, `janus/test/types/auth/allowed.ts:11`
-  73 and `workspacePerCase` (`scripts/run-in-floor-project.fixtures.ts:39`)
-  72.
+  `janus-mail/src/render.spec.ts` 233, then `auth/sessions/index.spec.ts` and
+  `auth/second-factor/flows.events.spec.ts`, 229 each).
+- Outside the pathspecs, one function over 80:
+  `janus/test/types/auth/allowed.ts:11` 84 — type-safety cases in one
+  never-run function. Splitting it by behaviour, with the case numbering
+  kept, is the move; a case added to it is the finding. (`secondFactor` in
+  `janus/test/types/auth/second-factor.ts` is no longer over 80.) No file
+  over 250. The longest files are `janus/test/types/refusals.ts` 236,
+  `scripts/check-nxgt-versions.spec.ts` 221, `janus-graphql/test/harness.ts`
+  207, `janus-mail/test/types/option-refusals.ts` 204,
+  `janus-graphql/test/socket.ts` 183, `scripts/publish.ts` 180,
+  `scripts/run-in-floor-project.ts` 178, `janus-hono/test/app.ts` and
+  `janus-drizzle/test/db.ts` 175 each, `janus-mail/scripts/build-mail.ts`
+  174. The next longest functions are near the line:
+  `isolatedInstallPerCase` (`scripts/run-on-peer-floor.fixtures.ts:42`) 77,
+  `setup` (`janus-graphql/test/harness.ts:38`) 77, `workspacePerCase`
+  (`scripts/run-in-floor-project.fixtures.ts:39`) 72 and
+  `scripts/publish.ts:112` 65.
 
 ## Deliberate — do not report
 
@@ -293,9 +297,9 @@ diff that grows one is a finding.
   any other glob (`folderOf`), and counts a private workspace's
   `dependencies` (`manifestOf`); nxgt-http has no external `@nxgt/*` to
   track. A fix to a check in one copy and not the others is still reported.
-- The Redis `test/server.ts` in `janus-redis`, `janus-kit` and
-  `janus-webhooks-redis` — byte-identical, and both CI jobs key their Redis
-  cache on all three.
+- The Redis `test/server.ts` and `test/build-lock.ts` in `janus-redis`,
+  `janus-kit` and `janus-webhooks-redis` — byte-identical, and both CI jobs
+  key their Redis cache on the three `server.ts`, not on `build-lock.ts`.
 - The Redis script runner and reply reader in `janus-redis/src/{stores,replies}.ts`
   and `janus-webhooks-redis/src/{queue,replies}.ts`, with every difference
   the table in `AGENTS.md` lists — the failure's message, a `runner` with no
@@ -314,19 +318,33 @@ diff that grows one is a finding.
   `StoreFailure2`, and their bodies are identical; the copy has no `isNull`.
 - The integrations' reading of `janus()` and of a refusal — `Auth`,
   `UserOfAuth`, and the fields a client may read from a `JanusError`
-  (`issues`, `minLength`, `attemptsLeft`) — in
+  (`issues`, `minLength`, `attemptsLeft`, `retryAfter` and its `Retry-After`
+  header) — in
   `janus-hono/src/{session,errors}.ts` (`bodyOf`) and
   `janus-graphql/src/{types,errors}.ts` (`actionable`). The status table is
   not duplicated: both answer `@nxgt/janus`'s `statusOf`, and a third copy
   of it is a finding. Never `reason`, `login` or a cause in either.
-- The characters no object id may hold (`@`, `#`, parentheses) and the empty
-  id, in `janus/src/permissions/input.ts` (`RESERVED`, `idOf`) and
-  `janus-graphql/src/directives/permission/enforce.ts` (`UNNAMEABLE`):
-  `can()` refuses such an id with a `TypeError`, `@permission` answers it
-  `NOT_FOUND` before asking. One changed without the other turns an id the
+- The characters no object id may hold (`@`, `#`, parentheses), the empty id
+  and what no store keeps (a NUL, a lone surrogate), in
+  `janus/src/permissions/input.ts` (`RESERVED`, `idOf`),
+  `janus/src/stores/storable.ts` (`isStorable`) and
+  `janus-graphql/src/directives/permission/enforce.ts` (`UNNAMEABLE`,
+  `isNameable`): `can()` refuses the first with a `TypeError` and holds the
+  second for nobody, `@permission` answers both `NOT_FOUND` before asking. One changed without the other turns an id the
   core refuses into a 500.
-- `janus-mail`'s committed `src/generated/mail.ts`, whose header says to
-  git-ignore it — a declared divergence; the header is the generator's.
+- The renewed cookie and the `report` of a 5xx, in `janus-hono/src/session.ts`
+  and `src/errors.ts`, `janus-graphql/src/renewal.ts` and `src/report.ts`, and
+  `janus/src/auth/sessions/presented-token.ts`: sent only when `authenticate`
+  answered `renewed`, only to a request that presented the token as the
+  session cookie, never over a `Set-Cookie` of the same name. A change to one
+  copy not made to the others is a finding.
+- Freshness, `now - authenticatedAt >= maxAge` refusing with
+  `StepUpRequiredError`, in `janus/src/auth/sessions/fresh.ts` (`assertFresh`)
+  and `janus-hono/src/fresh.ts`; both refuse **at** `maxAge`. `janus-graphql`
+  calls `assertFresh` instead of copying it.
+- `janus-mail`'s committed `src/generated/` (`mail.ts`, `locales.ts`,
+  `codes-left.ts`), whose `mail.ts` header says to git-ignore it — a declared
+  divergence; the header is the generator's.
 
 For each, **do** report a fix made to one side and not the other, and a
 drift the table does not describe.
@@ -336,8 +354,9 @@ drift the table does not describe.
 - `@nxgt/janus` depends on nothing in the workspace. Every other package
   takes it as a required peer. A package that wraps an nxgt library peers it
   by range, `>=<floor> <1` for a `0.x` (`@nxgt/drizzle`, `@nxgt/mongo`,
-  `@nxgt/redis`, `@nxgt/mail`, `@nxgt/telemetry`), and the driver beneath it
-  too; a caret on a `0.x` is a finding. The one sibling dependency is
+  `@nxgt/redis`, `@nxgt/telemetry`), and the driver beneath it too; a caret
+  on a `0.x` is a finding. `@nxgt/mail` is the one that moved on: `>=0.1.0 <2`
+  since nxgt-mail's 1.0.0. The one sibling dependency is
   `@nxgt/janus-redis` inside `janus-kit`, which the application never
   imports. The sibling peers, *observed in the manifests*:
   `janus-webhooks-redis` peers `@nxgt/janus-webhooks` (required), and
@@ -345,7 +364,8 @@ drift the table does not describe.
   `@nxgt/janus-telemetry` (optional). `janus-graphql` peers no sibling but
   the core; its other peers are `graphql` (`^16.9.0 || ^17.0.0`: 17.0.2 in the
   `ci` job, 16.9.0 in *Floors*), `@envelop/core` (`^5.0.0`) and `@graphql-tools/utils`
-  (`>=10.0.0 <13`), whose floors *Floors* runs. A new edge between siblings is a
+  (`>=10.0.0 <13`), whose floors *Floors* runs, and `graphql-ws` (`^6.0.0`,
+  optional), run there at 6.0.0. A new edge between siblings is a
   question; a sibling in `dependencies` other than the kit's `janus-redis` is
   a finding, since `AGENTS.md` forbids factoring across packages.
 - `./conformance` is product surface, not a test helper: a change to a suite
