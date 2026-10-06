@@ -6,25 +6,25 @@ declare module 'mongoose' {
 		withUser?: string;
 	}
 
+	/*
+	 * Every augmentation of `Model` must repeat mongoose's type parameter names
+	 * (types/models.d.ts, `interface Model<TRawDocType, …, TLeanResultType>`) and
+	 * nothing else. TypeScript requires all declarations to have identical type
+	 * parameters, but lets defaults and heritage live on one declaration only, so
+	 * leaving them to mongoose keeps this file valid for any 9.x whose names match.
+	 * Copying them is how `TQueryHelpers = object` (mongoose says `{}`) and a
+	 * redeclared `schema: Schema<TRawDocType>` raised TS2428 and TS2717 for every
+	 * consumer with `skipLibCheck: false`. Mongoose already declares `schema`.
+	 */
 	export interface Model<
 		TRawDocType,
-		TQueryHelpers = object,
-		TInstanceMethods = object,
-		TVirtuals = object,
-		THydratedDocumentType = HydratedDocument<
-			TRawDocType,
-			TVirtuals & TInstanceMethods,
-			TQueryHelpers,
-			TVirtuals
-		>,
-		TSchema = any,
-		TLeanResultType = TRawDocType,
-	> extends NodeJS.EventEmitter,
-			IndexManager,
-			SessionStarter {
-		/** Schema the model uses. */
-		schema: Schema<TRawDocType>;
-
+		TQueryHelpers,
+		TInstanceMethods,
+		TVirtuals,
+		THydratedDocumentType,
+		TSchema,
+		TLeanResultType,
+	> {
 		/**
 		 * Throw not found if no document exists in the database that matches
 		 * the given `filter`.
