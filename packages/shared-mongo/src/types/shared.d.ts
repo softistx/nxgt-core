@@ -10,7 +10,7 @@ declare module 'mongoose' {
 	 * Every augmentation of `Model` must repeat mongoose's type parameter names
 	 * (types/models.d.ts, `interface Model<TRawDocType, …, TLeanResultType>`) and
 	 * nothing else. TypeScript requires all declarations to have identical type
-	 * parameters, but lets defaults and heritage live on one declaration only, so
+	 * parameters, but compares defaults only where both declarations have one, so
 	 * leaving them to mongoose keeps this file valid for any 9.x whose names match.
 	 * Copying them is how `TQueryHelpers = object` (mongoose says `{}`) and a
 	 * redeclared `schema: Schema<TRawDocType>` raised TS2428 and TS2717 for every
