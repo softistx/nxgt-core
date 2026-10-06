@@ -1,5 +1,4 @@
 ---
-'@nxgt/security': patch
 ---
 
-Internal only: `policy/compile.ts` is now the `policy/compile/` folder (types, expression cache, REST and GraphQL compilation, `compilePolicy`). No public change.
+Internal only: `policy/compile.ts` is split into `policy/compile/` by role. The public declarations are byte-identical and the compiled logic is unchanged, so nothing is released.
