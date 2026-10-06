@@ -1,5 +1,13 @@
 # @nxgt/shared-hono
 
+## 4.1.2
+
+### Patch Changes
+
+- [#216](https://github.com/softistx/nxgt-core/pull/216) [`b33a8ec`](https://github.com/softistx/nxgt-core/commit/b33a8ec6241a7093498e6f93ed0c51f53482a6c3) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Security: `secured()` no longer lets a confidential client (a `clientId` and no `username`) through on `roles: ['ADMIN']`. The ADMIN-role bypass ran before the client check, so a client principal carrying that role passed every guard without the `SCOPE_*` authority the guard asked for — contrary to the guard's own documentation. A confidential client is now held to its `SCOPE_*` authorities only, ADMIN role or not. Users keep the ADMIN bypass unchanged. A client that relied on the role needs the scope the route names.
+- Updated dependencies [[`c8d24fb`](https://github.com/softistx/nxgt-core/commit/c8d24fb147c49cc1d868bb0377a6d6f2d41d5b6d), [`3cfbc48`](https://github.com/softistx/nxgt-core/commit/3cfbc48714a0edcf128f7af596e5b5e18462b6f9), [`29aa7c6`](https://github.com/softistx/nxgt-core/commit/29aa7c69eb052f9a655ac2028c169869525c786c), [`a76b303`](https://github.com/softistx/nxgt-core/commit/a76b303b790c8c36ee123fd36013613686fd55fb)]:
+  - @nxgt/security@4.2.2
+
 ## 4.1.1
 
 ### Patch Changes
