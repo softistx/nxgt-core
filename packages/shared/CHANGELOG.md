@@ -1,5 +1,11 @@
 # @nxgt/shared
 
+## 1.0.7
+
+### Patch Changes
+
+- [#194](https://github.com/softistx/nxgt-core/pull/194) [`c8a1595`](https://github.com/softistx/nxgt-core/commit/c8a1595b25d062afc0322e005adcbce240eaca37) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Ship `@types/nodemailer` as a dependency. The built `dist/types/mailer.d.ts` imports `createTransport` from `nodemailer` to type `SendMailOptions`, but the types were only a devDependency, so a consumer with `skipLibCheck: false` got TS7016 and with `skipLibCheck: true` got `SendMailOptions` as `any`.
+
 ## 1.0.6
 
 ### Patch Changes
