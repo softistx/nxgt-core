@@ -16,6 +16,9 @@ const image = Bun.file(
 const prefix = `storage-spec/${crypto.randomUUID()}`;
 const keyFor = (name: string) => `${prefix}/${name}`;
 const missing = keyFor('missing.txt');
+// A second bucket, for `fetch`'s `bucket` option. The S3 creates it on the
+// first write.
+const OTHER_BUCKET = 'nxgt-test-other';
 
 /** The rejection of `promise`, or a failure if it resolved. */
 async function rejection(promise: Promise<unknown>): Promise<unknown> {
@@ -284,6 +287,19 @@ describe.skipIf(!hasS3)('StorageService', () => {
 			const response = await service.fetch(key);
 			expect(response.status).toBe(200);
 			expect(await response.text()).toBe('fetched');
+		});
+
+		test('fetches from the bucket named in its options', async () => {
+			const other = new StorageService(OTHER_BUCKET);
+			const key = keyFor('fetch-other.txt');
+			await other.write(key, 'elsewhere');
+			try {
+				const response = await service.fetch(key, { bucket: OTHER_BUCKET });
+				expect(response.status).toBe(200);
+				expect(await response.text()).toBe('elsewhere');
+			} finally {
+				await other.s3.delete(key);
+			}
 		});
 
 		test('rejects a missing key with a 404', async () => {

@@ -1,4 +1,4 @@
-import { omit, STRINGS_UTILS } from '@nxgt/shared/helpers';
+import { STRINGS_UTILS } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { getLogger } from '@nxgt/shared-logging';
 import {
@@ -126,13 +126,14 @@ export class StorageService {
 	) {
 		try {
 			await this.ensureExists(input, bucket === undefined ? {} : { bucket });
-			return await fetch(
-				STRINGS_UTILS.normalizeUrl(`s3://${bucket ?? this.bucket}/${input}`),
-				{
-					...options,
-					s3: omit(S3_CREDENTIALS, ['bucket']),
-				},
-			);
+			// The bucket goes in the options, never in the URL: Bun reads
+			// `S3_BUCKET` from the environment as the default bucket and then
+			// takes the whole `s3://` path as the key, so `s3://<bucket>/<key>`
+			// requested `/<S3_BUCKET>/<bucket>/<key>` — a 404 for every file.
+			return await fetch(STRINGS_UTILS.normalizeUrl(`s3://${input}`), {
+				...options,
+				s3: { ...S3_CREDENTIALS, bucket: bucket ?? this.bucket },
+			});
 		} catch (error) {
 			throw this.failure(error, 'storage.errors.fetch-failed');
 		}
