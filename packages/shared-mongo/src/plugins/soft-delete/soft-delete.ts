@@ -32,13 +32,6 @@ export function applySoftDeleteOperations(schema: Schema) {
 		);
 	});
 
-	// The aggregate counterpart of the other `…WithDeleted` statics. The one
-	// registered below as `aggregateWidthDeleted` is the original, misspelled
-	// name, kept as a deprecated alias.
-	schema.static('aggregateWithDeleted', function (...args: any[]) {
-		return (this as any).aggregateWidthDeleted(...args);
-	});
-
 	const methods = [
 		'find',
 		'findOne',
@@ -89,9 +82,12 @@ export function applySoftDeleteOperations(schema: Schema) {
 						);
 					},
 				);
-				schema.static(`${method}WidthDeleted`, function () {
+				// `aggregateWidthDeleted`: the original misspelling, kept as an alias.
+				schema.statics[`${method}WithDeleted`] = schema.statics[
+					`${method}WidthDeleted`
+				] = function () {
 					return (Model as any)[method].apply(this, arguments);
-				});
+				};
 			} else {
 				schema.statics[method] = function () {
 					return (Model as any)[method]

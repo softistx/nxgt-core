@@ -6,27 +6,14 @@ import type {
 	NestedPaginationOptions,
 	PaginationOptions,
 } from '../../models/pagination';
+import { type SoftDeleteScope, softDeleteSuffix } from './soft-delete-scope';
 import type {
 	CursorPaginateOptions,
 	NestedOffsetPaginationOptions,
 	PaginateOffsetOptions,
-	SoftDeleteScope,
 } from './types';
 
 const MAX_SIZE = 100;
-
-/**
- * The suffix of the soft-delete statics a paginator reads through —
- * `find${suffix}`, `countDocuments${suffix}`. The deprecated `'WidthDeleted'`
- * maps to `'WithDeleted'`: taken literally it named `findWidthDeleted`, which
- * does not exist, and the paginator fell back to `find` — excluding exactly
- * the deleted documents it was asked to include.
- */
-export function softDeleteSuffix(
-	deleted: SoftDeleteScope | undefined,
-): '' | 'Deleted' | 'WithDeleted' {
-	return deleted === 'WidthDeleted' ? 'WithDeleted' : (deleted ?? '');
-}
 
 /**
  * Both repositories put a `paginate` static on every schema, and they meant

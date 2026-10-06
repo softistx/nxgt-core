@@ -1,4 +1,7 @@
 import type { PopulateOptions } from 'mongoose';
+import type { SoftDeleteScope } from './soft-delete-scope';
+
+export type { SoftDeleteScope, WidthDeleted } from './soft-delete-scope';
 
 /**
  * Offset pagination — page and size.
@@ -9,22 +12,6 @@ import type { PopulateOptions } from 'mongoose';
  * carry the `Offset` prefix so both can be exported from one package; they had
  * the plain names in sellix-monorepo, where nothing called them.
  */
-/**
- * The deprecated spelling of `'WithDeleted'`. It is still accepted, and the
- * paginators read it as `'WithDeleted'`; it will be removed in a major release.
- *
- * @deprecated Use `'WithDeleted'`.
- */
-export type WidthDeleted = 'WidthDeleted';
-
-/**
- * Which documents a paginator reads on a schema using the `softDelete` plugin:
- * omitted for those not deleted, `'Deleted'` for the deleted ones only,
- * `'WithDeleted'` for all of them. `'WidthDeleted'` is the deprecated spelling
- * of `'WithDeleted'` (see {@link WidthDeleted}).
- */
-export type SoftDeleteScope = 'Deleted' | 'WithDeleted' | WidthDeleted;
-
 export class OffsetPaginationOptions {
 	filter?: object;
 	sort?: object;

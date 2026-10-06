@@ -5,14 +5,13 @@ import {
 	describe,
 	expect,
 	it,
-	spyOn,
 } from 'bun:test';
 import mongoose from 'mongoose';
 import { disconnectQuietly } from '../../migrations/disconnect';
+import { hasMongoHost } from '../../test/has-mongo-host';
 import { softDelete } from '../soft-delete';
 import { pagination } from './index';
-import type { SoftDeleteScope } from './types';
-import { softDeleteSuffix } from './utils';
+import { type SoftDeleteScope, softDeleteSuffix } from './soft-delete-scope';
 
 /**
  * The paginators reach the soft-delete statics by name — `find${deleted}`,
@@ -53,34 +52,22 @@ describe('softDeleteSuffix', () => {
 });
 
 describe('aggregateWithDeleted', () => {
-	it('is the consistently named aggregateWidthDeleted', () => {
-		const pipeline = [{ $match: { label: 'a' } }];
-		const options = { allowDiskUse: true };
-		const spy = spyOn(Item, 'aggregateWidthDeleted').mockReturnValue('same');
-		try {
-			expect(Item.aggregateWithDeleted(pipeline, options)).toBe('same');
-			expect(spy).toHaveBeenCalledWith(pipeline, options);
-		} finally {
-			spy.mockRestore();
-		}
+	it('passes the pipeline through, like aggregateWidthDeleted', () => {
+		const pipeline = [{ $match: { label: 'a' } }, { $limit: 1 }];
+		const aggregate = Item.aggregateWithDeleted(pipeline, {
+			allowDiskUse: true,
+		});
+		expect(aggregate.pipeline()).toEqual(pipeline);
+		expect(aggregate.options.allowDiskUse).toBe(true);
+		expect(Item.aggregateWidthDeleted(pipeline).pipeline()).toEqual(pipeline);
 	});
 });
 
 /**
- * Against a server. CI starts one and sets `MONGODB_URI`; locally `.env.test`
- * expands to a URI with no host when the Mongo variables are unset, and an
- * absent database is not a failing test.
+ * Against a server: CI starts one; locally the suite is skipped unless
+ * `MONGODB_URI` names a host (see `hasMongoHost`).
  */
-function hasMongoHost(uri: string | undefined): boolean {
-	if (!uri) return false;
-	try {
-		return new URL(uri).host !== '';
-	} catch {
-		return false;
-	}
-}
-
-describe.skipIf(!hasMongoHost(Bun.env['MONGODB_URI']))(
+describe.skipIf(!hasMongoHost())(
 	'paginating a soft-delete model (MongoDB)',
 	() => {
 		beforeAll(async () => {
@@ -119,6 +106,24 @@ describe.skipIf(!hasMongoHost(Bun.env['MONGODB_URI']))(
 				expect(page.metadata.totalElements).toBe(3);
 			});
 		}
+
+		it('paginateOffset returns only deleted documents with Deleted', async () => {
+			const page = await Item.paginateOffset({ deleted: 'Deleted', size: 10 });
+			expect(page.data.map((doc: any) => doc.label)).toEqual(['c']);
+			expect(page.metadata.totalElements).toBe(1);
+		});
+
+		it('paginate returns only deleted documents with Deleted', async () => {
+			const page = await Item.paginate({ deleted: 'Deleted', first: 10 });
+			expect(page.edges.map((edge: any) => edge.node.label)).toEqual(['c']);
+			expect(page.totalCount).toBe(1);
+		});
+
+		it('cursorPaginate returns only deleted documents with Deleted', async () => {
+			const page = await Item.cursorPaginate({ deleted: 'Deleted', first: 10 });
+			expect(page.data.map((doc: any) => doc.label)).toEqual(['c']);
+			expect(page.metadata.totalElements).toBe(1);
+		});
 
 		it('excludes deleted documents by default', async () => {
 			const page = await Item.paginateOffset({ size: 10 });
