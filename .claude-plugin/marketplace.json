@@ -1,6 +1,6 @@
 {
 	"name": "nxgt-core",
-	"description": "The skills and agents shared by the nxgt repositories — nxgt-core, nxgt-http, nxgt-data, nxgt-telemetry, nxgt-janus, nxgt-di, sellix-monorepo, nxgt-federation, nxgt-ory, stx-sdk, self-learning and content-hub — authored once here rather than copied into each.",
+	"description": "The skills and agents shared by the nxgt repositories — nxgt-core, nxgt-http, nxgt-data, nxgt-telemetry, nxgt-janus, nxgt-di, nxgt-graphql, sellix-monorepo, nxgt-federation, nxgt-ory, stx-sdk, self-learning and content-hub — authored once here rather than copied into each.",
 	"owner": {
 		"name": "softistx"
 	},
