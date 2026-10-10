@@ -1,0 +1,91 @@
+import { describe, expect, test } from 'bun:test';
+import { classify, isTestFile, packageJsonSurfaceChanged } from './surface';
+
+describe('classify', () => {
+	test('src/ and lib/ are the surface, specs and tests are not', () => {
+		expect(classify('src/index.ts')).toBe('surface');
+		expect(classify('lib/deep/a.js')).toBe('surface');
+		expect(classify('src/index.spec.ts')).toBe('none');
+		expect(classify('src/a.test.tsx')).toBe('none');
+		expect(classify('src/__tests__/a.ts')).toBe('none');
+		expect(classify('src/a.fixtures.ts')).toBe('none');
+		expect(classify('src/hooks.harness.ts')).toBe('none');
+	});
+
+	test('shipped asset directories are the surface', () => {
+		for (const dir of ['graphql', 'openapi', 'schema', 'docs']) {
+			expect(classify(`${dir}/x.md`)).toBe('surface');
+		}
+	});
+
+	test('package.json depends on its fields; anything else is not the surface', () => {
+		expect(classify('package.json')).toBe('package-json');
+		expect(classify('README.md')).toBe('none');
+		expect(classify('scripts/build.ts')).toBe('none');
+		expect(classify('test/a.ts')).toBe('none');
+		expect(classify('src')).toBe('none');
+		expect(classify('CHANGELOG.md')).toBe('none');
+	});
+
+	test('isTestFile matches the base name only', () => {
+		expect(isTestFile('src/spec.helpers/a.ts')).toBe(false);
+		expect(isTestFile('src/a.spec.ts')).toBe(true);
+	});
+});
+
+describe('packageJsonSurfaceChanged', () => {
+	const base = {
+		name: 'x',
+		version: '1.0.0',
+		exports: { '.': './dist/index.js', './a': './dist/a.js' },
+		files: ['dist'],
+		peerDependencies: { b: '^1' },
+	};
+
+	test('a version or script change is not the surface', () => {
+		expect(
+			packageJsonSurfaceChanged(base, {
+				...base,
+				version: '1.1.0',
+				scripts: { t: 'x' },
+			}),
+		).toBe(false);
+	});
+
+	test('key order does not matter', () => {
+		expect(
+			packageJsonSurfaceChanged(base, {
+				...base,
+				exports: { './a': './dist/a.js', '.': './dist/index.js' },
+			}),
+		).toBe(false);
+	});
+
+	test('exports, files and peers do', () => {
+		expect(
+			packageJsonSurfaceChanged(base, {
+				...base,
+				exports: { '.': './dist/index.js' },
+			}),
+		).toBe(true);
+		expect(
+			packageJsonSurfaceChanged(base, { ...base, files: ['dist', 'docs'] }),
+		).toBe(true);
+		expect(
+			packageJsonSurfaceChanged(base, {
+				...base,
+				peerDependencies: { b: '^2' },
+			}),
+		).toBe(true);
+		expect(
+			packageJsonSurfaceChanged(base, {
+				...base,
+				peerDependenciesMeta: { b: { optional: true } },
+			}),
+		).toBe(true);
+	});
+
+	test('a new manifest is a new surface', () => {
+		expect(packageJsonSurfaceChanged(undefined, base)).toBe(true);
+	});
+});

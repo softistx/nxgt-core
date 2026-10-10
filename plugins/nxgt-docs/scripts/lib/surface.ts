@@ -1,0 +1,67 @@
+/**
+ * What counts as the public surface of a published package: the files a
+ * consumer reads, imports or receives. Pure — paths are relative to the
+ * package directory, POSIX-separated — so the specs need no repository.
+ */
+
+/** Directories shipped as they are: a schema, a spec or the docs themselves. */
+const ASSET_DIRS = new Set(['graphql', 'openapi', 'schema', 'docs']);
+
+/** The `package.json` fields a consumer sees: what resolves, what ships, which peers. */
+export const SURFACE_FIELDS = [
+	'exports',
+	'files',
+	'peerDependencies',
+	'peerDependenciesMeta',
+] as const;
+
+/** A spec, a test or a helper that only the tests load. */
+export function isTestFile(path: string): boolean {
+	const segments = path.split('/');
+	if (segments.includes('__tests__')) return true;
+	const base = segments[segments.length - 1] ?? '';
+	return /\.(spec|test|fixtures|harness)\./.test(base);
+}
+
+export type SurfaceKind = 'surface' | 'package-json' | 'none';
+
+/**
+ * Classifies one changed file of a package. `package-json` means the answer
+ * depends on which fields changed (`packageJsonSurfaceChanged`).
+ */
+export function classify(path: string): SurfaceKind {
+	if (path === 'package.json') return 'package-json';
+	const first = path.split('/')[0] ?? '';
+	if (first === 'src' || first === 'lib') {
+		return path.includes('/') && !isTestFile(path) ? 'surface' : 'none';
+	}
+	if (ASSET_DIRS.has(first) && path.includes('/')) return 'surface';
+	return 'none';
+}
+
+/** JSON with object keys sorted, so `{a, b}` and `{b, a}` compare equal. */
+function canonical(value: unknown): string {
+	if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+	if (value && typeof value === 'object') {
+		const entries = Object.entries(value as Record<string, unknown>).sort(
+			([a], [b]) => (a < b ? -1 : a > b ? 1 : 0),
+		);
+		return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
+	}
+	return JSON.stringify(value) ?? 'undefined';
+}
+
+/**
+ * Whether a `package.json` changed what a consumer sees. `base` is the parsed
+ * version at the comparison point, `undefined` when the file is new there —
+ * a new manifest is a new surface.
+ */
+export function packageJsonSurfaceChanged(
+	base: Record<string, unknown> | undefined,
+	current: Record<string, unknown>,
+): boolean {
+	if (!base) return true;
+	return SURFACE_FIELDS.some(
+		(field) => canonical(base[field]) !== canonical(current[field]),
+	);
+}
