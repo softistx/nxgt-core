@@ -72,19 +72,37 @@ anything you did not create in this run.**
    expand, find it:
 
    ```bash
-   find ~/.claude/plugins "$(git rev-parse --show-toplevel)/plugins" \
-     -path '*nxgt-review/references/*.md' 2>/dev/null
+   # the installed version first — this checkout's install, else the user one
+   jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+     '(.plugins["nxgt-review@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+     ~/.claude/plugins/installed_plugins.json 2>/dev/null
+   # then read <installPath>/references/<repository>.md; with no install recorded,
+   # the newest cached version — older ones still carry stale app copies
+   find ~/.claude/plugins/cache/nxgt-core/nxgt-review -path '*/references/<repository>.md' 2>/dev/null | sort -V | tail -1
+   # inside nxgt-core itself, the checkout's own copy:
+   ls "$(git rev-parse --show-toplevel)/plugins/nxgt-review/references/<repository>.md" 2>/dev/null
    ```
 
    If that file is absent, the application's own plugin in `softistx/plugins`
    (marketplace `softistx-plugins`) may carry it as `references/review.md`:
 
    ```bash
-   # the installed version first; the cache keeps old ones
-   jq -r '.plugins["<repository>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+   # the installed version first — this checkout's install, else the user one;
+   # the cache keeps old versions
+   jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+     '(.plugins["<repository>@softistx-plugins"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+     ~/.claude/plugins/installed_plugins.json 2>/dev/null
    # then read <installPath>/references/review.md; with no install recorded:
    find ~/.claude/plugins/cache/softistx-plugins/<repository> -path '*/references/review.md' 2>/dev/null | sort -V | tail -1
+   # found by neither: is the plugin enabled here?
+   jq -r '.enabledPlugins["<repository>@softistx-plugins"] // false' "$(git rev-parse --show-toplevel)/.claude/settings.json" 2>/dev/null
    ```
+
+   If neither finds it but the repository's `.claude/settings.json` enables
+   `<repository>@softistx-plugins` (the last command prints `true`), report a
+   **blocking** finding — "app plugin enabled but not installed: run
+   `claude plugin install <repository>@softistx-plugins -s project`" — rather than
+   falling back to `AGENTS.md` alone.
 
    The reference names the measuring commands for this layout, the green
    bar and which parts of it you may run, the invariants, and what is

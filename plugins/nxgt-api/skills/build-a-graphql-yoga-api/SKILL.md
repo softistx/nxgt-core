@@ -40,11 +40,22 @@ the `nxgt-federation` plugin in `softistx/plugins` (marketplace
 `softistx-plugins`), `references/api.md`:
 
 ```bash
-# the installed version first; the cache keeps old ones
-jq -r '.plugins["nxgt-federation@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+# the installed version first — this checkout's install, else the user one;
+# the cache keeps old versions
+jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  '(.plugins["nxgt-federation@softistx-plugins"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+  ~/.claude/plugins/installed_plugins.json 2>/dev/null
 # then read <installPath>/references/api.md; with no install recorded:
 find ~/.claude/plugins/cache/softistx-plugins/nxgt-federation -path '*/references/api.md' 2>/dev/null | sort -V | tail -1
+# found by neither: is the plugin enabled here?
+jq -r '.enabledPlugins["nxgt-federation@softistx-plugins"] // false' "$(git rev-parse --show-toplevel)/.claude/settings.json" 2>/dev/null
 ```
+
+If neither finds it but the repository's `.claude/settings.json` enables
+`nxgt-federation@softistx-plugins` (the last command prints `true`), the plugin is
+enabled but not installed: stop and tell the user to run
+`claude plugin install nxgt-federation@softistx-plugins -s project`, rather than
+carrying on without the reference.
 
 ---
 
