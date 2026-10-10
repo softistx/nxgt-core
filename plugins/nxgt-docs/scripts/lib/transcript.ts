@@ -13,8 +13,13 @@
  *   `<tool-use-id>ID</tool-use-id>`, on a `queue-operation` line and again on
  *   the user line that delivers it.
  *
- * Pending means launched in the background with no notification yet. Lines of
- * a sidechain (a subagent's own turns) are ignored. Pure: the text is passed in.
+ * Pending means launched in the background with no notification yet.
+ *
+ * It also lists the files the session edited — the `file_path` of its Edit,
+ * Write and MultiEdit calls and the `notebook_path` of NotebookEdit — so the
+ * hook checks a worktree edited by absolute path while the cwd stays the main
+ * checkout. Lines of a sidechain (a subagent's own turns) are ignored. Pure:
+ * the text is passed in.
  *
  * A pending auditor silences the gate for every package, and a notification
  * that never lands keeps the session silent — accepted: the gate fails silent.
@@ -68,40 +73,80 @@ function isAsyncResult(entry: Json, block: Json): boolean {
 	return typeof text === 'string' && text.startsWith('Async agent launched');
 }
 
-export function auditorPending(transcript: string): boolean {
-	const lines = transcript.split('\n');
-	const launches = new Set<string>();
-	for (const line of lines) {
-		if (!line.includes(AUDITOR) || !line.includes('"tool_use"')) continue;
-		const entry = parse(line);
-		if (!entry || entry['isSidechain'] === true) continue;
-		for (const block of blocks(entry)) {
-			if (isAuditorLaunch(block) && typeof block['id'] === 'string') {
-				launches.add(block['id']);
-			}
-		}
-	}
-	if (launches.size === 0) return false;
+/** The tools whose input names a file the session wrote. */
+const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+const EDIT_MARKERS = [...EDIT_TOOLS].map((name) => `"${name}"`);
 
+function editedPath(block: Json): string | undefined {
+	if (block['type'] !== 'tool_use') return undefined;
+	const name = block['name'];
+	if (typeof name !== 'string' || !EDIT_TOOLS.has(name)) return undefined;
+	const input = block['input'];
+	if (!input || typeof input !== 'object') return undefined;
+	const path = (input as Json)['file_path'] ?? (input as Json)['notebook_path'];
+	return typeof path === 'string' && path ? path : undefined;
+}
+
+export interface TranscriptFacts {
+	/** A documentation-auditor run launched in the background and not yet notified. */
+	readonly auditorPending: boolean;
+	/**
+	 * The `file_path` (or `notebook_path`) of every Edit, Write, MultiEdit and
+	 * NotebookEdit call of the session itself, latest first, without repeats.
+	 */
+	readonly editedPaths: readonly string[];
+}
+
+/**
+ * Reads the facts the Stop hook needs in one pass over the transcript. Only
+ * lines that may matter are parsed: a quick substring check skips the rest.
+ */
+export function readTranscript(transcript: string): TranscriptFacts {
+	const launches = new Set<string>();
 	const background = new Set<string>();
-	const finished = new Set<string>();
-	for (const line of lines) {
-		const ids = [...launches].filter((id) => line.includes(id));
-		if (ids.length === 0) continue;
+	const notified = new Set<string>();
+	const edited: string[] = [];
+	for (const line of transcript.split('\n')) {
+		const toolUse = line.includes('"tool_use"');
+		const launch = toolUse && line.includes(AUDITOR);
+		const edit = toolUse && EDIT_MARKERS.some((m) => line.includes(m));
+		const asyncResult = line.includes('"tool_result"') && line.includes('sync');
+		const notice =
+			line.includes('task-notification') && line.includes('<tool-use-id>');
+		if (!launch && !edit && !asyncResult && !notice) continue;
 		const entry = parse(line);
 		if (!entry || entry['isSidechain'] === true) continue;
 		for (const block of blocks(entry)) {
+			if (launch && isAuditorLaunch(block) && typeof block['id'] === 'string')
+				launches.add(block['id']);
+			const path = edit ? editedPath(block) : undefined;
+			if (path) edited.push(path);
 			const id = block['tool_use_id'];
-			if (block['type'] !== 'tool_result' || typeof id !== 'string') continue;
-			if (!launches.has(id)) continue;
-			if (isAsyncResult(entry, block)) background.add(id);
-			else finished.add(id);
+			if (
+				asyncResult &&
+				block['type'] === 'tool_result' &&
+				typeof id === 'string' &&
+				isAsyncResult(entry, block)
+			)
+				background.add(id);
 		}
-		if (line.includes('task-notification')) {
-			for (const id of ids) {
-				if (line.includes(`<tool-use-id>${id}</tool-use-id>`)) finished.add(id);
-			}
+		if (notice) {
+			for (const match of line.matchAll(/<tool-use-id>([^<]+)<\/tool-use-id>/g))
+				if (match[1]) notified.add(match[1]);
 		}
 	}
-	return [...background].some((id) => !finished.has(id));
+	return {
+		auditorPending: [...background].some(
+			(id) => launches.has(id) && !notified.has(id),
+		),
+		editedPaths: [...new Set(edited.reverse())],
+	};
+}
+
+export function auditorPending(transcript: string): boolean {
+	return readTranscript(transcript).auditorPending;
+}
+
+export function editedPaths(transcript: string): readonly string[] {
+	return readTranscript(transcript).editedPaths;
 }

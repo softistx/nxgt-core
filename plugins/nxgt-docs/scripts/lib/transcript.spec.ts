@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { auditorPending } from './transcript';
+import { auditorPending, editedPaths, readTranscript } from './transcript';
 
 const launch = (
 	id: string,
@@ -134,5 +134,59 @@ describe('auditorPending', () => {
 				),
 			),
 		).toBe(true);
+	});
+});
+
+const toolUse = (
+	name: string,
+	input: Record<string, unknown>,
+	extra: Record<string, unknown> = {},
+) =>
+	JSON.stringify({
+		type: 'assistant',
+		...extra,
+		message: {
+			role: 'assistant',
+			content: [{ type: 'tool_use', id: `id-${name}`, name, input }],
+		},
+	});
+
+describe('editedPaths', () => {
+	test('lists Edit, Write, MultiEdit and NotebookEdit paths, latest first, once each', () => {
+		expect(
+			editedPaths(
+				lines(
+					toolUse('Edit', { file_path: '/a/x.ts' }),
+					toolUse('Write', { file_path: '/b/y.ts' }),
+					toolUse('MultiEdit', { file_path: '/a/x.ts', edits: [] }),
+					toolUse('NotebookEdit', { notebook_path: '/c/n.ipynb' }),
+				),
+			),
+		).toEqual(['/c/n.ipynb', '/a/x.ts', '/b/y.ts']);
+	});
+
+	test('other tools, sidechain lines and junk are ignored', () => {
+		expect(
+			editedPaths(
+				lines(
+					toolUse('Read', { file_path: '/a/read.ts' }),
+					toolUse('Edit', { file_path: '/a/side.ts' }, { isSidechain: true }),
+					'{ "tool_use" "Edit" not json',
+					toolUse('Edit', { file_path: '' }),
+				),
+			),
+		).toEqual([]);
+	});
+
+	test('one pass reads both facts', () => {
+		expect(
+			readTranscript(
+				lines(
+					launch('t1'),
+					asyncResult('t1'),
+					toolUse('Edit', { file_path: '/a/x.ts' }),
+				),
+			),
+		).toEqual({ auditorPending: true, editedPaths: ['/a/x.ts'] });
 	});
 });

@@ -15,10 +15,18 @@ export const SURFACE_FIELDS = [
 	'peerDependenciesMeta',
 ] as const;
 
-/** A spec, a test or a helper that only the tests load. */
+/** Directories whose files only the tests load, at any depth below the package. */
+const TEST_DIRS = new Set(['__tests__', '__fixtures__', 'test', 'tests']);
+
+/**
+ * A spec, a test or a helper that only the tests load: a file under a
+ * `__tests__/`, `__fixtures__/`, `test/` or `tests/` directory (such as
+ * `src/test/has-mongo-host.ts`), or one named `*.spec.*`, `*.test.*`,
+ * `*.fixtures.*` or `*.harness.*`.
+ */
 export function isTestFile(path: string): boolean {
 	const segments = path.split('/');
-	if (segments.includes('__tests__') || segments.includes('__fixtures__'))
+	if (segments.slice(0, -1).some((segment) => TEST_DIRS.has(segment)))
 		return true;
 	const base = segments[segments.length - 1] ?? '';
 	return /\.(spec|test|fixtures|harness)\./.test(base);

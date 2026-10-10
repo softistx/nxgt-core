@@ -131,6 +131,12 @@ From the table in `AGENTS.md`:
 - `Principal` and `TokenPrincipal`.
 - The REST filter helpers and the GraphQL filter DSL.
 - `objectIdFromString` and `toObjectId`.
+- `scripts/newest-peers.ts` and its spec, with the "Newest peers" job in
+  `ci.yml` — nxgt-data's copy plus `UNINSTALLED`, not shared.
+- `scripts/seaweedfs.ts` and its spec, with the "Start SeaweedFS" steps in
+  `ci.yml` — nxgt-data's copy, not shared.
+- `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs}/scripts/lib/hook.ts`
+  — the hook shell copied in each plugin, since each installs on its own.
 - `LICENSE` at the root and in every `packages/*/`.
 - `stx-sdk` as a peer of `shared-hono` and `shared-graphql`, and a root
   devDependency.

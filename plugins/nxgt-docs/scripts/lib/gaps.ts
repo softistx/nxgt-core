@@ -24,6 +24,8 @@ export interface PackageLookup {
 }
 
 export interface Gap {
+	/** The repository (or worktree) root, absolute; absent in the pure specs. */
+	readonly root?: string;
 	readonly pkg: PackageInfo;
 	/** The changed public files, relative to the package, sorted. */
 	readonly files: readonly string[];
@@ -74,8 +76,13 @@ export function findGaps(
 	);
 }
 
-/** The key a package is recorded under in the session state. */
-export const gapKey = (gap: Gap): string => gap.pkg.dir || '.';
+/**
+ * The key a package is recorded under in the session state:
+ * `<root>::<package dir>`, so the same package in the main checkout and in a
+ * worktree are reported apart.
+ */
+export const gapKey = (gap: Gap): string =>
+	gap.root ? `${gap.root}::${gap.pkg.dir || '.'}` : gap.pkg.dir || '.';
 
 /**
  * The gaps of packages not reported yet in this session. A package already

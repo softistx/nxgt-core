@@ -101,4 +101,14 @@ describe('newlyGapped', () => {
 	test('the root package is keyed as "."', () => {
 		expect(gapKey({ pkg: pkg(''), files: ['src/a.ts'] })).toBe('.');
 	});
+
+	test('a known root is part of the key, so a worktree is reported apart', () => {
+		const a = { pkg: pkg('packages/a'), files: ['src/a.ts'] };
+		expect(gapKey({ ...a, root: '/r' })).toBe('/r::packages/a');
+		expect(gapKey({ ...a, root: '/w' })).toBe('/w::packages/a');
+		expect(gapKey({ pkg: pkg(''), files: [], root: '/r' })).toBe('/r::.');
+		expect(
+			newlyGapped([{ ...a, root: '/w' }], ['/r::packages/a']).map(gapKey),
+		).toEqual(['/w::packages/a']);
+	});
 });

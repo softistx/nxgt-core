@@ -18,6 +18,14 @@ describe('classify', () => {
 		expect(classify('src/hooks.harness.ts')).toBe('none');
 	});
 
+	test('a test/ or tests/ directory at any depth holds test-only helpers', () => {
+		expect(classify('src/test/has-mongo-host.ts')).toBe('none');
+		expect(classify('src/deep/tests/helper.ts')).toBe('none');
+		expect(classify('lib/test/a.js')).toBe('none');
+		expect(classify('src/test.ts')).toBe('surface');
+		expect(classify('src/testing/a.ts')).toBe('surface');
+	});
+
 	test('shipped asset directories are the surface', () => {
 		for (const dir of ['graphql', 'openapi', 'schema']) {
 			expect(classify(`${dir}/x.md`)).toBe('surface');
