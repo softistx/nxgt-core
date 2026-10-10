@@ -109,9 +109,9 @@ the owner decides knowing what the other sessions do. Without `nxgt-crew`,
 skip this.
 
 Then ask the owner decisions with `AskUserQuestion`, as `work-autonomously`
-section 4 says: in the owner's language, the recommended option first and
-labelled `(Recommended)` / `(Recommandé)`, what each option costs, a preview
-when the options are shapes. Group up to four per call, most consequential
+section 4 says (which defers to "Questions to the owner" in
+`~/.claude/CLAUDE.md`): the recommended option first, what each option costs,
+a preview when the options are shapes. Group up to four per call, most consequential
 first.
 
 An entry whose plan includes an irreversible or outward-facing step — deleting

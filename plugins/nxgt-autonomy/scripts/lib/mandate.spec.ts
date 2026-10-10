@@ -79,10 +79,10 @@ describe('buildMandate', () => {
 		],
 		['no unapproved work', /Never start work the queue does not approve/],
 		[
-			'interactive questions, recommendation first',
-			/AskUserQuestion, recommended option first/,
+			'interactive questions, per the global rules',
+			/AskUserQuestion as "Questions to the owner" in ~\/\.claude\/CLAUDE\.md says/,
 		],
-		['the recommendation label', /"\(Recommended\)" or "\(Recommandé\)"/],
+		['the fallback recommendation label', /recommended option first and labelled "\(Recommended\)"/],
 		['the irreversible-action limit', /waits for the owner's explicit answer/],
 		['no hand-back', /Never end a turn by handing back or waiting/],
 		[
@@ -91,7 +91,7 @@ describe('buildMandate', () => {
 		],
 		[
 			'merges and releases per AGENTS.md',
-			/Merges and releases follow the repository's AGENTS\.md/,
+			/Merges and releases follow the repository's AGENTS\.md, else "Merges and releases" in ~\/\.claude\/CLAUDE\.md/,
 		],
 	])('carries %s', (_name, pattern) => {
 		expect(mandate).toMatch(pattern);

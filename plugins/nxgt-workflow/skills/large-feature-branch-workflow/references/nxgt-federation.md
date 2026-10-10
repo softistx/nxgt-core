@@ -6,8 +6,9 @@
 whatever its size: a large effort is the same slices in the same dependency
 order, each on its own `feat/<slug>-<slice>` branch off `develop` and each PR'd
 straight into `develop`, merged before the next is cut. `AGENTS.md`'s *Git
-Branching Workflow* is the authority, and it overrides rules 1, 3 and 4 of the
-main skill.
+Branching Workflow* is the authority, and it overrides rules 1, 3, 4 and 6 of the
+main skill: every PR here lands in `develop`, so each waits for the owner's
+explicit yes.
 
 That was not always true — thirty older merges went into a `feature/<slug>`
 integration branch, and `project-management`, `self-learning-api` and

@@ -20,7 +20,9 @@ description: >-
 
 **This is the default mode of every session in a git repository, not something
 a phrase switches on.** The owner's standing instruction, which does not need repeating: **carry on
-without me, merge as you go, finish everything queued.** This skill is what that
+without me, merge as you go, finish everything queued.** "Merge as you go" is
+what the merge rules of step 6 allow — slices into their integration branch —
+never `develop`, `main` or a publish without the owner's yes. This skill is what that
 means in practice, so it stops being re-negotiated every session.
 
 The plugin's `SessionStart` hook puts a short mandate in context at the start of
@@ -86,10 +88,9 @@ Per item, in this order, and nothing skipped:
 1. **Branch off the default branch** (`develop` everywhere in this parc), named
    for what it does: `feat/…`, `fix/…`, `chore/…`, `docs/…`. When the item
    comes from a roadmap entry, `roadmap-keeper` moves that entry to **Now** in
-   this first PR. Work on it in a worktree of its own when the main checkout
-   is busy or another session is in the repository — under
-   `~/workspace/worktrees/<repository>/<branch-slug>`, **never beside the
-   repositories in `~/workspace/dev/`**.
+   this first PR. Work on it in a worktree of its own, as "Git worktrees" in
+   `~/.claude/CLAUDE.md` says; without that file, when the main checkout is
+   busy or another session is in the repository.
 2. **Do the work**, smallest coherent slice first.
 3. **Measure it** — the repo's own green bar (`bun run check`, `typecheck`,
    `build`, the tests CI cannot run), and the behaviour itself where behaviour
@@ -101,12 +102,14 @@ Per item, in this order, and nothing skipped:
    apply what it finds; then `nxgt-docs:keep-docs-current` — the docs audit,
    `docs/` troubleshooting and roadmap included. Both, on every PR, in that
    order.
-6. **Open the PR**, wait for CI, **merge it**, delete the branch, pull the
-   default branch, and **remove the item's worktree** if it had one
-   (`git worktree remove`, `git worktree prune`, and its
-   `~/workspace/worktrees/<repository>/` folder once empty). **Merges and releases follow the repository's `AGENTS.md`**
+6. **Open the PR**, wait for CI, **merge it when the rules below allow it**,
+   delete the branch, refresh the main checkout and **remove the item's
+   worktree** if it had one ("Git worktrees" in `~/.claude/CLAUDE.md`, else
+   `git worktree remove` and `git worktree prune`). **Merges and releases follow the repository's `AGENTS.md`**
    (who may merge, merge commits or squash, when a Version PR lands); where it
-   is silent, open the PR and ask.
+   is silent, "Merges and releases" in `~/.claude/CLAUDE.md` decides — a slice
+   into its `feat/*` once green, `develop`, `main` and every publish on the
+   owner's yes. With neither, open the PR and ask.
 7. **Cross the item off the queue with the PR number**, keeping its slice
    marker (`slice k of n`, `last slice`) when it has one. When the item comes
    from a roadmap entry, `roadmap-keeper` moves that entry to **Shipped**, with
@@ -149,7 +152,9 @@ unsafe or would make the work useless if wrong, **do everything that does not
 depend on the answer first, then ask** — and while the question is open, the
 answer is the only thing that waits.
 
-Ask with `AskUserQuestion`, in the owner's language, and:
+Ask with `AskUserQuestion`. "Questions to the owner" in `~/.claude/CLAUDE.md`,
+when there is one, sets the language and the label and wins over this list;
+otherwise ask in the owner's language, and:
 
 - **Recommend.** Put the recommended option first and label it
   `(Recommended)` — `(Recommandé)` when asking in French.
