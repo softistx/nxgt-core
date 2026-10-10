@@ -32,7 +32,8 @@ calls, the `notebook_path` of NotebookEdit; a subagent's edits are not
 counted). A linked worktree counts on its own, so work done by absolute path in
 `~/workspace/worktrees/<repository>/<slug>` while the `cwd` stays the main
 checkout is checked too. It never reads `git worktree list`, which would
-include other sessions' worktrees. At most 10 repositories are checked per stop.
+include other sessions' worktrees. Changes made through Bash in another
+repository are not seen: only the `cwd` and the paths of those four tools count.
 
 In each one it compares the working tree and the branch with the merge-base of
 `HEAD` and `origin/develop` (else `origin/main`, else `origin/HEAD`), and looks
@@ -64,9 +65,12 @@ says so in one line and finishes.
 
 What it does **not** do:
 
-- **It calls no model.** A handful of local `git` calls
-  (`--no-optional-locks`, so it never takes `index.lock`) and one read of the
-  transcript; no network.
+- **It calls no model.** One read of the transcript and local `git` calls
+  only (`--no-optional-locks`, so it never takes `index.lock`), no network:
+  the latest 200 edited paths are considered, at most 50 directories are
+  resolved to a repository (one `git rev-parse` each), and at most 10
+  repositories are checked, a few `git` calls each (`merge-base`, `status`,
+  `diff`, a `show` per changed manifest).
 - **It fails open.** An error or unreadable input lets the turn end as if the
   hook were absent: it exits 0 and prints nothing. An unreadable transcript
   only means no pending auditor and no edited files are seen, so the `cwd`

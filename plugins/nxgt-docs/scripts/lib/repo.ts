@@ -32,36 +32,74 @@ export function repositoryRoot(cwd: string): string | undefined {
 
 /** At most this many repositories are checked per stop, so the hook stays fast. */
 export const MAX_REPOSITORIES = 10;
-/** At most this many distinct directories are resolved to a repository. */
-const MAX_DIRECTORIES = 50;
+/** At most this many distinct directories are resolved to a repository (one git call each). */
+export const MAX_DIRECTORIES = 50;
+/** Only the latest edited paths are considered. */
+const MAX_EDITED = 200;
 
 /**
  * The repositories a stop checks: the one holding `cwd`, then the ones holding
- * the files the session edited (latest first), each a git toplevel — a linked
- * worktree is its own. A path outside any repository is skipped; a deleted
- * file resolves through its nearest existing directory. Never derived from
+ * the files the session edited (latest first, the latest 200 only), each a git
+ * toplevel — a linked worktree is its own. A relative path is resolved against
+ * `cwd`; a path outside any repository is skipped; a deleted file resolves
+ * through its nearest existing directory. Never derived from
  * `git worktree list`, which would include other sessions' worktrees.
+ *
+ * Existence is probed from the top down and cached per directory, so a path
+ * from a Linux transcript on macOS (`/home/…`, where each miss can be a slow
+ * automounter lookup) costs one probe per missing prefix, and one whose first
+ * segment is missing is skipped outright.
  */
 export function repositoriesToCheck(
 	cwd: string,
 	edited: readonly string[],
 	max = MAX_REPOSITORIES,
+	maxDirectories = MAX_DIRECTORIES,
 ): string[] {
 	const roots: string[] = [];
 	const add = (root: string | undefined) => {
 		if (root && !roots.includes(root)) roots.push(root);
 	};
 	add(repositoryRoot(cwd));
-	const byDir = new Map<string, string | undefined>();
-	for (const path of edited) {
-		if (roots.length >= max) break;
-		let dir = dirname(isAbsolute(path) ? path : resolve(cwd, path));
-		while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
-		if (!byDir.has(dir)) {
-			if (byDir.size >= MAX_DIRECTORIES) break;
-			byDir.set(dir, repositoryRoot(dir));
+
+	const exists = new Map<string, boolean>();
+	const isThere = (dir: string) => {
+		let known = exists.get(dir);
+		if (known === undefined) {
+			known = existsSync(dir);
+			exists.set(dir, known);
 		}
-		add(byDir.get(dir));
+		return known;
+	};
+	const rootOfExisting = new Map<string, string | undefined>();
+	/** `null` when the directory budget is spent. */
+	const rootOf = (parent: string): string | undefined | null => {
+		// Top down, so a missing prefix is probed once for every path below it.
+		const segments = parent.split('/').filter(Boolean);
+		if (segments.length === 0 || !isThere(`/${segments[0]}`)) return undefined;
+		let dir = `/${segments[0]}`;
+		for (const segment of segments.slice(1)) {
+			const next = `${dir}/${segment}`;
+			if (!isThere(next)) break;
+			dir = next;
+		}
+		if (rootOfExisting.has(dir)) return rootOfExisting.get(dir);
+		if (rootOfExisting.size >= maxDirectories) return null;
+		const root = repositoryRoot(dir);
+		rootOfExisting.set(dir, root);
+		return root;
+	};
+
+	const byParent = new Map<string, string | undefined>();
+	for (const path of edited.slice(0, MAX_EDITED)) {
+		if (roots.length >= max) break;
+		const parent = dirname(isAbsolute(path) ? path : resolve(cwd, path));
+		if (!byParent.has(parent)) {
+			const root = rootOf(parent);
+			if (root === null) break;
+			byParent.set(parent, root);
+		}
+		add(byParent.get(parent));
 	}
 	return roots.slice(0, max);
 }

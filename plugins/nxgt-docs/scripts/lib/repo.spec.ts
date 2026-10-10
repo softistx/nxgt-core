@@ -72,4 +72,23 @@ describe('repositoriesToCheck', () => {
 		expect(repositoriesToCheck(loose, edited, 2)).toEqual([b, c]);
 		expect(repositoriesToCheck(loose, [join(loose, 'n.ts')])).toEqual([]);
 	});
+
+	test('a relative path resolves against cwd; the directory budget caps the git calls', async () => {
+		const [d, e] = [await repo('d'), await repo('e')];
+		expect(repositoriesToCheck(scratch, ['d/src/x.ts', 'e/y.ts'])).toEqual([
+			d,
+			e,
+		]);
+		expect(
+			repositoriesToCheck(
+				scratch,
+				[join(d, 'src/x.ts'), join(e, 'y.ts')],
+				10,
+				1,
+			),
+		).toEqual([d]);
+		expect(
+			repositoriesToCheck(scratch, ['/no-such-top/deep/a.ts', join(e, 'y.ts')]),
+		).toEqual([e]);
+	});
 });
