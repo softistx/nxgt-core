@@ -46,9 +46,9 @@ absent here, read the product's plugin in `softistx/plugins` (marketplace
 
 ```bash
 # the installed version first; the cache keeps old ones
-jq -r '.plugins["<product>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json
+jq -r '.plugins["<product>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
 # then read <installPath>/references/product.md; with no install recorded:
-find ~/.claude/plugins/cache/softistx-plugins/<product> -path '*/references/product.md' | sort -V | tail -1
+find ~/.claude/plugins/cache/softistx-plugins/<product> -path '*/references/product.md' 2>/dev/null | sort -V | tail -1
 ```
 
 | product | reference |

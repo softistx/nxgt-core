@@ -206,9 +206,9 @@ in its plugin in `softistx/plugins` (marketplace `softistx-plugins`), as
 
 ```bash
 # the installed version first; the cache keeps old ones
-jq -r '.plugins["<repo>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json
+jq -r '.plugins["<repo>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
 # then read <installPath>/references/workflow.md; with no install recorded:
-find ~/.claude/plugins/cache/softistx-plugins/<repo> -path '*/references/workflow.md' | sort -V | tail -1
+find ~/.claude/plugins/cache/softistx-plugins/<repo> -path '*/references/workflow.md' 2>/dev/null | sort -V | tail -1
 ```
 
 The file carries that repository's green bar, its sequencing

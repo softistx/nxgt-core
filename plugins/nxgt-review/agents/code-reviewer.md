@@ -81,9 +81,9 @@ anything you did not create in this run.**
 
    ```bash
    # the installed version first; the cache keeps old ones
-   jq -r '.plugins["<repository>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json
+   jq -r '.plugins["<repository>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
    # then read <installPath>/references/review.md; with no install recorded:
-   find ~/.claude/plugins/cache/softistx-plugins/<repository> -path '*/references/review.md' | sort -V | tail -1
+   find ~/.claude/plugins/cache/softistx-plugins/<repository> -path '*/references/review.md' 2>/dev/null | sort -V | tail -1
    ```
 
    The reference names the measuring commands for this layout, the green
