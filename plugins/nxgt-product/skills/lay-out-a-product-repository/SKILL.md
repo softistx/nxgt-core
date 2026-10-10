@@ -40,13 +40,13 @@ Two deployables in one repository is not a compromise between a monorepo and a
 polyrepo. It is the answer to one question: **where does the code they share
 live?** Everything below follows from that.
 
-**Read `references/<product>.md` for the repository you are in.** If it is absent here, read the product's plugin in `softistx/plugins` (marketplace `softistx-plugins`), `references/product.md`:
+**Read `references/<product>.md` for the repository you are in.** If it is
+absent here, read the product's plugin in `softistx/plugins` (marketplace
+`softistx-plugins`), `references/product.md`:
 
 ```bash
 find ~/.claude/plugins/cache -path "*/softistx-plugins/<product>/*/references/product.md" | sort -V | tail -1
 ```
-
-A product's references live in its plugin in `softistx/plugins`.
 
 | product | reference |
 | --- | --- |

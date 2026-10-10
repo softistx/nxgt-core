@@ -35,8 +35,6 @@ absent here, read the application's plugin in `softistx/plugins` (marketplace
 find ~/.claude/plugins/cache -path "*/softistx-plugins/<repo>/*/references/compose.md" | sort -V | tail -1
 ```
 
-An application's references live in its plugin in `softistx/plugins`.
-
 | repository | reference |
 | --- | --- |
 | `nxgt-ory` | `references/nxgt-ory.md` — **the worked example**, converted first |

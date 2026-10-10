@@ -38,7 +38,10 @@ A subgraph of a federated supergraph is this shape plus four deltas, and they
 only make sense in a repository that has a supergraph:
 `references/nxgt-federation.md`; if absent here, the `nxgt-federation` plugin in
 `softistx/plugins` carries it as `references/api.md`:
-`find ~/.claude/plugins/cache -path "*/softistx-plugins/nxgt-federation/*/references/api.md" | sort -V | tail -1`.
+
+```bash
+find ~/.claude/plugins/cache -path "*/softistx-plugins/nxgt-federation/*/references/api.md" | sort -V | tail -1
+```
 
 ---
 
