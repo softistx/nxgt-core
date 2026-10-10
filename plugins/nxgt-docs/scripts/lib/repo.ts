@@ -140,7 +140,12 @@ export function createLookup(root: string, base: string): PackageLookup {
 			let dir = dirname(file);
 			for (;;) {
 				const key = dir === '.' ? '' : dir;
-				const found = ignoredManifestDir(key, (d) => at(d) !== undefined)
+				const found = ignoredManifestDir(
+					key,
+					(d) =>
+						at(d) !== undefined &&
+						manifests.get(d)?.['workspaces'] === undefined,
+				)
 					? undefined
 					: at(key);
 				if (found) return found;

@@ -129,5 +129,7 @@ describe('ignoredManifestDir', () => {
 		expect(ignoredManifestDir('packages/a', isPackage)).toBe(false);
 		expect(ignoredManifestDir('packages/b', isPackage)).toBe(false);
 		expect(ignoredManifestDir('packages/b/src/x', isPackage)).toBe(false);
+		expect(ignoredManifestDir('packages/test', isPackage)).toBe(false);
+		expect(ignoredManifestDir('packages/fixtures', isPackage)).toBe(false);
 	});
 });

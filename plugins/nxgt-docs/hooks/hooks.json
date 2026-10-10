@@ -1,5 +1,5 @@
 {
-	"description": "nxgt-docs: at the end of a turn, when the branch or the working tree changed the public surface of a published package without its README or a docs/ page, block once with what is missing and the keep-docs-current bar. Silent otherwise; no model call, fails open, and NXGT_DOCS_DISABLE=1 turns it off.",
+	"description": "nxgt-docs: at the end of a turn, when the branch or the working tree changed the public surface of a published package without its README or a docs/ page, block once per package per session with what is missing and the keep-docs-current bar. Silent otherwise; no model call, fails open, and NXGT_DOCS_DISABLE=1 turns it off.",
 	"hooks": {
 		"Stop": [
 			{

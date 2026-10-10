@@ -85,8 +85,11 @@ const TEST_DATA_DIRS = new Set([
 /**
  * Whether a directory's `package.json` is test data rather than a package:
  * it sits under a `__tests__/`, `__fixtures__/`, `fixtures/` or `test/`
- * folder, or inside the `src/` or `lib/` of an ancestor package.
- * `isPackage` says whether a repository-relative directory holds a manifest.
+ * folder (a package named `packages/test` is still one), or inside the `src/`
+ * or `lib/` of an ancestor package. `isPackage` says whether a
+ * repository-relative directory holds a package that owns its files — a
+ * manifest without `workspaces`, so a root with `"workspaces": ["lib/*"]` does
+ * not swallow its own workspace packages.
  */
 export function ignoredManifestDir(
 	dir: string,
@@ -96,7 +99,7 @@ export function ignoredManifestDir(
 	const segments = dir.split('/');
 	return segments.some(
 		(segment, i) =>
-			TEST_DATA_DIRS.has(segment) ||
+			(i < segments.length - 1 && TEST_DATA_DIRS.has(segment)) ||
 			((segment === 'src' || segment === 'lib') &&
 				isPackage(segments.slice(0, i).join('/'))),
 	);

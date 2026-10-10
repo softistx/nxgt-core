@@ -108,6 +108,26 @@ describe('stop.ts', () => {
 		expect(await stop()).toEqual(silent);
 	});
 
+	test('workspace packages under lib/ and a package named test are checked', async () => {
+		write('package.json', {
+			name: 'root',
+			private: true,
+			workspaces: ['packages/*', 'lib/*'],
+		});
+		write('lib/inner/package.json', { ...PUB, name: '@x/inner' });
+		write('lib/inner/src/index.ts', 'export {}');
+		write('packages/test/package.json', { ...PUB, name: '@x/test' });
+		write('packages/test/src/index.ts', 'export {}');
+		await commit();
+		await $`git -C ${repo} update-ref refs/remotes/origin/develop HEAD`.quiet();
+		write('lib/inner/src/index.ts', 'export const a = 1;');
+		write('packages/test/src/index.ts', 'export const a = 1;');
+		const { out } = await stop();
+		expect(out?.decision).toBe('block');
+		expect(out?.reason).toContain('@x/inner');
+		expect(out?.reason).toContain('@x/test');
+	});
+
 	test('a change in a private package only: silent', async () => {
 		write('packages/priv/src/a.ts', 'b');
 		write('packages/priv/src/new.ts', 'c');
