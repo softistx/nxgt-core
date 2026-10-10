@@ -4,10 +4,18 @@
  * consumer-visible. It defers to Claude's judgement; it never insists.
  */
 
+import { join } from 'node:path';
 import type { Gap } from './gaps';
 
+/** Where the package lives: absolute when the root is known, since several repositories may be checked. */
+function location(gap: Gap): string {
+	if (gap.root)
+		return gap.pkg.dir === '' ? gap.root : join(gap.root, gap.pkg.dir);
+	return gap.pkg.dir === '' ? 'the repository root' : gap.pkg.dir;
+}
+
 function describe(gap: Gap): string {
-	const where = gap.pkg.dir === '' ? 'the repository root' : gap.pkg.dir;
+	const where = location(gap);
 	const missing = gap.pkg.hasDocs
 		? `${where}/README.md (and the docs/ guide page for that area)`
 		: `${where}/README.md`;

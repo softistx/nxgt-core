@@ -5,7 +5,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { PackageInfo, PackageLookup } from './gaps';
 import { ignoredManifestDir, packageJsonSurfaceChanged } from './surface';
 
@@ -28,6 +28,42 @@ function git(cwd: string, args: string[]): string | undefined {
 
 export function repositoryRoot(cwd: string): string | undefined {
 	return git(cwd, ['rev-parse', '--show-toplevel'])?.trim() || undefined;
+}
+
+/** At most this many repositories are checked per stop, so the hook stays fast. */
+export const MAX_REPOSITORIES = 10;
+/** At most this many distinct directories are resolved to a repository. */
+const MAX_DIRECTORIES = 50;
+
+/**
+ * The repositories a stop checks: the one holding `cwd`, then the ones holding
+ * the files the session edited (latest first), each a git toplevel — a linked
+ * worktree is its own. A path outside any repository is skipped; a deleted
+ * file resolves through its nearest existing directory. Never derived from
+ * `git worktree list`, which would include other sessions' worktrees.
+ */
+export function repositoriesToCheck(
+	cwd: string,
+	edited: readonly string[],
+	max = MAX_REPOSITORIES,
+): string[] {
+	const roots: string[] = [];
+	const add = (root: string | undefined) => {
+		if (root && !roots.includes(root)) roots.push(root);
+	};
+	add(repositoryRoot(cwd));
+	const byDir = new Map<string, string | undefined>();
+	for (const path of edited) {
+		if (roots.length >= max) break;
+		let dir = dirname(isAbsolute(path) ? path : resolve(cwd, path));
+		while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
+		if (!byDir.has(dir)) {
+			if (byDir.size >= MAX_DIRECTORIES) break;
+			byDir.set(dir, repositoryRoot(dir));
+		}
+		add(byDir.get(dir));
+	}
+	return roots.slice(0, max);
 }
 
 /** The integration base: origin/develop, else origin/main, else origin/HEAD. */

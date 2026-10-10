@@ -271,6 +271,79 @@ describe('stop.ts', () => {
 		).toBe('block');
 	});
 
+	describe('edits outside the working directory', () => {
+		const edit = (file: string, extra: Record<string, unknown> = {}) =>
+			JSON.stringify({
+				type: 'assistant',
+				...extra,
+				message: {
+					content: [
+						{
+							type: 'tool_use',
+							id: `e-${file}`,
+							name: 'Edit',
+							input: { file_path: file, old_string: 'a', new_string: 'b' },
+						},
+					],
+				},
+			});
+
+		/** A linked worktree of the scratch repository, on its own branch. */
+		async function worktree() {
+			const path = join(scratch, `wt-${n}`);
+			await $`git -C ${repo} worktree add -q -b wt-${n} ${path}`.quiet();
+			return path;
+		}
+
+		function transcript(...entries: string[]) {
+			const path = join(scratch, `edits-${n}.jsonl`);
+			writeFileSync(path, entries.join('\n'));
+			return path;
+		}
+
+		test('an Edit in a linked worktree blocks while cwd is the main checkout', async () => {
+			const wt = await worktree();
+			const file = join(wt, 'packages/pub/src/index.ts');
+			writeFileSync(file, 'export const a = 1;');
+			const { out } = await stop({ transcript_path: transcript(edit(file)) });
+			expect(out?.decision).toBe('block');
+			expect(out?.reason).toContain('@x/pub');
+			expect(out?.reason).toContain(join(wt, 'packages/pub/README.md'));
+			expect(await stop({ transcript_path: transcript(edit(file)) })).toEqual(
+				silent,
+			);
+		});
+
+		test('the same package in the main checkout and a worktree is reported for each', async () => {
+			const wt = await worktree();
+			const file = join(wt, 'packages/pub/src/index.ts');
+			writeFileSync(file, 'export const a = 1;');
+			write('packages/pub/src/index.ts', 'export const b = 1;');
+			const { out } = await stop({ transcript_path: transcript(edit(file)) });
+			expect(out?.reason).toContain(join(repo, 'packages/pub/README.md'));
+			expect(out?.reason).toContain(join(wt, 'packages/pub/README.md'));
+		});
+
+		test('a file_path outside any repository is ignored', async () => {
+			const outside = join(scratch, `loose-${n}`, 'note.ts');
+			mkdirSync(dirname(outside), { recursive: true });
+			writeFileSync(outside, 'x');
+			const path = transcript(
+				edit(outside),
+				edit(join(scratch, 'gone', 'deeper', 'missing.ts')),
+			);
+			expect(await stop({ transcript_path: path })).toEqual(silent);
+		});
+
+		test('a sidechain edit is ignored', async () => {
+			const wt = await worktree();
+			const file = join(wt, 'packages/pub/src/index.ts');
+			writeFileSync(file, 'export const a = 1;');
+			const path = transcript(edit(file, { isSidechain: true }));
+			expect(await stop({ transcript_path: path })).toEqual(silent);
+		});
+	});
+
 	test('stop_hook_active: silent', async () => {
 		write('packages/pub/src/index.ts', 'export const a = 1;');
 		expect(await stop({ stop_hook_active: true })).toEqual(silent);
