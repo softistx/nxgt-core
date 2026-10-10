@@ -94,7 +94,7 @@ anything you did not create in this run.**
      ~/.claude/plugins/installed_plugins.json 2>/dev/null
    # then read <installPath>/references/review.md; with no install recorded:
    find ~/.claude/plugins/cache/softistx-plugins/<repository> -path '*/references/review.md' 2>/dev/null | sort -V | tail -1
-   # found by neither: is the plugin enabled here?
+   # only when both printed nothing: is the plugin enabled here?
    jq -r '.enabledPlugins["<repository>@softistx-plugins"] // false' "$(git rev-parse --show-toplevel)/.claude/settings.json" 2>/dev/null
    ```
 

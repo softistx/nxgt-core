@@ -39,7 +39,7 @@ jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-di
   ~/.claude/plugins/installed_plugins.json 2>/dev/null
 # then read <installPath>/references/compose.md; with no install recorded:
 find ~/.claude/plugins/cache/softistx-plugins/<repo> -path '*/references/compose.md' 2>/dev/null | sort -V | tail -1
-# found by neither: is the plugin enabled here?
+# only when both printed nothing: is the plugin enabled here?
 jq -r '.enabledPlugins["<repo>@softistx-plugins"] // false' "$(git rev-parse --show-toplevel)/.claude/settings.json" 2>/dev/null
 ```
 
