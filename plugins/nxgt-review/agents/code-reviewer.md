@@ -76,6 +76,16 @@ anything you did not create in this run.**
      -path '*nxgt-review/references/*.md' 2>/dev/null
    ```
 
+   If that file is absent, the application's own plugin in `softistx/plugins`
+   (marketplace `softistx-plugins`) may carry it as `references/review.md`:
+
+   ```bash
+   # the installed version first; the cache keeps old ones
+   jq -r '.plugins["<repository>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+   # then read <installPath>/references/review.md; with no install recorded:
+   find ~/.claude/plugins/cache/softistx-plugins/<repository> -path '*/references/review.md' 2>/dev/null | sort -V | tail -1
+   ```
+
    The reference names the measuring commands for this layout, the green
    bar and which parts of it you may run, the invariants, and what is
    deliberate. **`AGENTS.md` wins** where the two disagree — say so in the
