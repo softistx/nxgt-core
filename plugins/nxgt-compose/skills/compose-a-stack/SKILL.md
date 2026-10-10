@@ -27,7 +27,15 @@ therefore three things that collide: **host ports**, **container names**, and
 once per machine — and that is the constraint this skill removes.
 
 **Read `references/<repo>.md` for the repository you are in** — it says how far
-that repository has been converted and what is measured about it.
+that repository has been converted and what is measured about it. If it is
+absent here, read the application's plugin in `softistx/plugins` (marketplace
+`softistx-plugins`), `references/compose.md`:
+
+```bash
+find ~/.claude/plugins/cache -path "*/softistx-plugins/<repo>/*/references/compose.md" | sort -V | tail -1
+```
+
+An application's references live in its plugin in `softistx/plugins`.
 
 | repository | reference |
 | --- | --- |

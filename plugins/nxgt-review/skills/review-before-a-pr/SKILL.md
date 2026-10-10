@@ -59,7 +59,7 @@ repository first; the reference follows.
 
 ## Adding a repository
 
-A new repository gets `references/<repo>.md`, in the shape of the others:
+A new repository gets `references/<repo>.md` (an application's goes in its plugin in `softistx/plugins`, as `references/review.md`), in the shape of the others:
 what it is, **Measure** (the commands for its layout, the green bar, what
 the reviewer may and may not run, the known structural debt),
 **Invariants**, **Deliberate — do not report**, **Layering and
