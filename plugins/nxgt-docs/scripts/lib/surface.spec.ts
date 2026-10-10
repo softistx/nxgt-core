@@ -13,6 +13,7 @@ describe('classify', () => {
 		expect(classify('src/index.spec.ts')).toBe('none');
 		expect(classify('src/a.test.tsx')).toBe('none');
 		expect(classify('src/__tests__/a.ts')).toBe('none');
+		expect(classify('src/__fixtures__/a.ts')).toBe('none');
 		expect(classify('src/a.fixtures.ts')).toBe('none');
 		expect(classify('src/hooks.harness.ts')).toBe('none');
 	});

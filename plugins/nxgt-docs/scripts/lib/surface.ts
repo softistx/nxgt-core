@@ -18,7 +18,8 @@ export const SURFACE_FIELDS = [
 /** A spec, a test or a helper that only the tests load. */
 export function isTestFile(path: string): boolean {
 	const segments = path.split('/');
-	if (segments.includes('__tests__')) return true;
+	if (segments.includes('__tests__') || segments.includes('__fixtures__'))
+		return true;
 	const base = segments[segments.length - 1] ?? '';
 	return /\.(spec|test|fixtures|harness)\./.test(base);
 }
