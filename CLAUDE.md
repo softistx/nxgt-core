@@ -24,7 +24,7 @@ included — consumes them by enabling the plugin in its own committed
 | --- | --- |
 | `nxgt-workflow` | `large-feature-branch-workflow`, `write-a-repo-script` |
 | `nxgt-package` | `create-a-package`, `release-a-package-change` |
-| `nxgt-ory-app` | `create-ory-native-rest-api`, `create-ory-native-graphql-api`, `create-ory-native-ui`, `admin-screen-pattern` — all three Ory skills read `references/ory-in-one-page.md` first |
+| `ory-app` (moved to `softistx/plugins`, marketplace `softistx-plugins`; formerly `nxgt-ory-app` here) | `create-ory-native-rest-api`, `create-ory-native-graphql-api`, `create-ory-native-ui`, `admin-screen-pattern` — enable `ory-app@softistx-plugins` |
 | `nxgt-docs` | `keep-docs-current`; agents `documentation-writer`, `troubleshooting-writer`, `roadmap-keeper`, `documentation-auditor` |
 | `nxgt-ui-docs` | `document-a-component-library`; agents `component-docs-writer`, `ui-docs-auditor` — the twelve-category taxonomy, WebP previews and forms guide shared by `@nxgt/material` and `@nxgt/material-vue` |
 | `nxgt-review` | `review-before-a-pr`; agent `code-reviewer`, with a `references/<repo>.md` per repository |
