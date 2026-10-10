@@ -82,7 +82,10 @@ describe('buildMandate', () => {
 			'interactive questions, per the global rules',
 			/AskUserQuestion as "Questions to the owner" in ~\/\.claude\/CLAUDE\.md says/,
 		],
-		['the fallback recommendation label', /recommended option first and labelled "\(Recommended\)"/],
+		[
+			'the fallback recommendation label',
+			/recommended option first and labelled "\(Recommended\)"/,
+		],
 		['the irreversible-action limit', /waits for the owner's explicit answer/],
 		['no hand-back', /Never end a turn by handing back or waiting/],
 		[
