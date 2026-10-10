@@ -25,7 +25,15 @@ wrong in private; the removal cannot.
 
 Read `lay-out-a-product-repository` for the shape the extracted repository takes;
 this skill is the move itself and its aftermath. `references/<product>.md` records
-what each completed extraction actually cost.
+what each completed extraction actually cost; if it is absent here, read the
+product's plugin in `softistx/plugins`, `references/product.md`:
+
+```bash
+# the installed version first; the cache keeps old ones
+jq -r '.plugins["<product>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+# then read <installPath>/references/product.md; with no install recorded:
+find ~/.claude/plugins/cache/softistx-plugins/<product> -path '*/references/product.md' 2>/dev/null | sort -V | tail -1
+```
 
 ---
 
