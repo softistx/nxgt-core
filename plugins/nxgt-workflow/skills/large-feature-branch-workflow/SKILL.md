@@ -44,8 +44,9 @@ before drawing the slices.
 ## Structure
 
 **Read `references/<repo>.md` first.** `nxgt-federation` does not use an
-integration branch at all — every PR there targets `develop`, and rules 1, 3
-and 4 below do not apply. The other three repositories work as described here.
+integration branch at all — every PR there targets `develop`, rules 1, 3, 4
+and 6 below do not apply, and each PR waits for the owner's yes like any PR
+into `develop`. The other three repositories work as described here.
 
 ```
 develop
@@ -66,13 +67,21 @@ develop
    `develop`, and a slice that lands there by accident has skipped the whole
    point. A slice never PRs into another slice.
 4. **The integration branch is the only thing that PRs into `develop`**, once
-   every slice is merged and the effort is green. Say so and wait for a
-   go-ahead before merging it: that PR *is* the effort, and it is the one a
-   human reads.
+   every slice is merged and the effort is green. Say so and wait for the
+   owner's explicit yes before merging it: that PR *is* the effort, and it is
+   the one a human reads.
 5. **`develop` is the terminus.** Nothing here targets `main`, and finishing an
    effort does not touch it — `main` is aligned from `develop` separately
-   (`git checkout main && git merge develop`), when someone asks.
-6. **Merge each slice before cutting the next**, so the next starts from an
+   (fast-forward only: `git checkout main && git merge --ff-only develop`),
+   on the owner's explicit yes.
+6. **Merge each slice into the integration branch without asking once it is
+   green**, as "Merges and
+   releases" in `~/.claude/CLAUDE.md` defines it — the green bar passes, the
+   `code-reviewer` reports `ready: true`, the `documentation-auditor` reports
+   `ok: true` when a public surface changed, and no owner decision is open —
+   and name the four in the slice PR's description. Without that file, a
+   repository's `AGENTS.md` decides, else ask.
+7. **Merge each slice before cutting the next**, so the next starts from an
    integration branch that carries the last one. This is what keeps the
    ordering honest: there is nothing to rebase, and no window where two
    branches disagree.
@@ -186,11 +195,21 @@ somewhere else.
 
 | repository | file |
 | --- | --- |
-| `sellix-monorepo` | `references/sellix-monorepo.md` |
-| `nxgt-federation` | `references/nxgt-federation.md` |
+| `sellix-monorepo`, `nxgt-federation` | their plugin in `softistx/plugins`, `references/workflow.md` |
 | `nxgt-ory` | `references/nxgt-ory.md` |
 | `nxgt-core` | `references/nxgt-core.md` |
 
-Read the one you are in. It carries that repository's green bar, its sequencing
+Read the one you are in. An application whose file is no longer here keeps it
+in its plugin in `softistx/plugins` (marketplace `softistx-plugins`), as
+`references/workflow.md`:
+
+```bash
+# the installed version first; the cache keeps old ones
+jq -r '.plugins["<repo>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+# then read <installPath>/references/workflow.md; with no install recorded:
+find ~/.claude/plugins/cache/softistx-plugins/<repo> -path '*/references/workflow.md' 2>/dev/null | sort -V | tail -1
+```
+
+The file carries that repository's green bar, its sequencing
 order, the propagation hops it has, and the access surface its deep review must
 check.

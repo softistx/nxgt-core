@@ -27,7 +27,7 @@ Three implementations are worth reading before starting:
 | `softistx/content-hub/apps/api` | the same shape with the auth half not yet migrated |
 | `nxgt-federation/apps/notes/notes-api` | Ory-native, and inside a repository that also has subgraphs |
 
-**Authentication is not this skill's.** Load `nxgt-ory-app`'s
+**Authentication is not this skill's.** Load `ory-app`'s (marketplace `softistx-plugins`)
 `create-ory-native-graphql-api` for who the caller is: `useOryAuth(ory)`,
 `useKetoChecks(ory)` if and only if the SDL has `@permission` (on
 `@nxgt/shared-graphql` 2.x, also `@check`) directives, and the
@@ -36,7 +36,15 @@ principal — but §6 is not optional either way.
 
 A subgraph of a federated supergraph is this shape plus four deltas, and they
 only make sense in a repository that has a supergraph:
-`references/nxgt-federation.md`.
+the `nxgt-federation` plugin in `softistx/plugins` (marketplace
+`softistx-plugins`), `references/api.md`:
+
+```bash
+# the installed version first; the cache keeps old ones
+jq -r '.plugins["nxgt-federation@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+# then read <installPath>/references/api.md; with no install recorded:
+find ~/.claude/plugins/cache/softistx-plugins/nxgt-federation -path '*/references/api.md' 2>/dev/null | sort -V | tail -1
+```
 
 ---
 

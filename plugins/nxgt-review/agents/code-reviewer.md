@@ -76,6 +76,16 @@ anything you did not create in this run.**
      -path '*nxgt-review/references/*.md' 2>/dev/null
    ```
 
+   If that file is absent, the application's own plugin in `softistx/plugins`
+   (marketplace `softistx-plugins`) may carry it as `references/review.md`:
+
+   ```bash
+   # the installed version first; the cache keeps old ones
+   jq -r '.plugins["<repository>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+   # then read <installPath>/references/review.md; with no install recorded:
+   find ~/.claude/plugins/cache/softistx-plugins/<repository> -path '*/references/review.md' 2>/dev/null | sort -V | tail -1
+   ```
+
    The reference names the measuring commands for this layout, the green
    bar and which parts of it you may run, the invariants, and what is
    deliberate. **`AGENTS.md` wins** where the two disagree — say so in the
@@ -135,11 +145,11 @@ function inside a 580-line file is a finding of its own, beside the file's.
 Run the parts of the green bar the reference allows, and nothing it forbids —
 some suites write to a database, some need a live stack, some scripts
 publish or write files. When a check fails, re-run it on `origin/develop`
-(`git worktree add ~/workspace/worktrees/<repository>/review-develop
-origin/develop` — the owner keeps every worktree under
-`~/workspace/worktrees/`, never beside the repositories in `~/workspace/dev/`
-— removed with `git worktree remove` and `git worktree prune` when done;
-never a checkout of the caller's tree)
+(in a worktree of its own, placed and removed as "Git worktrees" in
+`~/.claude/CLAUDE.md` says — without that file,
+`git worktree add ~/workspace/worktrees/<repository>/review-develop origin/develop`,
+then `git worktree remove` and `git worktree prune` when done; never a
+checkout of the caller's tree)
 before calling it a regression. A failure that is already on `develop` is
 still reported, as such.
 

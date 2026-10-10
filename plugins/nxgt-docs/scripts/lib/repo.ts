@@ -1,0 +1,245 @@
+/**
+ * The repository side of the Stop hook: the root, the files changed on the
+ * branch and in the working tree, and a `PackageLookup` over the working copy.
+ * A handful of local git calls, no network.
+ */
+
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import type { PackageInfo, PackageLookup } from './gaps';
+import { ignoredManifestDir, packageJsonSurfaceChanged } from './surface';
+
+/**
+ * The argv of a git call. `--no-optional-locks` keeps `git status` from
+ * taking `index.lock`, so the hook never races the session's own git commands.
+ */
+export function gitArgv(cwd: string, args: readonly string[]): string[] {
+	return ['git', '--no-optional-locks', '-C', cwd, ...args];
+}
+
+/** Runs git; `undefined` when it fails. */
+function git(cwd: string, args: string[]): string | undefined {
+	const proc = Bun.spawnSync(gitArgv(cwd, args), {
+		stdout: 'pipe',
+		stderr: 'ignore',
+	});
+	return proc.exitCode === 0 ? proc.stdout.toString() : undefined;
+}
+
+export function repositoryRoot(cwd: string): string | undefined {
+	return git(cwd, ['rev-parse', '--show-toplevel'])?.trim() || undefined;
+}
+
+/** At most this many repositories are checked per stop, so the hook stays fast. */
+export const MAX_REPOSITORIES = 10;
+/** At most this many distinct directories are resolved to a repository (one git call each). */
+export const MAX_DIRECTORIES = 50;
+/** Only the latest edited paths are considered. */
+const MAX_EDITED = 200;
+
+/**
+ * The repositories a stop checks: the one holding `cwd`, then the ones holding
+ * the files the session edited (latest first, the latest 200 only), each a git
+ * toplevel — a linked worktree is its own. A relative path is resolved against
+ * `cwd`; a path outside any repository is skipped; a deleted file resolves
+ * through its nearest existing directory. Never derived from
+ * `git worktree list`, which would include other sessions' worktrees.
+ *
+ * Existence is probed from the top down and cached per directory, so a path
+ * from a Linux transcript on macOS (`/home/…`, where each miss can be a slow
+ * automounter lookup) costs one probe per missing prefix, and one whose first
+ * segment is missing is skipped outright.
+ */
+export function repositoriesToCheck(
+	cwd: string,
+	edited: readonly string[],
+	max = MAX_REPOSITORIES,
+	maxDirectories = MAX_DIRECTORIES,
+): string[] {
+	const roots: string[] = [];
+	const add = (root: string | undefined) => {
+		if (root && !roots.includes(root)) roots.push(root);
+	};
+	add(repositoryRoot(cwd));
+
+	const exists = new Map<string, boolean>();
+	const isThere = (dir: string) => {
+		let known = exists.get(dir);
+		if (known === undefined) {
+			known = existsSync(dir);
+			exists.set(dir, known);
+		}
+		return known;
+	};
+	const rootOfExisting = new Map<string, string | undefined>();
+	/** `null` when the directory budget is spent. */
+	const rootOf = (parent: string): string | undefined | null => {
+		// Top down, so a missing prefix is probed once for every path below it.
+		const segments = parent.split('/').filter(Boolean);
+		if (segments.length === 0 || !isThere(`/${segments[0]}`)) return undefined;
+		let dir = `/${segments[0]}`;
+		for (const segment of segments.slice(1)) {
+			const next = `${dir}/${segment}`;
+			if (!isThere(next)) break;
+			dir = next;
+		}
+		if (rootOfExisting.has(dir)) return rootOfExisting.get(dir);
+		if (rootOfExisting.size >= maxDirectories) return null;
+		const root = repositoryRoot(dir);
+		rootOfExisting.set(dir, root);
+		return root;
+	};
+
+	const byParent = new Map<string, string | undefined>();
+	for (const path of edited.slice(0, MAX_EDITED)) {
+		if (roots.length >= max) break;
+		const parent = dirname(isAbsolute(path) ? path : resolve(cwd, path));
+		if (!byParent.has(parent)) {
+			const root = rootOf(parent);
+			if (root === null) break;
+			byParent.set(parent, root);
+		}
+		add(byParent.get(parent));
+	}
+	return roots.slice(0, max);
+}
+
+/** The integration base: origin/develop, else origin/main, else origin/HEAD. */
+const BASE_REFS = [
+	'refs/remotes/origin/develop',
+	'refs/remotes/origin/main',
+	'refs/remotes/origin/HEAD',
+];
+
+/** The merge-base of HEAD with the integration base, when there is one. */
+export function mergeBase(root: string): string | undefined {
+	const refs = (
+		git(root, ['for-each-ref', '--format=%(refname)', ...BASE_REFS]) ?? ''
+	)
+		.split('\n')
+		.filter(Boolean);
+	const ref = BASE_REFS.find((r) => refs.includes(r));
+	if (!ref) return undefined;
+	return git(root, ['merge-base', 'HEAD', ref])?.trim() || undefined;
+}
+
+/**
+ * Paths from `git status --porcelain -z`, untracked included, both sides of a
+ * rename or copy — staged (`R `) or not (` R`, an intent-to-add rename).
+ */
+export function parseStatus(output: string): string[] {
+	const fields = output.split('\0');
+	const paths: string[] = [];
+	for (let i = 0; i < fields.length; i++) {
+		const field = fields[i] ?? '';
+		if (field.length < 4) continue;
+		paths.push(field.slice(3));
+		const [x, y] = [field[0], field[1]];
+		if (x === 'R' || x === 'C' || y === 'R' || y === 'C') {
+			const from = fields[++i];
+			if (from) paths.push(from);
+		}
+	}
+	return paths;
+}
+
+/**
+ * Uncommitted files ∪ files changed since the merge-base, repository-relative.
+ * `--no-renames` lists both sides of a committed rename, so a file moved out
+ * of src/ still shows its old path.
+ */
+export function changedFiles(root: string, base: string | undefined): string[] {
+	const files = new Set(
+		parseStatus(
+			git(root, ['status', '--porcelain', '-z', '--untracked-files=all']) ?? '',
+		),
+	);
+	if (base) {
+		for (const file of (
+			git(root, ['diff', '--no-renames', '--name-only', '-z', base]) ?? ''
+		).split('\0')) {
+			if (file) files.add(file);
+		}
+	}
+	return [...files];
+}
+
+function readJson(path: string): Record<string, unknown> | undefined {
+	try {
+		const value: unknown = JSON.parse(readFileSync(path, 'utf8'));
+		return value && typeof value === 'object'
+			? (value as Record<string, unknown>)
+			: undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Packages over the working copy: the nearest directory with a `package.json`
+ * owns a file, and only a manifest not `"private": true` is published. A
+ * manifest that is test data (`ignoredManifestDir`) owns nothing.
+ * `base` is the commit `package.json` is compared with (the merge-base, else HEAD).
+ */
+export function createLookup(root: string, base: string): PackageLookup {
+	const byDir = new Map<
+		string,
+		{ info: PackageInfo; published: boolean } | undefined
+	>();
+	const manifests = new Map<string, Record<string, unknown>>();
+
+	function at(dir: string) {
+		if (byDir.has(dir)) return byDir.get(dir);
+		const manifest = readJson(join(root, dir, 'package.json'));
+		const found = manifest
+			? {
+					info: {
+						dir,
+						name:
+							typeof manifest['name'] === 'string'
+								? manifest['name']
+								: dir || '(root)',
+						hasDocs: existsSync(join(root, dir, 'docs')),
+					},
+					published: manifest['private'] !== true,
+				}
+			: undefined;
+		if (manifest) manifests.set(dir, manifest);
+		byDir.set(dir, found);
+		return found;
+	}
+
+	return {
+		packageOf(file) {
+			let dir = dirname(file);
+			for (;;) {
+				const key = dir === '.' ? '' : dir;
+				const found = ignoredManifestDir(
+					key,
+					(d) =>
+						at(d) !== undefined &&
+						manifests.get(d)?.['workspaces'] === undefined,
+				)
+					? undefined
+					: at(key);
+				if (found) return found;
+				if (key === '') return undefined;
+				dir = dirname(dir);
+			}
+		},
+		manifestSurfaceChanged(info) {
+			const current = manifests.get(info.dir);
+			if (!current) return false;
+			const path =
+				info.dir === '' ? 'package.json' : `${info.dir}/package.json`;
+			const shown = git(root, ['show', `${base}:${path}`]);
+			let previous: Record<string, unknown> | undefined;
+			try {
+				previous = shown === undefined ? undefined : JSON.parse(shown);
+			} catch {
+				previous = undefined;
+			}
+			return packageJsonSurfaceChanged(previous, current);
+		},
+	};
+}
