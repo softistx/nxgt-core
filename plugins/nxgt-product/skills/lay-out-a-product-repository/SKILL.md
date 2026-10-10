@@ -53,8 +53,8 @@ find ~/.claude/plugins/cache/softistx-plugins/<product> -path '*/references/prod
 
 | product | reference |
 | --- | --- |
-| `self-learning` | `references/self-learning.md` — **the worked example**, and Ory-native |
-| `content-hub` | `references/content-hub.md` — same layout, extracted with its auth debt intact |
+| `self-learning` | its plugin in `softistx/plugins`, `references/product.md` — **the worked example**, and Ory-native |
+| `content-hub` | its plugin in `softistx/plugins`, `references/product.md` — same layout, extracted with its auth debt intact |
 
 A product with no reference here still follows the ten rules; add its reference
 when you create it, in the shape of the others.
