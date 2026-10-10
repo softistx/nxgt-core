@@ -23,6 +23,13 @@ come from nxgt-http.
 Nothing here imports application code. The dependency runs one way: apps depend
 on these packages, never the reverse.
 
+## Rules every repository shares
+
+Worktrees, integration branches, merges and releases, questions to the owner
+and how sessions work together are the owner's global rules, in
+`~/.claude/CLAUDE.md`; they are not restated here. What follows is
+`nxgt-core`'s own.
+
 ## Layering
 
 ```
