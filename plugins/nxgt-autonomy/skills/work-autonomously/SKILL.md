@@ -106,7 +106,9 @@ Per item, in this order, and nothing skipped:
    (`git worktree remove`, `git worktree prune`, and its
    `~/workspace/worktrees/<repository>/` folder once empty). **Merges and releases follow the repository's `AGENTS.md`**
    (who may merge, merge commits or squash, when a Version PR lands); where it
-   is silent, open the PR and ask.
+   is silent, "Merges and releases" in `~/.claude/CLAUDE.md` decides — a slice
+   into its `feat/*` once green, `develop`, `main` and every publish on the
+   owner's yes. With neither, open the PR and ask.
 7. **Cross the item off the queue with the PR number**, keeping its slice
    marker (`slice k of n`, `last slice`) when it has one. When the item comes
    from a roadmap entry, `roadmap-keeper` moves that entry to **Shipped**, with
@@ -149,7 +151,9 @@ unsafe or would make the work useless if wrong, **do everything that does not
 depend on the answer first, then ask** — and while the question is open, the
 answer is the only thing that waits.
 
-Ask with `AskUserQuestion`, in the owner's language, and:
+Ask with `AskUserQuestion`. "Questions to the owner" in `~/.claude/CLAUDE.md`,
+when there is one, sets the language and the label and wins over this list;
+otherwise ask in the owner's language, and:
 
 - **Recommend.** Put the recommended option first and label it
   `(Recommended)` — `(Recommandé)` when asking in French.
