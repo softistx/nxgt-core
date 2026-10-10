@@ -49,7 +49,7 @@ The reviewer may run all four above. Do **not** run `bun run test` (it needs a l
 - Each app restates access checks in its `<module>.access.ts`, called from the service, even though the route guards already exist. This is on purpose: a job or a second caller is guarded too.
 - Compose and Helm both exist, at parity and on the same ports. That is a staged replacement, not a fork.
 - CI does not run `bun test`, e2e or `verify:chart`. The first two need a live stack, and the runner has no helm yet.
-- The `admin-screen-pattern` skill is not Ory-specific, on purpose.
+- The `admin-screen-pattern` skill (now in `ory-app`, marketplace `softistx-plugins`) is not Ory-specific, on purpose.
 
 ## Layering and packaging
 

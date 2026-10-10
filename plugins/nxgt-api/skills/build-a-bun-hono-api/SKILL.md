@@ -16,7 +16,7 @@ description: >-
 The shape of an HTTP API in these repositories: where files go, how the
 environment is read, how the process starts and stops. It is transport and
 storage agnostic — it says nothing about who authenticates a caller (that is
-`nxgt-ory-app`'s) nor which database is behind it.
+`ory-app`'s, in `softistx-plugins`) nor which database is behind it.
 
 **If the API serves GraphQL, `build-a-graphql-yoga-api` is the one to load**: a
 Yoga instance still runs inside a Hono app, but the module layout, the codegen and

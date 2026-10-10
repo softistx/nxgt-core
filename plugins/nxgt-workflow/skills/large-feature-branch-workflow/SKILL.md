@@ -195,8 +195,7 @@ somewhere else.
 
 | repository | file |
 | --- | --- |
-| `sellix-monorepo` | `references/sellix-monorepo.md` |
-| `nxgt-federation` | `references/nxgt-federation.md` |
+| `sellix-monorepo`, `nxgt-federation` | their plugin in `softistx/plugins`, `references/workflow.md` |
 | `nxgt-ory` | `references/nxgt-ory.md` |
 | `nxgt-core` | `references/nxgt-core.md` |
 

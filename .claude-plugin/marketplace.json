@@ -1,6 +1,6 @@
 {
 	"name": "nxgt-core",
-	"description": "The skills and agents shared by the nxgt repositories — nxgt-core, nxgt-http, nxgt-data, nxgt-telemetry, nxgt-janus, nxgt-di, nxgt-graphql, sellix-monorepo, nxgt-federation, nxgt-ory, stx-sdk, self-learning and content-hub — authored once here rather than copied into each.",
+	"description": "The skills and agents shared by the nxgt repositories — nxgt-core, nxgt-http, nxgt-data, nxgt-telemetry, nxgt-janus, nxgt-di, nxgt-graphql and nxgt-ory — authored once here rather than copied into each. An application's own conventions and references live in its plugin in softistx/plugins.",
 	"owner": {
 		"name": "softistx"
 	},
@@ -12,10 +12,6 @@
 		{
 			"name": "nxgt-package",
 			"source": "./plugins/nxgt-package"
-		},
-		{
-			"name": "nxgt-ory-app",
-			"source": "./plugins/nxgt-ory-app"
 		},
 		{
 			"name": "nxgt-docs",
