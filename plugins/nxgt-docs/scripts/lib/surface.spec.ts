@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { classify, isTestFile, packageJsonSurfaceChanged } from './surface';
+import {
+	classify,
+	ignoredManifestDir,
+	isTestFile,
+	packageJsonSurfaceChanged,
+} from './surface';
 
 describe('classify', () => {
 	test('src/ and lib/ are the surface, specs and tests are not', () => {
@@ -20,6 +25,8 @@ describe('classify', () => {
 
 	test('the README and docs/ pages are documentation', () => {
 		expect(classify('README.md')).toBe('docs');
+		expect(classify('readme.md')).toBe('docs');
+		expect(classify('Readme.MD')).toBe('docs');
 		expect(classify('docs/guide/a.md')).toBe('docs');
 		expect(classify('docs')).toBe('none');
 		expect(classify('src/README.md')).toBe('surface');
@@ -93,5 +100,33 @@ describe('packageJsonSurfaceChanged', () => {
 
 	test('a new manifest is a new surface', () => {
 		expect(packageJsonSurfaceChanged(undefined, base)).toBe(true);
+	});
+});
+
+describe('ignoredManifestDir', () => {
+	const packages = new Set(['', 'packages/a']);
+	const isPackage = (dir: string) => packages.has(dir);
+
+	test('test-data folders hold no package', () => {
+		for (const dir of [
+			'packages/a/__tests__/pkg',
+			'packages/a/__fixtures__/pkg',
+			'packages/a/fixtures/pkg',
+			'packages/a/test/fixtures/pkg',
+		]) {
+			expect(ignoredManifestDir(dir, isPackage)).toBe(true);
+		}
+	});
+
+	test("a manifest inside an ancestor package's src/ or lib/ is no package", () => {
+		expect(ignoredManifestDir('packages/a/src/sample', isPackage)).toBe(true);
+		expect(ignoredManifestDir('packages/a/lib/x/y', isPackage)).toBe(true);
+	});
+
+	test('workspace packages and the root are packages', () => {
+		expect(ignoredManifestDir('', isPackage)).toBe(false);
+		expect(ignoredManifestDir('packages/a', isPackage)).toBe(false);
+		expect(ignoredManifestDir('packages/b', isPackage)).toBe(false);
+		expect(ignoredManifestDir('packages/b/src/x', isPackage)).toBe(false);
 	});
 });

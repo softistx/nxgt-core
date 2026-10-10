@@ -15,6 +15,9 @@
  *
  * Pending means launched in the background with no notification yet. Lines of
  * a sidechain (a subagent's own turns) are ignored. Pure: the text is passed in.
+ *
+ * A pending auditor silences the gate for every package, and a notification
+ * that never lands keeps the session silent — accepted: the gate fails silent.
  */
 
 const AUDITOR = 'documentation-auditor';

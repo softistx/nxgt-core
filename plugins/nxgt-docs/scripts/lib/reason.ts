@@ -24,6 +24,6 @@ export function buildReason(gaps: readonly Gap[]): string {
 		'',
 		'If the change is consumer-visible, bring the docs to the keep-docs-current bar (nxgt-docs:keep-docs-current) before finishing: a README section with a concise copy-paste example for each export, subpath, option or peer that changed; the detailed guide under docs/ when the package has one; a docs/troubleshooting.md entry for any new consumer-visible error; and no private application named on the npm page or in docs/. The documentation-writer and documentation-auditor agents do this.',
 		'',
-		'If it is not consumer-visible (an internal refactor, a private helper, a comment), say so in one line and finish — this gate will not ask again for the same change. Never invent documentation for a guess.',
+		'If it is not consumer-visible (an internal refactor, a private helper, a comment), say so in one line and finish — this gate will not ask again for this package in this session. Never invent documentation for a guess.',
 	].join('\n');
 }

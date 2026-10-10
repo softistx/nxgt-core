@@ -74,9 +74,18 @@ export function findGaps(
 	);
 }
 
-/** One line per gap — package and files — so the same gap set gives the same text. */
-export function signature(gaps: readonly Gap[]): string {
-	return gaps
-		.map((gap) => `${gap.pkg.dir || '.'}:${gap.files.join(',')}`)
-		.join('\n');
+/** The key a package is recorded under in the session state. */
+export const gapKey = (gap: Gap): string => gap.pkg.dir || '.';
+
+/**
+ * The gaps of packages not reported yet in this session. A package already
+ * reported stays quiet even when more of its files change: the gate asks once
+ * per package, so a long session is not interrupted on every edit.
+ */
+export function newlyGapped(
+	gaps: readonly Gap[],
+	reported: readonly string[],
+): Gap[] {
+	const seen = new Set(reported);
+	return gaps.filter((gap) => !seen.has(gapKey(gap)));
 }

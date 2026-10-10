@@ -10,15 +10,15 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }));
 describe('state', () => {
 	test('a session starts with nothing reported and keeps what it records', () => {
 		expect(reported(dir, 's1')).toEqual([]);
-		record(dir, 's1', 'a');
-		record(dir, 's1', 'b');
-		record(dir, 's1', 'a');
-		expect(reported(dir, 's1')).toEqual(['b', 'a']);
+		record(dir, 's1', ['a']);
+		record(dir, 's1', ['b', 'c']);
+		record(dir, 's1', ['a']);
+		expect(reported(dir, 's1')).toEqual(['b', 'c', 'a']);
 		expect(reported(dir, 's2')).toEqual([]);
 	});
 
 	test('a session id cannot escape the folder', () => {
-		record(dir, '../evil', 'x');
+		record(dir, '../evil', ['x']);
 		expect(reported(dir, '../evil')).toEqual(['x']);
 	});
 

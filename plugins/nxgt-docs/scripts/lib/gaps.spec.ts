@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	findGaps,
+	gapKey,
+	newlyGapped,
 	type PackageInfo,
 	type PackageLookup,
-	signature,
 } from './gaps';
 
 const pkg = (dir: string, hasDocs = false): PackageInfo => ({
@@ -72,13 +73,32 @@ describe('findGaps', () => {
 		]);
 	});
 
-	test('the signature names each package and its files', () => {
+	test('a lower-case readme.md closes the gap', () => {
+		expect(
+			findGaps(['packages/a/src/a.ts', 'packages/a/readme.md'], lookup()),
+		).toEqual([]);
+	});
+});
+
+describe('newlyGapped', () => {
+	test('keeps only the packages not reported yet, whatever their files', () => {
 		const gaps = findGaps(
-			['packages/b/src/x.ts', 'packages/a/schema/s.graphql'],
+			[
+				'packages/b/src/x.ts',
+				'packages/b/src/y.ts',
+				'packages/a/schema/s.graphql',
+			],
 			lookup(),
 		);
-		expect(signature(gaps)).toBe(
-			'packages/a:schema/s.graphql\npackages/b:src/x.ts',
-		);
+		expect(gaps.map(gapKey)).toEqual(['packages/a', 'packages/b']);
+		expect(newlyGapped(gaps, ['packages/b']).map(gapKey)).toEqual([
+			'packages/a',
+		]);
+		expect(newlyGapped(gaps, ['packages/a', 'packages/b'])).toEqual([]);
+		expect(newlyGapped(gaps, [])).toEqual(gaps);
+	});
+
+	test('the root package is keyed as "."', () => {
+		expect(gapKey({ pkg: pkg(''), files: ['src/a.ts'] })).toBe('.');
 	});
 });

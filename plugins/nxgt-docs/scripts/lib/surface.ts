@@ -33,7 +33,10 @@ export type SurfaceKind = 'surface' | 'package-json' | 'docs' | 'none';
 export function classify(path: string): SurfaceKind {
 	if (path === 'package.json') return 'package-json';
 	const first = path.split('/')[0] ?? '';
-	if (path === 'README.md' || (first === 'docs' && path.includes('/'))) {
+	if (
+		path.toLowerCase() === 'readme.md' ||
+		(first === 'docs' && path.includes('/'))
+	) {
 		return 'docs';
 	}
 	if (first === 'src' || first === 'lib') {
@@ -67,5 +70,33 @@ export function packageJsonSurfaceChanged(
 	if (!base) return true;
 	return SURFACE_FIELDS.some(
 		(field) => canonical(base[field]) !== canonical(current[field]),
+	);
+}
+
+/** Folders whose `package.json` files are test data, not packages. */
+const TEST_DATA_DIRS = new Set([
+	'__tests__',
+	'__fixtures__',
+	'fixtures',
+	'test',
+]);
+
+/**
+ * Whether a directory's `package.json` is test data rather than a package:
+ * it sits under a `__tests__/`, `__fixtures__/`, `fixtures/` or `test/`
+ * folder, or inside the `src/` or `lib/` of an ancestor package.
+ * `isPackage` says whether a repository-relative directory holds a manifest.
+ */
+export function ignoredManifestDir(
+	dir: string,
+	isPackage: (dir: string) => boolean,
+): boolean {
+	if (dir === '') return false;
+	const segments = dir.split('/');
+	return segments.some(
+		(segment, i) =>
+			TEST_DATA_DIRS.has(segment) ||
+			((segment === 'src' || segment === 'lib') &&
+				isPackage(segments.slice(0, i).join('/'))),
 	);
 }

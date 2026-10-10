@@ -2,14 +2,15 @@
 /**
  * Stop: when the branch or the working tree changed the public surface of a
  * published package (a `package.json` not `"private": true`) without its
- * README or a docs/ page, block the end of the turn once with what is
- * missing. Silent otherwise: outside a git repository, with no published package touched,
- * while a documentation-auditor run is pending, on a gap already reported in
- * this session, and on the stop the hook itself caused.
+ * README or a docs/ page, block the end of the turn once per package with
+ * what is missing. Silent otherwise: outside a git repository, with no
+ * published package touched, while a documentation-auditor run is pending,
+ * for a package already reported in this session, and on the stop the hook
+ * itself caused.
  */
 
 import { readFileSync } from 'node:fs';
-import { findGaps, signature } from '../lib/gaps';
+import { findGaps, gapKey, newlyGapped } from '../lib/gaps';
 import { runHook } from '../lib/hook';
 import { buildReason } from '../lib/reason';
 import {
@@ -47,8 +48,8 @@ await runHook((input) => {
 	if (pending(input.transcript_path)) return undefined;
 
 	const dir = stateDir(process.env);
-	const sig = signature(gaps);
-	if (reported(dir, session).includes(sig)) return undefined;
-	record(dir, session, sig);
-	return { decision: 'block', reason: buildReason(gaps) };
+	const fresh = newlyGapped(gaps, reported(dir, session));
+	if (fresh.length === 0) return undefined;
+	record(dir, session, fresh.map(gapKey));
+	return { decision: 'block', reason: buildReason(fresh) };
 });

@@ -168,13 +168,46 @@ describe('stop.ts', () => {
 		expect(out.reason).toContain('package.json');
 	});
 
-	test('the same gap is reported once per session; a new file reports again', async () => {
+	test('a package is reported once per session; only a newly gapped package blocks again', async () => {
 		write('packages/pub/src/index.ts', 'export const a = 1;');
-		expect((await stop()).out?.decision).toBe('block');
+		const first = await stop();
+		expect(first.out?.decision).toBe('block');
+		expect(first.out?.reason).toContain(
+			'will not ask again for this package in this session',
+		);
 		expect(await stop()).toEqual(silent);
 		expect((await stop({ session_id: 'other' })).out?.decision).toBe('block');
 		write('packages/pub/src/b.ts', 'export {}');
-		expect((await stop()).out?.decision).toBe('block');
+		expect(await stop()).toEqual(silent);
+		write('packages/two/package.json', { ...PUB, name: '@x/two' });
+		await commit();
+		write('packages/two/src/index.ts', 'export {}');
+		const second = await stop();
+		expect(second.out?.decision).toBe('block');
+		expect(second.out?.reason).toContain('@x/two');
+		expect(second.out?.reason).not.toContain('@x/pub');
+	});
+
+	test('a committed rename out of src/ blocks on the old path', async () => {
+		await $`git -C ${repo} mv packages/pub/src/index.ts packages/pub/tools.ts`.quiet();
+		await commit();
+		const { out } = await stop();
+		expect(out?.decision).toBe('block');
+		expect(out?.reason).toContain('src/index.ts');
+	});
+
+	test('a lower-case readme.md closes the gap', async () => {
+		write('packages/pub/src/index.ts', 'export const a = 1;');
+		write('packages/pub/readme.md', '# pub\n\n## a');
+		expect(await stop()).toEqual(silent);
+	});
+
+	test('a package.json under test fixtures is no package', async () => {
+		write('packages/pub/test/fixtures/mod/package.json', { name: 'mod' });
+		write('packages/pub/test/fixtures/mod/src/index.ts', 'export {}');
+		write('packages/pub/src/__tests__/x/package.json', { name: 'x' });
+		write('packages/pub/src/__tests__/x/lib/a.ts', 'export {}');
+		expect(await stop()).toEqual(silent);
 	});
 
 	test('a pending documentation-auditor run: silent', async () => {

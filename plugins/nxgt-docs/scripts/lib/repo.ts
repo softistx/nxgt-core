@@ -7,11 +7,19 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { PackageInfo, PackageLookup } from './gaps';
-import { packageJsonSurfaceChanged } from './surface';
+import { ignoredManifestDir, packageJsonSurfaceChanged } from './surface';
+
+/**
+ * The argv of a git call. `--no-optional-locks` keeps `git status` from
+ * taking `index.lock`, so the hook never races the session's own git commands.
+ */
+export function gitArgv(cwd: string, args: readonly string[]): string[] {
+	return ['git', '--no-optional-locks', '-C', cwd, ...args];
+}
 
 /** Runs git; `undefined` when it fails. */
 function git(cwd: string, args: string[]): string | undefined {
-	const proc = Bun.spawnSync(['git', '-C', cwd, ...args], {
+	const proc = Bun.spawnSync(gitArgv(cwd, args), {
 		stdout: 'pipe',
 		stderr: 'ignore',
 	});
@@ -41,7 +49,10 @@ export function mergeBase(root: string): string | undefined {
 	return git(root, ['merge-base', 'HEAD', ref])?.trim() || undefined;
 }
 
-/** Paths from `git status --porcelain -z`, untracked included, both sides of a rename. */
+/**
+ * Paths from `git status --porcelain -z`, untracked included, both sides of a
+ * rename or copy — staged (`R `) or not (` R`, an intent-to-add rename).
+ */
 export function parseStatus(output: string): string[] {
 	const fields = output.split('\0');
 	const paths: string[] = [];
@@ -49,8 +60,8 @@ export function parseStatus(output: string): string[] {
 		const field = fields[i] ?? '';
 		if (field.length < 4) continue;
 		paths.push(field.slice(3));
-		const x = field[0];
-		if (x === 'R' || x === 'C') {
+		const [x, y] = [field[0], field[1]];
+		if (x === 'R' || x === 'C' || y === 'R' || y === 'C') {
 			const from = fields[++i];
 			if (from) paths.push(from);
 		}
@@ -58,7 +69,11 @@ export function parseStatus(output: string): string[] {
 	return paths;
 }
 
-/** Uncommitted files ∪ files changed since the merge-base, repository-relative. */
+/**
+ * Uncommitted files ∪ files changed since the merge-base, repository-relative.
+ * `--no-renames` lists both sides of a committed rename, so a file moved out
+ * of src/ still shows its old path.
+ */
 export function changedFiles(root: string, base: string | undefined): string[] {
 	const files = new Set(
 		parseStatus(
@@ -67,7 +82,7 @@ export function changedFiles(root: string, base: string | undefined): string[] {
 	);
 	if (base) {
 		for (const file of (
-			git(root, ['diff', '--name-only', '-z', base]) ?? ''
+			git(root, ['diff', '--no-renames', '--name-only', '-z', base]) ?? ''
 		).split('\0')) {
 			if (file) files.add(file);
 		}
@@ -88,7 +103,8 @@ function readJson(path: string): Record<string, unknown> | undefined {
 
 /**
  * Packages over the working copy: the nearest directory with a `package.json`
- * owns a file, and only a manifest not `"private": true` is published.
+ * owns a file, and only a manifest not `"private": true` is published. A
+ * manifest that is test data (`ignoredManifestDir`) owns nothing.
  * `base` is the commit `package.json` is compared with (the merge-base, else HEAD).
  */
 export function createLookup(root: string, base: string): PackageLookup {
@@ -124,7 +140,9 @@ export function createLookup(root: string, base: string): PackageLookup {
 			let dir = dirname(file);
 			for (;;) {
 				const key = dir === '.' ? '' : dir;
-				const found = at(key);
+				const found = ignoredManifestDir(key, (d) => at(d) !== undefined)
+					? undefined
+					: at(key);
 				if (found) return found;
 				if (key === '') return undefined;
 				dir = dirname(dir);
