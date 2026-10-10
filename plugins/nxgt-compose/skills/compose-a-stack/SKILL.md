@@ -32,7 +32,10 @@ absent here, read the application's plugin in `softistx/plugins` (marketplace
 `softistx-plugins`), `references/compose.md`:
 
 ```bash
-find ~/.claude/plugins/cache -path "*/softistx-plugins/<repo>/*/references/compose.md" | sort -V | tail -1
+# the installed version first; the cache keeps old ones
+jq -r '.plugins["<repo>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json
+# then read <installPath>/references/compose.md; with no install recorded:
+find ~/.claude/plugins/cache/softistx-plugins/<repo> -path '*/references/compose.md' | sort -V | tail -1
 ```
 
 | repository | reference |

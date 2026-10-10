@@ -191,6 +191,17 @@ somewhere else.
 | `nxgt-ory` | `references/nxgt-ory.md` |
 | `nxgt-core` | `references/nxgt-core.md` |
 
-Read the one you are in. It carries that repository's green bar, its sequencing
+Read the one you are in. An application whose file is no longer here keeps it
+in its plugin in `softistx/plugins` (marketplace `softistx-plugins`), as
+`references/workflow.md`:
+
+```bash
+# the installed version first; the cache keeps old ones
+jq -r '.plugins["<repo>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json
+# then read <installPath>/references/workflow.md; with no install recorded:
+find ~/.claude/plugins/cache/softistx-plugins/<repo> -path '*/references/workflow.md' | sort -V | tail -1
+```
+
+The file carries that repository's green bar, its sequencing
 order, the propagation hops it has, and the access surface its deep review must
 check.

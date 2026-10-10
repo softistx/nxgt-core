@@ -29,7 +29,10 @@ what each completed extraction actually cost; if it is absent here, read the
 product's plugin in `softistx/plugins`, `references/product.md`:
 
 ```bash
-find ~/.claude/plugins/cache -path "*/softistx-plugins/<product>/*/references/product.md" | sort -V | tail -1
+# the installed version first; the cache keeps old ones
+jq -r '.plugins["<product>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json
+# then read <installPath>/references/product.md; with no install recorded:
+find ~/.claude/plugins/cache/softistx-plugins/<product> -path '*/references/product.md' | sort -V | tail -1
 ```
 
 ---

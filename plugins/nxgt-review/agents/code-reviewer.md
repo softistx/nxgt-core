@@ -80,7 +80,10 @@ anything you did not create in this run.**
    (marketplace `softistx-plugins`) may carry it as `references/review.md`:
 
    ```bash
-   find ~/.claude/plugins/cache -path "*/softistx-plugins/<repository>/*/references/review.md" | sort -V | tail -1
+   # the installed version first; the cache keeps old ones
+   jq -r '.plugins["<repository>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json
+   # then read <installPath>/references/review.md; with no install recorded:
+   find ~/.claude/plugins/cache/softistx-plugins/<repository> -path '*/references/review.md' | sort -V | tail -1
    ```
 
    The reference names the measuring commands for this layout, the green
