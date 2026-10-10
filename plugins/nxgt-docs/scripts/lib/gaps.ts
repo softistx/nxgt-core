@@ -1,6 +1,7 @@
 /**
  * The gaps the Stop hook reports: a published package whose public surface
- * changed while its README did not. Pure — the repository is reached through
+ * changed while its documentation (the README or a
+ * page under docs/) did not. Pure — the repository is reached through
  * the `PackageLookup` passed in — so the specs need no git.
  */
 
@@ -50,14 +51,14 @@ export function publishedPackages(
 	return packages;
 }
 
-/** Each published package whose surface changed without its README. */
+/** Each published package whose surface changed with no README or docs/ change. */
 export function findGaps(
 	changed: readonly string[],
 	lookup: PackageLookup,
 ): Gap[] {
 	const gaps: Gap[] = [];
 	for (const { info, files } of publishedPackages(changed, lookup).values()) {
-		if (files.includes('README.md')) continue;
+		if (files.some((file) => classify(file) === 'docs')) continue;
 		const surface = files.filter((file) => {
 			const kind = classify(file);
 			return (

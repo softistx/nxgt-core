@@ -2,8 +2,8 @@
 /**
  * Stop: when the branch or the working tree changed the public surface of a
  * published package (a `package.json` not `"private": true`) without its
- * README, block the end of the turn once with what is missing. Silent
- * otherwise: outside a git repository, with no published package touched,
+ * README or a docs/ page, block the end of the turn once with what is
+ * missing. Silent otherwise: outside a git repository, with no published package touched,
  * while a documentation-auditor run is pending, on a gap already reported in
  * this session, and on the stop the hook itself caused.
  */

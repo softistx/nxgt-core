@@ -4,8 +4,8 @@
  * package directory, POSIX-separated — so the specs need no repository.
  */
 
-/** Directories shipped as they are: a schema, a spec or the docs themselves. */
-const ASSET_DIRS = new Set(['graphql', 'openapi', 'schema', 'docs']);
+/** Directories shipped as they are: a schema or a spec a consumer reads. */
+const ASSET_DIRS = new Set(['graphql', 'openapi', 'schema']);
 
 /** The `package.json` fields a consumer sees: what resolves, what ships, which peers. */
 export const SURFACE_FIELDS = [
@@ -23,15 +23,19 @@ export function isTestFile(path: string): boolean {
 	return /\.(spec|test|fixtures|harness)\./.test(base);
 }
 
-export type SurfaceKind = 'surface' | 'package-json' | 'none';
+export type SurfaceKind = 'surface' | 'package-json' | 'docs' | 'none';
 
 /**
  * Classifies one changed file of a package. `package-json` means the answer
- * depends on which fields changed (`packageJsonSurfaceChanged`).
+ * depends on which fields changed (`packageJsonSurfaceChanged`); `docs` (the
+ * README or a page under docs/) is documentation, which closes a gap.
  */
 export function classify(path: string): SurfaceKind {
 	if (path === 'package.json') return 'package-json';
 	const first = path.split('/')[0] ?? '';
+	if (path === 'README.md' || (first === 'docs' && path.includes('/'))) {
+		return 'docs';
+	}
 	if (first === 'src' || first === 'lib') {
 		return path.includes('/') && !isTestFile(path) ? 'surface' : 'none';
 	}

@@ -19,7 +19,7 @@ function describe(gap: Gap): string {
 
 export function buildReason(gaps: readonly Gap[]): string {
 	return [
-		'nxgt-docs: the public surface of a published package changed on this branch, but its README did not:',
+		'nxgt-docs: the public surface of a published package changed on this branch, but neither its README nor its docs/ did:',
 		...gaps.map(describe),
 		'',
 		'If the change is consumer-visible, bring the docs to the keep-docs-current bar (nxgt-docs:keep-docs-current) before finishing: a README section with a concise copy-paste example for each export, subpath, option or peer that changed; the detailed guide under docs/ when the package has one; a docs/troubleshooting.md entry for any new consumer-visible error; and no private application named on the npm page or in docs/. The documentation-writer and documentation-auditor agents do this.',

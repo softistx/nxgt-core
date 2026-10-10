@@ -46,6 +46,16 @@ describe('findGaps', () => {
 		).toEqual([]);
 	});
 
+	test('a docs/ page changed with it closes the gap too', () => {
+		expect(
+			findGaps(['packages/a/src/a.ts', 'packages/a/docs/guide/a.md'], lookup()),
+		).toEqual([]);
+	});
+
+	test('a docs-only change is no gap', () => {
+		expect(findGaps(['packages/b/docs/a.md'], lookup())).toEqual([]);
+	});
+
 	test('private packages, the private root and specs never count', () => {
 		expect(
 			findGaps(
@@ -64,9 +74,11 @@ describe('findGaps', () => {
 
 	test('the signature names each package and its files', () => {
 		const gaps = findGaps(
-			['packages/b/src/x.ts', 'packages/a/docs/g.md'],
+			['packages/b/src/x.ts', 'packages/a/schema/s.graphql'],
 			lookup(),
 		);
-		expect(signature(gaps)).toBe('packages/a:docs/g.md\npackages/b:src/x.ts');
+		expect(signature(gaps)).toBe(
+			'packages/a:schema/s.graphql\npackages/b:src/x.ts',
+		);
 	});
 });

@@ -139,6 +139,18 @@ describe('stop.ts', () => {
 		expect(await stop()).toEqual(silent);
 	});
 
+	test('a docs/ page changed with it: silent', async () => {
+		write('packages/pub/src/index.ts', 'export const a = 1;');
+		write('packages/pub/docs/guide.md', '# guide\n\n## a');
+		expect(await stop()).toEqual(silent);
+	});
+
+	test('a docs-only change: silent', async () => {
+		write('packages/pub/docs/guide.md', '# guide\n\nmore');
+		write('packages/pub/docs/new.md', '# new');
+		expect(await stop()).toEqual(silent);
+	});
+
 	test('a spec-only change: silent', async () => {
 		write('packages/pub/src/index.spec.ts', 'test');
 		expect(await stop()).toEqual(silent);

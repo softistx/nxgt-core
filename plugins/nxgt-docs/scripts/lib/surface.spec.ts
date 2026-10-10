@@ -13,14 +13,20 @@ describe('classify', () => {
 	});
 
 	test('shipped asset directories are the surface', () => {
-		for (const dir of ['graphql', 'openapi', 'schema', 'docs']) {
+		for (const dir of ['graphql', 'openapi', 'schema']) {
 			expect(classify(`${dir}/x.md`)).toBe('surface');
 		}
 	});
 
+	test('the README and docs/ pages are documentation', () => {
+		expect(classify('README.md')).toBe('docs');
+		expect(classify('docs/guide/a.md')).toBe('docs');
+		expect(classify('docs')).toBe('none');
+		expect(classify('src/README.md')).toBe('surface');
+	});
+
 	test('package.json depends on its fields; anything else is not the surface', () => {
 		expect(classify('package.json')).toBe('package-json');
-		expect(classify('README.md')).toBe('none');
 		expect(classify('scripts/build.ts')).toBe('none');
 		expect(classify('test/a.ts')).toBe('none');
 		expect(classify('src')).toBe('none');
