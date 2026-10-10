@@ -44,8 +44,9 @@ before drawing the slices.
 ## Structure
 
 **Read `references/<repo>.md` first.** `nxgt-federation` does not use an
-integration branch at all — every PR there targets `develop`, and rules 1, 3
-and 4 below do not apply. The other three repositories work as described here.
+integration branch at all — every PR there targets `develop`, rules 1, 3, 4
+and 6 below do not apply, and each PR waits for the owner's yes like any PR
+into `develop`. The other three repositories work as described here.
 
 ```
 develop
@@ -73,7 +74,8 @@ develop
    effort does not touch it — `main` is aligned from `develop` separately
    (fast-forward only: `git checkout main && git merge --ff-only develop`),
    on the owner's explicit yes.
-6. **Merge each slice without asking once it is green**, as "Merges and
+6. **Merge each slice into the integration branch without asking once it is
+   green**, as "Merges and
    releases" in `~/.claude/CLAUDE.md` defines it — the green bar passes, the
    `code-reviewer` reports `ready: true`, the `documentation-auditor` reports
    `ok: true` when a public surface changed, and no owner decision is open —
