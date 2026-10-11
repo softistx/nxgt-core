@@ -130,8 +130,10 @@ line, a command and its output, or two places that disagree.
 ### Upstream issues, when `nxgt-issues` is installed
 
 The owner's open issues are candidates nobody has to rediscover. Run once
-(`dashboard` makes search calls; exit 5 is a rate limit: write `issues: not
-checked` and go on):
+(`dashboard` makes search calls; exit 5 is a rate limit, and `ready` exits 2
+in a checkout that is not an application's and 5 on a rate limit: for 2 or 5
+write `issues: not checked` and go on. `markers --json` exits 1 with JSON when
+it found markers: that is flagged markers, not a failure):
 
 ```bash
 issues="$(ls -d ~/.claude/plugins/cache/*/nxgt-issues/*/scripts/issues.ts 2>/dev/null | sort -V | tail -1)"

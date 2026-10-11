@@ -141,7 +141,11 @@ issues="$(ls -d ~/.claude/plugins/cache/*/nxgt-issues/*/scripts/issues.ts 2>/dev
 
 (Inside nxgt-core, `plugins/nxgt-issues/scripts/issues.ts` is the same file.)
 `dashboard` makes search calls: run it once per audit, never in a loop; exit 5
-is a rate limit, report "issues: not checked" and go on.
+is a rate limit, report "issues: not checked" and go on; so does `ready --json`
+when it exits 2 (a checkout that is not an application's) or 5. `markers --json`
+exits 1 with JSON when it found markers: those are flagged markers, not a
+failure. (`dashboard` and `ready` refresh the plugin's own cache under
+`~/.claude/nxgt-issues`, nothing in the repository.)
 
 | finding | how you prove it |
 | --- | --- |

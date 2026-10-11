@@ -3,7 +3,7 @@
  * Closes the issues a release fixed, in CI only (HEAD is the release commit;
  * elsewhere use `issues.ts released`), after `changesets/action` publishes:
  *   bun scripts/close-released-issues.ts --published "$PUBLISHED" [--repo owner/repo] [--dry-run]
- * (`PUBLISHED` is `steps.<id>.outputs.publishedPackages`, a JSON array of
+ * (`PUBLISHED` is `steps.<id>.outputs.published-packages`, a JSON array of
  * `{ name, version }`; `GH_TOKEN` is the workflow's token, with `issues: write`.)
  *
  * Per published package the issues come from `close-released-issues-lib.ts`;
