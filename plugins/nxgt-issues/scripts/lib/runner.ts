@@ -172,12 +172,16 @@ export function createRunner(
 			}
 			forwardSignals();
 			live.add(child);
-			void child.exited.then(() => live.delete(child));
 			if (options.stdin !== undefined && child.stdin) {
 				child.stdin.write(options.stdin);
 				await child.stdin.end();
 			}
-			return await collect(child, timeoutMs, options.signal);
+			try {
+				return await collect(child, timeoutMs, options.signal);
+			} finally {
+				// Not on exit: a grandchild may still hold the pipes, and a signal must reach it.
+				live.delete(child);
+			}
 		},
 		async fetchJson(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
 			guard(`fetching ${url}`);

@@ -306,4 +306,34 @@ describe('the real runner: a signal to the parent reaches the children', () => {
 			}
 		});
 	}
+
+	test('a grandchild holding the pipes after the child exited is killed too', async () => {
+		const dir = tempDir('forward-grandchild');
+		const pidFile = join(dir, 'pid');
+		const script = join(dir, 'gh');
+		writeFileSync(script, `sleep 30 &\necho $! > '${pidFile}'\nexit 0\n`);
+		const parent = join(dir, 'parent.ts');
+		writeFileSync(
+			parent,
+			`import { createRunner } from '${join(import.meta.dir, 'runner')}';\n` +
+				`await createRunner({ NXGT_ISSUES_ALLOW_NETWORK: '1' }).run(['sh', '${script}'], { timeoutMs: 60000 });\n`,
+		);
+		const proc = Bun.spawn(['bun', parent], {
+			stdout: 'ignore',
+			stderr: 'ignore',
+		});
+		try {
+			for (let i = 0; i < 100 && !existsSync(pidFile); i++) await Bun.sleep(50);
+			await Bun.sleep(300);
+			const sleeper = Number(readFileSync(pidFile, 'utf8').trim());
+			expect(alive(sleeper)).toBe(true);
+			proc.kill('SIGINT');
+			expect(await proc.exited).toBe(130);
+			await Bun.sleep(100);
+			expect(alive(sleeper)).toBe(false);
+		} finally {
+			proc.kill('SIGKILL');
+			reap(pidFile);
+		}
+	});
 });
