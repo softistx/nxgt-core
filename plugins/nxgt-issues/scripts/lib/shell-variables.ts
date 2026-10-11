@@ -47,7 +47,20 @@ const PIN = /(?:^|_)PIN$/;
 const EXPANSION_VALUE = /^["'`]?\$\{([A-Za-z_]\w*):?[-=+](.*?)\}?["'`]?$/s;
 
 /** A default shaped like an authorization header value, whatever the name: `Basic YWRtaW46…`. */
-const SCHEME_DEFAULT = /^(?:Basic|Digest|Token|Bearer)\s+[\w+/=.~-]{8,}/;
+const SCHEME_DEFAULT =
+	/^(?:Basic|Digest|Token|Bearer)[ \t]+([\w.~+/=-]{8,})(?![\w.~+/=-])/;
+const SCHEME_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
+const SCREAMING = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
+
+/** Whether `value` is a scheme and a credential, as a `Bearer` token is in secrets.ts (a word or `YOUR_TOKEN` is not one). */
+export function isSchemeSecret(value: string): boolean {
+	const credential = SCHEME_DEFAULT.exec(value.trim())?.[1];
+	if (credential === undefined) return false;
+	const tokenLike = /[\d._~+/=]/.test(credential) || credential.length >= 16;
+	return (
+		tokenLike && !SCHEME_WORDS.test(credential) && !SCREAMING.test(credential)
+	);
+}
 
 /** Last words that make a name a setting, not a credential, whatever words come before. */
 const SETTING_WORDS = new Set(
@@ -58,10 +71,15 @@ const SETTING_WORDS = new Set(
 	driver secure samesite strategy db`.split(/\s+/),
 );
 
+/** Whether the name ends on a setting word (not a vault `secret_id`). */
+const isSetting = (words: string[]): boolean =>
+	SETTING_WORDS.has(words.at(-1) ?? '') &&
+	!(words.at(-1) === 'id' && words.at(-2) === 'secret');
+
 /** Whether the name is a credential: it carries a credential keyword and does not end on a setting word. */
 export const namesSecret = (name: string): boolean =>
 	(keywordOf(name) !== undefined || PIN.test(name)) &&
-	!SETTING_WORDS.has(wordsIn(name).at(-1) ?? '');
+	!isSetting(wordsIn(name));
 
 /**
  * Whether an expansion's default is harmless: the name is no credential
@@ -69,7 +87,7 @@ export const namesSecret = (name: string): boolean =>
  * benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
  */
 const isBenignExpansion = (name: string, value: string): boolean =>
-	!SCHEME_DEFAULT.test(value.trim()) &&
+	!isSchemeSecret(value) &&
 	(!namesSecret(name) || BENIGN_DEFAULT.test(value.trim()));
 
 /**
@@ -131,7 +149,7 @@ export function secretDefaults(
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
 		if (isBenignExpansion(name, value)) continue;
-		if (SCHEME_DEFAULT.test(value.trim())) {
+		if (isSchemeSecret(value)) {
 			found.push('authorization');
 			continue;
 		}

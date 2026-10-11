@@ -279,12 +279,6 @@ describe('compose names are judged by the credential keyword, not by their last 
 		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
 		`\${SASLAUTHD_MECHANISMS:-ldap}`,
 		`\${AUTHENTICATED_USERS:-admin}`,
-		`\${OAUTH_API_HOSTNAME:-oauth-api.example.com}`,
-		`\${OAUTH_CLIENT_ID:-my-app}`,
-		`\${TOKEN_EXPIRES_IN:-1h}`,
-		`\${SESSION_DRIVER:-redis}`,
-		`\${SESSION_LIFETIME:-120}`,
-		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
 		`\${SESSION_STORE:-redis}`,
 		`password: \${DB_PASSWORD:-$POSTGRES_PASSWORD}`,
 		`password: \${DB_PASSWORD:-\${POSTGRES_PASSWORD}}`,
@@ -318,5 +312,37 @@ describe('redis directives after config set, in prose and in quotes', () => {
 		'requirepass should be long',
 		'`requirepass` is set in redis.conf',
 		'AUTHENTICATED: false',
+	])('%p passes', passes);
+});
+
+describe('round 9: fused auth names, authkey flag, scheme defaults, vault ids', () => {
+	test.each([
+		'      - TS_AUTHKEY=Hunter2024',
+		'export TAILSCALE_AUTHKEY="k3J9xQ2mPz7vL8wq"',
+		'REDIS_MASTERAUTH=Hunter2024',
+		'BASICAUTH=admin:Hunter2024',
+		'const authkey = "k3J9xQ2mPz7vL8wq";',
+		`\${REDIS_MASTERAUTH:-Hunter2024}`,
+		`\${AUTHKEY:-k3J9xQ2mPz7vL}`,
+		'tailscale up --authkey=Hunter2024',
+		'tailscale up --login-server https://hs.example.com --authkey 8f3a1c9e2b7d4f6a0e5c3b1d',
+		`X: \${AUTH_HEADER:-Basic YWRtaW46aHVudGVyMg==}`,
+		`curl -H "Authorization: \${AUTH_HEADER:-Basic YWRtaW46aHVudGVyMg==}" https://x.example.com`,
+		`\${SECRET_ID:-6a1f9c2e}`,
+		`secret_id: \${VAULT_SECRET_ID:-6a1f9c2e-77b1-4c0e}`,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		'SASLAUTHD_MECHANISMS=ldap',
+		'AUTHENTICATED_USERS=admin',
+		`\${TITLE:-Bearer authentication guide}`,
+		`\${HINT:-Digest authentication required}`,
+		`\${AUTH_HEADER:-Bearer xxxxxxxxxxxx}`,
+		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
+		`\${OAUTH_CLIENT_ID:-my-app}`,
+		`\${SESSION_ID:-x}`,
+		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
 	])('%p passes', passes);
 });
