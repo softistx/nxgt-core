@@ -55,7 +55,18 @@ const SCREAMING = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
 /** `Basic admin:hunter2`: a plain `user:pass` after the scheme. */
 const BASIC_USERPASS = /^Basic[ \t]+[^\s$<]\S*:[^\s$<]\S*/;
 /** A credential that only fills a slot: `xxxxxxxx`, `********`, `<token>`, `YOUR_TOKEN`. */
-const FILLER = /^(?:x+|\*+|\.+|<[^<>]*>|your[-_ ]?\w*)$/i;
+const FILLER =
+	/^(?:x+|\*+|\.+|<[^<>]*>|your[-_ ]?\w*|placeholder|redacted|anonymous|undefined)$/i;
+/** A digit that is not part of `BASE64`/`BASE32`: filler never holds one. */
+const hasDigit = (credential: string): boolean =>
+	/\d/.test(credential.replace(/base(?:64|32)/gi, ''));
+/** Words of a header name: the value of such a variable is a credential. */
+const HEADER_WORD = /^(?:authori[sz]ation|authz|headers?)$/;
+
+/** Whether the variable's name makes a scheme default a credential. */
+const headerish = (name: string): boolean =>
+	keywordOf(name) !== undefined ||
+	wordsIn(name).some((word) => HEADER_WORD.test(word));
 
 /** Base64 or base64url, padded or not, that decodes to printable ASCII holding a `user:pass` colon. */
 function decodesToUserPass(credential: string): boolean {
@@ -85,12 +96,11 @@ export function isSchemeSecret(value: string, credentialName = false): boolean {
 		/[\d._~+/=]/.test(credential) ||
 		credential.length >= 16 ||
 		(/^Basic/i.test(text) && decodesToUserPass(credential));
-	return (
-		tokenLike &&
-		!SCHEME_WORDS.test(credential) &&
-		!SCREAMING.test(credential) &&
-		!FILLER.test(credential)
-	);
+	const filler =
+		SCHEME_WORDS.test(credential) ||
+		((SCREAMING.test(credential) || FILLER.test(credential)) &&
+			!(credentialName && hasDigit(credential)));
+	return tokenLike && !filler;
 }
 
 /** Last words that make a name a setting, not a credential, whatever words come before. */
@@ -118,7 +128,7 @@ export const namesSecret = (name: string): boolean =>
  * benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
  */
 const isBenignExpansion = (name: string, value: string): boolean =>
-	!isSchemeSecret(value, keywordOf(name) !== undefined) &&
+	!isSchemeSecret(value, headerish(name)) &&
 	(!namesSecret(name) || BENIGN_DEFAULT.test(value.trim()));
 
 /**
@@ -180,7 +190,7 @@ export function secretDefaults(
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
 		if (isBenignExpansion(name, value)) continue;
-		if (isSchemeSecret(value, keywordOf(name) !== undefined)) {
+		if (isSchemeSecret(value, headerish(name))) {
 			found.push('authorization');
 			continue;
 		}

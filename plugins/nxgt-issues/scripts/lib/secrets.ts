@@ -210,7 +210,12 @@ function collectSecrets(text: string, found: Set<string>): void {
 	for (const match of text.matchAll(BEARER)) {
 		const value = match[1] ?? '';
 		const tokenLike = /[\d._~+/=]/.test(value) || value.length >= 16;
-		if (tokenLike && !isPlaceholder(value) && !TOKEN_WORDS.test(value)) {
+		if (
+			tokenLike &&
+			!isPlaceholder(value) &&
+			!TOKEN_WORDS.test(value) &&
+			!/^YOUR[-_][A-Z_]+$/.test(value) // `Bearer YOUR_TOKEN`
+		) {
 			found.add('bearer');
 		}
 	}

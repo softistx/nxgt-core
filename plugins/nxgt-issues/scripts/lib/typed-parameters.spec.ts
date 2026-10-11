@@ -401,3 +401,29 @@ describe('round 11: scheme words under credential names, quoted header defaults'
 		`\${MSG:-Bearer swordfish}`,
 	])('%p passes', passes);
 });
+
+describe('round 12: header names without auth, filler with digits, placeholder words', () => {
+	test.each([
+		`\${AUTHORIZATION_HEADER:-Bearer swordfish}`,
+		`API_AUTHORIZATION: \${API_AUTHORIZATION:-Bearer devtoken}`,
+		`- PROXY_AUTHORIZATION=\${PROXY_AUTHORIZATION:-Basic supersecret}`,
+		`HTTP_AUTHORIZATION: "\${HTTP_AUTHORIZATION:-Token changeme}"`,
+		`\${AUTHZ_HEADER:-Bearer swordfish}`,
+		`\${UPSTREAM_HEADER:-Bearer swordfish}`,
+		`\${AUTHORIZATION:=Bearer swordfish}`,
+		`\${AUTHORIZATION-Bearer swordfish}`,
+		`\${AUTH_HEADER:-Token SK_LIVE_ABC123XYZ}`,
+		`\${AUTH_HEADER:-Digest YourSecretKey2024}`,
+		`\${AUTH_HEADER:-Bearer changeme}`,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		`\${AUTH_HEADER:-Bearer YOUR_TOKEN}`,
+		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
+		`\${AUTH_HEADER:-Bearer redacted}`,
+		`\${AUTH_HEADER:-Bearer placeholder}`,
+		`\${AUTH_HEADER:-Bearer REDACTED}`,
+	])('%p passes', passes);
+});
