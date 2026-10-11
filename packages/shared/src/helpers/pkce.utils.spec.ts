@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import {
 	generateCodeChallenge,
 	generateCodeVerifier,
@@ -32,6 +32,16 @@ const mockDigest = mock(async (_algorithm: string, data: Uint8Array) => {
 		hash[i] = (data[i % data.length] ?? 0 + i) % 256;
 	}
 	return hash.buffer;
+});
+
+// The real `crypto`, put back after each test: `bun test packages/shared`
+// also loads the other `shared-*` packages in this process, and their specs
+// need `crypto.randomUUID`.
+const realCrypto = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+
+afterEach(() => {
+	if (realCrypto) Object.defineProperty(globalThis, 'crypto', realCrypto);
+	else delete (globalThis as any).crypto;
 });
 
 beforeEach(() => {
