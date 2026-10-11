@@ -1,6 +1,6 @@
 /**
  * The terms `buildDenyList` derives from a name beyond the name itself: the
- * product stem (`schoolz` from `schoolz-api`), the scope of a package, and the
+ * product stem (`vexora` from `vexora-api`), the scope of a package, and the
  * registrable domain of an application domain with its main label.
  */
 

@@ -279,8 +279,8 @@ describe('findDenied: separators and variants', () => {
 
 	test('the underscore is a separator, not a letter', () => {
 		expect(findDenied('secret-app_v2', D(deny))).toEqual(deny);
-		expect(findDenied('SCHOOLZ_API_URL', D(['schoolz-api']))).toEqual([
-			'schoolz-api',
+		expect(findDenied('VEXORA_API_URL', D(['vexora-api']))).toEqual([
+			'vexora-api',
 		]);
 		expect(findDenied('x_secret-app', D(deny))).toEqual(deny);
 	});
@@ -502,16 +502,16 @@ describe('transform: git SHAs are kept', () => {
 
 describe('findDenied: camelCase and digits', () => {
 	const deny = [
-		'schoolz-api',
+		'vexora-api',
 		'nxgt-federation',
 		'zorblax-monorepo',
 		'secret-app',
 	];
 
 	test.each([
-		['SchoolzApiService.handle', 'schoolz-api'],
-		['useSchoolzApi()', 'schoolz-api'],
-		['schoolzApiClient', 'schoolz-api'],
+		['VexoraApiService.handle', 'vexora-api'],
+		['useVexoraApi()', 'vexora-api'],
+		['vexoraApiClient', 'vexora-api'],
 		['class NxgtFederationGateway', 'nxgt-federation'],
 		['zorblaxMonorepoRoot', 'zorblax-monorepo'],
 		['MySecretApp', 'secret-app'],
@@ -527,9 +527,9 @@ describe('findDenied: camelCase and digits', () => {
 	});
 
 	test('words that merely contain the term stay clean', () => {
-		expect(
-			findDenied('mysecretapp, secretary, Schoolzapiary', D(deny)),
-		).toEqual([]);
+		expect(findDenied('mysecretapp, secretary, Vexoraapiary', D(deny))).toEqual(
+			[],
+		);
 	});
 
 	test('short terms do not use the camelCase pass', () => {
@@ -537,11 +537,9 @@ describe('findDenied: camelCase and digits', () => {
 	});
 
 	test('slash and percent-encoding', () => {
-		expect(findDenied('schoolz/api', D(['schoolz-api']))).toEqual([
-			'schoolz-api',
-		]);
-		expect(findDenied('schoolz%2Dapi', D(['schoolz-api']))).toEqual([
-			'schoolz-api',
+		expect(findDenied('vexora/api', D(['vexora-api']))).toEqual(['vexora-api']);
+		expect(findDenied('vexora%2Dapi', D(['vexora-api']))).toEqual([
+			'vexora-api',
 		]);
 	});
 });
@@ -562,14 +560,10 @@ describe('buildDenyList: scope, hostname, domains', () => {
 	});
 
 	test('appDomains, as-is and folded', () => {
-		const list = buildDenyList({ appDomains: ['api.schoolz.io'] });
-		expect(list.terms).toEqual(['api.schoolz.io', 'schoolz.io', 'schoolz']);
-		expect(findDenied('call api.schoolz.io now', list)).toEqual([
-			...list.terms,
-		]);
-		expect(findDenied('call api-schoolz-io now', list)).toEqual([
-			...list.terms,
-		]);
+		const list = buildDenyList({ appDomains: ['api.vexora.io'] });
+		expect(list.terms).toEqual(['api.vexora.io', 'vexora.io', 'vexora']);
+		expect(findDenied('call api.vexora.io now', list)).toEqual([...list.terms]);
+		expect(findDenied('call api-vexora-io now', list)).toEqual([...list.terms]);
 	});
 });
 
@@ -723,15 +717,15 @@ describe('transform: more paths and remotes', () => {
 
 describe('buildDenyList: product stem and sibling domains', () => {
 	const list = buildDenyList({
-		appRepo: 'softistx/schoolz-api',
-		appPackages: ['@schoolz/web', 'schoolz-admin-ui', '@jane/billing-core'],
+		appRepo: 'softistx/vexora-api',
+		appPackages: ['@vexora/web', 'vexora-admin-ui', '@jane/billing-core'],
 		privateRepos: ['softistx/hidden-service', 'quiet-worker'],
-		appDomains: ['api.schoolz.io', 'www.example.co.uk'],
+		appDomains: ['api.vexora.io', 'www.example.co.uk'],
 	});
 
 	test('stems of 4+ characters, without generic or common words', () => {
 		expect(list.terms).toEqual(
-			expect.arrayContaining(['schoolz', 'schoolz-admin-ui', 'billing-core']),
+			expect.arrayContaining(['vexora', 'vexora-admin-ui', 'billing-core']),
 		);
 		for (const generic of [
 			'billing',
@@ -745,15 +739,15 @@ describe('buildDenyList: product stem and sibling domains', () => {
 		]) {
 			expect(list.terms).not.toContain(generic);
 		}
-		expect(list.terms).toContain('@schoolz/web');
+		expect(list.terms).toContain('@vexora/web');
 		expect(list.terms).not.toContain('web');
 	});
 
 	test('registrable domains and main labels', () => {
 		expect(list.terms).toEqual(
 			expect.arrayContaining([
-				'api.schoolz.io',
-				'schoolz.io',
+				'api.vexora.io',
+				'vexora.io',
 				'www.example.co.uk',
 				'example.co.uk',
 				'example',
@@ -762,24 +756,24 @@ describe('buildDenyList: product stem and sibling domains', () => {
 		expect(list.terms).not.toContain('co.uk');
 	});
 
-	// Without the scope of `@schoolz/web`, which already denies `schoolz`.
+	// Without the scope of `@vexora/web`, which already denies `vexora`.
 	const sibling = buildDenyList({
-		appRepo: 'softistx/schoolz-api',
-		appDomains: ['api.schoolz.io'],
+		appRepo: 'softistx/vexora-api',
+		appDomains: ['api.vexora.io'],
 	});
 
 	test.each([
-		'deployed at app.schoolz.io and schoolz.io',
-		'In Schoolz we call this on every request',
-		'Could not resolve host: git.schoolz.io',
-		'MongoServerSelectionError: mongo-0.mongo.schoolz.svc.cluster.local',
-		'connect ECONNREFUSED schoolz-redis:6379',
-		'contact jane.doe%40schoolz.io',
-		'https%3A%2F%2Fapp.schoolz.io%2Fv1',
+		'deployed at app.vexora.io and vexora.io',
+		'In Vexora we call this on every request',
+		'Could not resolve host: git.vexora.io',
+		'MongoServerSelectionError: mongo-0.mongo.vexora.svc.cluster.local',
+		'connect ECONNREFUSED vexora-redis:6379',
+		'contact jane.doe%40vexora.io',
+		'https%3A%2F%2Fapp.vexora.io%2Fv1',
 	])('refuses %p', (text) => {
 		// Refused, or rewritten so that nothing of the name is left.
 		const result = scrub(text, { denyList: sibling });
-		expect(result.refused || !/schoolz/i.test(result.text)).toBe(true);
+		expect(result.refused || !/vexora/i.test(result.text)).toBe(true);
 	});
 
 	test('allowing a package allows its name, not a stem the deny-list holds', () => {
@@ -794,14 +788,14 @@ describe('buildDenyList: product stem and sibling domains', () => {
 	});
 
 	test('a short name half is not denied, the scope is', () => {
-		const scoped = buildDenyList({ appPackages: ['@schoolz/web'] });
-		expect(scoped.terms).toEqual(['@schoolz/web', '@schoolz', 'schoolz']);
+		const scoped = buildDenyList({ appPackages: ['@vexora/web'] });
+		expect(scoped.terms).toEqual(['@vexora/web', '@vexora', 'vexora']);
 	});
 });
 
 describe('transform: single-label host:port', () => {
 	test.each([
-		['connect schoolz-redis:6379', 'connect <host>'],
+		['connect vexora-redis:6379', 'connect <host>'],
 		['mongo1:27017 down', '<host> down'],
 		['db-primary:5432', '<host>'],
 	])('%p', (text, expected) => {
@@ -810,9 +804,9 @@ describe('transform: single-label host:port', () => {
 
 	test('a denied label, however plain', () => {
 		expect(
-			transform('at schoolz:6379', cwd, (label) => label === 'schoolz').text,
+			transform('at vexora:6379', cwd, (label) => label === 'vexora').text,
 		).toBe('at <host>');
-		expect(transform('at schoolz:6379', cwd).text).toBe('at schoolz:6379');
+		expect(transform('at vexora:6379', cwd).text).toBe('at vexora:6379');
 	});
 
 	test('localhost, files, clocks and traces stay', () => {
@@ -883,27 +877,27 @@ describe('scrub: credentials under unknown names', () => {
 
 describe('findDenied: the application stem glued to a suffix', () => {
 	const list = buildDenyList({
-		appRepo: 'softistx/schoolz-api',
+		appRepo: 'softistx/vexora-api',
 		appPackages: ['@alxia/web'],
 		privateRepos: ['jane/hidden-service'],
-		appDomains: ['api.schoolz.io'],
+		appDomains: ['api.vexora.io'],
 	});
 
 	test.each([
-		'E11000 duplicate key error collection: schoolzdb.users index: email_1',
-		'database schoolzprod',
-		'bucket schoolzuploads',
-		'queue schoolzjobs',
-		'schoolztest',
-		'myschoolz',
+		'E11000 duplicate key error collection: vexoradb.users index: email_1',
+		'database vexoraprod',
+		'bucket vexorauploads',
+		'queue vexorajobs',
+		'vexoratest',
+		'myvexora',
 		'ns: alxiadb.users',
-		'SchoolzDB, SCHOOLZPROD',
+		'VexoraDB, VEXORAPROD',
 	])('refuses %p', (text) => {
 		expect(scrub(text, { denyList: list }).refused).toBe(true);
 	});
 
 	test('the single-label host rule sees it too', () => {
-		const result = scrub('connect schoolzdb:5432 now', { denyList: list });
+		const result = scrub('connect vexoradb:5432 now', { denyList: list });
 		expect(result.text).toBe('connect <host> now');
 		expect(result.refused).toBe(false);
 	});
@@ -919,21 +913,21 @@ describe('findDenied: the application stem glued to a suffix', () => {
 		const cached = JSON.parse(JSON.stringify(list)) as DenyList;
 		expect(cached.distinctive.length).toBeGreaterThan(0);
 		for (const copy of [cached, { ...list }, structuredClone(list)]) {
-			expect(findDenied('schoolzdb', copy)).not.toEqual([]);
-			expect(scrub('database schoolzprod', { denyList: copy }).refused).toBe(
+			expect(findDenied('vexoradb', copy)).not.toEqual([]);
+			expect(scrub('database vexoraprod', { denyList: copy }).refused).toBe(
 				true,
 			);
 		}
 	});
 
 	test('a hand-written list is whole-word only', () => {
-		expect(findDenied('schoolzdb', D(['schoolz']))).toEqual([]);
+		expect(findDenied('vexoradb', D(['vexora']))).toEqual([]);
 	});
 });
 
 describe('scrub: ordinary filings with a realistic deny-list', () => {
 	const list = buildDenyList({
-		appRepo: 'softistx/schoolz-api',
+		appRepo: 'softistx/vexora-api',
 		appPackages: ['@alxia/web'],
 		privateRepos: [
 			'jane/secret-app',
@@ -951,7 +945,7 @@ describe('scrub: ordinary filings with a realistic deny-list', () => {
 			expect(list.terms).not.toContain(stem);
 		}
 		expect(list.terms).toEqual(
-			expect.arrayContaining(['alxia', '@alxia', 'schoolz']),
+			expect.arrayContaining(['alxia', '@alxia', 'vexora']),
 		);
 	});
 
@@ -983,7 +977,7 @@ describe('scrub: ordinary filings with a realistic deny-list', () => {
 
 	test('the app stem and the private names still refuse', () => {
 		for (const text of [
-			'schoolz crashed',
+			'vexora crashed',
 			'secret-app crashed',
 			'NxgtFederation',
 		]) {

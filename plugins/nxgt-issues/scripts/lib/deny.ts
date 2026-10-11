@@ -3,14 +3,14 @@
  * what the session knows, and the search for them.
  *
  * `findDenied` looks twice. The original pass is a whole-word, case-insensitive
- * match of the term as written; `_` is a separator, so `SCHOOLZ_API_URL`
- * contains `schoolz-api`'s words but `mysecret-app` does not contain
+ * match of the term as written; `_` is a separator, so `VEXORA_API_URL`
+ * contains `vexora-api`'s words but `mysecret-app` does not contain
  * `secret-app`. The folded pass (see `fold.ts`) matches the term's characters
  * with any run of spaces, dots, underscores or dashes (Unicode dashes included)
  * allowed between them (`/` too), on text with its HTML comments, entities,
  * markdown escapes, percent-encoding, invisible characters and compatibility
  * forms undone, and again on a copy with a space at every camelCase seam
- * (`useSchoolzApi()`, `MySecretApp`, `APIClient`, `v2Secret`); it keeps the word
+ * (`useVexoraApi()`, `MySecretApp`, `APIClient`, `v2Secret`); it keeps the word
  * boundary at both ends. A term shorter than 4 characters once folded
  * (`web`, `doe`) is searched on the original pass only, in the raw and the
  * decoded text: folded, it would refuse ordinary prose.
@@ -39,7 +39,7 @@ export interface DenyInputs {
 	readonly gitName?: string | undefined;
 	readonly gitEmail?: string | undefined;
 	readonly hostname?: string | undefined;
-	/** The application's own domains, such as `api.schoolz.io`. */
+	/** The application's own domains, such as `api.vexora.io`. */
 	readonly appDomains?: readonly string[];
 	readonly home?: string | undefined;
 }
@@ -92,7 +92,7 @@ export const EMPTY_DENY_LIST: DenyList = Object.freeze({
 	distinctive: [],
 });
 
-/** Own terms of this many characters match inside words (`schoolzdb`). */
+/** Own terms of this many characters match inside words (`vexoradb`). */
 const MIN_SUBSTRING_LENGTH = 5;
 
 const lower = (term: string): string => term.toLowerCase();

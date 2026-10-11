@@ -8,7 +8,7 @@ import type { DenyList } from './deny';
 import { stems } from './deny-terms';
 import { fold, normalize, SEPARATORS } from './fold';
 
-/** Own terms of this many characters match inside words (`schoolzdb`). */
+/** Own terms of this many characters match inside words (`vexoradb`). */
 const MIN_SUBSTRING_LENGTH = 5;
 
 const unique = (terms: readonly string[]): string[] => [
@@ -44,7 +44,7 @@ const MIN_FOLDED_LENGTH = 4;
 
 /**
  * A separator at each camelCase seam: lower→Upper, letter↔digit, and
- * Upper→Upper+lower (`APIClient` → `API Client`), so that `useSchoolzApi()`
+ * Upper→Upper+lower (`APIClient` → `API Client`), so that `useVexoraApi()`
  * reads as the words it is made of.
  */
 const splitWords = (text: string): string =>

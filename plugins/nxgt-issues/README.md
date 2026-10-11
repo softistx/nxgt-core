@@ -48,7 +48,7 @@ stdin.
 | `resolve <pkg> [--json]` | prints `<pkg> -> owner/repo (public\|private, installed x, latest y)` or the refusal |
 | `file [--duplicate-of <n> \| --new] [--public-app]` | files the report on stdin (below) |
 | `track` | opens or refreshes the private tracking issue (stdin below) |
-| `deps <pkg> [--file]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue |
+| `deps <pkg> [--file [--public-app]]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue, gated like `file` (a public application refuses with exit 2 unless `--public-app`) |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent) |
 
 `file` reads one report:
@@ -74,7 +74,8 @@ What `file` does, in order:
 
 1. refuses when the application's own repository is public (asked fresh, never
    from the 24-hour gate cache, so a repository made public since is seen), unless `--public-app` says the user agreed; a
-   repository gh cannot see (404) is not public;
+   repository gh cannot see (404) is not public. `deps <pkg> --file` passes
+   the same gate (`deps` without `--file` only reads);
 2. resolves and gates the package (as `resolve`);
 3. builds the deny-list once (below); it refuses (exit 3) while no application
    domain is configured (only an entry with a dot counts: `none` is no
@@ -103,7 +104,7 @@ with only the new rows when the package side closed it.
 | --- | --- |
 | 0 | done: filed, commented, updated, tracked, or nothing to do |
 | 1 | usage: unknown command, invalid flags or input |
-| 2 | refused by the gate (the reasons below), `file` from a public application without `--public-app`, or `track` on a public or foreign application |
+| 2 | refused by the gate (the reasons below), `file` or `deps --file` from a public application without `--public-app`, or `track` on a public or foreign application |
 | 3 | refused by the scrub, or the deny-list could not be built whole |
 | 4 | keyword candidates printed; nothing filed |
 | 5 | rate-limited; nothing filed |
@@ -245,7 +246,8 @@ a name followed by a call or a member access, anything inside a path.
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
-| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a PascalCase `…Error:` or `…Exception:` class followed by a message (`JsonWebTokenError: invalid signature`) and a status message after a label (one that opens with a status word, `invalid signature`, or is a status phrase, `too short`, `is required`, `must be at least 8 characters`) pass; `password: open sesame`, `password: must change me` and `PasswordError: hunter2` refuse; an encoder assigned to a credential name (`const secret = new TextEncoder().encode('x')`) and an array of literals or a YAML flow sequence of bare words under one (`secret: ['x']`, `passwords: [hunter2, swordfish]`) refuse; a status phrase may be followed by another label or a short clause (`password: not set, token: (empty)`); an env-variable name under a `*Name` key passes (`secretName: 'GATEWAY_SECRET'`); `??=`, `\|\|=` and `&&=` count as assignments (`label-values.ts`) |
+| `label-values.ts` | values after a credential label that are messages (an `…Error:` class with a message, a status phrase), encoders assigned to a credential name, arrays and YAML flow sequences of literals, env names under `*Name` keys |
+| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a PascalCase `…Error:` or `…Exception:` class followed by a message (`JsonWebTokenError: invalid signature`) and a status message after a label (one that opens with a status word, `invalid signature`, or is a status phrase, `too short`, `is required`, `must be at least 8 characters`) pass; `password: open sesame`, `password: must change me` and `PasswordError: hunter2` refuse; an encoder assigned to a credential name (`const secret = new TextEncoder().encode('x')`) and an array of literals or a YAML flow sequence of bare words under one (`secret: ['x']`, `passwords: [hunter2, swordfish]`) refuse; a status phrase may be followed by another label or a short clause (`password: not set, token: (empty)`); an env-variable name under a `*Name` key passes (`secretName: 'GATEWAY_SECRET'`); `??=`, `\|\|=` and `&&=` count as assignments |
 | `authorization.ts` | the `Authorization` header: unquoted, a placeholder or prose word only; quoted or templated, the header rule, so `` `Bearer ${token}` `` and `'Bearer ' + token` pass and `'Basic YWRt…'` refuses; a literal glued to a scheme anywhere refuses (`'Bearer ' + 'k3J9…'`, `` `Basic ${'YWRt…'}` ``) |
 | `sdl-values.ts` | GraphQL field types: a known scalar anywhere, or a type inside a `type`, `input` or `interface` block unless it looks like a value (`K3J9x…`, `ABCDEFGH`) |
 | `key-names.ts` | `key` names: a plain one (`key`, `sortKey`) refuses only key material (`Zq8w-LmP3`, `AbCdEfGh…`, `ABCD-EFGH-IJKL`); a purposeful one (`signingKey`, `accessKeyId`, `licenseKey`) or an env-style `*_KEY` refuses any literal |

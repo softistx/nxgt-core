@@ -5,7 +5,7 @@
  * own (`process.env`, `Promise.all`) is code, not a host, and is left alone;
  * so is a name that ends like a file (`index.ts:12`).
  *
- * A single label with a port (`schoolz-redis:6379`, `mongo1:27017`) is a host
+ * A single label with a port (`vexora-redis:6379`, `mongo1:27017`) is a host
  * when the label starts with a letter and has a hyphen or a digit, or is on
  * the deny list; `localhost:3000`, `12:30` and `UTC-12:30` stay.
  *

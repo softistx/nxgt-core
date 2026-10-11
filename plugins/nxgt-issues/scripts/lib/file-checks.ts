@@ -30,7 +30,7 @@ export async function refuseInPublicApp(
 				'  A report filed from it could be tied back to it (markers, tracking issue).',
 			);
 			ctx.out(
-				'  Ask the user; only with their OK run file --public-app, and add no issue-number markers or tracking issue without it.',
+				'  Ask the user; only with their OK rerun the command with --public-app, and add no issue-number markers or tracking issue without it.',
 			);
 			return EXIT.refusedGate;
 		}

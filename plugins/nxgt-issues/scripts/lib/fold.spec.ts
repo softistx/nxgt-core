@@ -17,7 +17,7 @@ describe('normalize', () => {
 	});
 
 	test('percent-encoding is decoded; a malformed run is left alone', () => {
-		expect(normalize('schoolz%2Dapi%20x')).toBe('schoolz-api x');
+		expect(normalize('vexora%2Dapi%20x')).toBe('vexora-api x');
 		expect(normalize('100% sure %zz %E0%A4%A')).toBe('100% sure %zz %E0%A4%A');
 	});
 

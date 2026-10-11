@@ -139,3 +139,50 @@ describe("the application's visibility is read fresh", () => {
 		).toHaveLength(2);
 	});
 });
+
+describe('deps --file from a public application', () => {
+	const publicApp = {
+		argv: ['gh', 'api', 'repos/softistx/acme-store'],
+		result: {
+			stdout: JSON.stringify({
+				full_name: 'softistx/acme-store',
+				has_issues: true,
+				archived: false,
+				private: false,
+			}),
+		},
+	};
+	const registry = [
+		{
+			url: '/@nxgt%2Fwidget/latest',
+			json: {
+				version: '1.4.0',
+				repository: 'github:softistx/nxgt-widget',
+				dependencies: { zod: '^3.0.0' },
+			},
+		},
+		{ url: '/zod/latest', json: { version: '4.0.0' } },
+	];
+
+	test('refuses with exit 2, nothing filed', async () => {
+		const h = harness({ cwd: makeApp(), run: [publicApp], fetch: registry });
+		expect(await main(h.ctx, ['deps', '@nxgt/widget', '--file'])).toBe(
+			EXIT.refusedGate,
+		);
+		expect(h.out.join('\n')).toContain('softistx/acme-store is public');
+		expect(creates(h)).toEqual([]);
+	});
+
+	test('--public-app files once the user agreed', async () => {
+		const h = harness({ cwd: makeApp(), run: [publicApp], fetch: registry });
+		expect(
+			await main(h.ctx, ['deps', '@nxgt/widget', '--file', '--public-app']),
+		).toBe(EXIT.ok);
+		expect(creates(h)).toHaveLength(1);
+	});
+
+	test('deps without --file only reads', async () => {
+		const h = harness({ cwd: makeApp(), run: [publicApp], fetch: registry });
+		expect(await main(h.ctx, ['deps', '@nxgt/widget'])).toBe(EXIT.ok);
+	});
+});

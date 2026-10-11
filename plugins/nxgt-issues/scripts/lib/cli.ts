@@ -5,7 +5,7 @@
  *   resolve <pkg> [--json]          the repository a package's issues go to, or the refusal
  *   file [--duplicate-of <n>|--new] [--public-app]  the report (JSON on stdin) filed anonymously
  *   track                           the private tracking issue (JSON on stdin)
- *   deps <pkg> [--file]             the dependencies behind latest; --file updates the rolling issue
+ *   deps <pkg> [--file [--public-app]] the dependencies behind latest; --file updates the rolling issue
  *   sessions <owner/repo> [--json]  live crew sessions that depend on the repository's packages
  */
 
@@ -15,6 +15,7 @@ import { filingDenyList } from './deny-sources';
 import { upsertRollingIssue } from './deps';
 import { behindDependencies } from './deps-behind';
 import { type FileFlags, fileCommand } from './file';
+import { refuseInPublicApp } from './file-checks';
 import { exitForError, printGateRefusal } from './filing';
 import { formatRepo } from './repo-id';
 import { resolvePackage } from './resolve';
@@ -25,7 +26,7 @@ export const USAGE = `usage: issues.ts <command>
   resolve <pkg> [--json]
   file [--duplicate-of <n> | --new] [--public-app]   report JSON on stdin
   track                                 tracking JSON on stdin
-  deps <pkg> [--file]
+  deps <pkg> [--file [--public-app]]
   sessions <owner/repo> [--json]`;
 
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
@@ -46,8 +47,16 @@ async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
 	return EXIT.ok;
 }
 
-async function depsCommand(ctx: CliContext, pkg: string, file: boolean) {
+async function depsCommand(
+	ctx: CliContext,
+	pkg: string,
+	file: boolean,
+	publicApp: boolean,
+) {
 	try {
+		// Filing is public: gated like `file`, with the visibility read fresh.
+		const refused = file ? await refuseInPublicApp(ctx, publicApp) : undefined;
+		if (refused !== undefined) return refused;
 		const resolved = await resolvePackage(ctx, pkg);
 		if (!resolved.ok) return printGateRefusal(ctx, resolved);
 		const rows = await behindDependencies(ctx.runner, pkg);
@@ -105,7 +114,12 @@ export async function main(
 			return trackCommand(ctx);
 		case 'deps':
 			if (!positional[0]) break;
-			return depsCommand(ctx, positional[0], has('--file'));
+			return depsCommand(
+				ctx,
+				positional[0],
+				has('--file'),
+				has('--public-app'),
+			);
 		case 'sessions':
 			return sessionsCommand(ctx, positional[0], has('--json'));
 	}

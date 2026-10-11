@@ -102,8 +102,9 @@ What it prints, and what to do:
 | `commented <url> (duplicate of #n…)` (0) | the same report existed and is open; a comment says another consumer hit it | step 4 with `#n` |
 | `commented <url> (duplicate of #n, closed)` + `fixed but not released yet` (0) | the fix is merged, not published | wait for the release; keep the workaround and its marker; step 4 with `#n` |
 | `released: #n reported this…` (0) | the fix is published; nothing was filed | bump the package to the fixed release and remove the workaround; only if it still fails on that release, run `file --new` |
-| `refused: the application repository … is public` (2) | filing from a public application could tie it to the report | ask the user (AskUserQuestion); only with their OK rerun with `--public-app` |
+| `refused: the application repository … is public` (2) | filing from a public application could tie it to the report | ask the user (AskUserQuestion); only with their OK rerun with `--public-app` (`file` or `deps --file`) |
 | `candidates: …` (4) | open issues that may be the same | read them (`gh issue view`); same problem → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --duplicate-of <n>` with the same JSON; different → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --new` |
+| `refused: <deny list could not be built>` (3) | the deny-list is incomplete: no `appDomains` configured, the owners' private repositories could not be listed, or `git config` failed | fix the named configuration (`.nxgt-issues.json`), or run `gh auth status`; never file by hand. Applies to `deps --file` too |
 | `refused: the text is not anonymous…` (3) | a private term or a credential was found | rewrite the named parts generically and run `file` again; never work around the scrub |
 | `refused: <reason>` (2) | the gate refused | tell the user; file nothing |
 | `rate-limited: …` (5) | GitHub throttled the token | tell the user when calls resume; do not retry in a loop |
