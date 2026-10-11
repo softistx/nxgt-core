@@ -74,9 +74,9 @@ describe('private repository stems', () => {
 		});
 
 	test('a product name in prose refuses', async () => {
-		const list = await filingDenyList(withRepos(['sellix-monorepo']).ctx);
-		expect(findDenied('this broke in Sellix yesterday', list)).toEqual([
-			'sellix',
+		const list = await filingDenyList(withRepos(['zorblax-monorepo']).ctx);
+		expect(findDenied('this broke in Zorblax yesterday', list)).toEqual([
+			'zorblax',
 		]);
 	});
 

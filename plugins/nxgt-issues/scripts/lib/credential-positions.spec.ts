@@ -21,7 +21,7 @@ describe('a spaced literal is a secret outside a message position', () => {
 	});
 
 	test.each([
-		"verify(signature, 'Signature is invalid')",
+		"verifyThing(signature, { description: 'Signature is invalid' })",
 		"jwt.sign(p, key, { error: 'Could not sign it' })",
 		"verifySignature(sig, { message: 'Bad signature here' })",
 	])('%p passes', (text) => {

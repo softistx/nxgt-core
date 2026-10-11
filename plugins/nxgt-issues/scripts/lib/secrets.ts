@@ -25,6 +25,7 @@
 import { hasSecretArgument } from './auth-calls';
 import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
 import { hasCredentialPair } from './credential-pairs';
+import { isNamingKey } from './key-names';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -113,28 +114,11 @@ function keywordOf(name: string): string | undefined {
 
 const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** Words that make any literal under a `key` name a secret: `signingKey = 'users'`. */
-const STRONG_KEY = new Set(
-	'signing hmac master encryption encrypt cipher crypto aes jwt secret'.split(
-		' ',
-	),
-);
-
-/**
- * A plain `key` name (`key`, `sortKey`, `i18nKey`) names many things that are
- * not secrets, so its value refuses only when it looks like key material:
- * eight or more letters and digits, switching between the two at least twice
- * (`Zq8wLmP3vTnR`, never `tenant1234` or `theme-v2`).
- */
-function isNamingKey(name: string, value: string): boolean {
-	if (wordsOf(name).some((word) => STRONG_KEY.has(word))) return false;
-	const bare = value.replace(/^["'`]|["'`,]+$/g, '');
-	const switches = bare.match(/[A-Za-z](?=\d)|\d(?=[A-Za-z])/g)?.length ?? 0;
-	return !(/^[A-Za-z\d+/=_]{8,}$/.test(bare) && switches >= 2);
-}
-
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
 	/(?<![\w-])([\w-]+)\??["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
+/** Lower-case prose of two or more words after a label, unquoted and without digits. */
+const PROSE = /^[a-z]+(?:[ \t]+[a-z]+)+[.!]?$/;
 const AUTHORIZATION =
 	/\bAuthorization["']?[ \t]*[:=][ \t]*(?:(?:Basic|Bearer|Digest|Negotiate|token)[ \t]+)?(\S+)/gi;
 const COOKIE = /\b(?:Set-)?Cookie["']?[ \t]*:[ \t]*([^\n]+)/gi;
@@ -168,6 +152,8 @@ export function findSecrets(text: string): string[] {
 		if (!keyword || value.endsWith(':')) continue;
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
 		if (keyword === 'key' && isNamingKey(name, whole)) continue;
+		if (/(?:Error|Exception)$/.test(name)) continue; // `TokenExpiredError: jwt expired`
+		if (PROSE.test(whole)) continue; // `password: too short`
 		if (isCodeValue(whole, { name, first: value })) continue;
 		found.add(keyword);
 	}

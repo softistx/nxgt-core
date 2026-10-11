@@ -9,7 +9,8 @@
  * `sign`, `verify`, `compare`, `encrypt`, `decrypt`, `scrypt`, `pbkdf2`, `argon`,
  * `bcrypt`, `login`, `auth`, `authenticate` (or starts with one, followed by
  * digits, `iv`, `s`, `ed`, `er`, `ing`: `argon2`, `createCipheriv`, `hashed`);
- * or `btoa`, `encode`, `Buffer.from`. A header setter (`.set`, `.append`,
+ * or `btoa`, `encode`, `Buffer.from` (the last two refuse only a literal that
+ * looks like a credential: `user:pass`, a secret word, letters with digits). A header setter (`.set`, `.append`,
  * `header`, `setHeader`) whose first argument names a credential header
  * (`authorization`, `cookie`, `x-api-key`, `*-secret`, `*-token`, `*-key`,
  * `*-password`), `res.cookie(name, value)`, and a setter called on a cookie
@@ -27,7 +28,7 @@ import { isHarmlessLiteral } from './literals';
 
 const CALL = /(?<![\w$])((?:[A-Za-z_$][\w$]*\??\.)*[A-Za-z_$][\w$]*)\s*\(/g;
 const KEYWORDS = (
-	'password passwd secret key token hash hmac cipher sign verify compare encrypt ' +
+	'password passwd secret key token hash hmac cipher sign signature verify compare encrypt ' +
 	'decrypt scrypt pbkdf2 argon bcrypt login auth authenticate'
 ).split(' ');
 const SUFFIX = /^(?:\d+|iv|sync|ed|er|ing|s)?$/;
@@ -111,7 +112,7 @@ const NAMING_KEYS = new Set(
 	(
 		'audience aud issuer iss subject sub algorithm algorithms alg typ type ' +
 		'encoding expiresIn notBefore sameSite path scope name hash kid keyid ' +
-		'format mode role provider strategy message'
+		'format mode role provider strategy message jwtid jti'
 	).split(' '),
 );
 const KEY_BEFORE = /([A-Za-z_$][\w$]*)["']?\s*:\s*\[?\s*$/;
@@ -121,27 +122,33 @@ const MESSAGE_KEYS = new Set(['message', 'error', 'description']);
 interface Position {
 	/** A credential header's own value. */
 	readonly strict: boolean;
-	/** A verify, validate or compare call's later argument after code: prose may sit there. */
-	readonly prose: boolean;
 	/** A key, secret or password position. */
 	readonly key: boolean;
+	/** An argument of `encode` or `Buffer.from`: ordinary text passes. */
+	readonly encoder?: boolean;
 }
+
+/** What an encoder's literal must look like to refuse: `user:pass`, a secret word, key material. */
+const looksLikeCredential = (text: string): boolean =>
+	/^[^\s:]+:\S+$/.test(text) ||
+	/secret|passw|pwd|token|key|auth/i.test(text) ||
+	(!/\s/.test(text) && /\d/.test(text) && /[A-Za-z]/.test(text));
 
 /** A quoted literal in `arg` that is a secret. */
 function hasSecretIn(arg: string, position: Position): boolean {
 	for (const match of arg.matchAll(QUOTED)) {
 		const key = KEY_BEFORE.exec(arg.slice(0, match.index))?.[1];
 		if (key && NAMING_KEYS.has(key)) continue;
-		const whole = match[0] === arg;
+		const message = key !== undefined && MESSAGE_KEYS.has(key);
 		const context = {
 			template: match[1] === '`',
-			inHeader: position.strict && whole,
-			message:
-				(key !== undefined && MESSAGE_KEYS.has(key)) ||
-				(position.prose && whole),
-			keyPosition: position.key,
+			inHeader: position.strict && match[0] === arg,
+			message,
+			keyPosition: position.key && !message,
 		};
-		if (!isHarmlessLiteral(match[2] ?? '', context)) return true;
+		const literal = match[2] ?? '';
+		if (isHarmlessLiteral(literal, context)) continue;
+		if (!position.encoder || looksLikeCredential(literal)) return true;
 	}
 	return false;
 }
@@ -150,20 +157,18 @@ const hasPart = (callee: string[], words: readonly string[]): boolean =>
 	callee.some((part) =>
 		words.some((w) => part.startsWith(w) && SUFFIX.test(part.slice(w.length))),
 	);
-const SECRET_PARTS =
-	'secret key sign hash cipher password encrypt token salt api'.split(' ');
-const PROSE_PARTS = ['verify', 'validate', 'compare'];
-const KEY_PARTS = ['sign', 'hash', 'hmac', 'cipher', 'password', 'verify'];
+const KEY_PARTS =
+	'sign signature hash hmac cipher password verify webhook'.split(' ');
 
 /** The position of each argument of a credential call. */
 function positionsOf(name: string, args: string[]): Position[] {
 	const callee = parts(name);
 	const firstIsCode = literalOf(args[0] ?? '') === undefined;
-	const prose = hasPart(callee, PROSE_PARTS) && !hasPart(callee, SECRET_PARTS);
 	const keyCall = hasPart(callee, KEY_PARTS);
+	const encoder = name === 'encode' || name === 'from';
 	return args.map((_, index) => ({
 		strict: false,
-		prose: prose && index > 0 && firstIsCode,
+		encoder,
 		key: keyCall || (USER_FIRST.has(name) && index > 0 && !firstIsCode),
 	}));
 }
@@ -182,7 +187,7 @@ export function hasSecretArgument(text: string): boolean {
 			header &&
 			(cookieJar || CREDENTIAL_HEADER.test(header))
 		) {
-			const value = { strict: true, prose: false, key: false };
+			const value = { strict: true, key: false };
 			if (hasSecretIn(args[1] ?? '', value)) return true;
 			continue;
 		}

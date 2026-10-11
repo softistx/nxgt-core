@@ -152,8 +152,11 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
   checkout of a worktree);
 - the working directory's name;
 - every private repository of the default owners (`softistx`, `SteveGT96`),
-  by full name and by each non-generic stem as a whole word (`sellix` from
-  `sellix-monorepo`; `api`, `demo`, `notes`, `test`… are not denied alone),
+  by full name, and by each distinctive stem as a whole word outside
+  `node_modules/` paths (`zorblax` from `zorblax-api`); a stem that is a
+  common English word or a framework, library or tool name (`compose`,
+  `rest`, `content`, `react`, `docker`…, listed in `common-words.ts`) is never
+  denied alone — name such a product in `denyTerms` (below),
   and of any other owner in `NXGT_ISSUES_OWNERS` (`gh repo list --visibility
   private`, cached 24 hours in `<home>/cache/private-repos.json`; when gh fails
   the stale copy is used, and with no copy at all nothing is filed).
@@ -178,6 +181,11 @@ read from, and merged across:
 - `<repository root>/.nxgt-issues.json` (this application; commit it or not);
 - `<home>/config.json` (every application);
 - `NXGT_ISSUES_APP_DOMAINS` and `NXGT_ISSUES_DENY_TERMS`, comma-separated.
+
+`denyTerms` is also the way to deny a product whose repository stem is a
+common word: a private `acme-compose` denies `acme-compose` but not `compose`
+alone, so write `"denyTerms": ["Compose Cloud"]` when the product goes by
+that name in prose.
 
 A domain adds itself, its registrable domain and that domain's main label.
 The skill creates `.nxgt-issues.json` on first use in an application, asking
@@ -219,9 +227,11 @@ a name followed by a call or a member access, anything inside a path.
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
-| `secrets.ts` | known token shapes, and the credential assignments (`key` names included: `MASTER_KEY`, `signingKey`, and a plain `key` whose value looks like key material), headers, flags and key blocks that refuse a filing |
-| `credential-pairs.ts` | credential headers set by index or as a tuple (`headers['authorization'] = …`, `new Headers([['authorization', …]])`) and `--password`-style flags beside their value in an argument array |
-| `auth-calls.ts`, `literals.ts` | literal secrets handed to a credential call — a callee whose name has a part like `password`, `secret`, `key`, `token`, `hash`, `hmac`, `cipher`, `sign`, `verify`, `compare`, `encrypt`, `scrypt`, `pbkdf2`, `argon`, `bcrypt`, `login`, `auth`, or `btoa`, `encode`, `Buffer.from`, or a credential header's setter or `res.cookie` — at any depth, wherever the call sits; and the literals that are plainly not secrets (algorithm names, locale tags, role words, durations, env names, naming options; a message with a space only under a `message`, `error` or `description` key or after code in a verify, validate or compare call that names no secret; no role word, locale or env name in the key position of a sign, hash, hmac, cipher, password or verify call, or the password of `login`) |
+| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a name ending in `Error` or `Exception` and lower-case prose after a label (`password: too short`) pass |
+| `key-names.ts` | `key` names: a plain one (`key`, `sortKey`) refuses only key material (`Zq8w-LmP3`, `AbCdEfGh…`, `ABCD-EFGH-IJKL`); a purposeful one (`signingKey`, `accessKeyId`, `licenseKey`) or an env-style `*_KEY` refuses any literal |
+| `common-words.ts` | the English and tech words a private repository stem is never denied as |
+| `credential-pairs.ts` | credential headers set by index or as a tuple (`headers['authorization'] = …`, `new Headers([['authorization', …]])`) and `--password`, `-W`, `-p`, `-a` flags beside their value in an argument array (a port passes) |
+| `auth-calls.ts`, `literals.ts` | literal secrets handed to a credential call — a callee whose name has a part like `password`, `secret`, `key`, `token`, `hash`, `hmac`, `cipher`, `sign`, `verify`, `compare`, `encrypt`, `scrypt`, `pbkdf2`, `argon`, `bcrypt`, `login`, `auth`, or `btoa`, `encode`, `Buffer.from`, or a credential header's setter or `res.cookie` — at any depth, wherever the call sits; and the literals that are plainly not secrets (algorithm names, locale tags, role words, durations, env names, naming options; a message with a space only under a `message`, `error` or `description` key, never as a positional argument of a key call, so `verify(sig, 'Signature is invalid')` refuses; no role word, locale or env name in the key position of a sign, signature, hash, hmac, cipher, password, verify or webhook call, or the password of `login`; `encode` and `Buffer.from` refuse only a literal that looks like a credential) |
 | `code-values.ts` | when the value of a credential-named assignment is code (a call whose literals are names, a type, an env read, a fallback chain) rather than a secret |
 | `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |

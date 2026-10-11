@@ -39,6 +39,10 @@ counts only when it is a host with a dot; never write `"none"`): a product name
 derived from a domain is only caught once the domain is listed. Bare domain
 names are rewritten to `<host>` either way.
 
+A private repository whose stem is a common word (`acme-compose`) is denied by
+its full name only. When the product is known in prose by that word, add it:
+`{ "appDomains": [...], "denyTerms": ["Compose Cloud"] }`.
+
 ## 1. Resolve
 
 ```bash

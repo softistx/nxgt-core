@@ -10,7 +10,9 @@
  * letters-and-digits run (`` `${user}:${pass}` ``, `` `Bearer ${token}` ``).
  * In a credential header's value only the placeholder and the template rules
  * apply: `'Basic x'` and `'abc'` are credentials there. The caller says where
- * the literal sits: a space excuses it only in a message position, and in a
+ * the literal sits: a space excuses it only under a `message`, `error` or
+ * `description` key and never in a key position (so `verify(sig, 'Signature
+ * is invalid')` refuses: a secret can hold spaces too), and in a
  * key position (the secret of `sign`, `hash`, `hmac`, a cipher, a password
  * call, the password of `login`) a role word, a locale or an env name is a
  * secret too (`jwt.sign(p, 'admin')`).
@@ -47,7 +49,7 @@ export interface LiteralContext {
 	readonly template: boolean;
 	/** The value of a credential header: a space is no excuse. */
 	readonly inHeader: boolean;
-	/** A message position, where a space shows prose: `verify(sig, 'Signature is invalid')`. */
+	/** Under a `message`, `error` or `description` key, where a space shows prose. */
 	readonly message: boolean;
 	/** A key or password position, where short words are secrets: `jwt.sign(p, 'admin')`. */
 	readonly keyPosition: boolean;
@@ -76,6 +78,6 @@ export function isHarmlessLiteral(
 		COLLATION.has(text) ||
 		DURATION.test(text) ||
 		word ||
-		(context.message && /\s/.test(text.trim()))
+		(context.message && !context.keyPosition && /\s/.test(text.trim()))
 	);
 }

@@ -16,6 +16,7 @@
  * decoded text: folded, it would refuse ordinary prose.
  */
 
+import { COMMON_WORDS } from './common-words';
 import {
 	domainTerms,
 	MIN_LABEL_LENGTH,
@@ -79,6 +80,11 @@ const nameTerms = (name: string | undefined): string[] => {
 export interface DenyList {
 	readonly terms: readonly string[];
 	readonly distinctive: readonly string[];
+	/**
+	 * Stems of private repositories: searched outside `node_modules/` paths
+	 * only, since a public package path is not private.
+	 */
+	readonly stems?: readonly string[];
 }
 
 export const EMPTY_DENY_LIST: DenyList = Object.freeze({
@@ -95,16 +101,22 @@ const MIN_SUBSTRING_LENGTH = 5;
  * packages, its scope, the main label of its domains), 5+ characters, are
  * matched without a word boundary by `findDenied`; they are listed in the
  * `distinctive` list of the result. Private repositories are denied by
- * full name and by their non-generic stems (`sellix` from `sellix-monorepo`),
- * the stems as whole words only.
+ * full name and by their distinctive stems (`zorblax` from `zorblax-api`), whole
+ * words only, outside `node_modules/` paths; a stem that is a common word
+ * (`common-words.ts`: `compose`, `rest`, `react`) is never denied alone.
  */
 export function buildDenyList(inputs: DenyInputs): DenyList {
 	const repoName = inputs.appRepo?.split('/')[1];
 	const packages = inputs.appPackages ?? [];
-	const privates = (inputs.privateRepos ?? []).flatMap((entry) => {
-		const name = entry.includes('/') ? entry.split('/')[1] : entry;
-		return [entry, name, ...stems(name)];
-	});
+	const names = (inputs.privateRepos ?? []).map((entry) =>
+		entry.includes('/') ? (entry.split('/')[1] ?? entry) : entry,
+	);
+	const privateStems = unique(
+		names
+			.flatMap((name) => stems(name))
+			.filter((stem) => !COMMON_WORDS.has(stem.toLowerCase())),
+	);
+	const privates = [...(inputs.privateRepos ?? []), ...names, ...privateStems];
 	const own = [
 		...stems(repoName),
 		...packages.flatMap((pkg) => stems(pkg)),
@@ -132,6 +144,7 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 		distinctive: unique(
 			own.filter((term) => term.length >= MIN_SUBSTRING_LENGTH).map(lower),
 		),
+		stems: privateStems.filter((stem) => !own.includes(stem)).map(lower),
 	});
 }
 
@@ -174,6 +187,14 @@ const splitWords = (text: string): string =>
 		.replace(/(\p{N})(\p{L})/gu, '$1 $2')
 		.replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, '$1 $2');
 
+/** A path under `node_modules/`, up to the next space, quote or bracket. */
+const PACKAGE_PATH = /node_modules[\\/][^\s'"()<>]*/g;
+
+const searchable = (raw: string) => {
+	const decoded = normalize(raw);
+	return { raw, decoded, spaced: splitWords(decoded) };
+};
+
 /** Deny-list terms present, as written or in a variant (see the module comment). */
 export function findDenied(
 	text: string,
@@ -186,22 +207,26 @@ export function findDenied(
 			.flatMap((term) => [term, ...scopedParts(term)])
 			.map((term) => term.toLowerCase()),
 	);
-	const decoded = normalize(text);
-	const spaced = splitWords(decoded);
 	const distinctive = new Set(denyList.distinctive.map(lower));
+	const stemSet = new Set((denyList.stems ?? []).map(lower));
+	const full = searchable(text);
+	const outsidePackages = searchable(text.replace(PACKAGE_PATH, ' '));
 	const hits: string[] = [];
 	for (const term of unique(denyList.terms)) {
 		if (allowed.has(term.toLowerCase())) continue;
+		const { raw, decoded, spaced } = stemSet.has(lower(term))
+			? outsidePackages
+			: full;
 		const folded = fold(term);
 		const bounded = !(
 			distinctive.has(lower(term)) && folded.length >= MIN_SUBSTRING_LENGTH
 		);
 		const found =
 			folded.length >= MIN_FOLDED_LENGTH
-				? wholeWord(term, bounded).test(text) ||
+				? wholeWord(term, bounded).test(raw) ||
 					looseWord(folded, bounded).test(decoded) ||
 					looseWord(folded, bounded).test(spaced)
-				: wholeWord(term).test(text) || wholeWord(term).test(decoded);
+				: wholeWord(term).test(raw) || wholeWord(term).test(decoded);
 		if (found) hits.push(term);
 	}
 	return hits;

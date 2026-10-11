@@ -504,7 +504,7 @@ describe('findDenied: camelCase and digits', () => {
 	const deny = [
 		'schoolz-api',
 		'nxgt-federation',
-		'sellix-monorepo',
+		'zorblax-monorepo',
 		'secret-app',
 	];
 
@@ -513,7 +513,7 @@ describe('findDenied: camelCase and digits', () => {
 		['useSchoolzApi()', 'schoolz-api'],
 		['schoolzApiClient', 'schoolz-api'],
 		['class NxgtFederationGateway', 'nxgt-federation'],
-		['sellixMonorepoRoot', 'sellix-monorepo'],
+		['zorblaxMonorepoRoot', 'zorblax-monorepo'],
 		['MySecretApp', 'secret-app'],
 		['secret-app2', 'secret-app'],
 		['v2SecretApp', 'secret-app'],
@@ -843,8 +843,8 @@ describe('scrub: credentials under unknown names', () => {
 		['password:\n  hunter2', 'password'],
 		['password: a hunter2', 'password'],
 		['password: the hunter2 here', 'password'],
-		['the secret: it fails', 'secret'],
-		['pwd: the cwd', 'pwd'],
+		['the secret: it fails2', 'secret'],
+		['pwd: the cwd9', 'pwd'],
 		['sessionId: abc123', 'session'],
 		['sid=abc123def456', 'sid'],
 		['oauth_token: abc', 'auth'],
@@ -856,6 +856,9 @@ describe('scrub: credentials under unknown names', () => {
 	});
 
 	test.each([
+		// Lower-case prose of two or more words after a label passes (round 3 of #246).
+		'the secret: it fails',
+		'pwd: the cwd',
 		'password: string',
 		'Bearer tokens expire',
 		'apiKey: process.env.KEY',
@@ -927,14 +930,19 @@ describe('scrub: ordinary filings with a realistic deny-list', () => {
 	const list = buildDenyList({
 		appRepo: 'softistx/schoolz-api',
 		appPackages: ['@alxia/web'],
-		privateRepos: ['jane/secret-app', 'nxgt-federation', 'quiet-gateway'],
+		privateRepos: [
+			'jane/secret-app',
+			'nxgt-federation',
+			'quiet-gateway',
+			'zorblax-ledger',
+		],
 	});
 
-	test('private repositories are denied by name and by non-generic stem', () => {
+	test('private repositories are denied by name and by distinctive stem', () => {
 		expect(list.terms).toEqual(
-			expect.arrayContaining(['secret-app', 'nxgt-federation', 'quiet']),
+			expect.arrayContaining(['secret-app', 'nxgt-federation', 'zorblax']),
 		);
-		for (const stem of ['secret', 'nxgt', 'federation', 'gateway']) {
+		for (const stem of ['secret', 'nxgt', 'federation', 'quiet', 'gateway']) {
 			expect(list.terms).not.toContain(stem);
 		}
 		expect(list.terms).toEqual(

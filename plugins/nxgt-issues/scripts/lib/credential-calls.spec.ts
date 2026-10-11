@@ -44,7 +44,7 @@ describe('literal secrets in any credential call, at any depth', () => {
 		"login('admin', password)",
 		"compare(a, b, 'en')",
 		"a.localeCompare(b, 'fr-CA', { sensitivity: 'base' })",
-		"verify(signature, 'Signature is invalid')",
+		"verify(signature, { error: 'Signature is invalid' })",
 		"hash(input, 'sha3-256')",
 		"jwt.sign(payload, key, { algorithm: 'HS256', expiresIn: '1h' })",
 		"createHash('sha256').update(input).digest('hex')",
