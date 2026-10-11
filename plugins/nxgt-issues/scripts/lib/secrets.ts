@@ -29,9 +29,9 @@ import {
 	isPlaceholder,
 	isPredicate,
 	startsWithPlaceholder,
-	wordsOf,
 } from './code-values';
 import { hasCredentialComparison } from './comparisons';
+import { keywordOf } from './credential-keyword';
 import { hasCredentialPair } from './credential-pairs';
 import { isNamingKey } from './key-names';
 import {
@@ -46,6 +46,8 @@ import { neutralizeSubstitutions } from './shell-values';
 import {
 	isPlaceholderExpansionAt,
 	isShellReference,
+	literalDefaultOf,
+	namesSecret,
 	secretDefaults,
 } from './shell-variables';
 
@@ -104,37 +106,6 @@ export function scrubKnownTokens(text: string, note: (kind: string) => void) {
 	return out;
 }
 
-/**
- * The canonical keyword a variable name carries, found as a substring of the
- * lower-cased name: `PGPASSWORD`, `dbpassword`, `client_secret`, `sessionId`.
- * `pass` and `sid` over-match as substrings (`bypass`, `compass`, `inside`), so
- * they count only as a whole word of the name (`DB_PASS`, `sid`) or, for
- * `pass`, as the end of an all-capitals name (`REDISPASS`); `auth` does not
- * count in `author` or `authority`. `key` counts as a whole word of the name
- * (`MASTER_KEY`, `signingKey`, `key`), and so do `signing` and `hmac`
- * (`JWT_SIGNING`).
- */
-function keywordOf(name: string): string | undefined {
-	const lower = name.toLowerCase();
-	const found =
-		/password|passwd|passphrase|pwd|secret|token|cookie|session|auth(?!or)/.exec(
-			lower,
-		);
-	if (found) return found[0];
-	if (/api[_-]?key/.test(lower)) return 'api-key';
-	if (/private[_-]?key/.test(lower)) return 'private-key';
-	if (/credential/.test(lower)) return 'credentials';
-	if (lower.includes('bearer')) return 'bearer';
-	const words = wordsOf(name);
-	for (const word of ['pass', 'pw', 'sid']) {
-		if (words.includes(word)) return word;
-	}
-	if (name === name.toUpperCase() && /(?:pass|pw)$/.test(lower)) return 'pass';
-	if (words.some((word) => KEY_WORDS.has(word))) return 'key';
-	return undefined;
-}
-
-const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
 	/(?<![\w-])([\w-]+)(?:[ \t]*(?:\?\?|\|\||&&)(?==)|\?)?["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
@@ -180,6 +151,10 @@ function collectSecrets(text: string, found: Set<string>): void {
 		const whole = `${value}${match[3] ?? ''}`.trim();
 		const keyword = keywordOf(name);
 		if (!keyword || value.endsWith(':')) continue;
+		if (namesSecret(name) && literalDefaultOf(value) !== undefined) {
+			found.add(keyword); // `password: ${APP_NAME:-swordfish}`
+			continue;
+		}
 		if (isPlaceholderExpansionAt(text, match.index)) continue; // `${NAME:-}`
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
 		// A credential header's value, like Authorization: `x-gateway-secret: $GATEWAY_SECRET`

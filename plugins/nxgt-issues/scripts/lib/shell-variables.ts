@@ -4,7 +4,8 @@
  * `${REDIS_PASSWORD:-}` or `${JWT_SECRET:?required}`.
  */
 
-import { namesCredential } from './credential-names';
+import { keywordOf } from './credential-keyword';
+import { wordsIn } from './credential-names';
 
 /**
  * A compose or shell expansion that holds no secret: no default (`${NAME}`,
@@ -45,14 +46,36 @@ const PIN = /(?:^|_)PIN$/;
 /** `${NAME:-default}` as a whole value, quoted or not, closing brace optional. */
 const EXPANSION_VALUE = /^["'`]?\$\{([A-Za-z_]\w*):?[-=+](.*?)\}?["'`]?$/s;
 
+/** Last words that make a name a setting, not a credential, whatever words come before. */
+const SETTING_WORDS = new Set(
+	`file path dir directory name ttl length min max expiry expires issuer audience
+	url uri host port user username prefix header type mode enabled algorithm store
+	timeout seconds minutes hours days count size limit format label scheme provider
+	domain endpoint rounds cost claim field`.split(/\s+/),
+);
+
+/** Whether the name is a credential: it carries a credential keyword and does not end on a setting word. */
+export const namesSecret = (name: string): boolean =>
+	(keywordOf(name) !== undefined || PIN.test(name)) &&
+	!SETTING_WORDS.has(wordsIn(name).at(-1) ?? '');
+
 /**
- * Whether an expansion's default is harmless: the name's last word is not a
- * credential (`${TOKEN_TTL:-3600}`, `${SECRET_NAME:-app-secrets}`) or the
- * default is benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
+ * Whether an expansion's default is harmless: the name is no credential
+ * (`${TOKEN_TTL:-3600}`, `${SECRET_NAME:-app-secrets}`) or the default is
+ * benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
  */
 const isBenignExpansion = (name: string, value: string): boolean =>
-	!(namesCredential(name) || PIN.test(name)) ||
-	BENIGN_DEFAULT.test(value.trim());
+	!namesSecret(name) || BENIGN_DEFAULT.test(value.trim());
+
+/**
+ * The literal default of a whole-value `${NAME:-default}` that is neither
+ * empty nor benign, whatever NAME is: under a credential key it is a secret.
+ */
+export function literalDefaultOf(value: string): string | undefined {
+	const match = EXPANSION_VALUE.exec(value);
+	const text = (match?.[2] ?? '').trim();
+	return text === '' || BENIGN_DEFAULT.test(text) ? undefined : text;
+}
 
 /** Whether `value` is a shell variable or an expansion that holds no secret. */
 export function isShellValue(value: string): boolean {

@@ -46,8 +46,34 @@ const FLAG_REQUIREPASS =
 	/(?<![\w-])--(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*["']?|=|[ \t]+)["']?(?!-)([^\s"',]+)/g;
 /** The bare redis.conf directive: a literal at the start of a line or quoted, prose elsewhere. */
 const DIRECTIVE =
-	/(?<![\w-])(?:requirepass|masterauth)[ \t]+(["']?)(?!-)([^\s"',]+)/g;
+	/(?<![\w-])(?:requirepass|masterauth)[ \t]+(["']?)(?!-)(?=([^\s"',]+))/g;
 const LINE_START = /^[ \t]*#?[ \t]*$/;
+const CONFIG_SET = /\bconfig[ \t]+set[ \t]*$/i;
+/** Right after an opening quote, or inside a sed `s/old/new/` replacement. */
+const QUOTE_BEFORE = /["'`][ \t]*$/;
+const SED_BEFORE = /\bs\/[^\n/]*\/$/;
+/** What may follow a directive at a line start: nothing, or a comment. */
+const COMMENT_ONLY = /^[ \t]*(?:#.*)?$/;
+const QUOTE_AFTER = /^(?:["'`]|\\n|[ \t]*$)/;
+
+/** Whether the directive at `match` is a literal setting, and the value it sets. */
+function directiveValue(
+	text: string,
+	match: RegExpMatchArray,
+): string | undefined {
+	const index = match.index ?? 0;
+	const before = text.slice(text.lastIndexOf('\n', index) + 1, index);
+	const end = index + match[0].length + (match[2] ?? '').length;
+	const eol = text.indexOf('\n', end);
+	const rest = text.slice(end, eol === -1 ? undefined : eol);
+	const value = match[2] ?? '';
+	if (match[1] !== '' || CONFIG_SET.test(before)) return value;
+	if (LINE_START.test(before))
+		return COMMENT_ONLY.test(rest) ? value : undefined;
+	if (SED_BEFORE.test(before)) return value.replace(/\/.*$/, '');
+	if (QUOTE_BEFORE.test(before) && QUOTE_AFTER.test(rest)) return value;
+	return undefined;
+}
 
 /** Whether `text` starts with a command that takes secrets as arguments. */
 export const isSecretCommand = (text: string): boolean =>
@@ -104,12 +130,8 @@ export function hasPositionalSecret(text: string): boolean {
 		if (!isSafeValue(match[1] ?? '')) return true;
 	}
 	for (const match of text.matchAll(DIRECTIVE)) {
-		const before = text.slice(
-			text.lastIndexOf('\n', match.index) + 1,
-			match.index,
-		);
-		const literal = match[1] !== '' || LINE_START.test(before);
-		if (literal && !isSafeValue(match[2] ?? '')) return true;
+		const value = directiveValue(text, match);
+		if (value !== undefined && !isSafeValue(value)) return true;
 	}
 	for (const match of text.matchAll(INVOCATION)) {
 		const args = (match[2] ?? '').trim().split(/\s+/).filter(Boolean);

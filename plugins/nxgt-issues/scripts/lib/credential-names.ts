@@ -14,7 +14,7 @@ const KEY_QUALIFIERS = new Set(
 );
 
 /** The words of a name: split on separators and camelCase seams, lower-cased. */
-const wordsIn = (name: string): string[] =>
+export const wordsIn = (name: string): string[] =>
 	name
 		.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
 		.toLowerCase()

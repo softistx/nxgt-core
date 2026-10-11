@@ -236,3 +236,56 @@ describe("compose defaults are judged by the name's last word", () => {
 		expect(refused(text)).toBe(true);
 	});
 });
+
+describe('compose names are judged by the credential keyword, not by their last word alone', () => {
+	test.each([
+		'PGPASSWORD=${PGPASSWORD:-swordfish} psql -h db -U app',
+		'POSTGRES_PASSWORD: ${DB_PASSWORD_DEV:-swordfish}',
+		'password: ${DB_PASSWORD_VALUE:-swordfish}',
+		'password: ${APP_NAME:-swordfish}',
+		'${ADMIN_PASSWORD_DEV:-swordfish}',
+		'${OAUTH_CLIENT_SECRET_DEV:-swordfish}',
+		'${JWT_SECRET_LOCAL:-swordfish}',
+		'${PASSWORD_PROD:-swordfish}',
+		'${ADMIN_PASSWORD2:-swordfish}',
+		'${API_KEY_DEV:-abc123}',
+		'APP_KEY: ${APP_KEY:-base64:Zq8wLmP3vTnR}',
+		'${SECRET_KEY_BASE:-swordfish}',
+	])('%p refuses', (text) => {
+		expect(refused(text.replaceAll('${', '$' + '{'))).toBe(true);
+	});
+
+	test.each([
+		'${TOKEN_TTL:-3600}',
+		'${PASSWORD_MIN_LENGTH:-12}',
+		'${JWT_SECRET_FILE:-/run/secrets/jwt}',
+		'${SECRET_NAME:-app-secrets}',
+		'${TOKEN_AUDIENCE:-my-app}',
+		'${PIN_LENGTH:-4}',
+		'${SESSION_STORE:-redis}',
+		'password: ${DB_PASSWORD:-$POSTGRES_PASSWORD}',
+		'password: ${DB_PASSWORD:-${POSTGRES_PASSWORD}}',
+		'PGPASSWORD=${PGPASSWORD:-$OTHER_PASSWORD} psql -h db',
+	])('%p passes', (text) => {
+		passes(text);
+	});
+});
+
+describe('redis directives after config set, in prose and in quotes', () => {
+	test.each([
+		'redis-cli CONFIG SET requirepass Hunter2024',
+		'127.0.0.1:6379> CONFIG SET requirepass Hunter2024',
+		'RUN echo "requirepass Hunter2024" >> /etc/redis/redis.conf',
+		"printf 'requirepass Hunter2024\\n' > redis.conf",
+		"sed -i 's/^# requirepass .*/requirepass Hunter2024/' redis.conf",
+		'requirepass Hunter2024 # change me',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		'requirepass is not set',
+		'requirepass and masterauth must match',
+		'requirepass should be long',
+	])('%p passes', passes);
+});
