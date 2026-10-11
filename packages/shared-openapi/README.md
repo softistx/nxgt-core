@@ -49,7 +49,10 @@ export default defineHeyApiConfig((config) => ({
 `generateOpenapiTS` wraps `openapi-typescript` and maps `format: date-time` to
 `Date` and `format: binary` to `File`. `defineHeyApiConfig` wraps
 `@hey-api/openapi-ts` with Zod plugin and `src/generated/openapi-ts` as the
-default output.
+default output. Since 2.1.0 it returns a `Promise<UserConfig>`, loading
+`@hey-api/openapi-ts` only when called; `openapi-ts` accepts a promise as a
+config file's default export, so `export default defineHeyApiConfig(...)` is
+unchanged.
 
 ## TypeScript 6 and 7
 
@@ -88,7 +91,7 @@ service that `$ref`ed the generic search body advertised sorting it could not
 perform. The paginator these bodies feed, `Model.cursorPaginate` in
 `@nxgt/shared-mongo`, orders by `_id` and reads no `sort` at all: the cursor
 *is* the `_id`, so a second sort key would have to be part of the cursor.
-Twenty-three endpoints across six sellix services accepted the parameter and
+Every endpoint that took the generic search body accepted the parameter and
 discarded it.
 
 Add the schemas back the day a paginator honours them — with compound cursors,
