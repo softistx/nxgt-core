@@ -81,7 +81,7 @@ export class StorageService {
 		}
 	}
 
-	/** @deprecated Use presign(); kept for existing callers, removed in the next major. */
+	/** @deprecated Use {@link StorageService.presign}; kept for existing callers, removed in the next major. */
 	presing(key: string, options: S3FilePresignOptions = {}) {
 		return this.presign(key, options);
 	}

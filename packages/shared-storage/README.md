@@ -40,14 +40,24 @@ new `StorageService` every time the field initializer ran.
 | `createLazyStorage(bucket)` | process-lifetime singleton getter |
 | `S3_CREDENTIALS` | `{ endpoint, bucket, accessKeyId, secretAccessKey }` from env |
 
-`StorageService` talks to Bun's `S3Client`: `write`, `list`, `file`, `exists`,
-`presign` (its error key is `presign-failed`), `delete`, `size`, `stat`, `unlink`, `fetch`. `fetch` takes a
-`bucket` option to read from another bucket; it defaults to the constructor's
-bucket, itself `S3_BUCKET` by default. `presing()` is a deprecated alias of
-`presign()`, kept for existing callers and removed in the next major. MinIO
-methods whose result types would otherwise leak minio's internal module are
-annotated through the public `Client`
-(`Awaited<ReturnType<Client['putObject']>>`) so a consumer's `.d.ts` resolves.
+`StorageService` talks to Bun's `S3Client`: `write`, `list`, `file`,
+`exists`, `presign`, `delete`, `size`, `stat`, `unlink`, `fetch`. `fetch`
+takes a `bucket` option to read from another bucket; it defaults to the
+constructor's bucket, itself `S3_BUCKET` by default. MinIO methods whose
+result types would otherwise leak minio's internal module are annotated
+through the public `Client` (`Awaited<ReturnType<Client['putObject']>>`) so a
+consumer's `.d.ts` resolves.
+
+`presign(key, options)` returns a signed URL synchronously. `options` is Bun's
+`S3FilePresignOptions` (`expiresIn` in seconds, `method`, `acl`, …):
+
+```ts
+const url = getStorage().presign('reports/2026.pdf', { expiresIn: 3600 });
+const upload = getStorage().presign('uploads/avatar.png', { method: 'PUT' });
+```
+
+`presing()` is a deprecated alias of `presign()`, kept for existing callers
+and removed in the next major.
 
 ## Errors
 
