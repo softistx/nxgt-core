@@ -364,7 +364,7 @@ An empty `$issues` means the plugin is not installed: skip the step and say so.
 | `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and trusted; from the cache when fresh, else a refresh (a failed refresh falls back to a stale cache, with a warning on stderr; a tracking issue whose upstream issue GitHub could not read is left out, with a warning on stderr and exit 0); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise. Who counts as trusted: [docs/internals.md](docs/internals.md#ready) |
 | `dashboard [--json]` | the `/issues` dashboard: open issues of the allowed owners' non-archived repositories, grouped by repository, ranked live marker first (`●`: an open tracking issue still links it), then applications affected, then oldest (`⚑` after 14 days without activity); then a "Merged, awaiting release" section. Three `gh search issues` calls; if one fails the command exits 5 (rate-limited) or 6 (gh failed). The optional calls (duplicate counts, package names) only add a note and a warning on stderr, never an exit code. `--json` prints `{groups, awaiting, notes}`. Details: [docs/internals.md](docs/internals.md#dashboard) |
 | `markers [--json] [--exclude <pathspec>]…` | every `Temporary, until <upstream>#<n>` marker (`git grep`; `--exclude` skips fixtures and docs examples), judged against this repository's open tracking issues: `ready` (remove it), `unresolvable`, `untracked` or `waiting` (not flagged); a public application reads the upstream issue directly. **Exit 1 when any marker is flagged**, 0 when none, 6 when an upstream issue could not be read or `git grep`/gh failed, 2 for a foreign origin, 5 rate-limited. Exit 1 is shared with usage: a CI step runs `markers --json` and treats stdout that is not JSON as a failure. Known limit (a package that moved repositories) and the rest: [docs/internals.md](docs/internals.md#markers) |
-| `released <pkg@ver> [--json] [--dry-run]` | from the library's checkout: gives the issues the published version fixes the `released` label, closes them and comments "Fixed in `<pkg>@<ver>` (#PR)" (in that order, the comment last: it is the marker); idempotent; `--dry-run` reads and writes nothing; prints the application tracking issues linking them (the sessions to notify). Exit 1 for a malformed `<pkg@ver>`, a package this checkout lacks or a monorepo's private root, 2 for a foreign checkout, 5 rate-limited, 6 when a PR or an issue failed (the rest was done). Which issues are skipped for a sibling package: [docs/internals.md](docs/internals.md#released) |
+| `released <pkg@ver> [--json] [--dry-run]` | from the library's checkout: gives the issues the published version fixes the `released` label, closes them and comments "Fixed in `<pkg>@<ver>` (#PR)" (in that order, the comment last: it is the marker); idempotent; `--dry-run` reads and writes nothing; prints the application tracking issues linking them (the sessions to notify). Exit 1 for a malformed `<pkg@ver>`, a package this checkout lacks or a monorepo root (one with `workspaces`), 2 for a foreign checkout, 5 rate-limited, 6 when a PR or an issue failed (the rest was done). Which issues are skipped for a sibling package: [docs/internals.md](docs/internals.md#released) |
 | `release-plan <pkg@ver> [--json]` | read-only: exactly what `released --dry-run` prints, with no way to write; the pre-approved form for previews; exit 1 usage, a malformed spec or a package this checkout lacks, 2 a checkout that is not an allowed owner's, 5 rate limit, 6 failure |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent); titles, branches and paths are cleaned, under the untrusted-data header in text |
 
@@ -499,7 +499,7 @@ tool. These are not detected, so never paste a real value:
 - prose secrets ("the password is …");
 - variable indirection (`const X = '…'; secret(X)`);
 - XML elements (`<password>…</password>`);
-- percent-encoding is undone only three layers deep.
+- percent-encoding (mixed with HTML entities) is undone only three rounds deep.
 
 The reproduction is always written from scratch, with generic values, never
 copied from the application.
@@ -523,9 +523,8 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
   checkout of a worktree);
 - the working directory's name (`file` and `deps --file` refuse outside a git
   checkout);
-- every private repository of the owners in `NXGT_ISSUES_OWNERS` (default: the
-  maintainer's),
-  by full name, and by each distinctive stem as a whole word outside
+- every private repository of the default owners (the maintainer's, see
+  Requirements), whatever `NXGT_ISSUES_OWNERS` says, by full name, and by each distinctive stem as a whole word outside
   `node_modules/` paths (`zorblax` from `zorblax-api`); a stem that is a
   common English word or a framework, library or tool name (`compose`,
   `rest`, `content`, `react`, `docker`…, listed in `common-words.ts`, plurals,

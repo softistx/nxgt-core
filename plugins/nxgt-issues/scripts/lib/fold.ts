@@ -54,12 +54,28 @@ const decodeEntities = (text: string): string =>
 			(whole, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? whole,
 		);
 
-/** `%2D` and the like; a malformed run stays as written. */
-const decodePercent = (run: string): string => {
+const tryDecode = (run: string): string => {
 	try {
 		return decodeURIComponent(run);
 	} catch {
 		return run;
+	}
+};
+
+/** One well-formed UTF-8 escape sequence of one to four bytes. */
+const UTF8_ESCAPE =
+	/%[0-7][0-9a-f]|%[c-d][0-9a-f]%[89ab][0-9a-f]|%e[0-9a-f](?:%[89ab][0-9a-f]){2}|%f[0-7](?:%[89ab][0-9a-f]){3}/gi;
+
+/**
+ * `%2D` and the like. A run with a malformed byte (`%72%80`) would stay
+ * wholly encoded and hide a name, so then each valid sequence is decoded on
+ * its own and the malformed bytes stay as written.
+ */
+const decodePercent = (run: string): string => {
+	try {
+		return decodeURIComponent(run);
+	} catch {
+		return run.replace(UTF8_ESCAPE, tryDecode);
 	}
 };
 

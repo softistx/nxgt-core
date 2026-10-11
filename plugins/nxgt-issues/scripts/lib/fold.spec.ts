@@ -73,6 +73,22 @@ describe('normalize', () => {
 		);
 	});
 
+	test('a malformed byte in a run does not keep the valid escapes encoded', () => {
+		expect(normalize('quinto%72%80')).toBe('quintor%80');
+		expect(normalize('quinto%2572%26%2337%3B80')).toBe('quintor%80');
+		expect(normalize('a%80b')).toBe('a%80b');
+		expect(normalize('%E0%A4%A')).toBe('%E0%A4%A');
+	});
+
+	test('a name followed by a malformed byte is still denied', () => {
+		const list = buildDenyList({ privateRepos: ['acme/quintor'] });
+		for (const text of ['quinto%72%80', 'quinto%2572%26%2337%3B80']) {
+			expect(scrub(`see ${text}`, { denyList: list }).denied).toContain(
+				'quintor',
+			);
+		}
+	});
+
 	test('an unknown named entity is left as written', () => {
 		expect(normalize('a&nosuch;b')).toBe('a&nosuch;b');
 	});
