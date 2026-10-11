@@ -14,28 +14,33 @@
  *   bun run test/vue-tsc.ts --noEmit -p test/types/tsconfig.json
  */
 import { dirname } from 'node:path';
+import { $ } from 'bun';
 
 const args = process.argv.slice(2);
 
 /** The `typescript` vue-tsc itself loads, resolved from its own folder. */
-const vueTsc = dirname(Bun.resolveSync('vue-tsc/package.json', process.cwd()));
+const vueTsc = dirname(
+	Bun.resolveSync('vue-tsc/package.json', import.meta.dir),
+);
 const typescript = await import(Bun.resolveSync('typescript', vueTsc));
 const api = (typescript.default ?? typescript) as {
-	version?: string;
+	version?: unknown;
 	factory?: unknown;
 };
 
 let command = 'vue-tsc';
 if (api.factory === undefined) {
 	command = 'tsc';
+	const found =
+		typeof api.version === 'string'
+			? `TypeScript ${api.version}`
+			: 'the TypeScript installed';
 	console.warn(
-		`vue-tsc needs TypeScript's compiler API, which TypeScript ${api.version} ` +
-			'does not ship: running tsc instead, so the .vue files go unchecked here. ' +
+		`vue-tsc needs TypeScript's compiler API, which ${found} does not ship: ` +
+			'running tsc instead, so the .vue files go unchecked here. ' +
 			'They are checked where typescript resolves to 6.',
 	);
 }
 
-const run = Bun.spawn([command, ...args], {
-	stdio: ['inherit', 'inherit', 'inherit'],
-});
-process.exit(await run.exited);
+const run = await $`${command} ${args}`.nothrow();
+process.exit(run.exitCode);
