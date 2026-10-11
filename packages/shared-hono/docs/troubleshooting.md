@@ -131,8 +131,7 @@ handler was built with `logToConsole: false`. To see it locally, set
 
 `NODE_ENV` is `development` or `test` where the service runs: those two are the
 only values that answer the detail. Set `NODE_ENV=production` in the service's
-environment. An unset `NODE_ENV` no longer answers it (since the change that
-made the handler secure by default), so a service still answering one has it
+environment. An unset `NODE_ENV` no longer answers it (since 4.2.0), so a service still answering one has it
 set explicitly.
 
 ### A local service no longer answers a `debugMessage`
