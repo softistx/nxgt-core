@@ -113,3 +113,17 @@ describe('method calls with arguments and the token exemption', () => {
 		"if (name.slice(0, 3) === 'adm') {}",
 	])('%p passes', passes);
 });
+
+describe('a lone scheme word compared with authorization', () => {
+	test.each([
+		"if (authorization === 'Bearer') {}",
+		"if (req.headers.authorization !== 'Basic') {}",
+	])('%p passes', passes);
+
+	test.each([
+		"if (authorization === 'Bearer k3J9xQ2mZp7vR4tL') {}",
+		"if (authorization == 'Basic YWRtaW46aHVudGVyMg==') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});

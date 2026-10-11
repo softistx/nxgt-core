@@ -170,16 +170,65 @@ describe('name:=default and name:?message expansions', () => {
 	])('%p passes', passes);
 });
 
-describe('requirepass in prose and in compose', () => {
+describe('requirepass flags are literals, the bare directive is read as prose or config', () => {
+	test.each([
+		'command: redis-server --requirepass Hunter2024 --appendonly yes',
+		'command: redis-server --requirepass=Hunter2024 --appendonly yes',
+		'redis-server --requirepass Hunter2024 --maxmemory 256mb',
+		'redis-server --requirepass Hunter2024 --save ""',
+		'command: redis-server --requirepass Hunter2024 --loglevel warning',
+		'docker run -d redis redis-server --requirepass Hunter2024 --appendonly yes',
+		'command: redis-server --requirepass Hunter2024 # dev only',
+		'requirepass Hunter2024 # change me',
+		'masterauth Hunter2024',
+		'# requirepass Hunter2024',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
 	test.each([
 		'set requirepass in redis.conf',
 		'the requirepass directive sets the password',
-		'redis-server --requirepass $$REDIS_PASSWORD',
+		'--requirepass $$REDIS_PASSWORD',
+		'--requirepass "$REDIS_PASSWORD"',
+	])('%p passes', passes);
+});
+
+describe('class fields and declarations typed with a name', () => {
+	test.each([
+		`class AuthState {\n  token: AccessToken;\n}`,
+		`class Signer {\n  private secret: SigningSecret;\n}`,
+		`class Signer extends Base implements Keyed {\n  token?: SessionToken;\n}`,
+		'let token: AccessToken;',
+		'declare const token: AccessToken;',
 	])('%p passes', passes);
 
 	test.each([
-		'redis-server --requirepass hunter2 --port 6379',
-		'requirepass "Hunter2024!" # comment',
+		'class Box {\n  password: Hunter2024;\n}',
+		'const o = {\n  token: SessionToken;\n}',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});
+
+describe("compose defaults are judged by the name's last word", () => {
+	test.each([
+		`DB_PASSWORD: \${DB_PASSWORD:-$POSTGRES_PASSWORD}`,
+		`\${DB_PASSWORD:-\${POSTGRES_PASSWORD}}`,
+		`\${DB_PASSWORD:-""}`,
+		`\${GH_TOKEN:-<your token>}`,
+		`\${TOKEN_TTL:-3600}`,
+		`\${TOKEN_AUDIENCE:-my-app}`,
+		`\${SECRET_NAME:-app-secrets}`,
+		`\${JWT_SECRET_FILE:-/run/secrets/jwt}`,
+		`\${PASSWORD_MIN_LENGTH:-12}`,
+		`TOKEN_ISSUER: \${TOKEN_ISSUER:-auth-service}`,
+	])('%p passes', passes);
+
+	test.each([
+		`\${DB_PASSWORD:-swordfish}`,
+		`\${JWT_SECRET:-k3J9xQ2mZp7vR4tL}`,
+		`\${API_KEY:-my-app}`,
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});

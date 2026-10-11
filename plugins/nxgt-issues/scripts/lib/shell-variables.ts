@@ -4,6 +4,8 @@
  * `${REDIS_PASSWORD:-}` or `${JWT_SECRET:?required}`.
  */
 
+import { namesCredential } from './credential-names';
+
 /**
  * A compose or shell expansion that holds no secret: no default (`${NAME}`,
  * `${NAME:-}`, `${NAME=}`) or an error message after `?` (`${NAME:?required}`).
@@ -37,18 +39,33 @@ function isShellVariable(value: string): boolean {
 	);
 }
 
-/** Whether `value` is a shell variable or a compose default with a prose default. */
-export const isShellValue = (value: string): boolean =>
-	isShellVariable(value) || COMPOSE_DEFAULT.test(value);
+/** A default that holds no secret: a number, an absolute path, a variable, `""`, `<placeholder>`. */
+const BENIGN_DEFAULT =
+	/^(?:\d+|\/[\w./-]*|\$\{?[A-Za-z_]\w*\}?|""|''|<[^<>]*>)$/;
+/** `${NAME:-default}` as a whole value, quoted or not, closing brace optional. */
+const EXPANSION_VALUE = /^["'`]?\$\{([A-Za-z_]\w*):?[-=+](.*?)\}?["'`]?$/s;
+
+/**
+ * Whether an expansion's default is harmless: the name's last word is not a
+ * credential (`${TOKEN_TTL:-3600}`, `${SECRET_NAME:-app-secrets}`) or the
+ * default is benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
+ */
+const isBenignExpansion = (name: string, value: string): boolean =>
+	!namesCredential(name) || BENIGN_DEFAULT.test(value.trim());
+
+/** Whether `value` is a shell variable or an expansion that holds no secret. */
+export function isShellValue(value: string): boolean {
+	if (isShellVariable(value) || COMPOSE_DEFAULT.test(value)) return true;
+	const match = EXPANSION_VALUE.exec(value);
+	return match !== null && isBenignExpansion(match[1] ?? '', match[2] ?? '');
+}
 
 /** Whether the name at `index` of `text` sits in a `${NAME…}` that is a placeholder (see `COMPOSE_DEFAULT`). */
 export function isPlaceholderExpansionAt(text: string, index: number): boolean {
 	if (!text.startsWith('${', index - 2)) return false;
 	const close = text.indexOf('}', index);
 	const end = close === -1 ? text.indexOf('\n', index) : close + 1;
-	return COMPOSE_DEFAULT.test(
-		text.slice(index - 2, end === -1 ? undefined : end),
-	);
+	return isShellValue(text.slice(index - 2, end === -1 ? undefined : end));
 }
 
 /**
@@ -72,8 +89,7 @@ const EXPANSION = /\$\{([A-Za-z_]\w*):?[-=+]([^}\n]+)\}/g;
 
 /** The non-empty defaults of every `${NAME-default}` expansion in `text`. */
 export function expansionDefaults(text: string) {
-	return [...text.matchAll(EXPANSION)].map((match) => ({
-		name: match[1] ?? '',
-		value: match[2] ?? '',
-	}));
+	return [...text.matchAll(EXPANSION)]
+		.map((match) => ({ name: match[1] ?? '', value: match[2] ?? '' }))
+		.filter(({ name, value }) => !isBenignExpansion(name, value));
 }

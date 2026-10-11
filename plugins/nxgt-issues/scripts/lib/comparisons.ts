@@ -13,7 +13,7 @@
  */
 
 import { CREDENTIAL_HEADER } from './auth-calls';
-import { wordsOf } from './code-values';
+import { namesCredential } from './credential-names';
 import { isHarmlessLiteral } from './literals';
 import { lastName, pathAtEnd, pathAtStart } from './operands';
 
@@ -42,27 +42,8 @@ const VALUE = {
 	keyPosition: true,
 };
 
-/** The last words that make a name a credential: `userPassword`, `apiKey`, `x-gateway-secret`. */
-const LAST_WORDS = new Set(
-	'password pass passwd pwd secret token apikey authorization'.split(' '),
-);
-/** A `key` is a credential only after one of these, as in key-names.ts (`sortKey` is not). */
-const KEY_QUALIFIERS = new Set(
-	'api secret private signing access encryption hmac master'.split(' '),
-);
 /** A token kind or constant: `EOF`, `NUMBER`. */
 const CONSTANT = /^[A-Z][A-Z_]+$/;
-
-/**
- * Whether an identifier or header name reads as a credential: by its last
- * word only (`tokenType`, `passwordStrength` and `secretManager` are not).
- */
-function namesCredential(name: string): boolean {
-	const words = wordsOf(name);
-	const last = words.at(-1) ?? '';
-	if (last === 'key') return KEY_QUALIFIERS.has(words.at(-2) ?? '');
-	return LAST_WORDS.has(last);
-}
 
 interface Operand {
 	readonly credential: boolean;

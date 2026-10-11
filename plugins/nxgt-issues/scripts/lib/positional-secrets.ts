@@ -42,10 +42,12 @@ const VALUED = new Set([
 ]);
 
 /** `--requirepass x`, `--requirepass=x`, `requirepass x` (redis.conf), `"--requirepass", "x"`. */
-const REQUIREPASS =
-	/(?<![\w-])(?:--)?(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*|=|[ \t]+)(["']?)(?!-)([^\s"',]+)([^\n]*)/g;
-/** What may follow an unquoted value: flags, their numbers, closing punctuation; not prose. */
-const ONLY_FLAGS = /^(?:\s+(?:-\S*|\d+))*\s*[,\])]*$/;
+const FLAG_REQUIREPASS =
+	/(?<![\w-])--(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*["']?|=|[ \t]+)["']?(?!-)([^\s"',]+)/g;
+/** The bare redis.conf directive: a literal at the start of a line or quoted, prose elsewhere. */
+const DIRECTIVE =
+	/(?<![\w-])(?:requirepass|masterauth)[ \t]+(["']?)(?!-)([^\s"',]+)/g;
+const LINE_START = /^[ \t]*#?[ \t]*$/;
 
 /** Whether `text` starts with a command that takes secrets as arguments. */
 export const isSecretCommand = (text: string): boolean =>
@@ -98,8 +100,15 @@ function refusesInvocation(command: string, args: string[]): boolean {
 
 /** True when `text` runs a command with a literal secret as its password argument. */
 export function hasPositionalSecret(text: string): boolean {
-	for (const match of text.matchAll(REQUIREPASS)) {
-		const literal = match[1] !== '' || ONLY_FLAGS.test(match[3] ?? '');
+	for (const match of text.matchAll(FLAG_REQUIREPASS)) {
+		if (!isSafeValue(match[1] ?? '')) return true;
+	}
+	for (const match of text.matchAll(DIRECTIVE)) {
+		const before = text.slice(
+			text.lastIndexOf('\n', match.index) + 1,
+			match.index,
+		);
+		const literal = match[1] !== '' || LINE_START.test(before);
 		if (literal && !isSafeValue(match[2] ?? '')) return true;
 	}
 	for (const match of text.matchAll(INVOCATION)) {

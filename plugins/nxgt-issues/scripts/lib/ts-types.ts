@@ -9,7 +9,7 @@
  * accepted only in a signature: after a `:` (never `=`), under a name that is
  * not SCREAMING_SNAKE, inside a parameter list (anonymous, a `constructor`, a
  * `function`, or one followed by `{` or `=>`) or a `type X = {` /
- * `interface X {` body. `Config(host=db, password=CorrectHorse)`, `{ password:
+ * `interface X {` / `class X {` body, or a `let|const|var` declaration. `Config(host=db, password=CorrectHorse)`, `{ password:
  * CorrectHorse }` and `login(password: CorrectHorse)` are values.
  */
 
@@ -36,7 +36,9 @@ const PARAMETER_TYPE = new RegExp(
 	`^(${TYPE_PART}(?:\\s*[|&]\\s*${TYPE_PART})*)\\s*[),]`,
 );
 const TYPE_LITERAL =
-	/(?:\btype\s+[\w$]+(?:<[^<>]*>)?\s*=|\binterface\s+[\w$]+(?:<[^<>]*>)?(?:\s+extends\s+[\w$.,<>\s]+?)?)\s*$/;
+	/(?:\btype\s+[\w$]+(?:<[^<>]*>)?\s*=|\binterface\s+[\w$]+(?:<[^<>]*>)?(?:\s+extends\s+[\w$.,<>\s]+?)?|\bclass\s+[\w$]+(?:<[^<>]*>)?(?:\s+extends\s+[\w$.<>]+)?(?:\s+implements\s+[\w$.,<>\s]+?)?)\s*$/;
+/** `let token: …`, `declare const token: …` at the start of a statement. */
+const DECLARATION = /(?:^|[;{}\n]\s*)(?:declare\s+)?(?:let|const|var)\s+$/;
 const WINDOW = 600;
 
 /** A TypeScript type: primitives and PascalCase names joined by `|`, `&`, `<>`, `,`, `[]`. */
@@ -96,6 +98,7 @@ function inSignature(name: string, site: Site): boolean {
 	const { text, start } = site;
 	if (!/^\??\s*:/.test(text.slice(start + name.length))) return false;
 	if (/^[A-Z][A-Z0-9_]*$/.test(name)) return false;
+	if (DECLARATION.test(text.slice(Math.max(0, start - 40), start))) return true;
 	const open = enclosing(text, start);
 	if (open?.char === '(') return isParameterList(text, open.index);
 	if (open?.char !== '{') return false;

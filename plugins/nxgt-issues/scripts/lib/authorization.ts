@@ -12,7 +12,7 @@
 import { isPlaceholder } from './code-values';
 import { isHarmlessLiteral } from './literals';
 
-const HEAD = /\bAuthorization["']?[ \t]*[:=][ \t]*/gi;
+const HEAD = /\bAuthorization["']?[ \t]*[:=](?![=>])[ \t]*/gi;
 const SCHEME = /^(?:Basic|Bearer|Digest|Negotiate|token)\b[ \t]*/i;
 const TOKEN_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
 const HEADER_VALUE = { inHeader: true, message: false, keyPosition: true };
