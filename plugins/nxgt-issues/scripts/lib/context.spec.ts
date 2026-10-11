@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { adoptReady, MAX_CHARS, rankIssues, renderContext } from './context';
-import type { PackageIssue, Snapshot, TrackingIssue } from './refresh';
 import { ago, DAY, NOW } from './session.fixtures';
+import type { PackageIssue, Snapshot, TrackingIssue } from './snapshot';
 
 const issue = (
 	number: number,

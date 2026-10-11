@@ -5,11 +5,11 @@
  * issues whose hidden marker names a released issue.
  */
 
-import { TRUSTED } from './context';
+import { isReleaseBot, TRUSTED } from './context';
 import { search } from './dashboard-data';
 import { type GhContext, ghJson } from './github';
 import { labelNames } from './github-issues';
-import { ensureLabels } from './labels';
+import { ensureLabels, hasLabel, LABELS } from './labels';
 import { upstreamRef } from './refs';
 import { formatRepo, type RepoId, sameRepo } from './repo-id';
 
@@ -20,7 +20,6 @@ export interface Notify {
 	readonly upstream: string;
 }
 
-const BOT = 'github-actions';
 export const FIXED_MARKER = /<!--\s*nxgt-issues:fixed=\S+@\S+\s*-->/;
 type Rows = Record<string, unknown>[];
 const rows = (value: unknown): Rows =>
@@ -50,8 +49,9 @@ export async function readIssue(
 	return {
 		body: String(raw['body'] ?? ''),
 		open: String(raw['state']).toUpperCase() === 'OPEN',
-		labelled: rows(raw['labels']).some(
-			(label) => String(label['name']).toLowerCase() === 'released',
+		labelled: hasLabel(
+			rows(raw['labels']).map((label) => String(label['name'])),
+			'released',
 		),
 		comments: rows(raw['comments']).map((comment) => {
 			const author = comment['author'] as { login?: string } | null;
@@ -59,7 +59,7 @@ export async function readIssue(
 				body: String(comment['body'] ?? ''),
 				trusted:
 					TRUSTED.has(String(comment['authorAssociation'])) ||
-					author?.login === BOT,
+					isReleaseBot(author?.login),
 			};
 		}),
 	};
@@ -71,10 +71,12 @@ export async function labelCreated(
 	options: { repo: RepoId; dryRun: boolean },
 ): Promise<boolean> {
 	if (!options.dryRun) {
-		return (await ensureLabels(ctx, options.repo, ['released'])).length > 0;
+		return (
+			(await ensureLabels(ctx, options.repo, [LABELS.released.name])).length > 0
+		);
 	}
 	const present = await labelNames(ctx, options.repo);
-	return !present.some((name) => name.toLowerCase() === 'released');
+	return !hasLabel(present, 'released');
 }
 
 export async function notifications(
@@ -85,7 +87,7 @@ export async function notifications(
 	const { found } = await search(
 		ctx,
 		options.owners,
-		['--label', 'upstream', '--state', 'open'],
+		['--label', LABELS.upstream.name, '--state', 'open'],
 		'number,title,repository,body',
 	);
 	return found.flatMap((tracking) => {

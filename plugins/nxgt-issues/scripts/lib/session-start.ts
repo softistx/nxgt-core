@@ -7,17 +7,20 @@
  *     and not one runner call;
  *   fresh cache -> render it;
  *   stale cache -> render it "as of Nm ago" and start a detached refresh;
- *   no cache    -> one inline refresh capped at 800 ms, else nothing; over
- *     budget, the refresh is also started detached so the next start has a
- *     cache, and a failure leaves a 10-minute stamp (no attempt meanwhile).
+ *   no cache    -> one inline refresh capped at 800 ms (each gh call at 650, so
+ *     the child ends before the hook does, and any call still in flight is
+ *     killed on the way out), else nothing; over budget, the refresh is also
+ *     started detached so the next start has a cache, and a failure leaves a
+ *     10-minute stamp (no attempt meanwhile). A fresh `refreshing` stamp
+ *     (a detached refresh is running) also means nothing: no inline attempt.
  */
 
 import { cachePath, describeAge, readEntry } from './cache';
 import { renderContext } from './context';
 import { type GhContext, rateLimitedUntil } from './github';
 import { disabled } from './hook';
-import { refreshRepo, type Snapshot } from './refresh';
-import { setStamp, stampFresh } from './refresh-state';
+import { refreshRepo } from './refresh';
+import { claimStamp, setStamp, stampFresh } from './refresh-state';
 import {
 	allowedOwners,
 	isAllowedOwner,
@@ -25,8 +28,11 @@ import {
 	repoOfDirectory,
 } from './repo-id';
 import type { Runner } from './runner';
+import type { Snapshot } from './snapshot';
 
 export const COLD_BUDGET_MS = 800;
+/** Each inline gh call ends this long before the budget does, so no child outlives the hook. */
+const COLD_MARGIN_MS = 150;
 
 export interface SessionStartDeps {
 	readonly runner: Runner;
@@ -52,25 +58,31 @@ async function coldRefresh(
 	id: RepoId,
 	owners: readonly string[],
 ): Promise<Cold> {
+	const controller = new AbortController();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const budget = new Promise<'timeout'>((done) => {
 		timer = setTimeout(() => done('timeout'), COLD_BUDGET_MS);
 	});
 	try {
-		const capped = { ...ctx, timeoutMs: COLD_BUDGET_MS };
+		const capped: GhContext = {
+			...ctx,
+			timeoutMs: COLD_BUDGET_MS - COLD_MARGIN_MS,
+			signal: controller.signal,
+		};
 		return await Promise.race([
 			refreshRepo(capped, id, owners).catch((): 'failed' => 'failed'),
 			budget,
 		]);
 	} finally {
 		clearTimeout(timer);
+		// Over budget or failed: no gh child may outlive the hook.
+		controller.abort();
 	}
 }
 
 /** Detached `issues.ts refresh`, unless one started under a minute ago. */
 function startRefresh(deps: SessionStartDeps, id: RepoId): void {
-	if (stampFresh(deps.home, id, 'refreshing', deps.now())) return;
-	setStamp(deps.home, id, 'refreshing', deps.now());
+	if (!claimStamp(deps.home, id, 'refreshing', deps.now())) return;
 	// Detached: the session never waits for it, and a failure is its own.
 	deps.runner
 		.run(deps.refreshCommand, { detached: true, cwd: deps.cwd })
@@ -103,7 +115,8 @@ export async function sessionStartContext(
 			const age = entry.fresh ? undefined : describeAge(entry.ageMs);
 			return renderContext(entry.data, { now, ...(age ? { age } : {}) });
 		}
-		if (idle) return undefined;
+		// A detached refresh is running (fresh stamp): it will fill the cache.
+		if (idle || stampFresh(deps.home, id, 'refreshing', now)) return undefined;
 		const cold = await coldRefresh(ctx, id, owners);
 		if (cold === 'failed') setStamp(deps.home, id, 'failed', deps.now());
 		if (cold === 'timeout') startRefresh(deps, id);

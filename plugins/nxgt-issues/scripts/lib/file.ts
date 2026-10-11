@@ -37,7 +37,7 @@ import {
 	searchIssues,
 } from './github-issues';
 import { duplicateComment, packageIssueBody } from './issue-body';
-import { ensureLabels } from './labels';
+import { ensureLabels, LABELS } from './labels';
 import { type IssueReport, parseReport } from './report';
 import type { Resolved } from './resolve';
 import { resolvePackage } from './resolve';
@@ -124,7 +124,11 @@ export async function fileIssue(
 	});
 	if (!checked.ok) return printScrubRefusal(ctx, checked);
 	const { title, body, comment, search } = checked.texts;
-	const reports = await issuesWithLabel(ctx, resolved.repo, 'consumer-report');
+	const reports = await issuesWithLabel(
+		ctx,
+		resolved.repo,
+		LABELS['consumer-report'].name,
+	);
 	const same = reports.find((issue) => extractFingerprint(issue.body) === hash);
 	const sameStanding = same ? standing(same) : undefined;
 	if (same && sameStanding === 'released' && !flags.force) {
@@ -145,7 +149,7 @@ export async function fileIssue(
 			: [];
 		if (candidates.length > 0) return printCandidates(ctx, candidates);
 	}
-	const labels = [report.kind, 'consumer-report'];
+	const labels = [report.kind, LABELS['consumer-report'].name];
 	await ensureLabels(ctx, resolved.repo, labels);
 	const url = await createIssue(ctx, resolved.repo, { title, body, labels });
 	ctx.out(`filed ${url}`);

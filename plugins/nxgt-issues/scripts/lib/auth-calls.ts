@@ -24,6 +24,7 @@
  * `authenticate` is the user name and stays allowed.
  */
 
+import { identifierHoldsCredentialWord } from './credential-names';
 import { credentialKeyHoldsSecret, functionRegions } from './function-values';
 import { valueRoles } from './literal-roles';
 import { isHarmlessLiteral, looksLikeCredential } from './literals';
@@ -41,12 +42,6 @@ const ENCODERS = new Set(
 );
 const USER_FIRST = new Set(['login', 'signIn', 'authenticate']);
 const SETTERS = new Set(['set', 'append', 'header', 'setHeader', 'cookie']);
-/** An identifier naming a credential header: `GATEWAY_SECRET_HEADER`, `authHeader`. */
-const CREDENTIAL_NAME = /^[A-Za-z_$][\w$.]*$/;
-const CREDENTIAL_WORD =
-	/secret|token|passw|api_?key|auth(?!or)|cookie|session/i;
-export const namesCredential = (identifier: string): boolean =>
-	CREDENTIAL_NAME.test(identifier) && CREDENTIAL_WORD.test(identifier);
 export const CREDENTIAL_HEADER =
 	/^(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|.*-(?:secret|token|key|password))$/i;
 
@@ -201,7 +196,7 @@ export function hasSecretArgument(text: string): boolean {
 			name === 'cookie' || /cookie/i.test(path.slice(0, -name.length));
 		const credentialHeader = header
 			? cookieJar || CREDENTIAL_HEADER.test(header)
-			: namesCredential(args[0] ?? '');
+			: identifierHoldsCredentialWord(args[0] ?? '');
 		if (SETTERS.has(name) && credentialHeader) {
 			const value = { strict: true, key: false };
 			if (hasSecretIn(args[1] ?? '', value)) return true;

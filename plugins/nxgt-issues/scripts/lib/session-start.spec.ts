@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, test } from 'bun:test';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { cachePath, writeEntry } from './cache';
-import { setStamp, stampFresh } from './refresh-state';
+import { claimStamp, setStamp, stampFresh } from './refresh-state';
 import { type FakeRunner, fakeRunner } from './runner.fixtures';
 import {
 	checkout,
@@ -14,7 +16,11 @@ import {
 	SNAPSHOT,
 	seed,
 } from './session.fixtures';
-import { type SessionStartDeps, sessionStartContext } from './session-start';
+import {
+	COLD_BUDGET_MS,
+	type SessionStartDeps,
+	sessionStartContext,
+} from './session-start';
 
 afterAll(removeTempDirs);
 
@@ -154,7 +160,9 @@ describe('sessionStartContext: a cold cache', () => {
 		const text = await sessionStartContext(d);
 		expect(text).toContain('Docs miss the retry option');
 		expect(runner.calls).toHaveLength(1);
-		expect(runner.calls[0]?.options.timeoutMs).toBe(800);
+		// The per-call cap leaves a margin under the 800 ms budget, so the child
+		// ends before the hook does.
+		expect(runner.calls[0]?.options.timeoutMs).toBe(COLD_BUDGET_MS - 150);
 		// The next start reads the cache: no second call.
 		expect(await sessionStartContext(d)).toContain('#4');
 		expect(runner.calls).toHaveLength(1);
@@ -265,5 +273,98 @@ describe('sessionStartContext: a refresh that does not finish', () => {
 		expect(runner.calls).toHaveLength(1);
 		await sessionStartContext({ ...d, now: () => NOW + 61_000 });
 		expect(runner.calls).toHaveLength(2);
+	});
+});
+
+const ONE = {
+	number: 1,
+	title: 'x',
+	createdAt: '2026-10-01T00:00:00Z',
+	updatedAt: '2026-10-01T00:00:00Z',
+	labels: { nodes: [] },
+};
+
+describe('sessionStartContext: the cold path leaves nothing behind', () => {
+	/** A runner whose gh calls never finish and record the signal they were given. */
+	function hanging() {
+		const runner = fakeRunner({ run: [{ argv: ['bun'] }] });
+		const signals: (AbortSignal | undefined)[] = [];
+		runner.run = (async (argv, options) => {
+			(runner.calls as unknown[]).push({ argv, options: options ?? {} });
+			if (options?.detached) return { code: 0, stdout: '', stderr: '' };
+			signals.push(options?.signal);
+			return new Promise(() => undefined);
+		}) as typeof runner.run;
+		return { runner, signals };
+	}
+
+	test('an inline refresh over budget is killed before the hook returns', async () => {
+		const { runner, signals } = hanging();
+		expect(await sessionStartContext(deps(runner))).toBeUndefined();
+		expect(signals).toHaveLength(1);
+		expect(signals[0]?.aborted).toBe(true);
+	});
+
+	test('an inline refresh that finished is not aborted late, and still renders', async () => {
+		const runner = answering(listing({ issues: [ONE] }));
+		expect(await sessionStartContext(deps(runner))).toContain('#1');
+	});
+
+	test('a failed inline refresh leaves no live child either', async () => {
+		const signals: (AbortSignal | undefined)[] = [];
+		const runner = fakeRunner();
+		runner.run = (async (_argv, options) => {
+			signals.push(options?.signal);
+			throw new Error('spawn gh ENOENT');
+		}) as typeof runner.run;
+		await sessionStartContext(deps(runner));
+		expect(signals[0]).toBeDefined();
+		expect(signals[0]?.aborted).toBe(true);
+	});
+
+	test('a fresh refreshing stamp on a cold cache is idle: no inline attempt', async () => {
+		const runner = fakeRunner();
+		const d = deps(runner);
+		claimStamp(d.home, ME, 'refreshing', NOW - 10_000);
+		expect(await sessionStartContext(d)).toBeUndefined();
+		expect(runner.calls).toHaveLength(0);
+	});
+
+	test('an expired refreshing stamp on a cold cache is no reason to wait', async () => {
+		const runner = answering(listing({ issues: [ONE] }));
+		const d = deps(runner);
+		claimStamp(d.home, ME, 'refreshing', NOW - 61_000);
+		expect(await sessionStartContext(d)).toContain('#1');
+		expect(runner.calls).toHaveLength(1);
+	});
+
+	test('two starts at once start one detached refresh', async () => {
+		const { runner } = hanging();
+		const d = deps(runner);
+		seed(d.home, SNAPSHOT, NOW - 25 * 60_000);
+		await Promise.all([sessionStartContext(d), sessionStartContext(d)]);
+		expect(runner.calls.filter((call) => call.options.detached)).toHaveLength(
+			1,
+		);
+	});
+
+	test('an unwritable home still renders what the refresh fetched', async () => {
+		const runner = answering(
+			listing({
+				issues: [
+					{
+						number: 9,
+						title: 'Still shown',
+						createdAt: '2026-10-01T00:00:00Z',
+						updatedAt: '2026-10-09T00:00:00Z',
+						labels: { nodes: [] },
+					},
+				],
+			}),
+		);
+		const d = deps(runner);
+		// Where the cache folder should be, a file.
+		writeFileSync(join(d.home, 'cache'), 'not a folder');
+		expect(await sessionStartContext(d)).toContain('Still shown');
 	});
 });

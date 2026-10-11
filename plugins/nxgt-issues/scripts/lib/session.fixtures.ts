@@ -6,8 +6,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cachePath } from './cache';
-import type { Snapshot } from './refresh';
 import type { RepoId } from './repo-id';
+import type { Snapshot } from './snapshot';
 import { tempDir } from './temp.fixtures';
 
 export { removeTempDirs } from './temp.fixtures';

@@ -8,7 +8,7 @@ import type { GhContext } from './github';
 import { createLabel, type LabelSpec, labelNames } from './github-issues';
 import type { RepoId } from './repo-id';
 
-export const LABELS: Readonly<Record<string, LabelSpec>> = {
+export const LABELS = {
 	bug: { name: 'bug', color: 'd73a4a', description: "Something isn't working" },
 	enhancement: {
 		name: 'enhancement',
@@ -40,7 +40,13 @@ export const LABELS: Readonly<Record<string, LabelSpec>> = {
 		color: 'c5def5',
 		description: 'Tracks an issue filed on an in-house package (nxgt-issues)',
 	},
-};
+} as const satisfies Readonly<Record<string, LabelSpec>>;
+
+export type LabelKey = keyof typeof LABELS;
+
+/** Whether `labels` has the label, however GitHub's case-insensitive name is capitalised. */
+export const hasLabel = (labels: readonly string[], key: LabelKey): boolean =>
+	labels.some((label) => label.toLowerCase() === LABELS[key].name);
 
 /** Creates the labels of `wanted` the repository does not have; returns those created. */
 export async function ensureLabels(
@@ -54,7 +60,7 @@ export async function ensureLabels(
 	const created: string[] = [];
 	for (const name of wanted) {
 		if (present.has(name.toLowerCase())) continue;
-		const spec = LABELS[name];
+		const spec = (LABELS as Readonly<Record<string, LabelSpec>>)[name];
 		if (!spec) throw new Error(`nxgt-issues: unknown label "${name}"`);
 		await createLabel(ctx, repo, spec);
 		present.add(name.toLowerCase());

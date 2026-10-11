@@ -25,7 +25,7 @@ describe('file refuses while no application domain is declared', () => {
 		rmSync(join(app, '.nxgt-issues.json'));
 		const h = harness({ cwd: app, stdin: report() });
 		expect(await fileCommand(h.ctx, {})).toBe(EXIT.refusedScrub);
-		expect(h.out.join('\n')).toContain('appDomains');
+		expect(h.err.join('\n')).toContain('appDomains');
 		expect(creates(h)).toEqual([]);
 	});
 

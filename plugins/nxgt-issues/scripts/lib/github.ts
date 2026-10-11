@@ -51,6 +51,8 @@ export interface GhContext {
 	readonly cwd?: string;
 	/** Caps each gh call (the SessionStart hook's inline refresh). */
 	readonly timeoutMs?: number;
+	/** Aborting it kills the gh call in flight (the SessionStart hook's inline refresh). */
+	readonly signal?: AbortSignal;
 }
 
 /** gh's own phrasings, so a repository named `abuse-tracker` in stderr is no rate limit. */
@@ -86,6 +88,7 @@ export async function gh(
 	const result = await ctx.runner.run(['gh', ...args], {
 		...(stdin === undefined ? {} : { stdin }),
 		...(ctx.timeoutMs === undefined ? {} : { timeoutMs: ctx.timeoutMs }),
+		...(ctx.signal ? { signal: ctx.signal } : {}),
 		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
 	});
 	if (result.code === 0) return result.stdout;

@@ -226,7 +226,7 @@ describe('file: refusals and failures', () => {
 		};
 		const first = harness({ cwd, stdin: report(), run: [limited] });
 		expect(await fileCommand(first.ctx, {})).toBe(EXIT.rateLimited);
-		expect(first.out[0]).toMatch(/^rate-limited: /);
+		expect(first.err[0]).toMatch(/^nxgt-issues: rate-limited: /);
 		const before = first.runner.calls.length;
 		expect(await fileCommand(first.ctx, {})).toBe(EXIT.rateLimited);
 		const gh = first.runner.calls
@@ -247,7 +247,7 @@ describe('file: refusals and failures', () => {
 			],
 		});
 		expect(await fileCommand(h.ctx, {})).toBe(EXIT.refusedScrub);
-		expect(h.out[0]).toContain("cannot list the owners' private repositories");
+		expect(h.err[0]).toContain("cannot list the owners' private repositories");
 		expect(callsOf(h.runner, 'gh', 'issue')).toEqual([]);
 	});
 });

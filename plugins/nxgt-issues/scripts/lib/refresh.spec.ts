@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { cachePath, readEntry } from './cache';
 import { RateLimitedError } from './github';
-import { refreshRepo, type Snapshot, upstreamQuery } from './refresh';
+import { refreshRepo, upstreamQuery } from './refresh';
 import { setStamp, stampFresh, stampPath } from './refresh-state';
 import { fakeRunner } from './runner.fixtures';
 import {
@@ -12,6 +12,7 @@ import {
 	NOW,
 	removeTempDirs,
 } from './session.fixtures';
+import type { Snapshot } from './snapshot';
 
 afterAll(removeTempDirs);
 

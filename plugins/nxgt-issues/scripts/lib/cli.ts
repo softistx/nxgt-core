@@ -26,7 +26,7 @@ import { type FileFlags, fileCommand } from './file';
 import { refuseInPublicApp } from './file-checks';
 import { exitForError, printGateRefusal } from './filing';
 import { markersCommand } from './markers-check';
-import { refreshCommand } from './refresh';
+import { refreshCommand } from './refresh-command';
 import { releasedCommand } from './release-command';
 import { formatRepo } from './repo-id';
 import { resolvePackage } from './resolve';
@@ -168,6 +168,19 @@ export async function main(
 		ctx.err(USAGE);
 		return EXIT.usage;
 	}
+	try {
+		return await dispatch(ctx, command, args);
+	} catch (error) {
+		return exitForError(ctx, error);
+	}
+}
+
+/** Runs one known command; whatever it throws is `main`'s to turn into an exit code. */
+async function dispatch(
+	ctx: CliContext,
+	command: string | undefined,
+	args: readonly string[],
+): Promise<ExitCode> {
 	const positional = args.filter(
 		(arg, i) => !arg.startsWith('--') && args[i - 1] !== '--duplicate-of',
 	);

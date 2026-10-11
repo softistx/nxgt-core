@@ -12,6 +12,7 @@ import { homedir, hostname } from 'node:os';
 import { resolve } from 'node:path';
 import { issuesHome } from './lib/cache';
 import { main } from './lib/cli';
+import { EXIT } from './lib/cli-context';
 import { disabled } from './lib/hook';
 import { createRunner } from './lib/runner';
 
@@ -23,7 +24,7 @@ if (cwdIndex !== -1) argv.splice(cwdIndex, 2);
 
 if (disabled(process.env)) {
 	process.stderr.write('nxgt-issues is disabled (NXGT_ISSUES_DISABLE).\n');
-	process.exit(1);
+	process.exit(EXIT.refusedGate);
 }
 
 const code = await main(

@@ -9,9 +9,10 @@ import { cachePath, readEntry } from './cache';
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import { adoptReady, releaseFix } from './context';
-import { RateLimitedError } from './github';
-import { refreshRepo, type Snapshot } from './refresh';
+import { exitForError } from './filing';
+import { refreshRepo } from './refresh';
 import { allowedOwners, isAllowedOwner, repoOfDirectory } from './repo-id';
+import type { Snapshot } from './snapshot';
 import { cleanJson, oneLine, untrustedHeader } from './untrusted';
 
 export interface ReadyIssue {
@@ -39,15 +40,12 @@ export async function loadSnapshot(
 	try {
 		return await refreshRepo(ctx, id, owners);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
 		if (cached) {
+			const message = error instanceof Error ? error.message : String(error);
 			ctx.err(`refresh failed (${message}); using the cache, possibly stale.`);
 			return cached.data;
 		}
-		ctx.err(message);
-		return {
-			exit: error instanceof RateLimitedError ? EXIT.rateLimited : EXIT.failed,
-		};
+		return { exit: exitForError(ctx, error) };
 	}
 }
 

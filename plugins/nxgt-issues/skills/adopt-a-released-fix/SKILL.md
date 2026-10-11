@@ -48,7 +48,7 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers --json
 
 The entries with `"status": "ready"` are the markers (`file`, `line`) that
 waited for a released fix. Exit 1 only says some marker is flagged (stdout that
-is not JSON is a failure: exit 2 is a foreign origin, 5 a rate limit, 6 a gh or
+is not JSON is a failure: exit 2 is a foreign origin or `NXGT_ISSUES_DISABLE`, 5 a rate limit, 6 a gh or
 git failure; tell the user, do not retry in a loop). `--exclude <pathspec>`
 (repeatable) skips fixtures and docs examples. Also handle the others the
 report shows:

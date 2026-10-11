@@ -13,7 +13,7 @@ import { loadSnapshot } from './app-side';
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import { adoptReady, releaseFix } from './context';
-import { GhError, RateLimitedError } from './github';
+import { exitForError } from './filing';
 import {
 	describeTarget,
 	type Marker,
@@ -27,9 +27,9 @@ import {
 	type MarkerReport,
 	versionFor,
 } from './markers-types';
-import type { Snapshot } from './refresh';
 import { formatRepo, repoOfDirectory } from './repo-id';
 import { gate, gateFacts, type RefusalReason, resolvePackage } from './resolve';
+import type { Snapshot } from './snapshot';
 import { cleanJson } from './untrusted';
 
 const MAX_ISSUE_NUMBER = 2 ** 31 - 1;
@@ -168,26 +168,24 @@ export async function markersCommand(
 	json: boolean,
 	excludes: readonly string[] = [],
 ): Promise<ExitCode> {
-	const grep = await ctx.runner.run(markerGrepArgv(excludes), { cwd: ctx.cwd });
-	// git grep: 1 = no match; anything else is a failure (not a git checkout…).
-	if (grep.code > 1) {
-		ctx.err(`git grep failed: ${grep.stderr.trim().slice(0, 200)}`);
-		return EXIT.failed;
-	}
-	const markers = grep.code === 0 ? parseMarkers(grep.stdout) : [];
 	let reports: MarkerReport[] = [];
 	try {
+		const grep = await ctx.runner.run(markerGrepArgv(excludes), {
+			cwd: ctx.cwd,
+		});
+		// git grep: 1 = no match; anything else is a failure (not a git checkout…).
+		if (grep.code > 1) {
+			ctx.err(`git grep failed: ${grep.stderr.trim().slice(0, 200)}`);
+			return EXIT.failed;
+		}
+		const markers = grep.code === 0 ? parseMarkers(grep.stdout) : [];
 		if (markers.length > 0) {
 			const snapshot = await loadSnapshot(ctx);
 			if ('exit' in snapshot) return snapshot.exit;
 			reports = await checkMarkers(ctx, markers, snapshot);
 		}
 	} catch (error) {
-		ctx.err(error instanceof Error ? error.message : String(error));
-		if (error instanceof MarkerLookupError) return error.exit;
-		if (error instanceof RateLimitedError) return EXIT.rateLimited;
-		if (error instanceof GhError) return EXIT.failed;
-		throw error;
+		return exitForError(ctx, error);
 	}
 	const flagged = reports.filter(
 		(report) => report.status !== 'waiting',

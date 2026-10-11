@@ -11,6 +11,7 @@ import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import { GhError } from './github';
 import type { IssueSummary } from './github-issues';
+import { hasLabel } from './labels';
 import { formatRepo, repoOfDirectory } from './repo-id';
 import { gateFacts } from './resolve';
 
@@ -45,7 +46,10 @@ export async function refuseInPublicApp(
 }
 
 const released = (issue: IssueSummary): boolean =>
-	(issue.labels ?? []).some((label) => label.name.toLowerCase() === 'released');
+	hasLabel(
+		(issue.labels ?? []).map((label) => label.name),
+		'released',
+	);
 
 export type ClosedMatch = 'released' | 'awaiting-release' | 'open';
 

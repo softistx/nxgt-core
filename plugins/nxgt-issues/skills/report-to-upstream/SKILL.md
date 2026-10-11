@@ -102,7 +102,8 @@ JSON
 duplicate fingerprint is computed from: keep it about the behaviour, not the
 application.
 
-What it prints, and what to do:
+What it prints, and what to do (an error, a rate limit and a deny-list
+refusal go to stderr; stdout holds the result):
 
 | output (exit) | meaning | next |
 | --- | --- | --- |

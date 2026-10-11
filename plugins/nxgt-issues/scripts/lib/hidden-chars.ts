@@ -3,10 +3,10 @@
  * are, in one place: `fold.ts` drops them before it searches a filing,
  * `untrusted.ts` replaces them in text from GitHub. Format characters (zero
  * width, bidi marks and isolates, the Arabic letter mark, annotation anchors,
- * tag characters), private-use code points, lone surrogates, the Hangul
- * fillers, the Braille blank and every Default_Ignorable_Code_Point (it adds
- * the combining marks no Cf covers: Khmer U+17B4/5, Mongolian U+180B-D/F). The variation selectors and the combining
- * grapheme joiner are their own alternatives: they combine with the character
- * before them, which a single character class cannot hold.
+ * tag characters), private-use code points, lone surrogates, every
+ * Default_Ignorable_Code_Point (the variation selectors, the combining
+ * grapheme joiner, the Hangul fillers, the Khmer and Mongolian marks no Cf
+ * covers) and the Braille blank.
  */
-export const HIDDEN_SOURCE = String.raw`[\p{Cf}\p{Co}\p{Cs}\u2800\u115F\u1160\u3164\uFFA0]|\u034F|\p{DI}|[\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}]`;
+// \p{DI} already holds U+034F, U+115F/1160, U+3164, U+FFA0 and every variation selector.
+export const HIDDEN_SOURCE = String.raw`[\p{Cf}\p{Co}\p{Cs}\p{DI}\u2800]`;

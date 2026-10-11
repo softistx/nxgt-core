@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRunner, networkAllowed } from './runner';
 import { fakeRunner } from './runner.fixtures';
@@ -169,5 +169,73 @@ describe('a detached run', () => {
 		expect(existsSync(marker)).toBe(false);
 		for (let i = 0; i < 40 && !existsSync(marker); i++) await Bun.sleep(50);
 		expect(existsSync(marker)).toBe(true);
+	});
+});
+
+/** Kills a pid a spec started, whatever state it is in. */
+const reap = (pidFile: string): void => {
+	try {
+		process.kill(Number(readFileSync(pidFile, 'utf8').trim()), 'SIGKILL');
+	} catch {
+		// already gone
+	}
+};
+
+describe('the real runner: a timeout is bounded', () => {
+	const runner = createRunner({ NXGT_ISSUES_ALLOW_NETWORK: '1' });
+
+	test('a grandchild holding the pipe does not hold the call past its timeout', async () => {
+		const dir = tempDir('grandchild');
+		const pidFile = join(dir, 'pid');
+		const script = join(dir, 'gh');
+		// Forks a sleeper that inherits stdout, then waits on it.
+		writeFileSync(script, `sleep 8 &\necho $! > '${pidFile}'\nwait\n`);
+		try {
+			const started = performance.now();
+			const result = await runner.run(['sh', script], { timeoutMs: 300 });
+			expect(performance.now() - started).toBeLessThan(1500);
+			expect(result.code).not.toBe(0);
+		} finally {
+			reap(pidFile);
+		}
+	});
+
+	test('output written before the timeout is kept', async () => {
+		const dir = tempDir('partial-output');
+		const pidFile = join(dir, 'pid');
+		const script = join(dir, 'gh');
+		writeFileSync(
+			script,
+			`echo early\nsleep 8 &\necho $! > '${pidFile}'\nwait\n`,
+		);
+		try {
+			const result = await runner.run(['sh', script], { timeoutMs: 300 });
+			expect(result.stdout).toContain('early');
+		} finally {
+			reap(pidFile);
+		}
+	});
+
+	test('aborting the signal kills the child at once', async () => {
+		const controller = new AbortController();
+		const started = performance.now();
+		const pending = runner.run(['sleep', '8'], {
+			timeoutMs: 20_000,
+			signal: controller.signal,
+		});
+		await Bun.sleep(100);
+		controller.abort();
+		const result = await pending;
+		expect(performance.now() - started).toBeLessThan(2000);
+		expect(result.code).not.toBe(0);
+	});
+
+	test('a signal already aborted starts nothing', async () => {
+		const controller = new AbortController();
+		controller.abort();
+		const result = await runner.run(['sleep', '8'], {
+			signal: controller.signal,
+		});
+		expect(result.code).not.toBe(0);
 	});
 });

@@ -6,9 +6,9 @@
  * swallows its errors; a stamp is an optimisation, never a reason to fail.
  */
 
-import { rmSync } from 'node:fs';
+import { closeSync, openSync, rmSync, statSync, writeSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { cachePath, readEntry, writeEntry } from './cache';
+import { cachePath, makePrivateDir, readEntry, writeEntry } from './cache';
 import type { RepoId } from './repo-id';
 
 export type StampKind = 'failed' | 'refreshing';
@@ -51,6 +51,53 @@ export function setStamp(
 		writeEntry(stampPath(home, id, kind), {}, now);
 	} catch {
 		// an unwritable home only costs a retry
+	}
+}
+
+/** A stamp file nobody could parse (being written, or damaged) is as young as its modification time says. */
+function stampTaken(path: string, kind: StampKind, now: number): boolean {
+	const entry = readEntry(path, now, TTL_MS[kind]);
+	if (entry) return entry.fresh;
+	try {
+		return Math.abs(now - statSync(path).mtimeMs) < TTL_MS[kind];
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Takes the stamp, exclusively: the file is created with the `wx` flag, so of
+ * several hooks starting at once exactly one gets `true` and spawns the
+ * refresh. A stamp already there and still fresh means taken (`false`); an
+ * expired one is replaced. An unwritable home is `false`: no stamp, no spawn.
+ */
+export function claimStamp(
+	home: string,
+	id: RepoId,
+	kind: StampKind,
+	now: number,
+): boolean {
+	try {
+		const path = stampPath(home, id, kind);
+		makePrivateDir(dirname(path));
+		for (let attempt = 0; attempt < 2; attempt++) {
+			try {
+				const fd = openSync(path, 'wx', 0o600);
+				try {
+					writeSync(fd, `${JSON.stringify({ writtenAt: now, data: {} })}\n`);
+				} finally {
+					closeSync(fd);
+				}
+				return true;
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return false;
+				if (stampTaken(path, kind, now)) return false;
+				rmSync(path, { force: true });
+			}
+		}
+		return false;
+	} catch {
+		return false;
 	}
 }
 

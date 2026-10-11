@@ -8,7 +8,8 @@
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import { DenyListIncomplete } from './deny-sources';
-import { GhError, RateLimitedError } from './github';
+import { RateLimitedError } from './github';
+import { MarkerLookupError } from './markers-types';
 import { formatRepo } from './repo-id';
 import type { Refused, Resolved } from './resolve';
 import { type DenyList, scrub } from './scrub';
@@ -80,19 +81,26 @@ export function printGateRefusal(ctx: CliContext, refused: Refused): ExitCode {
 	return EXIT.refusedGate;
 }
 
+/**
+ * The one mapping from a thrown error to an exit code, for every command:
+ * a rate limit is 5, an incomplete deny-list 3, a marker lookup that gave no
+ * verdict its own code, and anything else (`GhError`, a spawn that failed, a
+ * bug) is 6. The message goes to stderr, never to the data on stdout.
+ */
 export function exitForError(ctx: CliContext, error: unknown): ExitCode {
+	if (error instanceof MarkerLookupError) {
+		ctx.err(`nxgt-issues: ${error.message}`);
+		return error.exit;
+	}
 	if (error instanceof RateLimitedError) {
-		ctx.out(`rate-limited: ${error.message}`);
+		ctx.err(`nxgt-issues: rate-limited: ${error.message}`);
 		return EXIT.rateLimited;
 	}
 	if (error instanceof DenyListIncomplete) {
-		ctx.out(`refused: ${error.message}; nothing was filed.`);
+		ctx.err(`nxgt-issues: refused: ${error.message}; nothing was filed.`);
 		return EXIT.refusedScrub;
 	}
-	const message =
-		error instanceof GhError || error instanceof Error
-			? error.message
-			: String(error);
+	const message = error instanceof Error ? error.message : String(error);
 	ctx.err(`nxgt-issues: ${message}`);
 	return EXIT.failed;
 }

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
 	CACHE_TTL_MS,
@@ -10,6 +10,9 @@ import {
 	readEntry,
 	writeEntry,
 } from './cache';
+import { removeTempDirs, tempDir } from './temp.fixtures';
+
+afterAll(removeTempDirs);
 
 describe('issuesHome', () => {
 	test('NXGT_ISSUES_HOME wins', () => {
@@ -52,8 +55,7 @@ describe('cachePath', () => {
 });
 
 describe('entries on disk', () => {
-	const root = mkdtempSync(join(tmpdir(), 'nxgt-issues-cache-'));
-	afterAll(() => rmSync(root, { recursive: true, force: true }));
+	const root = tempDir('cache');
 	const file = join(root, 'cache', 'o__r.json');
 
 	test('write then read: fresh within the TTL, stale after', () => {
@@ -118,6 +120,33 @@ describe('entries on disk', () => {
 		expect(readdirSync(root).filter((name) => name.endsWith('.tmp'))).toEqual(
 			[],
 		);
+	});
+});
+
+describe('permissions', () => {
+	test('the folders are 0700 and the files 0600', () => {
+		const root = tempDir('cache-perms');
+		const file = join(root, 'cache', 'deep', 'o__r.json');
+		writeEntry(file, { a: 1 }, 1);
+		expect(statSync(file).mode & 0o777).toBe(0o600);
+		expect(statSync(join(root, 'cache', 'deep')).mode & 0o777).toBe(0o700);
+		expect(statSync(join(root, 'cache')).mode & 0o777).toBe(0o700);
+	});
+
+	test('a rewrite stays 0600', () => {
+		const root = tempDir('cache-perms');
+		const file = join(root, 'cache', 'o__r.json');
+		writeEntry(file, 1, 1);
+		writeEntry(file, 2, 2);
+		expect(statSync(file).mode & 0o777).toBe(0o600);
+	});
+
+	test('an existing folder that is too open is tightened', () => {
+		const root = tempDir('cache-perms');
+		const dir = join(root, 'cache');
+		mkdirSync(dir, { mode: 0o755 });
+		writeEntry(join(dir, 'o__r.json'), 1, 1);
+		expect(statSync(dir).mode & 0o777).toBe(0o700);
 	});
 });
 

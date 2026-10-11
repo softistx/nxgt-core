@@ -13,7 +13,7 @@ import { EXIT } from './cli-context';
 import { exitForError } from './filing';
 import { createIssue, editIssueBody, issuesWithLabel } from './github-issues';
 import { type TrackingMarker, trackingIssueBody } from './issue-body';
-import { ensureLabels } from './labels';
+import { ensureLabels, LABELS } from './labels';
 import { describeTarget, MARKER_GREP_ARGV, parseMarkers } from './markers';
 import { parseIssueRef, upstreamRef } from './refs';
 import {
@@ -115,7 +115,7 @@ export async function track(
 	}
 	const markers = input.markers ?? (await findMarkers(ctx, input));
 	const body = trackingIssueBody({ ...input, markers });
-	const existing = (await issuesWithLabel(ctx, app, 'upstream')).find(
+	const existing = (await issuesWithLabel(ctx, app, LABELS.upstream.name)).find(
 		(issue) => {
 			const ref = upstreamRef(issue.body);
 			return (
@@ -132,12 +132,12 @@ export async function track(
 		ctx.out(`tracking ${existing.url} (${markers.length} marker(s))`);
 		return EXIT.ok;
 	}
-	await ensureLabels(ctx, app, ['upstream']);
+	await ensureLabels(ctx, app, [LABELS.upstream.name]);
 	const ref = `${input.packageName}#${input.upstream.number}`;
 	const url = await createIssue(ctx, app, {
 		title: `Upstream ${ref}: ${input.title}`,
 		body,
-		labels: ['upstream'],
+		labels: [LABELS.upstream.name],
 	});
 	ctx.out(`tracking ${url} (${markers.length} marker(s))`);
 	return EXIT.ok;

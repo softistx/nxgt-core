@@ -19,7 +19,9 @@ import {
 	search,
 	trackedUpstream,
 } from './dashboard-data';
+import { exitForError } from './filing';
 import { GhError, RateLimitedError } from './github';
+import { hasLabel, LABELS } from './labels';
 import { allowedOwners } from './repo-id';
 import { repoPackages } from './repo-packages';
 import { cleanJson } from './untrusted';
@@ -93,20 +95,20 @@ export async function dashboardCommand(
 		const open = await run('open-issues', ['--state', 'open']);
 		const tracking = await run(
 			'tracking-issues',
-			['--state', 'open', '--label', 'upstream'],
+			['--state', 'open', '--label', LABELS.upstream.name],
 			'number,title,labels,createdAt,updatedAt,repository,body',
 		);
 		const awaiting = await run(
 			'awaiting-release',
-			['--state', 'closed', '--label', 'consumer-report'],
+			['--state', 'closed', '--label', LABELS['consumer-report'].name],
 			undefined,
-			['--', '-label:released'],
+			['--', `-label:${LABELS.released.name}`, 'reason:completed'],
 		);
-		const shown = open.filter((issue) => !issue.labels.includes('upstream'));
+		const shown = open.filter((issue) => !hasLabel(issue.labels, 'upstream'));
 		const repos = [
 			...new Set([...shown, ...awaiting].map((i) => i.repo)),
 		].sort();
-		const reports = shown.filter((i) => i.labels.includes('consumer-report'));
+		const reports = shown.filter((i) => hasLabel(i.labels, 'consumer-report'));
 		const duplicates = await optional(
 			ctx,
 			notes,
@@ -133,7 +135,6 @@ export async function dashboardCommand(
 		else for (const line of renderDashboard(board, ctx.now())) ctx.out(line);
 		return EXIT.ok;
 	} catch (error) {
-		ctx.err(error instanceof Error ? error.message : String(error));
-		return error instanceof RateLimitedError ? EXIT.rateLimited : EXIT.failed;
+		return exitForError(ctx, error);
 	}
 }
