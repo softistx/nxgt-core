@@ -69,8 +69,12 @@ release nothing, and `changeset status` will not ask for anything.
    failed, since it is `continue-on-error`):
 
    ```bash
-   bun <nxgt-issues plugin root>/scripts/issues.ts released <package>@<version>
+   issues="$(ls ~/.claude/plugins/cache/*/nxgt-issues/*/scripts/issues.ts 2>/dev/null | sort -V | tail -1)"
+   [ -n "$issues" ] && bun "$issues" released <package>@<version>
    ```
+
+   (Inside nxgt-core, `plugins/nxgt-issues/scripts/issues.ts` is the same file.
+   nxgt-core itself now runs the CI step too, from `scripts/close-released-issues.ts`.)
 
    Its output ends with the `notify` list: the applications whose tracking
    issues wait on those issues. Send **one** `SendMessage` to each listed app

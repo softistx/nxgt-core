@@ -8,7 +8,7 @@ package side sees its open issues when a session starts; once the fix is
 released, the application adopts it and removes the `// Temporary, until
 <package>#<n>` markers.
 
-> **Status: 1.0.0.** The plugin is complete: the reporter, the `SessionStart`
+> **Status: complete.** The plugin is complete: the reporter, the `SessionStart`
 > hook, the app side, the `/issues` dashboard and the release side (skills
 > `report-to-upstream`, `adopt-a-released-fix`, `issues`, `fix-a-reported-issue`;
 > the `issues.ts` CLI with `resolve`, `file`, `track`, `deps`, `sessions`,
@@ -445,6 +445,10 @@ unless `NXGT_ISSUES_ALLOW_NETWORK=1`.
 
 ## The release side
 
+nxgt-core runs this step itself: `scripts/close-released-issues*.ts` is a copy of
+the four files below, guarded by `scripts/close-released-issues-copy.spec.ts`,
+and `.github/workflows/release.yml` has the step.
+
 The package side closes the loop in two halves, because CI can close issues but
 cannot message a session.
 
@@ -485,12 +489,16 @@ cannot message a session.
       continue-on-error: true
       env:
         GH_TOKEN: ${{ github.token }}
-        PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
+        PUBLISHED: ${{ steps.changesets.outputs.published-packages }}
       run: bun scripts/close-released-issues.ts --published "$PUBLISHED"
   ```
 
-  The JSON goes through `env`, never into the command line, so no output can
-  inject into the shell. For all the published `{ name, version }` together it
+  The output is `published-packages` (hyphenated) in `changesets/action@v2`,
+  built from the `git-tag` events the publish script writes to
+  `$CHANGESETS_OUTPUT`; the camel-case `publishedPackages` was `@v1`'s and is
+  empty now. The JSON goes through `env`, never into the command line, so no
+  output can inject into the shell. The script reads `GH_TOKEN`, else
+  `GITHUB_TOKEN`, so a workflow that only has the latter still works. For all the published `{ name, version }` together it
   does what `issues.ts released` does, with `gh` and the token alone, and never
   fails the release: a problem is a printed warning and the exit code is 0. An
   issue gets one comment even when several packages fix it, naming the package its
@@ -560,6 +568,7 @@ is therefore not commented twice; a maintainer closes it by hand.
 | `NXGT_ISSUES_APP_DOMAINS` | the application's domains, comma-separated (see the deny-list) |
 | `NXGT_ISSUES_DENY_TERMS` | extra terms never to file, comma-separated |
 | `NXGT_ISSUES_ALLOW_NETWORK=1` | lets the real runner work under `NODE_ENV=test` |
+| `GH_TOKEN`, else `GITHUB_TOKEN` | the token the CI close script (`close-released-issues.ts`) hands to `gh`; the first one set wins |
 | `CLAUDE_CONFIG_DIR` | the Claude config folder the default home lives under (default `~/.claude`) |
 | `NXGT_CREW_HOME`, `NXGT_CREW_SESSION_ID` | where `sessions` reads the crew registry, and which session is this one |
 | `NXGT_CREW_STALE_MINUTES`, `NXGT_CREW_IDLE_HOURS` | the registry's liveness knobs `sessions` honours (defaults 30 and 12) |
@@ -572,8 +581,8 @@ Cache files live in `<home>/cache/`: `<owner>__<repo>.json` (10 minutes),
 
 | plugin | what it does with this one |
 | --- | --- |
-| `nxgt-package` 1.2.0 | `release-a-package-change`: a PR that says `Fixes #n` triggers the close step in CI, then `issues.ts released` from the session and one `SendMessage` per listed application session |
-| `nxgt-autonomy` 1.6.0 | the work-queue-auditor and queue-refiller reconcile the owner's open upstream issues (`dashboard --json`, `ready --json`) with the queue; `work-autonomously` points at the SessionStart context and `/issues` |
-| `nxgt-base` 1.2.0 | depends on `nxgt-issues`, so one install activates it |
-| `nxgt-review` 1.5.10 | `references/nxgt-core.md` lists the release-side duplication as deliberate and what to check here |
+| `nxgt-package` (since 1.2.0) | `release-a-package-change`: a PR that says `Fixes #n` triggers the close step in CI, then `issues.ts released` from the session and one `SendMessage` per listed application session |
+| `nxgt-autonomy` (since 1.6.0) | the work-queue-auditor and queue-refiller reconcile the owner's open upstream issues (`dashboard --json`, `ready --json`) with the queue; `work-autonomously` points at the SessionStart context and `/issues` |
+| `nxgt-base` (since 1.2.0) | depends on `nxgt-issues`, so one install activates it |
+| `nxgt-review` (since 1.5.10) | `references/nxgt-core.md` lists the release-side duplication as deliberate and what to check here |
 | `nxgt-crew` | optional: `sessions` reads its registry when present; it is not part of `nxgt-base` |
