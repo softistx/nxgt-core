@@ -5,17 +5,8 @@
  */
 
 import type { DenyList } from './deny';
-import { stems } from './deny-terms';
+import { lower, MIN_SUBSTRING_LENGTH, stems, unique } from './deny-terms';
 import { fold, normalize, SEPARATORS } from './fold';
-
-/** Own terms of this many characters match inside words (`vexoradb`). */
-const MIN_SUBSTRING_LENGTH = 5;
-
-const unique = (terms: readonly string[]): string[] => [
-	...new Set(terms.map((term) => term.trim()).filter(Boolean)),
-];
-
-const lower = (term: string): string => term.toLowerCase();
 
 const escapeRegExp = (text: string): string =>
 	text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

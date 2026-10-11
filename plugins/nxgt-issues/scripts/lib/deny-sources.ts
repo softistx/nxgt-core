@@ -15,7 +15,8 @@
 import { readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import type { CliContext } from './cli-context';
-import { buildDenyList, type DenyList, unique } from './deny';
+import { buildDenyList, type DenyList } from './deny';
+import { unique } from './deny-terms';
 import {
 	DenyListIncomplete,
 	PRIVATE_REPOS_TTL_MS,

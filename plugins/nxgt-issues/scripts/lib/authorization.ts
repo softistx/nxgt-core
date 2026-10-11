@@ -11,6 +11,7 @@
 
 import { isPlaceholder } from './code-values';
 import { isHarmlessLiteral } from './literals';
+import { decodesToUserPass } from './shell-variables';
 
 const HEAD = /\bAuthorization["']?[ \t]*[:=](?![=>])[ \t]*/gi;
 const SCHEME = /^(?:Basic|Bearer|Digest|Negotiate|token)\b[ \t]*/i;
@@ -53,8 +54,15 @@ function quoted(rest: string): { body: string; after: string } | undefined {
 /** `${NAME:-default}` at the start of `rest`: the default is judged like the plain header value. */
 const EXPANSION_HEAD = /^["']?\$\{[A-Za-z_]\w*:?[-=+]([^}\n]*)\}/;
 
+/** `Basic ${NAME:-<base64>}`: the default is a Basic credential when it decodes to `user:pass`. */
+const BASIC_DEFAULT = /^Basic[ \t]+["'`]?\$\{[A-Za-z_]\w*:?[-=+]([^}\n]*)\}/i;
+
+const basicDefaultHolds = (text: string): boolean =>
+	decodesToUserPass(BASIC_DEFAULT.exec(text)?.[1]?.trim() ?? '');
+
 function refusesValue(rest: string): boolean {
 	const literal = quoted(rest);
+	if (basicDefaultHolds(literal?.body ?? rest)) return true;
 	const fallback = EXPANSION_HEAD.exec(rest)?.[1]?.trim();
 	if (fallback) {
 		const credential = fallback.replace(SCHEME, '');

@@ -69,6 +69,8 @@ function render(report: IssueReport) {
 		hash,
 		texts: {
 			title: report.title,
+			// Hashed into the fingerprint, never printed: scrubbed to refuse only.
+			symptom: report.symptom,
 			body: packageIssueBody({ fingerprint: hash, ...report }),
 			comment: duplicateComment(report),
 			search:

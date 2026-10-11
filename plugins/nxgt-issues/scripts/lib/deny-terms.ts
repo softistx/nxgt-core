@@ -6,6 +6,18 @@
 
 export const MIN_LABEL_LENGTH = 4;
 
+/** Own terms of this many characters match inside words (`vexoradb`). */
+export const MIN_SUBSTRING_LENGTH = 5;
+
+export const lower = (term: string): string => term.toLowerCase();
+
+/** The trimmed, non-empty terms once each. */
+export const unique = (terms: readonly (string | undefined)[]): string[] => [
+	...new Set(
+		terms.map((term) => term?.trim()).filter((term): term is string => !!term),
+	),
+];
+
 /** Words too common to deny on their own as a segment of a repository name. */
 export const GENERIC: ReadonlySet<string> = new Set(
 	(
