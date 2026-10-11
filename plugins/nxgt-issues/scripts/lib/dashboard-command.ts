@@ -43,6 +43,31 @@ async function optional<T>(
 	}
 }
 
+/** The repository to package names map; a repository it lacks is noted and shown by name. */
+async function packageNames(
+	ctx: CliContext,
+	notes: string[],
+	repos: readonly string[],
+): Promise<Map<string, readonly string[]>> {
+	const packages = await optional(
+		ctx,
+		notes,
+		'package names',
+		new Map<string, readonly string[]>(),
+		() => repoPackages(ctx, repos),
+	);
+	const missing = repos.filter((repo) => !packages.has(repo));
+	if (missing.length > 0) {
+		ctx.err(`package names unavailable for ${missing.length} repositories.`);
+		if (!notes.some((n) => n.startsWith('package names'))) {
+			notes.push(
+				`package names unavailable for ${missing.length} repositories; shown by repository name.`,
+			);
+		}
+	}
+	return packages;
+}
+
 export async function dashboardCommand(
 	ctx: CliContext,
 	json: boolean,
@@ -93,22 +118,7 @@ export async function dashboardCommand(
 				`duplicate counts cover the first ${MAX_REPORTS} reports; the others show affected ?.`,
 			);
 		}
-		const packages = await optional(
-			ctx,
-			notes,
-			'package names',
-			new Map<string, readonly string[]>(),
-			() => repoPackages(ctx, repos),
-		);
-		const missing = repos.filter((repo) => !packages.has(repo));
-		if (missing.length > 0) {
-			ctx.err(`package names unavailable for ${missing.length} repositories.`);
-			if (!notes.some((n) => n.startsWith('package names'))) {
-				notes.push(
-					`package names unavailable for ${missing.length} repositories; shown by repository name.`,
-				);
-			}
-		}
+		const packages = await packageNames(ctx, notes, repos);
 		const board = rankDashboard({
 			issues: open,
 			trackedUpstream: trackedUpstream(tracking, owners),

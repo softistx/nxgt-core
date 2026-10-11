@@ -10,6 +10,7 @@
  *   refresh                         the SessionStart cache of this checkout's repository
  *   ready [--json]                  tracking issues whose upstream fix is released
  *   dashboard [--json]              open issues of the owners' repositories, ranked, and the fixes awaiting release
+ *   released <pkg@ver> [--json] [--dry-run]  close the issues a release fixed, list the tracking issues to notify
  *   markers [--json] [--exclude <pathspec>]…  `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
  */
 
@@ -25,6 +26,7 @@ import { refuseInPublicApp } from './file-checks';
 import { exitForError, printGateRefusal } from './filing';
 import { markersCommand } from './markers-check';
 import { refreshCommand } from './refresh';
+import { releasedCommand } from './release-command';
 import { formatRepo } from './repo-id';
 import { resolvePackage } from './resolve';
 import { sessionsCommand } from './sessions';
@@ -39,6 +41,7 @@ export const USAGE = `usage: issues.ts <command>
   refresh                               refresh this checkout's issue cache
   ready [--json]                        fixes released upstream, ready to adopt
   dashboard [--json]                    open issues across the owners' repositories, ranked
+  released <pkg@ver> [--json] [--dry-run]  comment, label and close the issues a published version fixed
   markers [--json] [--exclude <pathspec>]… workaround markers; exit 1 when any is flagged`;
 
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
@@ -155,6 +158,13 @@ export async function main(
 			return readyCommand(ctx, has('--json'));
 		case 'dashboard':
 			return dashboardCommand(ctx, has('--json'));
+		case 'released':
+			return releasedCommand(
+				ctx,
+				positional[0],
+				has('--json'),
+				has('--dry-run'),
+			);
 		case 'markers': {
 			const excludes = optionValues(args, '--exclude');
 			if (!excludes) break;

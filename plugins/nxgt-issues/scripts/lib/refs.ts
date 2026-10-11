@@ -17,6 +17,16 @@ const TARGET = '(?:([\\w.-]+)/([\\w.-]+))?#(\\d+)';
 const ISSUE_URL =
 	'https://(?:www\\.)?github\\.com/([\\w.-]+)/([\\w.-]+)/issues/(\\d+)';
 
+/** Text outside fenced blocks, inline code spans and `>` quote lines: where a keyword means it. */
+export function withoutQuoted(text: string): string {
+	return text
+		.replace(/(```|~~~)[\s\S]*?(?:\1|$)/g, '')
+		.replace(/`[^`\n]*`/g, '')
+		.split('\n')
+		.filter((line) => !/^\s*>/.test(line))
+		.join('\n');
+}
+
 /**
  * Issues a body closes, by GitHub's keywords (`close`, `fix`, `resolve` and
  * their forms, optionally followed by a colon), as `#n`, `owner/repo#n` or a github.com issue URL.
@@ -29,7 +39,7 @@ export function closingRefs(text: string): IssueRef[] {
 	);
 	const seen = new Set<string>();
 	const refs: IssueRef[] = [];
-	for (const match of text.matchAll(pattern)) {
+	for (const match of withoutQuoted(text).matchAll(pattern)) {
 		const owner = match[1] ?? match[4];
 		const repo = match[2] ?? match[5];
 		const number = Number(match[3] ?? match[6]);
