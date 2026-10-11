@@ -128,6 +128,29 @@ A change under `plugins/` is reviewed too:
   host is not.
 - The `CLAUDE.md` plugin table out of step with `plugins/`.
 
+## `nxgt-issues`
+
+A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
+
+- **The scrub runs on the rendered text before any public filing.** `file` and
+  `deps --file` render the body, title and comments, then `scrub()` the result
+  and refuse on a hit; a new template or field that reaches GitHub without
+  passing through it is a finding. Filings stay anonymous: no application name
+  in a package issue or comment, names only in the private tracking issue.
+- **No network outside `scripts/lib/runner.ts`.** No `Bun.spawn`, Bun Shell (`$` templates) or
+  `fetch(` anywhere else in `lib/` (`no-network.spec.ts` enforces it); entry
+  files alone build the real runner, and specs use the scripted fake.
+- **Text from GitHub is untrusted.** Titles, labels, comments and bodies reach
+  Claude's context only through `oneLine` (one line, control, zero-width and
+  bidirectional characters and angle brackets stripped) under the
+  untrusted-data header; a skill never interpolates `$ARGUMENTS` or issue text
+  into a shell line.
+- **Both release copies kept in step** (see "Deliberate" below for what may
+  differ): a change to the "Fixed in" comment or its hidden marker, the
+  discovery rules, the label, close, comment order, or the idempotency rule is
+  made in the script files and the lib files alike, with a spec on each side.
+- The hook fails open and silent, and makes no gh call for a foreign owner.
+
 ## Deliberate — do not report
 
 From the table in `AGENTS.md`:
@@ -146,6 +169,19 @@ From the table in `AGENTS.md`:
   nxgt-crew's `store.ts`, `record.ts`, `settings.ts`, `liveness.ts` and
   `system.ts` (reader, record check, knobs, liveness, pid probe); its record
   check is looser on purpose.
+- The release side of `nxgt-issues`, written twice on purpose:
+  `plugins/nxgt-issues/scripts/release/close-released-issues.ts`,
+  `close-released-issues-lib.ts`, `close-released-issues-git.ts` and the spec
+  (copied byte for byte into each library repository, so standalone: only `gh`,
+  nothing imported from the plugin) against `scripts/lib/release*.ts` (what
+  `issues.ts released` runs through the plugin's runner). Their different
+  behaviour is deliberate, as the `AGENTS.md` row states: the script reads the
+  CHANGELOG and ranges the log up to `HEAD` (CI's release commit) and handles
+  all published packages together; the lib reads the tag, which must exist
+  locally, one package per call, and also builds the notify list. The keyword
+  stripping, the changeset frontmatter parser and the `## Versions` parser are
+  copies of one rule. Report a change made to one side and not the other, not
+  the two sides differing.
 - `LICENSE` at the root and in every `packages/*/`.
 - `stx-sdk` as a peer of `shared-hono` and `shared-graphql`, and a root
   devDependency.
