@@ -1,6 +1,6 @@
 {
 	"name": "@nxgt/i18n-vue",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "i18n for a Vue or Nuxt app on @nxgt/i18n's conventions: ICU catalogues checked for missing keys and argument kinds, t() typed and completed in templates, reactive locale switching, and a Nuxt module that resolves the locale on the server.",
 	"license": "MIT",
 	"type": "module",
@@ -67,8 +67,8 @@
 		"build": "bun run ../../build.ts",
 		"test": "bun test src",
 		"typecheck": "tsc --noEmit && bun run typecheck:types && bun run typecheck:nuxt",
-		"typecheck:types": "bun run test/types/prepare.ts && vue-tsc --noEmit -p test/types/tsconfig.json",
-		"typecheck:nuxt": "bun run test/nuxt-app/link.ts && cd test/nuxt-app && nuxt prepare && vue-tsc -b"
+		"typecheck:types": "bun run test/types/prepare.ts && bun run test/vue-tsc.ts --noEmit -p test/types/tsconfig.json",
+		"typecheck:nuxt": "bun run test/nuxt-app/link.ts && cd test/nuxt-app && nuxt prepare && bun run ../vue-tsc.ts -b"
 	},
 	"nxgt": {
 		"entrypoints": [
@@ -94,7 +94,7 @@
 	"peerDependencies": {
 		"@nuxt/kit": "^4.0.0",
 		"nuxt": "^4.0.0",
-		"typescript": "^6.0.3",
+		"typescript": "^6.0.3 || ^7.0.0",
 		"vite": ">=5.0.0",
 		"vue": "^3.5.0"
 	},

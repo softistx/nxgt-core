@@ -46,9 +46,9 @@ stdin.
 | command | does |
 | --- | --- |
 | `resolve <pkg> [--json]` | prints `<pkg> -> owner/repo (public\|private, installed x, latest y)` or the refusal |
-| `file [--duplicate-of <n> \| --new]` | files the report on stdin (below) |
+| `file [--duplicate-of <n> \| --new] [--public-app]` | files the report on stdin (below) |
 | `track` | opens or refreshes the private tracking issue (stdin below) |
-| `deps <pkg> [--file]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue |
+| `deps <pkg> [--file [--public-app]]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue, gated like `file` (a public application refuses with exit 2 unless `--public-app`) |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent) |
 
 `file` reads one report:
@@ -72,16 +72,26 @@ stdin.
 
 What `file` does, in order:
 
-1. resolves and gates the package (as `resolve`);
-2. builds the deny-list once (below);
-3. renders the issue body, the title, the "another consumer" comment and the
+1. refuses when the application's own repository is public (asked fresh, never
+   from the 24-hour gate cache, so a repository made public since is seen), unless `--public-app` says the user agreed; a
+   repository gh cannot see (404) is not public. `deps <pkg> --file` passes
+   the same gate (`deps` without `--file` only reads);
+2. resolves and gates the package (as `resolve`);
+3. builds the deny-list once (below); it refuses (exit 3) while no application
+   domain is configured (only an entry with a dot counts: `none` is no
+   domain), unless the repository's `.nxgt-issues.json` says
+   `"appDomains": []`;
+4. renders the issue body, the title, the "another consumer" comment and the
    search words, and scrubs each **rendered** text; any denied term or
    credential refuses the whole filing, printing the terms and the credential
    keywords to remove, never a value;
-4. dedupes: an issue labelled `consumer-report` with the same fingerprint gets
-   the comment; otherwise one keyword search lists open candidates for Claude
+5. dedupes: an open issue labelled `consumer-report` with the same fingerprint
+   gets the comment; a closed one gets it too, with a "wait for the release"
+   hint, unless it is labelled `released`: then nothing is filed and `file`
+   says to bump (`--new` files anyway, for a bug that survives the bump);
+   otherwise one keyword search lists open candidates for Claude
    to judge (`--duplicate-of <n>` comments there, `--new` files anyway);
-5. creates the missing labels (the kind and `consumer-report`) and files,
+6. creates the missing labels (the kind and `consumer-report`) and files,
    printing the URL.
 
 A `dependencies` report never opens a second issue: it edits the one rolling
@@ -94,11 +104,11 @@ with only the new rows when the package side closed it.
 | --- | --- |
 | 0 | done: filed, commented, updated, tracked, or nothing to do |
 | 1 | usage: unknown command, invalid flags or input |
-| 2 | refused by the gate (the reasons below), or `track` on a public or foreign application |
+| 2 | refused by the gate (the reasons below), `file` or `deps --file` from a public application without `--public-app`, or `track` on a public or foreign application |
 | 3 | refused by the scrub, or the deny-list could not be built whole |
 | 4 | keyword candidates printed; nothing filed |
 | 5 | rate-limited; nothing filed |
-| 6 | another failure (gh, git), printed on stderr |
+| 6 | another failure (gh, git), printed on stderr; a 403 that is not a rate limit says `permission` |
 
 ### Refusals
 
@@ -119,10 +129,11 @@ The gate answer (`gh api repos/o/r`: owner, `has_issues`, `archived`,
 
 ### Rate limits
 
-Every gh call goes through one wrapper. A refusal for rate (HTTP 403 or 429, or
-a message that says "rate limit") writes `rateLimitedUntil` (now + 15 minutes)
+Every gh call goes through one wrapper. A refusal for rate (HTTP 429, or a
+message that says "rate limit", "secondary rate" or "abuse") writes `rateLimitedUntil` (now + 15 minutes)
 to `<home>/cache/rate-limit.json`; until then every call fails at once without
-spawning gh. A filing makes at most one search-API call (the keyword search);
+spawning gh. Any other HTTP 403 is a missing permission: it fails that call
+(exit 6) and pauses nothing. A filing makes at most one search-API call (the keyword search);
 the fingerprint lookup lists `consumer-report` issues instead of searching.
 
 ## The deny-list
@@ -137,15 +148,46 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
 `file` builds it once per filing from:
 
 - the application's repository (`origin`, read from `.git/config`) and its
-  package and workspace names;
+  package and workspace names; without a GitHub `origin`, the checkout's root
+  folder name and the name of the folder holding the git common dir (the main
+  checkout of a worktree);
 - the working directory's name;
-- every private repository of the allowed owners (`gh repo list --visibility
+- every private repository of the default owners (`softistx`, `SteveGT96`),
+  by full name, and by each distinctive stem as a whole word outside
+  `node_modules/` paths (`zorblax` from `zorblax-api`); a stem that is a
+  common English word or a framework, library or tool name (`compose`,
+  `rest`, `content`, `react`, `docker`…, listed in `common-words.ts`, plurals,
+  `-ing` and versioned forms included: `locations`, `oauth2`) is never denied
+  alone, and neither is a single-word repository name that is one (`plugins`,
+  denied as `owner/plugins` only) — name such a product in `denyTerms` (below),
+  and of any other owner in `NXGT_ISSUES_OWNERS` (`gh repo list --visibility
   private`, cached 24 hours in `<home>/cache/private-repos.json`; when gh fails
-  the stale copy is used, and with no copy at all nothing is filed);
-- `git config user.name` and `user.email`, the hostname, the home folder;
+  the stale copy is used, and with no copy at all nothing is filed).
+  `NXGT_ISSUES_OWNERS` narrows who receives filings, never what is denied. A
+  `gh repo list` that returns `[]` cannot be told apart from a token that sees
+  none of the owner's private repositories: check `gh auth status` and the
+  token's scopes if a private name is expected on the list;
+- `git config user.name` and `user.email` (unset is fine; a git that cannot be
+  run, or fails otherwise, refuses the filing), the hostname, the home folder;
 - the application's own domains and any extra terms from the configuration.
 
-The package being reported and its repository are allowed.
+The package being reported and its repository are allowed, and so are the
+packages it declares (`dependencies`, `peerDependencies`,
+`optionalDependencies`, read from its installed `node_modules/<pkg>/package.json`,
+no network): installed from npm, they are public even when their repository is
+private. Only the bare package name is allowed, never `owner/name`. An
+allowed name is blanked from the text before any search, so a private
+repository whose name folds onto it (`acme/zorb-sdk` against
+`@acme/zorb-sdk`) cannot match inside it; prose naming the private repository
+("the zorb sdk repo") still refuses, and so does a private name built from an
+allowed one (`vexora-hono`, "the vexora hono app" for an allowed `hono`): an
+occurrence joined to a word is never blanked, and a term found only once the
+allowed names are put back counts unless it matches inside an allowed name
+itself. Allowing a package never lets through a stem or scope the deny-list
+holds as the application's own distinctive term or a private stem. The
+application's own stems and package name parts go through the same
+common-word filter as private stems; its full names and scope stay on the
+deny-list, and only the exact allowed names above pass.
 
 ### Application domains and extra terms
 
@@ -159,7 +201,38 @@ read from, and merged across:
 - `<home>/config.json` (every application);
 - `NXGT_ISSUES_APP_DOMAINS` and `NXGT_ISSUES_DENY_TERMS`, comma-separated.
 
+`denyTerms` is also the way to deny a product whose repository stem is a
+common word: a private `acme-compose` denies `acme-compose` but not `compose`
+alone, so write `"denyTerms": ["Compose Cloud"]` when the product goes by
+that name in prose.
+
 A domain adds itself, its registrable domain and that domain's main label.
+The skill creates `.nxgt-issues.json` on first use in an application, asking
+the user for the domains. **While no domain is configured, `file` and `deps
+--file` refuse (exit 3)**, unless the repository's `.nxgt-issues.json` says
+`"appDomains": []` (the application has none); the user-wide file and the
+environment variable can supply domains but cannot declare "none" (their `[]`
+or `["none"]` still refuses: an entry counts only when it holds a dot).
+
+Independently of the configuration, the scrub rewrites any dotted name ending
+in a common TLD to `<host>` (`domains.ts`): `com`, `net`, `org`, `io`, `dev`,
+`app`, `fr`, `ca`, `co`, `uk`, `de`, `eu`, `us`, `me`, `ai`, `cloud`, `tech`,
+`xyz`, the francophone ccTLDs (`ma`, `be`, `tn`, `sn`, `ci`, `lu`, `ch`, `dz`,
+`cm`, `ht`), `it`, `sh`, and `school`, `academy`, `online`, `store`, `site`,
+`page`, `education`, `africa`, `ng`, `ke`, `za`, `in`, `sa`, `ae`, `qa`,
+`studio`, `agency`, `digital`, `space`, `live`, `so`, `to`, among others; and
+a private name under `.internal`, `.lan` or `.local`, port or not
+(`billing.acme.internal`). Browser API paths stay (`chrome.storage.local`). A path, query or fragment after it is kept
+(`<host>/graphql`); a leading `.`, `*.` or `@` goes with it (`'.myeduapp.com'`,
+`*.myeduapp.com`, `@myeduapp.com`); a Unicode label is rewritten whole
+(`école.fr`). Kept as written: `github.com` and its subdomains, `npmjs.com`,
+`npmjs.org`, `registry.npmjs.org`, `nodejs.org`, `bun.sh`, `mozilla.org`,
+`developer.mozilla.org`, `nuxt.com`, `vitejs.dev`, `hono.dev`,
+`typescriptlang.org`, `stackoverflow.com`, `mongodb.com`, `graphql.org`,
+`jsr.io`, `schema.org`, `vuejs.org`, `react.dev`, the RFC 2606
+`example.com|net|org` names, `ASP.NET`-style names, common script names
+(`deploy.sh`), and code: `index.ts`, `process.env`, `Promise.all`, `this.app`,
+a name followed by a call or a member access, anything inside a path.
 
 ## What the library holds
 
@@ -172,20 +245,27 @@ A domain adds itself, its registrable domain and that domain's main label.
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
-| `hosts.ts` | rewrites `host:port`, IP literals and resolver-error host names to `<host>` |
-| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing |
+| `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
+| `label-values.ts` | values after a credential label that are messages (an `…Error:` class with a message, a status phrase), encoders assigned to a credential name, arrays and YAML flow sequences of literals, env names under `*Name` keys |
+| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a PascalCase `…Error:` or `…Exception:` class followed by a message (`JsonWebTokenError: invalid signature`) and a status message after a label (one that opens with a status word, `invalid signature`, or is a status phrase, `too short`, `is required`, `must be at least 8 characters`) pass; `password: open sesame`, `password: must change me` and `PasswordError: hunter2` refuse; an encoder assigned to a credential name (`const secret = new TextEncoder().encode('x')`) and an array of literals or a YAML flow sequence of bare words under one (`secret: ['x']`, `passwords: [hunter2, swordfish]`) refuse; a status phrase may be followed by another label or a short clause (`password: not set, token: (empty)`); an env-variable name under a `*Name` key passes (`secretName: 'GATEWAY_SECRET'`); `??=`, `\|\|=` and `&&=` count as assignments |
+| `authorization.ts` | the `Authorization` header: unquoted, a placeholder or prose word only; quoted or templated, the header rule, so `` `Bearer ${token}` `` and `'Bearer ' + token` pass and `'Basic YWRt…'` refuses; a literal glued to a scheme anywhere refuses as an operand (`'Bearer ' + 'k3J9…'`, `` `Basic ${'YWRt…'}` ``), never as a call argument or key (`'Bearer ' + localStorage.getItem('token')`) |
+| `sdl-values.ts` | GraphQL field types: a known scalar anywhere, or a type inside a `type`, `input` or `interface` block unless it looks like a value (`K3J9x…`, `ABCDEFGH`) |
+| `key-names.ts` | `key` names: a plain one (`key`, `sortKey`) refuses only key material (`Zq8w-LmP3`, `AbCdEfGh…`, `ABCD-EFGH-IJKL`); a purposeful one (`signingKey`, `accessKeyId`, `licenseKey`) or an env-style `*_KEY` refuses any literal |
+| `common-words.ts` | the English and tech words a private repository stem is never denied as |
+| `credential-pairs.ts` | credential headers set by index, as a tuple or as a computed key (`headers['authorization'] = …`, `new Headers([['authorization', …]])`, `{ [GATEWAY_SECRET_HEADER]: … }`) and `--password`, `-W`, `-p`, `-a` flags beside their value in an argument array, plus `'-pvalue'` after a database client (a port after `-p` passes unless `mysql`, `mariadb`, `psql` or `redis-cli` comes earlier on the line) |
+| `auth-calls.ts`, `literals.ts` | literal secrets handed to a credential call — a callee whose name has a part like `password`, `secret`, `key`, `token`, `hash`, `hmac`, `cipher`, `sign`, `verify`, `compare`, `encrypt`, `scrypt`, `pbkdf2`, `argon`, `bcrypt`, `login`, `auth`, or `btoa`, `encode`, `Buffer.from`, or a credential header's setter (by literal name, or by an identifier holding a credential word: `headers.set(GATEWAY_SECRET_HEADER, …)`) or `res.cookie` — at any depth, wherever the call sits, inside a function value only for the literals it compares, returns or hands to a credential call or callback (`trustedGateway: (c) => c.req.header('x-gateway') === 'k3J9…'` refuses, `… === secret` passes; `function-values.ts`), and a function value under a credential key (`trustedGateway`, `verify*`, `secret`, `password`, `token`, `apiKey`, `getToken`) is checked whatever the callee; and the literals that are plainly not secrets (algorithm names, locale tags, role words, durations, env names, naming options; a message with a space only under a `message`, `error` or `description` key, never as a positional argument of a key call, so `verify(sig, 'Signature is invalid')` refuses; no role word, locale or env name in the key position of a sign, signature, hash, hmac, cipher, password, verify or webhook call, or the password of `login`; `encode` and `Buffer.from` refuse only a literal that looks like a credential) |
 | `code-values.ts` | when the value of a credential-named assignment is code (a call whose literals are names, a type, an env read, a fallback chain) rather than a secret |
-| `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
+| `deny.ts`, `deny-search.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |
 | `issue-body.ts` | the issue and comment templates, with their HTML-comment markers |
 | `resolve.ts` | the package's repository (registry, then `node_modules`) and the gate |
 | `github.ts`, `github-issues.ts` | every gh call, with the rate-limit pause |
 | `labels.ts` | the labels and `ensureLabels` |
 | `crew-registry.ts` | a read-only copy of nxgt-crew's registry reader and liveness rule |
-| `workspaces.ts` | a repository's manifests and their dependencies |
+| `workspaces.ts` | a repository's manifests, their dependencies, and an installed dependency's manifest |
 | `deny-sources.ts` | where a filing's deny-list comes from, and the configuration |
 | `report.ts` | the stdin JSON of `file` |
-| `cli.ts`, `cli-context.ts`, `filing.ts`, `file.ts`, `deps.ts`, `deps-behind.ts`, `track.ts`, `sessions.ts` | the commands |
+| `cli.ts`, `cli-context.ts`, `filing.ts`, `file.ts`, `file-checks.ts`, `deps.ts`, `deps-behind.ts`, `track.ts`, `sessions.ts` | the commands |
 
 The `issue-body.ts` templates do not scrub. `file` renders the whole body (and
 the duplicate comment) and runs `scrub()` on the rendered text, refusing on

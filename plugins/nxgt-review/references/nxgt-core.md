@@ -63,8 +63,13 @@ can discard, and check `git status` after. **Never** run `changeset:publish`, `s
 - **No required peer that is on no registry.** `@nxgt/material` and
   `@nxgt/map` may only ever be optional peers, or absent. A peer with no
   `peerDependenciesMeta` entry is required.
-- **`typescript` is `^6.0.3` in every package.** Raising it in one makes the
-  set unsatisfiable, and `@nxgt/shared-openapi` throws at import under 7.
+- **`typescript` is `^6.0.3 || ^7.0.0` in every package, moved together.**
+  A range changed in one package alone is a finding (`newest-peers.ts`
+  fails on it). TypeScript 7 ships no compiler API, so a shipped file that
+  touches `ts.*` at module scope, or types it as `typeof
+  import('typescript')`, is a finding: load it when the code that needs it
+  runs, as `@nxgt/shared-openapi`'s `compiler-api.ts` does. The root
+  `devDependencies` and `overrides` stay `~6.0.3` until `vue-tsc` runs on 7.
 - **An asset ships only from its own directory named in `files`.** A
   `.graphqls`, YAML or font read at runtime from `src/` is absent from the
   tarball. A path to it resolves against the package root
@@ -137,6 +142,10 @@ From the table in `AGENTS.md`:
   `ci.yml` — nxgt-data's copy, not shared.
 - `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs,nxgt-issues}/scripts/lib/hook.ts`
   — the hook shell copied in each plugin, since each installs on its own.
+- `plugins/nxgt-issues/scripts/lib/crew-registry.ts` — a read-only copy of
+  nxgt-crew's `store.ts`, `record.ts`, `settings.ts`, `liveness.ts` and
+  `system.ts` (reader, record check, knobs, liveness, pid probe); its record
+  check is looser on purpose.
 - `LICENSE` at the root and in every `packages/*/`.
 - `stx-sdk` as a peer of `shared-hono` and `shared-graphql`, and a root
   devDependency.

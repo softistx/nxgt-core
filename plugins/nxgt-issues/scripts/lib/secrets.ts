@@ -18,10 +18,22 @@
  * the assignment path: a header, a cookie, a `curl -u` or a `--flag` whose
  * value is a call refuses. Articles and pronouns are not placeholders:
  * `password: the hunter2` refuses. A value may sit on the next line (JSON,
- * YAML).
+ * YAML). A literal handed to an auth or crypto call refuses wherever the call
+ * sits (`auth-calls.ts`).
  */
 
+import { hasSecretArgument } from './auth-calls';
+import { hasAuthorizationSecret } from './authorization';
 import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
+import { hasCredentialPair } from './credential-pairs';
+import { isNamingKey } from './key-names';
+import {
+	arrayHoldsSecret,
+	encodesSecret,
+	isEnvNameValue,
+	isLabelMessage,
+} from './label-values';
+import { isGraphqlType } from './sdl-values';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -84,7 +96,9 @@ export function scrubKnownTokens(text: string, note: (kind: string) => void) {
  * `pass` and `sid` over-match as substrings (`bypass`, `compass`, `inside`), so
  * they count only as a whole word of the name (`DB_PASS`, `sid`) or, for
  * `pass`, as the end of an all-capitals name (`REDISPASS`); `auth` does not
- * count in `author` or `authority`.
+ * count in `author` or `authority`. `key` counts as a whole word of the name
+ * (`MASTER_KEY`, `signingKey`, `key`), and so do `signing` and `hmac`
+ * (`JWT_SIGNING`).
  */
 function keywordOf(name: string): string | undefined {
 	const lower = name.toLowerCase();
@@ -102,14 +116,14 @@ function keywordOf(name: string): string | undefined {
 		if (words.includes(word)) return word;
 	}
 	if (name === name.toUpperCase() && /(?:pass|pw)$/.test(lower)) return 'pass';
+	if (words.some((word) => KEY_WORDS.has(word))) return 'key';
 	return undefined;
 }
 
+const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
-	/(?<![\w-])([\w-]+)\??["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
-const AUTHORIZATION =
-	/\bAuthorization["']?[ \t]*[:=][ \t]*(?:(?:Basic|Bearer|Digest|Negotiate|token)[ \t]+)?(\S+)/gi;
+	/(?<![\w-])([\w-]+)(?:[ \t]*(?:\?\?|\|\||&&)(?==)|\?)?["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
 const COOKIE = /\b(?:Set-)?Cookie["']?[ \t]*:[ \t]*([^\n]+)/gi;
 /** `--password x`, `--token=x`, `--api-key x`. */
 const FLAG =
@@ -140,21 +154,31 @@ export function findSecrets(text: string): string[] {
 		const keyword = keywordOf(name);
 		if (!keyword || value.endsWith(':')) continue;
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
+		if (encodesSecret(whole)) {
+			found.add(keyword);
+			continue;
+		}
+		if (keyword === 'key' && isNamingKey(name, whole)) continue;
+		if (isLabelMessage(name, match[0], whole)) continue;
+		if (isEnvNameValue(name, whole)) continue;
+		const before = text.slice(0, match.index);
+		if (isGraphqlType(value, match[3] ?? '', before)) continue;
+		if (arrayHoldsSecret(whole)) {
+			found.add(keyword);
+			continue;
+		}
 		if (isCodeValue(whole, { name, first: value })) continue;
 		found.add(keyword);
 	}
-	for (const match of text.matchAll(AUTHORIZATION)) {
-		const value = match[1] ?? '';
-		if (!isPlaceholder(value) && !TOKEN_WORDS.test(value)) {
-			found.add('authorization');
-		}
-	}
+	if (hasAuthorizationSecret(text)) found.add('authorization');
 	for (const match of text.matchAll(COOKIE)) {
 		// No `name=value` pair: a key in code (`cookie: 'sid'`); the assignment rule decides.
 		if (!match[1]?.includes('=')) continue;
 		const pairs = (match[1] ?? '')
 			.split(';')
-			.map((pair) => pair.split('=').pop() ?? '');
+			.map((pair) => pair.split('=').pop() ?? '')
+			// A closing quote and punctuation after the header: `-H 'Cookie: a=<redacted>'.`
+			.map((value) => value.trim().replace(/["'`]+[.,;:)\]]*$/, ''));
 		if (!pairs.every(isPlaceholder)) found.add('cookie');
 	}
 	for (const match of text.matchAll(CURL_USER)) {
@@ -174,5 +198,7 @@ export function findSecrets(text: string): string[] {
 		}
 	}
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
+	if (hasSecretArgument(text)) found.add('secret-argument');
+	if (hasCredentialPair(text)) found.add('credential-pair');
 	return [...found];
 }

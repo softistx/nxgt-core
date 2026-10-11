@@ -1,8 +1,9 @@
 /**
  * The manifests of a repository: its root `package.json` and those of its
  * workspaces (`workspaces` as an array or `{ packages }`, each entry a folder
- * or a `folder/*` pattern). Read from disk, nothing spawned; a manifest that
- * does not parse is skipped.
+ * or a `folder/*` pattern), and the installed copy of a dependency under
+ * `node_modules`. Read from disk, nothing spawned; a manifest that does not
+ * parse is skipped.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -94,4 +95,54 @@ export function dependenciesOf(manifest: Manifest): Map<string, string> {
 		}
 	}
 	return out;
+}
+
+/** The fields of a package manifest the resolver reads. */
+export interface PackageManifest {
+	readonly version?: string | undefined;
+	readonly repository?: unknown;
+	readonly dependencies?: unknown;
+	readonly peerDependencies?: unknown;
+	readonly optionalDependencies?: unknown;
+}
+
+export const asPackageManifest = (value: unknown): PackageManifest =>
+	value && typeof value === 'object' ? (value as PackageManifest) : {};
+
+/** The installed `package.json` of `pkg`, walking up from `start`. */
+export function fromNodeModules(
+	start: string,
+	pkg: string,
+): PackageManifest | undefined {
+	let dir = resolve(start);
+	for (;;) {
+		const manifest = join(dir, 'node_modules', pkg, 'package.json');
+		if (existsSync(manifest)) {
+			try {
+				return asPackageManifest(JSON.parse(readFileSync(manifest, 'utf8')));
+			} catch {
+				return undefined;
+			}
+		}
+		const parent = dirname(dir);
+		if (parent === dir) return undefined;
+		dir = parent;
+	}
+}
+
+/**
+ * The packages an installed `pkg` declares (dependencies, peer and optional
+ * dependencies), read from its local `package.json`: installed from npm, they
+ * are public whatever their repository.
+ */
+export function declaredDependencies(start: string, pkg: string): string[] {
+	const manifest = fromNodeModules(start, pkg);
+	if (!manifest) return [];
+	return [
+		manifest.dependencies,
+		manifest.peerDependencies,
+		manifest.optionalDependencies,
+	].flatMap((field) =>
+		field && typeof field === 'object' ? Object.keys(field) : [],
+	);
 }

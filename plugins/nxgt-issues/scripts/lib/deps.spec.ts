@@ -1,5 +1,8 @@
-import { describe, expect, test } from 'bun:test';
-import { callsOf, harness, makeApp, PKG } from './cli.fixtures';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { callsOf, harness, makeApp, PKG, removeTempDirs } from './cli.fixtures';
+
+afterAll(removeTempDirs);
+
 import { EXIT } from './cli-context';
 import { DEPS_TITLE, mergeRows, parseDepsTable } from './deps';
 import { fileCommand } from './file';

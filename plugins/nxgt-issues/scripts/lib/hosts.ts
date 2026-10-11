@@ -5,10 +5,15 @@
  * own (`process.env`, `Promise.all`) is code, not a host, and is left alone;
  * so is a name that ends like a file (`index.ts:12`).
  *
- * A single label with a port (`schoolz-redis:6379`, `mongo1:27017`) is a host
+ * A single label with a port (`vexora-redis:6379`, `mongo1:27017`) is a host
  * when the label starts with a letter and has a hyphen or a digit, or is on
  * the deny list; `localhost:3000`, `12:30` and `UTC-12:30` stay.
+ *
+ * A dotted name without a port is a host when its last label is a common TLD
+ * (`myeduapp.com`, `admin.myeduapp.fr`): see `domains.ts`.
  */
+
+import { scrubBareDomains } from './domains';
 
 const FILE_EXTENSIONS = new Set(
 	(
@@ -47,7 +52,7 @@ export function scrubHosts(
 		note('host');
 		return '<host>';
 	};
-	return text
+	const hosted = text
 		.replace(HOST_PORT, (match, tld: string) =>
 			FILE_EXTENSIONS.has(tld.toLowerCase()) ? match : swap(),
 		)
@@ -57,11 +62,14 @@ export function scrubHosts(
 			return hostLike || isDenied(label) ? swap() : match;
 		})
 		.replace(IPV4, (match) => (validIpv4(match) ? swap() : match))
-		.replace(IPV6, (match) => (validIpv6(match) ? swap() : match))
-		.replace(RESOLVER, (match, lead: string, host: string) => {
+		.replace(IPV6, (match) => (validIpv6(match) ? swap() : match));
+	return scrubBareDomains(hosted, swap).replace(
+		RESOLVER,
+		(match, lead: string, host: string) => {
 			const name = host.replace(/[.:]+$/, '');
 			if (name.startsWith('<')) return match;
 			note('host');
 			return `${lead} <host>${host.slice(name.length)}`;
-		});
+		},
+	);
 }

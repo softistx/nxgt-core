@@ -8,8 +8,7 @@
  * private is recorded. Each refusal carries a hint for the user.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, join } from 'node:path';
 import { cachePath, readEntry, writeEntry } from './cache';
 import {
 	type GhContext,
@@ -26,6 +25,11 @@ import {
 	parseRepositoryField,
 	type RepoId,
 } from './repo-id';
+import {
+	asPackageManifest,
+	fromNodeModules,
+	type PackageManifest,
+} from './workspaces';
 
 export const REGISTRY_TIMEOUT_MS = 2000;
 export const GATE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -68,44 +72,17 @@ export interface ResolveContext extends GhContext {
 
 const PACKAGE_NAME = /^(?:@[a-z0-9~-][\w.~-]*\/)?[a-z0-9~-][\w.~-]*$/i;
 
-interface Manifest {
-	readonly version?: string | undefined;
-	readonly repository?: unknown;
-}
-
-const asManifest = (value: unknown): Manifest =>
-	value && typeof value === 'object' ? (value as Manifest) : {};
-
 async function fromRegistry(
 	ctx: ResolveContext,
 	pkg: string,
-): Promise<Manifest | undefined> {
+): Promise<PackageManifest | undefined> {
 	try {
 		const url = `${REGISTRY}/${pkg.replace('/', '%2F')}/latest`;
-		return asManifest(await ctx.runner.fetchJson(url, REGISTRY_TIMEOUT_MS));
+		return asPackageManifest(
+			await ctx.runner.fetchJson(url, REGISTRY_TIMEOUT_MS),
+		);
 	} catch {
 		return undefined;
-	}
-}
-
-/** The installed `package.json` of `pkg`, walking up from `start`. */
-export function fromNodeModules(
-	start: string,
-	pkg: string,
-): Manifest | undefined {
-	let dir = resolve(start);
-	for (;;) {
-		const manifest = join(dir, 'node_modules', pkg, 'package.json');
-		if (existsSync(manifest)) {
-			try {
-				return asManifest(JSON.parse(readFileSync(manifest, 'utf8')));
-			} catch {
-				return undefined;
-			}
-		}
-		const parent = dirname(dir);
-		if (parent === dir) return undefined;
-		dir = parent;
 	}
 }
 
@@ -119,13 +96,16 @@ const refuse = (
 const gatePath = (home: string, id: RepoId): string =>
 	join(home, 'cache', 'gate', basename(cachePath(home, id)));
 
-/** `gh api repos/o/r`, from the 24-hour cache when fresh. */
+/** `gh api repos/o/r`, from the 24-hour cache when fresh; `fresh: true` always asks (the application's own visibility). */
 export async function gateFacts(
 	ctx: GhContext,
 	id: RepoId,
+	options: { fresh?: boolean } = {},
 ): Promise<RepoFacts> {
 	const path = gatePath(ctx.home, id);
-	const cached = readEntry<RepoFacts>(path, ctx.now(), GATE_TTL_MS);
+	const cached = options.fresh
+		? undefined
+		: readEntry<RepoFacts>(path, ctx.now(), GATE_TTL_MS);
 	if (cached?.fresh) return cached.data;
 	const facts = await repoFacts(ctx, id);
 	writeEntry(path, facts, ctx.now());

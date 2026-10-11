@@ -1,20 +1,30 @@
 /**
  * Where a filing's deny-list comes from, gathered once per filing: the
- * application's repository (`origin`), its package and workspace names, the
- * working directory, every private repository of the allowed owners (`gh repo
+ * application's repository (`origin`; without one, the checkout's root folder
+ * and main checkout folder names), its package and workspace names, the
+ * working directory, every private repository of the default and configured
+ * owners (`gh repo
  * list`, cached 24 h, the stale copy used when gh fails, and no filing at all
  * when there is neither), `git config user.name` / `user.email`, the hostname,
  * the home folder, and the application's own domains and extra terms from the
- * configuration (see `readDenyConfig`).
+ * configuration (see `readDenyConfig`). No domain configured and no explicit
+ * `"appDomains": []` in the repository's `.nxgt-issues.json` refuses the
+ * filing.
  */
 
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { readEntry, writeEntry } from './cache';
 import type { CliContext } from './cli-context';
 import { buildDenyList, type DenyList, unique } from './deny';
 import { privateRepos } from './github-issues';
-import { allowedOwners, formatRepo, repoOfDirectory } from './repo-id';
+import {
+	allowedOwners,
+	DEFAULT_OWNERS,
+	formatRepo,
+	gitConfigPath,
+	repoOfDirectory,
+} from './repo-id';
 import { manifestsOf, repoRoot } from './workspaces';
 
 export const PRIVATE_REPOS_TTL_MS = 24 * 60 * 60 * 1000;
@@ -77,10 +87,50 @@ export function readDenyConfig(ctx: CliContext, root?: string): DenyConfig {
 
 export class DenyListIncomplete extends Error {}
 
+/** Whether `<root>/.nxgt-issues.json` says, with `"appDomains": []`, that the app has no domain. */
+export function declaresNoDomains(root: string | undefined): boolean {
+	if (!root) return false;
+	try {
+		const data = JSON.parse(
+			readFileSync(join(root, '.nxgt-issues.json'), 'utf8'),
+		);
+		const domains = (data as Record<string, unknown> | null)?.['appDomains'];
+		return Array.isArray(domains) && domains.length === 0;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * No configured domain and no explicit `appDomains: []` in the repository's
+ * file: the filing cannot be checked whole. Only an entry that looks like a
+ * host (it holds a dot) counts, so `none` or a bare word is no domain.
+ */
+function requireDomains(config: DenyConfig, root: string | undefined): void {
+	const hosts = config.appDomains.filter((domain) => /\w\.\w/.test(domain));
+	if (hosts.length > 0 || declaresNoDomains(root)) return;
+	throw new DenyListIncomplete(
+		'no application domain is configured; list them in .nxgt-issues.json at the repository root ({ "appDomains": ["example-app.com"] }), or write "appDomains": [] when the application has none',
+	);
+}
+
+/**
+ * Whose private repositories are denied: the default owners and the configured
+ * ones. `NXGT_ISSUES_OWNERS` narrows who receives filings, never what is denied.
+ */
+export function denyOwners(env: Record<string, string | undefined>): string[] {
+	const owners: string[] = [];
+	for (const owner of [...DEFAULT_OWNERS, ...allowedOwners(env)]) {
+		if (!owners.some((o) => o.toLowerCase() === owner.toLowerCase()))
+			owners.push(owner);
+	}
+	return owners;
+}
+
 /** Private repositories of every allowed owner, from the cache when fresh. */
 export async function privateRepoNames(ctx: CliContext): Promise<string[]> {
 	const path = join(ctx.home, 'cache', 'private-repos.json');
-	const owners = allowedOwners(ctx.env);
+	const owners = denyOwners(ctx.env);
 	const cached = readEntry<Record<string, string[]>>(
 		path,
 		ctx.now(),
@@ -103,15 +153,41 @@ export async function privateRepoNames(ctx: CliContext): Promise<string[]> {
 	}
 }
 
+/** `git config --get <key>`: exit 1 is unset; a spawn that throws or another code refuses. */
 async function gitConfig(ctx: CliContext, key: string) {
+	let result: Awaited<ReturnType<CliContext['runner']['run']>>;
 	try {
-		const result = await ctx.runner.run(['git', 'config', '--get', key], {
+		result = await ctx.runner.run(['git', 'config', '--get', key], {
 			cwd: ctx.cwd,
 		});
-		return result.code === 0 ? result.stdout.trim() || undefined : undefined;
-	} catch {
-		return undefined;
+	} catch (error) {
+		const why = error instanceof Error ? error.message : String(error);
+		throw new DenyListIncomplete(
+			`cannot read git config ${key} (${why.slice(0, 200)})`,
+		);
 	}
+	if (result.code === 0) return result.stdout.trim() || undefined;
+	if (result.code === 1) return undefined;
+	throw new DenyListIncomplete(
+		`git config ${key} failed (${result.code}): ${result.stderr.trim().slice(0, 200)}`,
+	);
+}
+
+const folderName = (path: string | undefined): string | undefined =>
+	path ? basename(path) || undefined : undefined;
+
+/**
+ * Without a GitHub origin the repository has no name to deny, so its folders
+ * stand in: the checkout root, and the folder holding the git common dir (the
+ * main checkout of a linked worktree).
+ */
+function folderTerms(cwd: string): string[] {
+	const config = gitConfigPath(cwd);
+	const common = config ? dirname(config) : undefined;
+	return [
+		folderName(repoRoot(cwd)),
+		folderName(common ? dirname(common) : undefined),
+	].filter((term): term is string => !!term);
 }
 
 /** The deny-list of one filing; throws `DenyListIncomplete` when it cannot be whole. */
@@ -119,6 +195,7 @@ export async function filingDenyList(ctx: CliContext): Promise<DenyList> {
 	const root = repoRoot(ctx.cwd);
 	const app = repoOfDirectory(ctx.cwd);
 	const config = readDenyConfig(ctx, root);
+	requireDomains(config, root);
 	const built = buildDenyList({
 		appRepo: app ? formatRepo(app) : undefined,
 		appPackages: root
@@ -134,8 +211,10 @@ export async function filingDenyList(ctx: CliContext): Promise<DenyList> {
 		appDomains: config.appDomains,
 		home: ctx.homeDir,
 	});
+	const folders = app ? [] : folderTerms(ctx.cwd);
 	return Object.freeze({
-		terms: unique([...built.terms, ...config.denyTerms]),
+		terms: unique([...built.terms, ...config.denyTerms, ...folders]),
 		distinctive: built.distinctive,
+		stems: built.stems ?? [],
 	});
 }

@@ -3,9 +3,9 @@
  * every subcommand with the fake runner:
  *
  *   resolve <pkg> [--json]          the repository a package's issues go to, or the refusal
- *   file [--duplicate-of <n>|--new] the report (JSON on stdin) filed anonymously
+ *   file [--duplicate-of <n>|--new] [--public-app]  the report (JSON on stdin) filed anonymously
  *   track                           the private tracking issue (JSON on stdin)
- *   deps <pkg> [--file]             the dependencies behind latest; --file updates the rolling issue
+ *   deps <pkg> [--file [--public-app]] the dependencies behind latest; --file updates the rolling issue
  *   sessions <owner/repo> [--json]  live crew sessions that depend on the repository's packages
  */
 
@@ -14,7 +14,8 @@ import { EXIT } from './cli-context';
 import { filingDenyList } from './deny-sources';
 import { upsertRollingIssue } from './deps';
 import { behindDependencies } from './deps-behind';
-import { fileCommand } from './file';
+import { type FileFlags, fileCommand } from './file';
+import { refuseInPublicApp } from './file-checks';
 import { exitForError, printGateRefusal } from './filing';
 import { formatRepo } from './repo-id';
 import { resolvePackage } from './resolve';
@@ -23,9 +24,9 @@ import { trackCommand } from './track';
 
 export const USAGE = `usage: issues.ts <command>
   resolve <pkg> [--json]
-  file [--duplicate-of <n> | --new]     report JSON on stdin
+  file [--duplicate-of <n> | --new] [--public-app]   report JSON on stdin
   track                                 tracking JSON on stdin
-  deps <pkg> [--file]
+  deps <pkg> [--file [--public-app]]
   sessions <owner/repo> [--json]`;
 
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
@@ -46,8 +47,16 @@ async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
 	return EXIT.ok;
 }
 
-async function depsCommand(ctx: CliContext, pkg: string, file: boolean) {
+async function depsCommand(
+	ctx: CliContext,
+	pkg: string,
+	file: boolean,
+	publicApp: boolean,
+) {
 	try {
+		// Filing is public: gated like `file`, with the visibility read fresh.
+		const refused = file ? await refuseInPublicApp(ctx, publicApp) : undefined;
+		if (refused !== undefined) return refused;
 		const resolved = await resolvePackage(ctx, pkg);
 		if (!resolved.ok) return printGateRefusal(ctx, resolved);
 		const rows = await behindDependencies(ctx.runner, pkg);
@@ -72,9 +81,15 @@ async function depsCommand(ctx: CliContext, pkg: string, file: boolean) {
 	}
 }
 
-function flagValue(args: readonly string[], flag: string): string | undefined {
-	const index = args.indexOf(flag);
-	return index === -1 ? undefined : args[index + 1];
+/** `--duplicate-of <n>` (a positive integer), `--new`, `--public-app`; undefined when invalid. */
+export function fileFlags(args: readonly string[]): FileFlags | undefined {
+	const index = args.indexOf('--duplicate-of');
+	const force = args.includes('--new');
+	const publicApp = args.includes('--public-app');
+	if (index === -1) return { force, publicApp };
+	const duplicateOf = Number(args[index + 1]);
+	if (!(Number.isInteger(duplicateOf) && duplicateOf > 0) || force) return;
+	return { duplicateOf, publicApp };
 }
 
 export async function main(
@@ -91,21 +106,20 @@ export async function main(
 			if (!positional[0]) break;
 			return resolveCommand(ctx, positional[0], has('--json'));
 		case 'file': {
-			const raw = flagValue(args, '--duplicate-of');
-			const duplicateOf = raw === undefined ? undefined : Number(raw);
-			if (
-				duplicateOf !== undefined &&
-				!(Number.isInteger(duplicateOf) && duplicateOf > 0)
-			)
-				break;
-			if (duplicateOf !== undefined && has('--new')) break;
-			return fileCommand(ctx, { duplicateOf, force: has('--new') });
+			const flags = fileFlags(args);
+			if (!flags) break;
+			return fileCommand(ctx, flags);
 		}
 		case 'track':
 			return trackCommand(ctx);
 		case 'deps':
 			if (!positional[0]) break;
-			return depsCommand(ctx, positional[0], has('--file'));
+			return depsCommand(
+				ctx,
+				positional[0],
+				has('--file'),
+				has('--public-app'),
+			);
 		case 'sessions':
 			return sessionsCommand(ctx, positional[0], has('--json'));
 	}

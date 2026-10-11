@@ -1,5 +1,8 @@
-import { describe, expect, test } from 'bun:test';
-import { callsOf, harness, makeApp, PKG } from './cli.fixtures';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { callsOf, harness, makeApp, PKG, removeTempDirs } from './cli.fixtures';
+
+afterAll(removeTempDirs);
+
 import { EXIT } from './cli-context';
 import { trackingIssueBody } from './issue-body';
 import { upstreamMarker } from './refs';

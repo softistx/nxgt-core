@@ -172,7 +172,7 @@ fields, `siblings.ts` its sibling ranges against the workspace's `workspace:` sp
 `browser.ts` (the `browser` condition, which only this repository has),
 `classes.ts`, `imports.ts` (served by `declarations.ts`), `types.ts` (served by `resolve-types.ts`) and `emit.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
-port to the others. All four hold the same three checks, each described
+port to the others. One check is not yet in the others: `install.ts`'s `workspaceTypeScript` pin (the probe installs the root `typescript` range, so the lockfile job emits fixtures with tsc 6 and "Newest peers" with tsc 7) is only here; nxgt-janus, nxgt-http and nxgt-data have not got it, and it is to port. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
 spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
 is this copy's alone. `imports.ts`, `declarations.ts` and their specs are
@@ -376,9 +376,12 @@ range, else the range itself. The job then deletes `bun.lock`, installs,
 builds, typechecks, tests (the MongoDB replica set included) and verifies the
 artifacts. One range is written everywhere, so there is one version in the
 tree. Today that is `stx-sdk` `>=1.1.0` (locked at 1.2.0, npm latest 3.0.0),
-`nuxt` `^4.0.0`, `vue`, `graphql` `^17.0.0` and `typescript` `^6.0.3`. The
+`nuxt` `^4.0.0`, `vue`, `graphql` `^17.0.0` and `typescript` `^7.0.0`. The
 job runs green against all of them: 3.0.0 dropped `./ory`, `./kratos`,
-`./keto` and `./hydra`, and nothing here imports them.
+`./keto` and `./hydra`, and nothing here imports them. Under TypeScript 7
+`@nxgt/i18n-vue`'s template checks fall back to `tsc`, and shared-openapi's
+codegen suite runs its TS 7 branch, where the helpers refuse with the fix;
+see "`typescript` is a peer, 6 or 7, widened together".
 
 Run the script on a throwaway checkout, never commit what it writes.
 
@@ -665,15 +668,57 @@ fails any tarball whose sibling range is not exactly the one its `workspace:`
 spec produces beside the sibling's version in the workspace (`siblings.ts`), which
 is the check that would have caught it, and a stale lock within one minor too.
 
-### `typescript` is a peer, pinned to 6, and it is load-bearing
+### `typescript` is a peer, 6 or 7, widened together
 
-Every package declares `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
-`~7.0.2`, which is not a preference difference — the ranges are mutually
-unsatisfiable, so a consumer installing the set gets a peer conflict, and if
-TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
-`ts.factory.createTypeReferenceNode(...)` at module scope, and TS 7's default
-export has no `.factory`. Every app in both monorepos builds on 6.0.3. Do not
-raise this range in one package alone.
+Every package declares `typescript: ^6.0.3 || ^7.0.0`, and the thirteen
+ranges move together. Two packages arrived from `nxgt-federation` on
+`~7.0.2` while the others said `^6.0.3`: two ranges with no version in common,
+so a consumer installing the set got a peer conflict. `scripts/newest-peers.ts`
+fails when the packages disagree on a peer's newest end (`The packages
+disagree on the newest typescript`), so a range widened in one package alone
+turns the "Newest peers" job red before it reaches a consumer.
+
+**TypeScript 7's npm package ships no compiler API.** Its `.` export is
+`lib/version.cjs` — `version`, `versionMajorMinor` and nothing else
+(measured on 7.0.2); `tsc` is a native binary behind `bin/tsc`. Anything that
+calls `ts.factory`, `ts.SyntaxKind` or `ts.createProgram` needs 6.
+`openapi-typescript` 7.13 and `@hey-api/openapi-ts` 0.99 read that API at
+module scope, so under 7 merely importing either throws; up to 2.0.x
+`@nxgt/shared-openapi` did the same itself, with a module-scope
+`ts.factory.createTypeReferenceNode(...)`. Since 2.1.0 it loads `typescript`
+and both tools only when a codegen helper runs (`src/compiler-api.ts`): the
+package imports under 6 and 7 alike, and a helper that cannot run under 7
+throws with the fix (run the codegen where `typescript` resolves to 6). No
+other package touches `typescript` at runtime: `grep -rlE "['\"]typescript['\"]"
+packages/*/src` finds only shared-openapi's files. Two rules keep it that way:
+
+- **Never touch `ts.*` at module scope in a shipped file.** Load the compiler
+  API when the code that needs it runs, and say what is missing when it is.
+- **Type compiler-API use structurally**, as `CompilerApi` in
+  `compiler-api.ts` does, not as `typeof import('typescript')`, whose types
+  under 7 declare no compiler API — so the source typechecks under both.
+
+Measured under 7.0.2 when the ranges widened (2026-10-10), by the "Newest
+peers" flow run locally: `build.ts`'s `tsc --emitDeclarationOnly` emits all
+thirteen packages, the same files as 6 (members and unions reordered, a type
+named through its source import, never a TS2883); `typecheck`, the package
+suites and `verify:artifacts` pass; every subpath imports under Bun, and under
+Node the same 28 of 37 as with 6 (the other nine reach `'bun'`); a consumer's
+tsc 7 resolves every subpath's declarations. Left to Bun, `verify:artifacts`'
+probe would take the newest `typescript` the peers allow, 7 in both CI jobs;
+it installs the root `devDependencies` range instead (`workspaceTypeScript`
+in `scripts/artifacts/install.ts`), so the fixture emit runs tsc 6 in the main
+job and tsc 7 in "Newest peers", which rewrites that range.
+
+**The repository itself builds on 6**: the root `devDependencies` and
+`overrides` stay `~6.0.3`, so the lockfile job runs 6, where `vue-tsc` checks
+`@nxgt/i18n-vue`'s templates and shared-openapi's codegen suite generates for
+real. `vue-tsc` 3 needs the compiler API and dies under 7, so
+`packages/i18n-vue/test/vue-tsc.ts` runs `tsc` with the same arguments where
+`typescript` is 7 and says the `.vue` files went unchecked. The "Newest
+peers" job rewrites both root fields to `^7.0.0` and runs everything else on
+7, codegen's TS 7 branch included. Raising the root to 7 waits for `vue-tsc`
+to run on it.
 
 ## Releasing, and what it means for a consumer
 
@@ -771,7 +816,7 @@ The following pairs exist on purpose:
 | `scripts/newest-peers.ts` and its spec, with the "Newest peers" job in `ci.yml` | nxgt-data's copy (alxia's before it; nxgt-http and nxgt-telemetry have it too), not shared: each repository releases on its own. This copy adds `UNINSTALLED` and a spec for it; the other lines are byte for byte. Change every copy the reason applies to |
 | `scripts/seaweedfs.ts` and its spec, with the "Start SeaweedFS" steps in `ci.yml` | nxgt-data's copy, not shared (this repo's tsconfig forbids `process.env.WEED_BIN`, so those lines read `process.env['WEED_BIN']`; the rest is byte for byte): each repository releases on its own. It only fetches the `weed` binary (cached under `.cache/seaweedfs`, CI keys on this file's hash); nxgt-data's specs start a gateway per file, here CI starts one on 8333 for `shared-storage`. The workflow steps are this repository's own. Raise `SEAWEEDFS_VERSION` in every copy |
 | `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs,nxgt-issues}/scripts/lib/hook.ts` | the shell each plugin's hooks run in — read the event from stdin, run, print at most one JSON object, exit 0 whatever happens — copied, not shared: each plugin installs on its own and cannot import from another. The copies differ in what is plugin-specific (the event fields read, the opt-out variable, the failure message; nxgt-docs fails silent where the others print a `systemMessage`; nxgt-issues keeps `disabled` in the file, as nxgt-crew does, where nxgt-autonomy imports it from `mandate.ts`). Change every copy the reason applies to |
-| `plugins/nxgt-issues/scripts/lib/crew-registry.ts` and nxgt-crew's `store.ts` / `liveness.ts` / `system.ts` | a minimal read-only copy of nxgt-crew's registry reader and liveness rule (`crewHome`, the record check, `NXGT_CREW_STALE_MINUTES` / `NXGT_CREW_IDLE_HOURS`, the pid probe), so `issues.ts sessions` names the live sessions that depend on a package without requiring nxgt-crew (owner decision: nxgt-crew stays out of nxgt-base). It reads only the fields it needs, never writes, and skips the Linux start-time check. A change to the registry's location, record shape or liveness rule in nxgt-crew must be followed here |
+| `plugins/nxgt-issues/scripts/lib/crew-registry.ts` and nxgt-crew's `store.ts`, `record.ts`, `settings.ts`, `liveness.ts`, `system.ts` | a minimal read-only copy of nxgt-crew's registry reader (`crewHome`, `readAll` from `store.ts`), its record check (`isRecord` from `record.ts`), its knobs (`NXGT_CREW_STALE_MINUTES` / `NXGT_CREW_IDLE_HOURS` from `settings.ts`), its liveness rule (`liveness.ts`) and its pid probe (`probePid` from `system.ts`), so `issues.ts sessions` names the live sessions that depend on a package without requiring nxgt-crew (owner decision: nxgt-crew stays out of nxgt-base). The record check is looser on purpose: it checks only the fields `sessions` reads, so a record nxgt-crew grows stays readable. It never writes and skips the Linux start-time check. A change to the registry's location, record shape or liveness rule in nxgt-crew must be followed here |
 | `paginate` (offset) and `paginateCursor` (Relay) | sellix pages by offset, federation by cursor; same name, incompatible signatures |
 | `Principal` and `TokenPrincipal` | gateway-header shape vs JWT-claims shape — two different models of "the authenticated caller" |
 | the REST filter helpers and the GraphQL filter DSL | two filter philosophies that shared a filename and two function names |
@@ -829,11 +874,13 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **989 pass, 4 skip, 0 fail** on 2026-10-06 with MongoDB
+`bun run test` was **989 pass, 4 skip, 0 fail** on 2026-10-06 with MongoDB
 and an S3 up: 862 in the packages (the 4 skips are `shared-hono`'s;
 `shared-storage` runs its 6 against the S3 and reports 0 pass 0 fail
 without one; `i18n-vue`'s 115 include a real `nuxt build`), then 127 in
-`scripts/`. Without an S3 the storage suites skip. Treat any failure as yours.
+`scripts/`. Since then (2026-10-10, without MongoDB or S3): `scripts/` is 130,
+and `shared-openapi` has its first suite, 5 tests and 2 skipped (its TypeScript
+7 half runs in Newest peers); re-measure the total with both up. Without an S3 the storage suites skip. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running the packages together in one

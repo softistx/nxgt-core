@@ -18,8 +18,7 @@ import {
 	type RepoId,
 	sameRepo,
 } from './repo-id';
-import { fromNodeModules } from './resolve';
-import { dependenciesOf, manifestsOf } from './workspaces';
+import { dependenciesOf, fromNodeModules, manifestsOf } from './workspaces';
 
 export interface Consumer {
 	readonly session: CrewSession;

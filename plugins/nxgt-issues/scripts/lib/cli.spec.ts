@@ -1,6 +1,15 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { main } from './cli';
-import { callsOf, harness, makeApp, report } from './cli.fixtures';
+import {
+	callsOf,
+	harness,
+	makeApp,
+	removeTempDirs,
+	report,
+} from './cli.fixtures';
+
+afterAll(removeTempDirs);
+
 import { EXIT } from './cli-context';
 
 describe('issues.ts', () => {

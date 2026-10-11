@@ -1,9 +1,9 @@
-import { describe, expect, test } from 'bun:test';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { ensureLabels, LABELS } from './labels';
 import { fakeRunner } from './runner.fixtures';
+import { removeTempDirs, tempDir } from './temp.fixtures';
+
+afterAll(removeTempDirs);
 
 const WIDGET = { owner: 'softistx', repo: 'nxgt-widget' };
 
@@ -17,7 +17,7 @@ const ctxWith = (present: string[]) => ({
 			{ argv: ['gh', 'label', 'create'] },
 		],
 	}),
-	home: mkdtempSync(join(tmpdir(), 'nxgt-issues-labels-')),
+	home: tempDir('labels'),
 	now: () => 0,
 });
 

@@ -1,5 +1,21 @@
 # @nxgt/shared-graphql
 
+## 3.3.0
+
+### Minor Changes
+
+- [#245](https://github.com/softistx/nxgt-core/pull/245) [`551b620`](https://github.com/softistx/nxgt-core/commit/551b6208e432c691f1b3e516cad4e01a522a53bc) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Accepts TypeScript 7 as well as 6: the `typescript` peer is now `^6.0.3 || ^7.0.0`, the same range in every `@nxgt/*` package, so the set installs with either and no peer conflict. The package does not use TypeScript at runtime; its built JavaScript and declarations are checked under both. Nothing changes under TypeScript 6.
+
+### Patch Changes
+
+- Updated dependencies [[`551b620`](https://github.com/softistx/nxgt-core/commit/551b6208e432c691f1b3e516cad4e01a522a53bc), [`551b620`](https://github.com/softistx/nxgt-core/commit/551b6208e432c691f1b3e516cad4e01a522a53bc), [`551b620`](https://github.com/softistx/nxgt-core/commit/551b6208e432c691f1b3e516cad4e01a522a53bc), [`551b620`](https://github.com/softistx/nxgt-core/commit/551b6208e432c691f1b3e516cad4e01a522a53bc), [`551b620`](https://github.com/softistx/nxgt-core/commit/551b6208e432c691f1b3e516cad4e01a522a53bc), [`551b620`](https://github.com/softistx/nxgt-core/commit/551b6208e432c691f1b3e516cad4e01a522a53bc)]:
+  - @nxgt/i18n@2.1.0
+  - @nxgt/security@4.3.0
+  - @nxgt/shared-exceptions@1.1.0
+  - @nxgt/shared-logging@1.1.0
+  - @nxgt/shared-mongo@1.2.0
+  - @nxgt/shared@1.1.0
+
 ## 3.2.0
 
 ### Minor Changes

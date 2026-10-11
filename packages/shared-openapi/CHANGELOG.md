@@ -1,5 +1,11 @@
 # @nxgt/shared-openapi
 
+## 2.1.0
+
+### Minor Changes
+
+- [#243](https://github.com/softistx/nxgt-core/pull/243) [`1e800f2`](https://github.com/softistx/nxgt-core/commit/1e800f22b339b26f2c060391f0cf2f8deae70a1c) Thanks [@SteveGT96](https://github.com/SteveGT96)! - Importing `@nxgt/shared-openapi` no longer throws where `typescript` resolves to TypeScript 7. The package loaded `openapi-typescript`, `@hey-api/openapi-ts` and `typescript` at module scope, and all three need TypeScript's compiler API, which TypeScript 7 does not ship; they are now loaded when `generateOpenapiTS` or `defineHeyApiConfig` is called. Under TypeScript 6 nothing changes. Under TypeScript 7 the package imports, and both helpers reject with an error naming the TypeScript found and the fix: run the codegen where `typescript` resolves to `^6.0.3`. The `typescript` peer now accepts TypeScript 7 as well as 6 (`^6.0.3 || ^7.0.0`), the same range as every `@nxgt/*` package, so the set installs with either.
+
 ## 2.0.2
 
 ### Patch Changes

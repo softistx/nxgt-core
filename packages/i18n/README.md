@@ -14,9 +14,9 @@ language. That is why `LocaleKey` lives this low in the layering.
 bun add @nxgt/i18n
 ```
 
-Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
-`^6.0.3` across every `@nxgt/*` package — the set is unsatisfiable if one of
-them widens it.
+Public on npmjs; no token needed to install. TypeScript is a peer:
+`^6.0.3 || ^7.0.0`, the same range in every `@nxgt/*` package, so the set
+installs with either.
 
 ## Usage
 

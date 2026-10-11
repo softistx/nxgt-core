@@ -13,9 +13,10 @@ export interface IssueSummary {
 	readonly state: string;
 	readonly url: string;
 	readonly body: string;
+	readonly labels?: readonly { readonly name: string }[] | undefined;
 }
 
-const ISSUE_FIELDS = 'number,title,state,url,body';
+const ISSUE_FIELDS = 'number,title,state,url,body,labels';
 const words = (text: string): string[] => text.split(' ');
 const repoFlag = (id: RepoId): string[] => ['-R', formatRepo(id)];
 

@@ -16,7 +16,7 @@
     },
     "packages/env": {
       "name": "@nxgt/env",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "bin": {
         "nxgt-env": "./dist/cli.js",
       },
@@ -24,12 +24,12 @@
         "@types/bun": "^1.4.0",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/i18n": {
       "name": "@nxgt/i18n",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "dependencies": {
         "intl-messageformat": "^12.1.2",
         "lodash": "^4.18.1",
@@ -39,12 +39,12 @@
         "@types/lodash": "^4.17.25",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/i18n-vue": {
       "name": "@nxgt/i18n-vue",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "dependencies": {
         "@formatjs/icu-messageformat-parser": "3.5.20",
         "intl-messageformat": "12.1.2",
@@ -59,7 +59,7 @@
       "peerDependencies": {
         "@nuxt/kit": "^4.0.0",
         "nuxt": "^4.0.0",
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
         "vite": ">=5.0.0",
         "vue": "^3.5.0",
       },
@@ -71,7 +71,7 @@
     },
     "packages/security": {
       "name": "@nxgt/security",
-      "version": "4.2.2",
+      "version": "4.3.0",
       "dependencies": {
         "@graphql-tools/utils": "^12.0.0",
         "@nxgt/shared": "workspace:^",
@@ -89,7 +89,7 @@
       },
       "peerDependencies": {
         "@nxgt/ory-sdk": ">=0.1.0 <1",
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
       "optionalPeers": [
         "@nxgt/ory-sdk",
@@ -97,7 +97,7 @@
     },
     "packages/shared": {
       "name": "@nxgt/shared",
-      "version": "1.0.7",
+      "version": "1.1.0",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/shared-events": "workspace:^",
@@ -119,12 +119,12 @@
         "@types/lodash": "^4.17.25",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-events": {
       "name": "@nxgt/shared-events",
-      "version": "1.0.5",
+      "version": "1.1.0",
       "dependencies": {
         "bullmq": "^6.1.1",
         "bunqueue": "^2.8.59",
@@ -133,12 +133,12 @@
         "@types/bun": "^1.4.0",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-exceptions": {
       "name": "@nxgt/shared-exceptions",
-      "version": "1.0.6",
+      "version": "1.1.0",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@nxgt/i18n": "workspace:^",
@@ -147,12 +147,12 @@
         "@types/bun": "^1.4.0",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-graphql": {
       "name": "@nxgt/shared-graphql",
-      "version": "3.2.0",
+      "version": "3.3.0",
       "dependencies": {
         "@apollo/server": "^5.5.1",
         "@apollo/subgraph": "^2.14.3",
@@ -189,12 +189,12 @@
         "@nxgt/ory-sdk": ">=0.1.0 <1",
         "graphql": "^16.9.0 || ^17.0.0",
         "stx-sdk": ">=1.1.0",
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-hono": {
       "name": "@nxgt/shared-hono",
-      "version": "4.2.0",
+      "version": "4.3.0",
       "dependencies": {
         "@hono/zod-validator": "^0.9.0",
         "@modelcontextprotocol/hono": "^2.0.0",
@@ -222,12 +222,12 @@
       "peerDependencies": {
         "@nxgt/ory-sdk": ">=0.1.0 <1",
         "stx-sdk": ">=1.1.0",
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-logging": {
       "name": "@nxgt/shared-logging",
-      "version": "1.0.5",
+      "version": "1.1.0",
       "dependencies": {
         "hono": "^4.13.4",
         "lodash": "^4.18.1",
@@ -239,12 +239,12 @@
         "@types/lodash": "^4.17.25",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-mongo": {
       "name": "@nxgt/shared-mongo",
-      "version": "1.1.12",
+      "version": "1.2.0",
       "dependencies": {
         "@nxgt/i18n": "workspace:^",
         "@nxgt/shared": "workspace:^",
@@ -265,30 +265,30 @@
         "@types/luxon": "^3.7.4",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-openapi": {
       "name": "@nxgt/shared-openapi",
-      "version": "2.0.2",
+      "version": "2.1.0",
       "devDependencies": {
         "@types/bun": "^1.4.0",
       },
       "peerDependencies": {
         "@hey-api/openapi-ts": "^0.99.0",
         "openapi-typescript": "^7.13.0",
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
     "packages/shared-storage": {
       "name": "@nxgt/shared-storage",
-      "version": "1.0.9",
+      "version": "1.1.0",
       "dependencies": {
-        "@nxgt/i18n": "workspace:*",
-        "@nxgt/shared": "workspace:*",
-        "@nxgt/shared-exceptions": "workspace:*",
-        "@nxgt/shared-logging": "workspace:*",
-        "@nxgt/shared-mongo": "workspace:*",
+        "@nxgt/i18n": "workspace:^",
+        "@nxgt/shared": "workspace:^",
+        "@nxgt/shared-exceptions": "workspace:^",
+        "@nxgt/shared-logging": "workspace:^",
+        "@nxgt/shared-mongo": "workspace:^",
         "bson": "^7.3.2",
         "lodash": "^4.18.1",
         "minio": "^8.0.7",
@@ -299,7 +299,7 @@
         "@types/lodash": "^4.17.25",
       },
       "peerDependencies": {
-        "typescript": "^6.0.3",
+        "typescript": "^6.0.3 || ^7.0.0",
       },
     },
   },
