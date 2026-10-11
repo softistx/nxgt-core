@@ -40,7 +40,7 @@ The entry is fresh for 10 minutes (2 minutes when it holds an upstream issue Git
 | cache | the hook |
 | --- | --- |
 | fresh | renders it; no gh call |
-| stale | renders it with "as of Nm ago" and starts `issues.ts refresh` detached, so the next session sees fresh data; not more than one per minute (a `refreshing` stamp, created exclusively, so hooks starting together spawn one) |
+| stale | renders it with "as of Nm ago" and starts `issues.ts refresh` detached (from the home directory, with bun's `--no-env-file` and the plugin's empty `bunfig.toml`), so the next session sees fresh data; not more than one per minute (a `refreshing` stamp, created exclusively, so hooks starting together spawn one) |
 | absent | one inline refresh capped at 800 ms (each gh call at 650 ms, and any call still running is killed before the hook returns, so no `gh` outlives it); if it does not finish, or a gh call is cut at its cap (a timeout, not a failure: no `failed` stamp), prints nothing and starts the same detached refresh, so the next session finds a cache. A fresh `refreshing` stamp (a detached refresh is already running) means no inline attempt at all |
 | failure stamp | a refresh that fails (gh missing, logged out, bad answer) leaves a `failed` stamp (in `cache/stamps/`) for 10 minutes: no attempt meanwhile, a stale entry is rendered as it is and an absent one prints nothing |
 | rate-limit pause | a stale entry is rendered without a refresh; an absent one prints nothing, with no call |
@@ -53,7 +53,8 @@ GraphQL calls described in the README.
 | module | role |
 | --- | --- |
 | `hook.ts` | the shell every hook of the plugin runs in |
-| `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once; any other run leads its own process group and is bounded by its timeout or an abort signal: the whole group is killed, so a grandchild holding the pipes dies too, and what arrived is returned; a call cut by its timeout says `timedOut`; SIGINT, SIGTERM and SIGHUP to the process kill every live child's group, then exit 128+n, so no `gh` outlives the CLI), with a scripted fake for specs |
+| `git-guard.ts` | the `-c` overrides every git starts with and the child environment (no lazy fetch, no protocol, nothing that redirects git or injects config), so a repository's own config cannot run a command |
+| `runner.ts` | the only place that spawns a process or fetches a URL; every spawn gets `git-guard.ts`'s guard (a `git` argv is prefixed with `GIT_GUARD`, and the child's environment is `childEnv`'s: see the README's security model) (a `detached` run starts in its own process group and returns at once; any other run leads its own process group and is bounded by its timeout or an abort signal: the whole group is killed, so a grandchild holding the pipes dies too, and what arrived is returned; a call cut by its timeout says `timedOut`; SIGINT, SIGTERM and SIGHUP to the process kill every live child's group, then exit 128+n, so no `gh` outlives the CLI), with a scripted fake for specs |
 | `repo-id.ts` | which GitHub repository a directory or a `package.json` belongs to, and whether its owner is allowed |
 | `refs.ts` | closing keywords (outside code spans, fenced blocks and quote lines) and upstream references |
 | `release-git.ts`, `release-pr-info.ts` | the local git side: the CHANGELOG section's `[#N]` links, the first-parent log of a package since its previous tag, `git diff` of a merge commit, `git merge-base --is-ancestor`; and the PRs read from `gh` (integration PRs of a `feat/*` branch, dropping ones released before) |

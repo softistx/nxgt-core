@@ -13,7 +13,7 @@
  * remote, `remote.<name>.uploadpack`) is the way a read such as `git show`
  * reaches a transport. Two more layers close it in the environment:
  * `GIT_NO_LAZY_FETCH` (git 2.44+) stops the fetch, and an empty
- * `GIT_ALLOW_PROTOCOL` (git 2.12+) allows no protocol at all whatever the
+ * `GIT_ALLOW_PROTOCOL` allows no protocol at all whatever the
  * repository's config says, http, https, git and `<helper>::` included, which
  * covers a git older than 2.44.
  */
