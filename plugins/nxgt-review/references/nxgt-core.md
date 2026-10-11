@@ -141,9 +141,10 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   `fetch(` anywhere else in `lib/`, in `scripts/hooks/*.ts` or in a
   `*.fixtures.ts` (`no-network.spec.ts` enforces it; a fixture imports only
   `type Runner`); entry files alone build the real runner, and specs use the
-  scripted fake. The runner's timeout is bounded even when a grandchild holds
-  the pipes, and a call the hook abandons is killed (`signal`), so no `gh`
-  outlives the hook.
+  scripted fake. The runner leads its own process group per call and kills the
+  group at the timeout or on `signal`, so even a grandchild holding the pipes
+  is bounded and no `gh` outlives the hook; a call it cut is `timedOut`, which
+  `gh()` raises as `GhTimeout`: a timeout, never a failed stamp.
 - **One exit-code mapping.** A command's error goes through `exitForError`
   (`filing.ts`), with its message on stderr; `NXGT_ISSUES_DISABLE` exits 2, so
   `markers` exit 1 only ever means flagged or usage. A GraphQL answer with

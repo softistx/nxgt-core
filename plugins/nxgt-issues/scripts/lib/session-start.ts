@@ -17,7 +17,7 @@
 
 import { cachePath, describeAge, readEntry } from './cache';
 import { renderContext } from './context';
-import { type GhContext, rateLimitedUntil } from './github';
+import { type GhContext, GhTimeout, rateLimitedUntil } from './github';
 import { disabled } from './hook';
 import { refreshRepo } from './refresh';
 import { claimStamp, setStamp, stampFresh } from './refresh-state';
@@ -28,7 +28,7 @@ import {
 	repoOfDirectory,
 } from './repo-id';
 import type { Runner } from './runner';
-import type { Snapshot } from './snapshot';
+import { type Snapshot, snapshotFresh } from './snapshot';
 
 export const COLD_BUDGET_MS = 800;
 /** Each inline gh call ends this long before the budget does, so no child outlives the hook. */
@@ -70,7 +70,10 @@ async function coldRefresh(
 			signal: controller.signal,
 		};
 		return await Promise.race([
-			refreshRepo(capped, id, owners).catch((): 'failed' => 'failed'),
+			// A call the runner cut is a slow network, not a broken gh: no failed stamp, the detached refresh runs.
+			refreshRepo(capped, id, owners).catch((error): 'failed' | 'timeout' =>
+				error instanceof GhTimeout ? 'timeout' : 'failed',
+			),
 			budget,
 		]);
 	} finally {
@@ -111,8 +114,9 @@ export async function sessionStartContext(
 			stampFresh(deps.home, id, 'failed', now);
 		const entry = readEntry<unknown>(cachePath(deps.home, id), now);
 		if (entry && isSnapshot(entry.data)) {
-			if (!(entry.fresh || idle)) startRefresh(deps, id);
-			const age = entry.fresh ? undefined : describeAge(entry.ageMs);
+			const fresh = snapshotFresh({ ...entry, data: entry.data });
+			if (!(fresh || idle)) startRefresh(deps, id);
+			const age = fresh ? undefined : describeAge(entry.ageMs);
 			return renderContext(entry.data, { now, ...(age ? { age } : {}) });
 		}
 		// A detached refresh is running (fresh stamp): it will fill the cache.

@@ -43,6 +43,22 @@ function deps(
 	};
 }
 
+/**
+ * A gh call that takes `delayMs` and is cut at its `timeoutMs`, as the real
+ * runner does: code 143 and `timedOut`. Detached runs return at once.
+ */
+function slowGh(runner: FakeRunner, delayMs: number, stdout = ''): void {
+	runner.run = (async (argv, options) => {
+		(runner.calls as unknown[]).push({ argv, options: options ?? {} });
+		if (options?.detached) return { code: 0, stdout: '', stderr: '' };
+		const cap = options?.timeoutMs ?? Number.POSITIVE_INFINITY;
+		await Bun.sleep(Math.min(delayMs, cap));
+		return delayMs > cap
+			? { code: 143, stdout: '', stderr: '', timedOut: true }
+			: { code: 0, stdout, stderr: '' };
+	}) as typeof runner.run;
+}
+
 const answering = (stdout: string) =>
 	fakeRunner({ run: [{ argv: GRAPHQL, result: { stdout } }] });
 
@@ -170,7 +186,7 @@ describe('sessionStartContext: a cold cache', () => {
 
 	test('a refresh slower than 800 ms is abandoned', async () => {
 		const runner = fakeRunner();
-		runner.run = () => new Promise(() => undefined);
+		slowGh(runner, 10_000);
 		const started = performance.now();
 		expect(await sessionStartContext(deps(runner))).toBeUndefined();
 		expect(performance.now() - started).toBeLessThan(1500);
@@ -222,12 +238,7 @@ describe('sessionStartContext: latency', () => {
 describe('sessionStartContext: a refresh that does not finish', () => {
 	test('a cold start over budget starts the detached refresh', async () => {
 		const runner = fakeRunner({ run: [{ argv: ['bun'] }] });
-		runner.run = (async (argv, options) => {
-			(runner.calls as unknown[]).push({ argv, options: options ?? {} });
-			return options?.detached
-				? { code: 0, stdout: '', stderr: '' }
-				: new Promise(() => undefined);
-		}) as typeof runner.run;
+		slowGh(runner, 10_000);
 		const d = deps(runner);
 		expect(await sessionStartContext(d)).toBeUndefined();
 		const detached = runner.calls.filter((call) => call.options.detached);
@@ -289,11 +300,11 @@ describe('sessionStartContext: the cold path leaves nothing behind', () => {
 	function hanging() {
 		const runner = fakeRunner({ run: [{ argv: ['bun'] }] });
 		const signals: (AbortSignal | undefined)[] = [];
-		runner.run = (async (argv, options) => {
-			(runner.calls as unknown[]).push({ argv, options: options ?? {} });
-			if (options?.detached) return { code: 0, stdout: '', stderr: '' };
-			signals.push(options?.signal);
-			return new Promise(() => undefined);
+		slowGh(runner, 10_000);
+		const inner = runner.run;
+		runner.run = ((argv, options) => {
+			if (!options?.detached) signals.push(options?.signal);
+			return inner.call(runner, argv, options);
 		}) as typeof runner.run;
 		return { runner, signals };
 	}
@@ -366,5 +377,36 @@ describe('sessionStartContext: the cold path leaves nothing behind', () => {
 		// Where the cache folder should be, a file.
 		writeFileSync(join(d.home, 'cache'), 'not a folder');
 		expect(await sessionStartContext(d)).toContain('Still shown');
+	});
+});
+
+describe('sessionStartContext: a call the runner cut is a timeout, not a failure', () => {
+	test('a listing taking 700 ms leaves no failed stamp and starts the detached refresh', async () => {
+		const runner = fakeRunner();
+		slowGh(runner, 700, listing({ issues: [ONE] }));
+		const d = deps(runner);
+		expect(await sessionStartContext(d)).toBeUndefined();
+		expect(stampFresh(d.home, ME, 'failed', NOW)).toBe(false);
+		const detached = runner.calls.filter((call) => call.options.detached);
+		expect(detached).toHaveLength(1);
+		expect(detached[0]?.argv).toEqual(REFRESH);
+		// The detached refresh fills the cache; the next session renders it.
+		seed(d.home, SNAPSHOT, NOW);
+		expect(await sessionStartContext(d)).toContain('parse() drops');
+		expect(runner.calls.filter((call) => call.options.detached)).toHaveLength(
+			1,
+		);
+	});
+
+	test('a genuine failure (exit 1) still leaves the failed stamp', async () => {
+		const runner = fakeRunner({
+			run: [{ argv: GRAPHQL, result: { code: 1, stderr: 'boom' } }],
+		});
+		const d = deps(runner);
+		expect(await sessionStartContext(d)).toBeUndefined();
+		expect(stampFresh(d.home, ME, 'failed', NOW)).toBe(true);
+		expect(runner.calls.filter((call) => call.options.detached)).toHaveLength(
+			0,
+		);
 	});
 });

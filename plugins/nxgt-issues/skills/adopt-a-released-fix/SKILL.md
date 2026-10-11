@@ -37,7 +37,7 @@ registry for the version that contains the fix. `[]` means nothing to adopt:
 stop. Take one entry at a time, or several that share a package.
 
 The cache is 10 minutes old at most; a refresh is two `gh` calls. Exit 2/5/6
-mean a foreign origin, a rate limit or a gh failure: tell the user, do not
+mean a foreign origin (or `NXGT_ISSUES_DISABLE`), a rate limit or a gh failure: tell the user, do not
 retry in a loop.
 
 ## 2. Find the workarounds

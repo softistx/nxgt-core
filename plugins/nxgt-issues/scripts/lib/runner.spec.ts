@@ -173,6 +173,15 @@ describe('a detached run', () => {
 });
 
 /** Kills a pid a spec started, whatever state it is in. */
+const alive = (pid: number): boolean => {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch {
+		return false;
+	}
+};
+
 const reap = (pidFile: string): void => {
 	try {
 		process.kill(Number(readFileSync(pidFile, 'utf8').trim()), 'SIGKILL');
@@ -195,6 +204,10 @@ describe('the real runner: a timeout is bounded', () => {
 			const result = await runner.run(['sh', script], { timeoutMs: 300 });
 			expect(performance.now() - started).toBeLessThan(1500);
 			expect(result.code).not.toBe(0);
+			// The whole process group is killed: the sleeper is gone without our help.
+			const sleeper = Number(readFileSync(pidFile, 'utf8').trim());
+			await Bun.sleep(100);
+			expect(alive(sleeper)).toBe(false);
 		} finally {
 			reap(pidFile);
 		}
@@ -214,6 +227,21 @@ describe('the real runner: a timeout is bounded', () => {
 		} finally {
 			reap(pidFile);
 		}
+	});
+
+	test('a call cut by its timeout says so; one that finished or was aborted does not', async () => {
+		const cut = await runner.run(['sleep', '8'], { timeoutMs: 100 });
+		expect(cut.timedOut).toBe(true);
+		const done = await runner.run(['echo', 'x']);
+		expect(done.timedOut).toBeUndefined();
+		const controller = new AbortController();
+		const pending = runner.run(['sleep', '8'], {
+			timeoutMs: 20_000,
+			signal: controller.signal,
+		});
+		await Bun.sleep(50);
+		controller.abort();
+		expect((await pending).timedOut).toBeUndefined();
 	});
 
 	test('aborting the signal kills the child at once', async () => {

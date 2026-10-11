@@ -6,7 +6,17 @@
  * swallows its errors; a stamp is an optimisation, never a reason to fail.
  */
 
-import { closeSync, openSync, rmSync, statSync, writeSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import {
+	closeSync,
+	openSync,
+	readdirSync,
+	renameSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+	writeSync,
+} from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { cachePath, makePrivateDir, readEntry, writeEntry } from './cache';
 import type { RepoId } from './repo-id';
@@ -54,22 +64,61 @@ export function setStamp(
 	}
 }
 
-/** A stamp file nobody could parse (being written, or damaged) is as young as its modification time says. */
-function stampTaken(path: string, kind: StampKind, now: number): boolean {
+/**
+ * Whether the stamp at `path` still holds, and which generation of it was
+ * read: its `writtenAt`, or its modification time when nobody could parse it
+ * (being written, or damaged), which then counts as young for the TTL.
+ */
+function inspect(
+	path: string,
+	kind: StampKind,
+	now: number,
+): { fresh: boolean; generation: string } | undefined {
 	const entry = readEntry(path, now, TTL_MS[kind]);
-	if (entry) return entry.fresh;
+	if (entry) return { fresh: entry.fresh, generation: String(entry.writtenAt) };
 	try {
-		return Math.abs(now - statSync(path).mtimeMs) < TTL_MS[kind];
+		const mtime = statSync(path).mtimeMs;
+		return {
+			fresh: Math.abs(now - mtime) < TTL_MS[kind],
+			generation: `m${Math.floor(mtime)}`,
+		};
 	} catch {
-		return false;
+		return undefined;
 	}
 }
 
+/** A takeover marker older than this belongs to a claimant that died before it finished. */
+const MARKER_ABANDONED_MS = 10_000;
+
+/** Exclusively creates the marker of one generation of a stamp; false when another claimant holds it. */
+function takeGeneration(marker: string): boolean {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			closeSync(openSync(marker, 'wx', 0o600));
+			return true;
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return false;
+			try {
+				if (Date.now() - statSync(marker).mtimeMs < MARKER_ABANDONED_MS) {
+					return false;
+				}
+				rmSync(marker, { force: true });
+			} catch {
+				return false;
+			}
+		}
+	}
+	return false;
+}
+
 /**
- * Takes the stamp, exclusively: the file is created with the `wx` flag, so of
- * several hooks starting at once exactly one gets `true` and spawns the
- * refresh. A stamp already there and still fresh means taken (`false`); an
- * expired one is replaced. An unwritable home is `false`: no stamp, no spawn.
+ * Takes the stamp, exclusively. Of several hooks starting at once exactly one
+ * gets `true` and spawns the refresh: a missing stamp is created with the `wx`
+ * flag; a fresh one (or a half-written one) means taken; an expired one is
+ * replaced by whoever first creates the takeover marker of the generation it
+ * read (`<stamp>.takeover.<writtenAt>`, left in place so a late claimant that
+ * read the same generation loses too), through a temporary file and a rename.
+ * An unwritable home is `false`: no stamp, no spawn.
  */
 export function claimStamp(
 	home: string,
@@ -80,22 +129,27 @@ export function claimStamp(
 	try {
 		const path = stampPath(home, id, kind);
 		makePrivateDir(dirname(path));
-		for (let attempt = 0; attempt < 2; attempt++) {
+		const content = `${JSON.stringify({ writtenAt: now, data: {} })}\n`;
+		try {
+			const fd = openSync(path, 'wx', 0o600);
 			try {
-				const fd = openSync(path, 'wx', 0o600);
-				try {
-					writeSync(fd, `${JSON.stringify({ writtenAt: now, data: {} })}\n`);
-				} finally {
-					closeSync(fd);
-				}
-				return true;
-			} catch (error) {
-				if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return false;
-				if (stampTaken(path, kind, now)) return false;
-				rmSync(path, { force: true });
+				writeSync(fd, content);
+			} finally {
+				closeSync(fd);
 			}
+			return true;
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return false;
 		}
-		return false;
+		const seen = inspect(path, kind, now);
+		if (!seen) return claimStamp(home, id, kind, now);
+		if (seen.fresh || !takeGeneration(`${path}.takeover.${seen.generation}`)) {
+			return false;
+		}
+		const temporary = `${path}.${randomBytes(6).toString('hex')}.tmp`;
+		writeFileSync(temporary, content, { mode: 0o600 });
+		renameSync(temporary, path);
+		return true;
 	} catch {
 		return false;
 	}
@@ -104,7 +158,14 @@ export function claimStamp(
 export function clearStamps(home: string, id: RepoId): void {
 	try {
 		for (const kind of ['failed', 'refreshing'] as const) {
-			rmSync(stampPath(home, id, kind), { force: true });
+			const path = stampPath(home, id, kind);
+			rmSync(path, { force: true });
+			// Its takeover markers go with it.
+			for (const name of readdirSync(dirname(path))) {
+				if (name.startsWith(`${basename(path)}.takeover.`)) {
+					rmSync(join(dirname(path), name), { force: true });
+				}
+			}
 		}
 	} catch {
 		// nothing to clear

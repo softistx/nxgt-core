@@ -107,7 +107,17 @@ async function judge(
 		const upstream = `${resolution.repo}#${marker.number}`;
 		const done = ready.find((issue) => same(issue.upstream, upstream));
 		const tracked = snapshot.tracking.some((t) => same(t.upstream, upstream));
-		if (done) {
+		const unreadable = snapshot.tracking.some(
+			(t) => same(t.upstream, upstream) && t.upstreamUnknown,
+		);
+		if (unreadable) {
+			const detail = `${upstream} could not be read; try again`;
+			out.push({
+				report: { ...base, status: 'unreadable', detail },
+				upstream,
+				target: marker.target,
+			});
+		} else if (done) {
 			const fix = releaseFix(done);
 			const detail = `fixed and released; remove it (tracking #${done.number})`;
 			const version = versionFor(marker.target, fix);
@@ -192,5 +202,10 @@ export async function markersCommand(
 	).length;
 	if (json) ctx.out(JSON.stringify(cleanJson(reports), null, 2));
 	else print(ctx, reports, flagged);
+	// A marker GitHub could not read has no verdict: the run says so (6) before it says "flagged".
+	if (reports.some((report) => report.status === 'unreadable')) {
+		ctx.err('nxgt-issues: some upstream issues could not be read; run again.');
+		return EXIT.failed;
+	}
 	return flagged > 0 ? EXIT.flagged : EXIT.ok;
 }

@@ -70,6 +70,7 @@ export function adoptReady(
 	return tracking
 		.filter(
 			(issue) =>
+				!issue.upstreamUnknown &&
 				issue.upstreamState === 'CLOSED' &&
 				hasLabel(issue.upstreamLabels ?? [], 'released'),
 		)
@@ -171,6 +172,7 @@ export function renderContext(
 	const shown = ranked.slice(0, MAX_ISSUES);
 	const ready = adoptReady(snapshot.tracking);
 	const adopt = ready.slice(0, MAX_ADOPT);
+	const unreadable = snapshot.tracking.filter((t) => t.upstreamUnknown);
 	const asOf = options.age ? ` (${options.age})` : '';
 	const total = Math.max(snapshot.total ?? 0, ranked.length);
 	const sections: Section[] = [
@@ -178,6 +180,16 @@ export function renderContext(
 			header: `${HEADER} fixes released upstream, ready to adopt (skill adopt-a-released-fix)${asOf}:`,
 			lines: adopt.map(adoptLine),
 			beyond: ready.length - adopt.length,
+		},
+		{
+			header: `${HEADER} upstream unreadable (GitHub could not be read just now; try later)${asOf}:`,
+			lines: unreadable
+				.slice(0, MAX_ADOPT)
+				.map(
+					(t) =>
+						`- tracking #${t.number} ${oneLine(t.title, 70)} → ${oneLine(t.upstream, 80)}`,
+				),
+			beyond: Math.max(0, unreadable.length - MAX_ADOPT),
 		},
 		{
 			header: `${HEADER} ${snapshot.repo} has ${total} open issue(s)${asOf}; ⚑ = no activity for ${INACTIVE_DAYS}+ days:`,

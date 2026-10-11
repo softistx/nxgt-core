@@ -36,6 +36,13 @@ export async function lookUpPublic(
 			line: report.line,
 			upstream: report.upstream,
 		};
+		if (issue?.unknown) {
+			return {
+				...base,
+				status: 'unreadable',
+				detail: `${upstream} could not be read; try again`,
+			};
+		}
 		if (!issue?.state) {
 			return {
 				...base,

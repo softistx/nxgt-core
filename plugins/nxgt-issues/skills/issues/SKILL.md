@@ -41,9 +41,10 @@ also `⚑` is stuck on someone. The "Merged, awaiting release" section lists
 consumer reports whose fix is merged but not released: the package side's next
 release closes them. A `?` for affected, or a note at the end, means an optional lookup failed, more
 than 30 consumer reports were open (only the first 30 get duplicate counts) or a
-search hit its limit; say so. Exit 5 means GitHub's rate limit is in force (try
-again later), exit 6 that `gh` failed (`gh auth status`); report the message
-and stop.
+search hit its limit; say so. Exit 2 means the checkout is not an allowed owner's
+repository or `NXGT_ISSUES_DISABLE` is set (nothing was checked), exit 5
+GitHub's rate limit is in force (try again later), exit 6 that `gh` failed
+(`gh auth status`); report the message and stop.
 
 **`ready`** — run
 
@@ -81,6 +82,7 @@ run writes to GitHub, so Claude Code asks before it, and that prompt is the
 user's look at what is about to be written. The output ends with the
 `notify` list of the applications' tracking issues; offer to message those
 sessions (`fix-a-reported-issue`, step 5). Exit 2 means the checkout is not an
-allowed owner's repository, 5 a rate limit, 6 a failure on one PR or issue.
+allowed owner's repository or `NXGT_ISSUES_DISABLE` is set, 5 a rate limit, 6 a
+failure on one PR or issue.
 
 Anything else: show the argument hint above.

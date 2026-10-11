@@ -21,6 +21,8 @@ export interface RunResult {
 	readonly code: number;
 	readonly stdout: string;
 	readonly stderr: string;
+	/** Set when the call was cut at its `timeoutMs` (code 143 or the like): a slow call, not a failed one. */
+	readonly timedOut?: true;
 }
 
 export interface Runner {
@@ -64,11 +66,20 @@ export function networkAllowed(env: Env, main: string = Bun.main): boolean {
 	return env['NODE_ENV'] !== 'test' && !TEST_ENTRY.test(main);
 }
 
+/** SIGKILL to the child's whole process group (it leads its own), else to the child alone. */
+function killGroup(child: Bun.Subprocess): void {
+	try {
+		process.kill(-child.pid, 'SIGKILL');
+	} catch {
+		child.kill('SIGKILL');
+	}
+}
+
 /**
  * The output and exit code of `child`, within `timeoutMs` and until `signal`
- * aborts. Past either, the child is killed and the call returns what arrived
- * so far without waiting for the pipes: a grandchild that inherited them (a
- * helper `gh` spawned) can hold them open long after the child is gone.
+ * aborts. Past either, the child's process group is killed (a grandchild dies
+ * with it) and the call returns what arrived so far without waiting for the
+ * pipes. A call cut by the timeout, not by the signal, says `timedOut`.
  */
 async function collect(
 	child: Bun.Subprocess<'pipe' | 'ignore', 'pipe', 'pipe'>,
@@ -79,9 +90,9 @@ async function collect(
 	const stderr = drain(child.stderr);
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let onAbort: (() => void) | undefined;
-	const cut = new Promise<'cut'>((resolve) => {
-		timer = setTimeout(() => resolve('cut'), timeoutMs);
-		onAbort = () => resolve('cut');
+	const cut = new Promise<'timeout' | 'abort'>((resolve) => {
+		timer = setTimeout(() => resolve('timeout'), timeoutMs);
+		onAbort = () => resolve('abort');
 		signal?.addEventListener('abort', onAbort, { once: true });
 	});
 	try {
@@ -90,17 +101,17 @@ async function collect(
 			finished.then(([, , code]) => code),
 			cut,
 		]);
-		if (winner !== 'cut') {
+		if (typeof winner === 'number') {
 			return { code: winner, stdout: stdout.text(), stderr: stderr.text() };
 		}
-		child.kill();
+		killGroup(child);
 		await Promise.all([stdout.cancel(), stderr.cancel()]);
 		const code = await Promise.race([child.exited, Bun.sleep(KILL_GRACE_MS)]);
-		if (typeof code !== 'number') child.kill('SIGKILL');
 		return {
 			code: typeof code === 'number' ? code : 137,
 			stdout: stdout.text(),
 			stderr: stderr.text(),
+			...(winner === 'timeout' ? { timedOut: true as const } : {}),
 		};
 	} finally {
 		clearTimeout(timer);
@@ -128,7 +139,8 @@ export function createRunner(
 			}
 			const child = Bun.spawn([...argv], {
 				...(options.cwd ? { cwd: options.cwd } : {}),
-				...(options.detached ? { detached: true } : {}),
+				// Its own process group, so a timeout or an abort can kill the grandchildren too.
+				detached: true,
 				stdin: options.stdin === undefined ? 'ignore' : 'pipe',
 				stdout: options.detached ? 'ignore' : 'pipe',
 				stderr: options.detached ? 'ignore' : 'pipe',

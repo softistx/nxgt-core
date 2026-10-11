@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
 	claimStamp,
 	clearStamps,
@@ -68,5 +68,43 @@ describe('claimStamp', () => {
 			expect(statSync(path).mode & 0o777).toBe(0o600);
 			expect(statSync(dirname(path)).mode & 0o777).toBe(0o700);
 		}
+	});
+});
+
+describe('claimStamp: processes racing for an expired stamp', () => {
+	test('exactly one of eight wins', async () => {
+		const h = home();
+		claimStamp(h, ME, 'refreshing', NOW - 120_000);
+		const start = Date.now() + 1500;
+		const script = `
+			import { claimStamp } from ${JSON.stringify(join(import.meta.dir, 'refresh-state'))};
+			while (Date.now() < ${start}) {}
+			console.log(claimStamp(${JSON.stringify(h)}, { owner: 'softistx', repo: 'nxgt-zorblax' }, 'refreshing', ${NOW}));`;
+		const children = Array.from({ length: 8 }, () =>
+			Bun.spawn(['bun', '-e', script], { stdout: 'pipe', stderr: 'pipe' }),
+		);
+		const answers = await Promise.all(
+			children.map(async (child) =>
+				(await new Response(child.stdout).text()).trim(),
+			),
+		);
+		expect(answers.filter((a) => a === 'true')).toHaveLength(1);
+		expect(answers.filter((a) => a === 'false')).toHaveLength(7);
+	});
+
+	test('a claim after the takeover finds the new stamp taken', () => {
+		const h = home();
+		claimStamp(h, ME, 'refreshing', NOW - 120_000);
+		expect(claimStamp(h, ME, 'refreshing', NOW)).toBe(true);
+		expect(claimStamp(h, ME, 'refreshing', NOW)).toBe(false);
+		expect(claimStamp(h, ME, 'refreshing', NOW + 1)).toBe(false);
+	});
+
+	test('takeover markers are cleared with the stamps', () => {
+		const h = home();
+		claimStamp(h, ME, 'refreshing', NOW - 120_000);
+		claimStamp(h, ME, 'refreshing', NOW);
+		clearStamps(h, ME);
+		expect(readdirSync(dirname(stampPath(h, ME, 'refreshing')))).toEqual([]);
 	});
 });

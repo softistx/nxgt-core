@@ -5,13 +5,14 @@
  * comment of each upstream issue. A repository without tracking issues costs
  * one call. A rate-limit refusal is `gh()`'s: it throws `RateLimitedError` and
  * stores the pause. An answer with errors is not cached as a full snapshot:
- * the listing refuses any error, and an upstream issue GitHub could not read
- * (anything but `NOT_FOUND`) fails the refresh instead of reading as missing.
+ * the listing refuses any error; an upstream issue GitHub could not read
+ * (anything but `NOT_FOUND`) is marked unknown on its tracking entry, never
+ * read as missing, and the rest is cached (fresh for two minutes only).
  */
 
 import { cachePath, writeEntry } from './cache';
 import { type GhContext, GhError } from './github';
-import { graphqlPartial, refuseUnknown } from './graphql-partial';
+import { graphqlPartial, refuseUntraceable } from './graphql-partial';
 import { nodes, obj, text } from './json';
 import { hasLabel, LABELS } from './labels';
 import { clearStamps } from './refresh-state';
@@ -52,7 +53,8 @@ export function upstreamQuery(
  * call (none for no ref). The caller has checked the owner allowlist and the
  * 32-bit number cap (`upstreamRef` does both); an issue GitHub says is not
  * there (`NOT_FOUND`) comes back without a state. Any other error under an
- * alias throws `GhError`: "could not read" is never "not found".
+ * alias marks that issue `unknown`: "could not read" is never "not found", and
+ * the others are kept. An error naming no alias throws `GhError`.
  */
 export async function fetchUpstream(
 	ctx: GhContext,
@@ -60,12 +62,9 @@ export async function fetchUpstream(
 ): Promise<UpstreamIssue[]> {
 	if (refs.length === 0) return [];
 	const result = await graphqlPartial(ctx, upstreamQuery(refs));
-	refuseUnknown(
-		result,
-		refs.map((_, i) => `u${i}`),
-		'upstream issues',
-	);
+	refuseUntraceable(result, 'upstream issues');
 	return refs.map((_, i): UpstreamIssue => {
+		if (result.unknown.has(`u${i}`)) return { labels: [], unknown: true };
 		const issue = obj(obj(result.data[`u${i}`])['issue']);
 		const state = text(issue['state']);
 		const last = nodes(issue['comments'])[0];
@@ -97,6 +96,7 @@ function trackingEntry(
 		upstream: `${formatRepo(ref.repo)}#${ref.number}`,
 		...(issue?.state ? { upstreamState: issue.state } : {}),
 		upstreamLabels: issue?.labels ?? [],
+		...(issue?.unknown ? { upstreamUnknown: true as const } : {}),
 		...(issue?.lastComment ? { lastComment: issue.lastComment } : {}),
 		...(issue?.lastComment && issue.lastCommentBy
 			? { lastCommentBy: issue.lastCommentBy }

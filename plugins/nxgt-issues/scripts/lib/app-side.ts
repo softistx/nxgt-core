@@ -12,7 +12,7 @@ import { adoptReady, releaseFix } from './context';
 import { exitForError } from './filing';
 import { refreshRepo } from './refresh';
 import { allowedOwners, isAllowedOwner, repoOfDirectory } from './repo-id';
-import type { Snapshot } from './snapshot';
+import { type Snapshot, snapshotFresh } from './snapshot';
 import { cleanJson, oneLine, untrustedHeader } from './untrusted';
 
 export interface ReadyIssue {
@@ -36,7 +36,7 @@ export async function loadSnapshot(
 		return { exit: EXIT.refusedGate };
 	}
 	const cached = readEntry<Snapshot>(cachePath(ctx.home, id), ctx.now());
-	if (cached?.fresh) return cached.data;
+	if (cached && snapshotFresh(cached)) return cached.data;
 	try {
 		return await refreshRepo(ctx, id, owners);
 	} catch (error) {
@@ -69,6 +69,12 @@ export async function readyCommand(
 	const snapshot = await loadSnapshot(ctx);
 	if ('exit' in snapshot) return snapshot.exit;
 	const ready = readyIssues(snapshot);
+	const unreadable = snapshot.tracking.filter((t) => t.upstreamUnknown).length;
+	if (unreadable > 0) {
+		ctx.err(
+			`${unreadable} tracking issue(s) with an unreadable upstream issue (GitHub could not read it; not listed); run again later.`,
+		);
+	}
 	if (json) {
 		ctx.out(JSON.stringify(cleanJson(ready), null, 2));
 		return EXIT.ok;

@@ -73,17 +73,12 @@ export async function graphqlPartial(
 	return { data: obj(parsed['data']), errored, missing, unknown };
 }
 
-/** Throws `GhError` when the answer is not to be trusted at one of `aliases` (or anywhere, for an error that names none). */
-export function refuseUnknown(
-	result: PartialResult,
-	aliases: Iterable<string>,
-	what: string,
-): void {
-	const hit = [...aliases].filter((alias) => result.unknown.has(alias));
-	if (hit.length === 0 && !result.unknown.has('*')) return;
+/** Throws `GhError` when an error names no alias: the whole query failed, so no alias can be trusted. */
+export function refuseUntraceable(result: PartialResult, what: string): void {
+	if (!result.unknown.has('*')) return;
 	throw new GhError(
 		['api', 'graphql'],
 		0,
-		`${what}: GitHub answered with errors${hit.length > 0 ? ` for ${hit.join(', ')}` : ''}`,
+		`${what}: GitHub answered with an error that names no alias`,
 	);
 }

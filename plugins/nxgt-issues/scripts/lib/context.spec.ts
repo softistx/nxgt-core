@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { adoptReady, MAX_CHARS, rankIssues, renderContext } from './context';
+import {
+	adoptReady,
+	MAX_CHARS,
+	rankIssues,
+	releaseFix,
+	renderContext,
+} from './context';
 import { ago, DAY, NOW } from './session.fixtures';
 import type { PackageIssue, Snapshot, TrackingIssue } from './snapshot';
 
@@ -270,5 +276,29 @@ describe('renderContext: untrusted text', () => {
 		const text = renderContext({ ...snap([]), total: 60 }, { now: NOW }) ?? '';
 		expect(text).toContain('60 open issue(s)');
 		expect(text).toContain('… and 60 more');
+	});
+});
+
+describe('releaseFix: the release bot needs its author type', () => {
+	const comment = 'Fixed in @nxgt/vexora@1.2.3 (#4).';
+	test('login github-actions without a type is not trusted', () => {
+		expect(
+			releaseFix({
+				lastComment: comment,
+				lastCommentBy: 'NONE',
+				lastCommentLogin: 'github-actions',
+			}),
+		).toBeUndefined();
+	});
+
+	test('login github-actions of type Bot is', () => {
+		expect(
+			releaseFix({
+				lastComment: comment,
+				lastCommentBy: 'NONE',
+				lastCommentLogin: 'github-actions',
+				lastCommentAuthorType: 'Bot',
+			})?.version,
+		).toBe('1.2.3');
 	});
 });

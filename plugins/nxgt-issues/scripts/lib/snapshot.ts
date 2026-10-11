@@ -15,6 +15,8 @@ export interface TrackingIssue {
 	readonly upstream: string;
 	readonly upstreamState?: 'OPEN' | 'CLOSED';
 	readonly upstreamLabels?: readonly string[];
+	/** GitHub could not read the upstream issue (any error but NOT_FOUND): neither ready nor known to be missing. */
+	readonly upstreamUnknown?: true;
 	readonly lastComment?: string;
 	/** The comment author's `authorAssociation` (OWNER, MEMBER, NONE…). */
 	readonly lastCommentBy?: string;
@@ -32,6 +34,8 @@ export interface UpstreamIssue {
 	readonly lastCommentBy?: string;
 	readonly lastCommentLogin?: string;
 	readonly lastCommentAuthorType?: string;
+	/** GitHub could not read this issue (any error but NOT_FOUND). */
+	readonly unknown?: true;
 }
 
 export interface Snapshot {
@@ -41,3 +45,16 @@ export interface Snapshot {
 	/** Open issues of the repository, tracking issues apart (the list is capped). */
 	readonly total?: number;
 }
+
+/** A snapshot with an unreadable upstream issue is fresh for this long only, so the next look retries it. */
+export const PARTIAL_TTL_MS = 2 * 60 * 1000;
+
+/** Whether a cache entry holding a snapshot is fresh: the entry's own TTL, and the short one when an upstream issue is unreadable. */
+export const snapshotFresh = (entry: {
+	readonly fresh: boolean;
+	readonly ageMs: number;
+	readonly data: Snapshot;
+}): boolean =>
+	entry.fresh &&
+	(entry.ageMs < PARTIAL_TTL_MS ||
+		!entry.data.tracking.some((issue) => issue.upstreamUnknown));
