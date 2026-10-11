@@ -7,12 +7,21 @@
  * judge (`--duplicate-of <n>` comments there, `--new` files anyway). Otherwise
  * the missing labels are created and the issue filed; its URL is printed. A
  * `dependencies` report goes to the one rolling issue instead (`deps.ts`).
+ * Before all that, a public application repository refuses unless
+ * `--public-app`; a closed match is handled per `file-checks.ts`.
  */
 
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import { filingDenyList } from './deny-sources';
 import { upsertRollingIssue } from './deps';
+import {
+	printAwaitingHint,
+	printReleasedHint,
+	refuseInPublicApp,
+	standing,
+	warnWithoutDomains,
+} from './file-checks';
 import {
 	allowFor,
 	checkTexts,
@@ -38,8 +47,10 @@ import type { DenyList } from './scrub';
 export interface FileFlags {
 	/** Comment on this issue: Claude judged a keyword candidate a duplicate. */
 	readonly duplicateOf?: number | undefined;
-	/** File even though keyword candidates exist: Claude judged none a duplicate. */
+	/** File even though keyword candidates exist, or the same report is closed and released. */
 	readonly force?: boolean | undefined;
+	/** The application's repository is public and the user agreed to file from it. */
+	readonly publicApp?: boolean | undefined;
 }
 
 /** At most six plain words of the (scrubbed) keywords or title. */
@@ -110,7 +121,15 @@ export async function fileIssue(
 	const { title, body, comment, search } = checked.texts;
 	const reports = await issuesWithLabel(ctx, resolved.repo, 'consumer-report');
 	const same = reports.find((issue) => extractFingerprint(issue.body) === hash);
-	if (same) return commentOn(ctx, resolved, same, comment);
+	const sameStanding = same ? standing(same) : undefined;
+	if (same && sameStanding === 'released' && !flags.force) {
+		return printReleasedHint(ctx, same);
+	}
+	if (same && sameStanding !== 'released') {
+		const code = await commentOn(ctx, resolved, same, comment);
+		if (sameStanding === 'awaiting-release') printAwaitingHint(ctx, same);
+		return code;
+	}
 	if (flags.duplicateOf !== undefined) {
 		return commentOn(ctx, resolved, { number: flags.duplicateOf }, comment);
 	}
@@ -138,9 +157,12 @@ export async function fileCommand(
 		return EXIT.usage;
 	}
 	try {
+		const publicApp = await refuseInPublicApp(ctx, flags.publicApp === true);
+		if (publicApp !== undefined) return publicApp;
 		const resolved = await resolvePackage(ctx, report.package);
 		if (!resolved.ok) return printGateRefusal(ctx, resolved);
 		const denyList = await filingDenyList(ctx);
+		warnWithoutDomains(ctx);
 		if (report.kind === 'dependencies') {
 			return await upsertRollingIssue(
 				ctx,

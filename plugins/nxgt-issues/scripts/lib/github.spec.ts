@@ -1,7 +1,4 @@
-import { describe, expect, test } from 'bun:test';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { afterAll, describe, expect, test } from 'bun:test';
 import {
 	GhError,
 	gh,
@@ -13,13 +10,16 @@ import {
 } from './github';
 import { commentIssue, createIssue, privateRepos } from './github-issues';
 import { fakeRunner, type RunRule } from './runner.fixtures';
+import { removeTempDirs, tempDir } from './temp.fixtures';
+
+afterAll(removeTempDirs);
 
 const NOW = 1_000_000;
 const WIDGET = { owner: 'softistx', repo: 'nxgt-widget' };
 
 const ctxWith = (rules: RunRule[], now = NOW) => {
 	const runner = fakeRunner({ run: rules });
-	const home = mkdtempSync(join(tmpdir(), 'nxgt-issues-gh-'));
+	const home = tempDir('gh');
 	return { runner, home, now: () => now };
 };
 
@@ -42,7 +42,6 @@ describe('gh', () => {
 		'API rate limit exceeded for user',
 		'You have exceeded a secondary rate limit',
 		'HTTP 429: Too Many Requests',
-		'HTTP 403: Forbidden',
 	])('%p pauses every call for 15 minutes', async (stderr) => {
 		const ctx = ctxWith([{ argv: ['gh'], result: { code: 1, stderr } }]);
 		await expect(gh(ctx, ['x'])).rejects.toBeInstanceOf(RateLimitedError);
@@ -142,5 +141,32 @@ describe('wrappers', () => {
 		]);
 		expect(await privateRepos(ctx, 'softistx')).toEqual(['softistx/a']);
 		expect(ctx.runner.calls[0]?.argv).toContain('private');
+	});
+});
+
+describe('a 403 that is not a rate limit', () => {
+	test('is a permission GhError and pauses nothing', async () => {
+		const ctx = ctxWith([
+			{
+				argv: ['gh'],
+				result: {
+					code: 1,
+					stderr: 'HTTP 403: Resource not accessible by integration',
+				},
+			},
+		]);
+		const error = await gh(ctx, ['x']).catch((e: unknown) => e);
+		expect(error).toBeInstanceOf(GhError);
+		expect((error as GhError).message).toContain('permission');
+		expect(rateLimitedUntil(ctx.home, NOW)).toBeUndefined();
+	});
+
+	test.each([
+		'HTTP 403: You have exceeded a secondary rate limit',
+		'HTTP 403: abuse detection mechanism',
+		'HTTP 403: API rate limit exceeded',
+	])('%p still pauses', async (stderr) => {
+		const ctx = ctxWith([{ argv: ['gh'], result: { code: 1, stderr } }]);
+		await expect(gh(ctx, ['x'])).rejects.toBeInstanceOf(RateLimitedError);
 	});
 });

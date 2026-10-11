@@ -2,10 +2,11 @@
  * A throwaway application checkout and a `CliContext` around the fake runner,
  * for the command specs. The application is `softistx/acme-store`, it installs
  * `@nxgt/widget` from `softistx/nxgt-widget`, and the person is Jane Roe.
+ * Every folder made here is removed by `removeTempDirs` (register it with
+ * `afterAll`).
  */
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CliContext } from './cli-context';
 import {
@@ -14,6 +15,9 @@ import {
 	fakeRunner,
 	type RunRule,
 } from './runner.fixtures';
+import { tempDir } from './temp.fixtures';
+
+export { removeTempDirs } from './temp.fixtures';
 
 export const PKG = '@nxgt/widget';
 export const WIDGET = { owner: 'softistx', repo: 'nxgt-widget' } as const;
@@ -25,7 +29,7 @@ const write = (path: string, data: unknown) => {
 
 /** A checkout of `origin` with a workspace and `@nxgt/widget` installed. */
 export function makeApp(origin = 'git@github.com:softistx/acme-store.git') {
-	const root = mkdtempSync(join(tmpdir(), 'nxgt-issues-app-'));
+	const root = tempDir('app');
 	const dir = join(root, 'acme-store');
 	write(join(dir, '.git', 'config'), `[remote "origin"]\n\turl = ${origin}\n`);
 	write(join(dir, 'package.json'), {
@@ -53,6 +57,17 @@ export const repoJson = (over: Record<string, unknown> = {}) =>
 
 /** The answers every filing needs; specs put their own rules first. */
 export const BASE_RUN: readonly RunRule[] = [
+	{
+		argv: ['gh', 'api', 'repos/softistx/acme-store'],
+		result: {
+			stdout: JSON.stringify({
+				full_name: 'softistx/acme-store',
+				has_issues: true,
+				archived: false,
+				private: true,
+			}),
+		},
+	},
 	{
 		argv: ['gh', 'api', 'repos/softistx/nxgt-widget'],
 		result: { stdout: repoJson() },
@@ -124,7 +139,7 @@ export function harness(options: {
 		run: [...(options.run ?? []), ...BASE_RUN],
 		fetch: [...(options.fetch ?? []), ...BASE_FETCH],
 	});
-	const home = mkdtempSync(join(tmpdir(), 'nxgt-issues-home-'));
+	const home = tempDir('home');
 	const out: string[] = [];
 	const err: string[] = [];
 	const ctx: CliContext = {

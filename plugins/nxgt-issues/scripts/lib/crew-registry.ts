@@ -1,10 +1,14 @@
 /**
  * A minimal, read-only copy of nxgt-crew's registry reader and liveness rule
- * (`plugins/nxgt-crew/scripts/lib/{store,liveness,system}.ts`), so `issues.ts
+ * (`plugins/nxgt-crew/scripts/lib/`: `store.ts` for the home and the reader,
+ * `record.ts` for the record check, `settings.ts` for the knobs,
+ * `liveness.ts` for the rule, `system.ts` for the pid probe), so `issues.ts
  * sessions` can name the live sessions to tell after a filing without
  * depending on nxgt-crew being installed (owner decision Q13). It reads
  * `<crew home>/sessions/*.json` and never writes. Copied, not imported: each
- * plugin installs on its own (AGENTS.md, deliberate duplications).
+ * plugin installs on its own (AGENTS.md, deliberate duplications). The
+ * record check is looser than nxgt-crew's on purpose: it checks only the
+ * fields read here, so a record nxgt-crew grows stays readable.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';

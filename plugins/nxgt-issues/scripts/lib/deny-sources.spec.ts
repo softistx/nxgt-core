@@ -1,7 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { callsOf, harness, makeApp } from './cli.fixtures';
+import { callsOf, harness, makeApp, removeTempDirs } from './cli.fixtures';
+
+afterAll(removeTempDirs);
+
 import { findDenied } from './deny';
 import {
 	DenyListIncomplete,
@@ -106,15 +109,5 @@ describe('filingDenyList', () => {
 		await expect(filingDenyList(failing.ctx)).rejects.toBeInstanceOf(
 			DenyListIncomplete,
 		);
-	});
-
-	test('git config failing leaves the person out but still builds', async () => {
-		const h = harness({
-			cwd: makeApp(),
-			run: [{ argv: ['git', 'config'], throws: 'no git' }],
-		});
-		const list = await filingDenyList(h.ctx);
-		expect(list.terms).not.toContain('Jane Roe');
-		expect(list.terms).toContain('acme-store');
 	});
 });

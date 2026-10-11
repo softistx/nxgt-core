@@ -1,5 +1,15 @@
-import { describe, expect, test } from 'bun:test';
-import { callsOf, harness, makeApp, PKG, repoJson } from './cli.fixtures';
+import { afterAll, describe, expect, test } from 'bun:test';
+import {
+	callsOf,
+	harness,
+	makeApp,
+	PKG,
+	removeTempDirs,
+	repoJson,
+} from './cli.fixtures';
+
+afterAll(removeTempDirs);
+
 import { GATE_TTL_MS, REGISTRY_TIMEOUT_MS, resolvePackage } from './resolve';
 import type { Runner } from './runner';
 

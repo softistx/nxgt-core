@@ -1,5 +1,15 @@
-import { describe, expect, test } from 'bun:test';
-import { callsOf, harness, makeApp, PKG, report } from './cli.fixtures';
+import { afterAll, describe, expect, test } from 'bun:test';
+import {
+	callsOf,
+	harness,
+	makeApp,
+	PKG,
+	removeTempDirs,
+	report,
+} from './cli.fixtures';
+
+afterAll(removeTempDirs);
+
 import { EXIT } from './cli-context';
 import { fileCommand, searchQuery } from './file';
 import { fingerprint, fingerprintMarker } from './fingerprint';
@@ -188,7 +198,7 @@ describe('file: refusals and failures', () => {
 			stdin: report(),
 			run: [
 				{
-					argv: ['gh', 'api'],
+					argv: ['gh', 'api', 'repos/softistx/nxgt-widget'],
 					result: {
 						stdout: JSON.stringify({
 							full_name: 'softistx/nxgt-widget',

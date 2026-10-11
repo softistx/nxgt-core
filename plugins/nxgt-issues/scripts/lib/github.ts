@@ -1,9 +1,11 @@
 /**
  * Every GitHub call the plugin makes, as `gh` invocations through the runner.
- * A refusal by the API for rate (HTTP 403 or 429, or a message that says
- * "rate limit") stores `rateLimitedUntil` in `<home>/cache/rate-limit.json`;
+ * A refusal by the API for rate (HTTP 429, or a message that says "rate
+ * limit", "secondary rate" or "abuse") stores `rateLimitedUntil` in `<home>/cache/rate-limit.json`;
  * until then every call throws `RateLimitedError` without spawning anything,
- * so one throttled run does not turn into a burst of failing ones.
+ * so one throttled run does not turn into a burst of failing ones. Any other
+ * HTTP 403 is a missing permission: a `GhError` whose `permission` is set,
+ * and nothing is paused.
  */
 
 import { join } from 'node:path';
@@ -22,15 +24,23 @@ export class RateLimitedError extends Error {
 	}
 }
 
+const FORBIDDEN = /HTTP 403|status 403/i;
+
 export class GhError extends Error {
 	constructor(
 		readonly argv: readonly string[],
 		readonly code: number,
 		readonly stderr: string,
 	) {
+		const what = FORBIDDEN.test(stderr) ? 'was refused (permission)' : 'failed';
 		super(
-			`gh ${argv.slice(0, 3).join(' ')} failed (${code}): ${stderr.trim().slice(0, 300)}`,
+			`gh ${argv.slice(0, 3).join(' ')} ${what} (${code}): ${stderr.trim().slice(0, 300)}`,
 		);
+	}
+
+	/** An HTTP 403 that is not a rate limit: the token lacks a permission. */
+	get permission(): boolean {
+		return FORBIDDEN.test(this.stderr);
 	}
 }
 
@@ -41,7 +51,7 @@ export interface GhContext {
 	readonly cwd?: string;
 }
 
-const RATE_LIMITED = /rate limit|HTTP 429|HTTP 403|status 429|status 403/i;
+const RATE_LIMITED = /rate limit|secondary rate|abuse|HTTP 429|status 429/i;
 
 const rateLimitPath = (home: string): string =>
 	join(home, 'cache', 'rate-limit.json');

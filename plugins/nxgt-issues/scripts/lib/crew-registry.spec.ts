@@ -1,6 +1,5 @@
-import { describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
 	type CrewSession,
@@ -10,6 +9,9 @@ import {
 	liveSessions,
 	readSessions,
 } from './crew-registry';
+import { removeTempDirs, tempDir } from './temp.fixtures';
+
+afterAll(removeTempDirs);
 
 const NOW = Date.parse('2026-10-10T12:00:00Z');
 const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
@@ -22,7 +24,7 @@ const session = (id: string, over: Partial<CrewSession> = {}) => ({
 });
 
 function registry(records: unknown[], junk = true): string {
-	const home = mkdtempSync(join(tmpdir(), 'nxgt-issues-crew-'));
+	const home = tempDir('crew');
 	mkdirSync(join(home, 'sessions'));
 	records.forEach((r, i) => {
 		writeFileSync(join(home, 'sessions', `${i}.json`), JSON.stringify(r));
