@@ -81,3 +81,9 @@ export function isHarmlessLiteral(
 		(context.message && !context.keyPosition && /\s/.test(text.trim()))
 	);
 }
+
+/** What a literal must look like to be a credential: `user:pass`, a secret word, letters with digits. */
+export const looksLikeCredential = (text: string): boolean =>
+	/^[^\s:]+:\S+$/.test(text) ||
+	/secret|passw|pwd|token|key|auth|changeme|letmein/i.test(text) ||
+	(!/\s/.test(text) && /\d/.test(text) && /[A-Za-z]/.test(text));

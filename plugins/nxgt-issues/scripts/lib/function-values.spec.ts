@@ -52,7 +52,41 @@ describe('parenthesised scheme operands', () => {
 	});
 
 	test.each([
+		"'Bearer ' + String('k3J9xQ2mZp7vR4tL')",
+		`\`Bearer \${get('k3J9xQ2mZp7vR4tL')}\``,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		"'Bearer ' + localStorage.getItem('token')",
+		`\`Bearer \${localStorage.getItem('token')}\``,
 		"'Bearer ' + (process.env.TOKEN ?? token)",
 		"'Bearer ' + (a || b)",
 	])('%p passes', passes);
+});
+
+describe('pathological input', () => {
+	const unclosed = (line: (i: number) => string) =>
+		`verify: (c) => {\n${Array.from({ length: 2000 }, (_, i) => line(i)).join('\n')}\n`;
+	const time = (text: string) => {
+		const started = performance.now();
+		scrub(text, {});
+		return performance.now() - started;
+	};
+
+	test('a 96 KB unclosed function body of reader calls scrubs in under 500 ms', () => {
+		const text = unclosed(
+			(i) => `  c.req.header('x-header-name-${i}-padding-pad'),`,
+		);
+		expect(text.length).toBeGreaterThan(90_000);
+		expect(time(text)).toBeLessThan(500);
+	});
+
+	test('a 96 KB unclosed body full of the letter f scrubs in under 500 ms', () => {
+		const text = unclosed(
+			(i) => `  const fffff${i} = (fff) => fffffffffffffffffffffffffffff${i};`,
+		);
+		expect(time(text)).toBeLessThan(500);
+	});
 });
