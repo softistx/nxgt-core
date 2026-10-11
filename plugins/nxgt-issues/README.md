@@ -33,7 +33,9 @@ later version adds skills and hooks.
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
-| `deny.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
+| `hosts.ts` | rewrites `host:port`, IP literals and resolver-error host names to `<host>` |
+| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing |
+| `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |
 | `issue-body.ts` | the issue and comment templates, with their HTML-comment markers |
 

@@ -16,6 +16,12 @@
  * decoded text: folded, it would refuse ordinary prose.
  */
 
+import {
+	domainTerms,
+	MIN_LABEL_LENGTH,
+	scopedParts,
+	stems,
+} from './deny-terms';
 import { fold, normalize, SEPARATORS } from './fold';
 
 export interface DenyInputs {
@@ -47,20 +53,6 @@ const basename = (path: string): string =>
 		.split(/[\\/]/)
 		.pop() ?? '';
 
-const MIN_LABEL_LENGTH = 4;
-
-/** `@scope/name` also denies `name`, `@scope` and `scope` (4+ characters). */
-const scopedParts = (pkg: string): string[] => {
-	const match = /^(@[^/\s]+)\/([^/\s]+)$/.exec(pkg.trim());
-	if (!match?.[1] || !match[2]) return [];
-	const bare = match[1].slice(1);
-	return [
-		match[1],
-		match[2],
-		...(bare.length >= MIN_LABEL_LENGTH ? [bare] : []),
-	];
-};
-
 /** The hostname, and its first label when it has 4+ characters. */
 const hostTerms = (hostname: string | undefined): string[] => {
 	const first = hostname?.trim().split('.')[0] ?? '';
@@ -88,12 +80,14 @@ export function buildDenyList(inputs: DenyInputs): string[] {
 		repoName,
 		...packages,
 		...packages.flatMap(scopedParts),
+		...stems(repoName),
 		inputs.cwd ? basename(inputs.cwd) : undefined,
 		...privates,
+		...privates.flatMap((entry) => stems(entry?.split('/').pop())),
 		...nameTerms(inputs.gitName),
 		inputs.gitEmail,
 		...hostTerms(inputs.hostname),
-		...(inputs.appDomains ?? []),
+		...(inputs.appDomains ?? []).flatMap(domainTerms),
 		inputs.home,
 	]);
 }
@@ -134,7 +128,12 @@ export function findDenied(
 	denyList: readonly string[],
 	allow: readonly string[] = [],
 ): string[] {
-	const allowed = new Set(allow.map((term) => term.toLowerCase()));
+	// Allowing a package also allows its scope and stems, which a deny-list may hold.
+	const allowed = new Set(
+		allow
+			.flatMap((term) => [term, ...scopedParts(term)])
+			.map((term) => term.toLowerCase()),
+	);
 	const decoded = normalize(text);
 	const spaced = splitWords(decoded);
 	const hits: string[] = [];

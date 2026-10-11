@@ -169,6 +169,7 @@ function scrubEntropy(text: string, note: (kind: string) => void): string {
 export function transform(
 	text: string,
 	cwd?: string,
+	isDenied?: (label: string) => boolean,
 ): { text: string; changes: string[] } {
 	const changes: string[] = [];
 	const note = (kind: string) => changes.push(kind);
@@ -189,7 +190,7 @@ export function transform(
 		note('email');
 		return '<email>';
 	});
-	out = scrubHosts(out, note);
+	out = scrubHosts(out, note, isDenied);
 	for (const pattern of [WINDOWS_PATH, UNC_PATH, HOME_WITH_SPACES]) {
 		out = out.replace(pattern, (found) => {
 			note('path');
@@ -201,12 +202,13 @@ export function transform(
 }
 
 export function scrub(text: string, options: ScrubOptions = {}): ScrubResult {
-	const transformed = transform(text, options.cwd);
-	const denied = findDenied(
-		transformed.text,
-		options.denyList ?? [],
-		options.allow,
+	const denyList = options.denyList ?? [];
+	const transformed = transform(
+		text,
+		options.cwd,
+		(label) => findDenied(label, denyList, options.allow).length > 0,
 	);
+	const denied = findDenied(transformed.text, denyList, options.allow);
 	const secrets = findSecrets(transformed.text);
 	return {
 		text: transformed.text,

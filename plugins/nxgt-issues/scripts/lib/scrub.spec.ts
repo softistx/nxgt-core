@@ -204,7 +204,12 @@ describe('scrub', () => {
 			denyList,
 		});
 		expect(result.refused).toBe(true);
-		expect(result.denied).toEqual(['secret-app', 'hidden-two']);
+		expect(result.denied).toEqual([
+			'secret-app',
+			'secret',
+			'hidden-two',
+			'hidden',
+		]);
 	});
 
 	test('a name that only appeared inside a path is gone by verification', () => {
@@ -337,7 +342,7 @@ describe('buildDenyList: scoped packages', () => {
 				cwd,
 				denyList: list,
 			}).denied,
-		).toEqual(['billing-core']);
+		).toEqual(['billing-core', 'billing']);
 		expect(
 			scrub('uses @jane/other-pkg', { cwd, denyList: list }).denied,
 		).toEqual(['@jane', 'jane']);
@@ -419,7 +424,6 @@ describe('scrub: credentials refuse instead of being stripped', () => {
 		['api_key=abc', 'api-key'],
 		['apiKey: abc', 'api-key'],
 		['x-api-key: abc', 'api-key'],
-		['maxToken: 5', 'token'],
 		['token: abc', 'token'],
 		['Authorization: Bearer abc.def', 'authorization'],
 	])('%p', (text, keyword) => {
@@ -433,6 +437,10 @@ describe('scrub: credentials refuse instead of being stripped', () => {
 		for (const text of [
 			'the passwords table has a token count',
 			'tokens: 3',
+			'maxToken: 5',
+			'tokenTtl: 3600',
+			'passwordMinLength: 8',
+			'sessionTimeout: 30m',
 			'token=ghp_a1B2c3D4e5F6g7H8i9J0k1L2',
 			'secrets are stored elsewhere',
 		]) {
@@ -545,7 +553,7 @@ describe('buildDenyList: scope, hostname, domains', () => {
 
 	test('appDomains, as-is and folded', () => {
 		const list = buildDenyList({ appDomains: ['api.schoolz.io'] });
-		expect(list).toEqual(['api.schoolz.io']);
+		expect(list).toEqual(['api.schoolz.io', 'schoolz.io', 'schoolz']);
 		expect(findDenied('call api.schoolz.io now', list)).toEqual(list);
 		expect(findDenied('call api-schoolz-io now', list)).toEqual(list);
 	});
@@ -620,9 +628,7 @@ describe('scrub: credentials, wider', () => {
 		'interface Opts { token: string; secret?: string }',
 		'pass the token = undefined',
 		'set apiKey: process.env.KEY',
-		'the secret: it fails',
 		'Error: password: required',
-		'pwd: the cwd',
 		'token: <redacted>',
 		'password: ****',
 		'secret: string[]',
@@ -698,5 +704,163 @@ describe('transform: more paths and remotes', () => {
 		expect(transform('mail jane@example.com: hi', cwd).text).toBe(
 			'mail <email>: hi',
 		);
+	});
+});
+
+describe('buildDenyList: product stem and sibling domains', () => {
+	const list = buildDenyList({
+		appRepo: 'softistx/schoolz-api',
+		appPackages: ['@schoolz/web', 'schoolz-admin-ui', '@jane/billing-core'],
+		privateRepos: ['softistx/hidden-service', 'quiet-worker'],
+		appDomains: ['api.schoolz.io', 'www.example.co.uk'],
+	});
+
+	test('stems of 4+ characters, without generic words', () => {
+		expect(list).toEqual(
+			expect.arrayContaining([
+				'schoolz',
+				'schoolz-admin-ui',
+				'billing',
+				'hidden',
+				'quiet',
+			]),
+		);
+		for (const generic of [
+			'api',
+			'web',
+			'core',
+			'ui',
+			'service',
+			'worker',
+			'admin',
+		]) {
+			expect(list).not.toContain(generic);
+		}
+		expect(list).toContain('@schoolz/web');
+		expect(list).not.toContain('web');
+	});
+
+	test('registrable domains and main labels', () => {
+		expect(list).toEqual(
+			expect.arrayContaining([
+				'api.schoolz.io',
+				'schoolz.io',
+				'www.example.co.uk',
+				'example.co.uk',
+				'example',
+			]),
+		);
+		expect(list).not.toContain('co.uk');
+	});
+
+	// Without the scope of `@schoolz/web`, which already denies `schoolz`.
+	const sibling = buildDenyList({
+		appRepo: 'softistx/schoolz-api',
+		appDomains: ['api.schoolz.io'],
+	});
+
+	test.each([
+		'deployed at app.schoolz.io and schoolz.io',
+		'In Schoolz we call this on every request',
+		'Could not resolve host: git.schoolz.io',
+		'MongoServerSelectionError: mongo-0.mongo.schoolz.svc.cluster.local',
+		'connect ECONNREFUSED schoolz-redis:6379',
+		'contact jane.doe%40schoolz.io',
+		'https%3A%2F%2Fapp.schoolz.io%2Fv1',
+	])('refuses %p', (text) => {
+		// Refused, or rewritten so that nothing of the name is left.
+		const result = scrub(text, { denyList: sibling });
+		expect(result.refused || !/schoolz/i.test(result.text)).toBe(true);
+	});
+
+	test('allowing a package allows its stems', () => {
+		const result = scrub('the hidden thing', {
+			denyList: list,
+			allow: ['hidden-service'],
+		});
+		expect(result.refused).toBe(false);
+	});
+
+	test('a short name half is not denied, the scope is', () => {
+		const scoped = buildDenyList({ appPackages: ['@schoolz/web'] });
+		expect(scoped).toEqual(['@schoolz/web', '@schoolz', 'schoolz']);
+	});
+});
+
+describe('transform: single-label host:port', () => {
+	test.each([
+		['connect schoolz-redis:6379', 'connect <host>'],
+		['mongo1:27017 down', '<host> down'],
+		['db-primary:5432', '<host>'],
+	])('%p', (text, expected) => {
+		expect(transform(text, cwd).text).toBe(expected);
+	});
+
+	test('a denied label, however plain', () => {
+		expect(
+			transform('at schoolz:6379', cwd, (label) => label === 'schoolz').text,
+		).toBe('at <host>');
+		expect(transform('at schoolz:6379', cwd).text).toBe('at schoolz:6379');
+	});
+
+	test('localhost, files, clocks and traces stay', () => {
+		for (const text of [
+			'localhost:3000',
+			'a.ts:12',
+			'at 12:30 and UTC-12:30',
+			'schema.graphql:12 and x.proto:3 and a.sql:40',
+			'err-at foo-bar:12:5',
+			'key: 5000',
+		]) {
+			expect(transform(text, cwd).text).toBe(text);
+		}
+	});
+});
+
+describe('scrub: credentials under unknown names', () => {
+	test.each([
+		['PGPASSWORD=hunter2 psql', 'password'],
+		['REDISPASS=hunter2', 'pass'],
+		['dbpassword=hunter2', 'password'],
+		['mysql -u root --password hunter2', 'password'],
+		['tool --token=abc123', 'token'],
+		['tool --api-key abc123', 'api-key'],
+		['tool --secret s3cr3t', 'secret'],
+		['mysql -u root -phunter2 db', 'password'],
+		['Cookie: session=s%3AabcDEF123.sig', 'cookie'],
+		['Set-Cookie: sid=abc123def456', 'cookie'],
+		['Authorization: AbCdEfGhIjKl12345', 'authorization'],
+		['Bearer AbCdEfGhIjKlMnOpQrSt', 'bearer'],
+		['{\n  "password":\n    "hunter2"\n}', 'password'],
+		['password:\n  hunter2', 'password'],
+		['password: a hunter2', 'password'],
+		['password: the hunter2 here', 'password'],
+		['the secret: it fails', 'secret'],
+		['pwd: the cwd', 'pwd'],
+		['sessionId: abc123', 'session'],
+		['sid=abc123def456', 'sid'],
+		['oauth_token: abc', 'auth'],
+	])('%p refuses', (text, keyword) => {
+		const result = scrub(text, {});
+		expect(result.refused).toBe(true);
+		expect(result.secrets).toContain(keyword);
+		expect(JSON.stringify(result.secrets)).not.toMatch(/hunter2|abc123/);
+	});
+
+	test.each([
+		'password: string',
+		'Bearer tokens expire',
+		'apiKey: process.env.KEY',
+		'Error: password: required',
+		'inside: 5, bypass: x, compass: north, author: Jane, authority: high',
+		'password:\n  type: string',
+		'"password": {\n  "x": 1\n}',
+		'tokenTtl: 3600 and passwordMinLength: 8 and maxToken: 5',
+		'Cookie: <redacted>',
+		'mysql -u root -p',
+		'ls -pla and tool --token',
+		'Bearer authentication',
+	])('%p passes', (text) => {
+		expect(scrub(text, {}).secrets).toEqual([]);
 	});
 });

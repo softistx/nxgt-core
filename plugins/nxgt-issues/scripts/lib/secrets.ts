@@ -7,8 +7,11 @@
  *
  * An assignment whose value is plainly not a secret is let through: a TS type
  * or a literal word (`password: string`), a reference to the environment
- * (`token: process.env.TOKEN`), a short run of English (`the secret: it fails`),
- * a placeholder (`<token>`, `<redacted>`) or a mask (`****`). Nothing else is.
+ * (`token: process.env.TOKEN`), an object or array opener, a placeholder
+ * (`<token>`, `<redacted>`) or a mask (`****`); and a small number or duration
+ * for a name that counts something (`tokenTtl: 3600`, `maxToken: 5`). Articles
+ * and pronouns are not placeholders: `password: the hunter2` refuses. A value
+ * may sit on the next line (JSON, YAML).
  */
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
@@ -64,39 +67,41 @@ const WORDS = new Set(
 	(
 		'string number boolean bigint symbol object array function void never ' +
 		'undefined null unknown any true false required optional missing invalid ' +
-		'empty expired incorrect wrong none yes no ' +
-		'it the a an this that is are was be not to of in on for and or if'
+		'empty expired incorrect wrong none yes no'
 	).split(' '),
 );
 
-const KEYWORD_WORDS = new Set([
-	'password',
-	'passwd',
-	'pwd',
-	'pass',
-	'secret',
-	'token',
-	'bearer',
-	'credential',
-	'credentials',
-	'auth',
-	'apikey',
-	'privatekey',
-]);
+/** Words that mark a name as a count, size or duration rather than a secret. */
+const QUANTITY =
+	/(?:max|min|ttl|length|size|count|limit|expir|timeout|interval|rounds|age|len|num|retries|attempts)|(?:tokens|sessions|secrets|passwords|cookies)$/i;
+const SMALL_NUMBER = /^(?:\d{1,4}|\d+(?:ms|s|m|h|d))$/i;
 
-/** The canonical keyword a variable name carries, from its words. */
+/**
+ * The canonical keyword a variable name carries, found as a substring of the
+ * lower-cased name: `PGPASSWORD`, `dbpassword`, `client_secret`, `sessionId`.
+ * `pass` and `sid` over-match as substrings (`bypass`, `compass`, `inside`), so
+ * they count only as a whole word of the name (`DB_PASS`, `sid`) or, for
+ * `pass`, as the end of an all-capitals name (`REDISPASS`); `auth` does not
+ * count in `author` or `authority`.
+ */
 function keywordOf(name: string): string | undefined {
+	const lower = name.toLowerCase();
+	const found =
+		/password|passwd|pwd|secret|token|cookie|session|auth(?!or)/.exec(lower);
+	if (found) return found[0];
+	if (/api[_-]?key/.test(lower)) return 'api-key';
+	if (/private[_-]?key/.test(lower)) return 'private-key';
+	if (/credential/.test(lower)) return 'credentials';
+	if (lower.includes('bearer')) return 'bearer';
 	const words = name
 		.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
 		.toLowerCase()
 		.split(/[^a-z0-9]+/)
 		.filter(Boolean);
-	for (const [index, word] of words.entries()) {
-		if (KEYWORD_WORDS.has(word)) return word === 'apikey' ? 'api-key' : word;
-		const next = words[index + 1];
-		if (word === 'api' && next === 'key') return 'api-key';
-		if (word === 'private' && next === 'key') return 'private-key';
+	if (words.includes('pass') || words.includes('sid')) {
+		return words.includes('pass') ? 'pass' : 'sid';
 	}
+	if (name === name.toUpperCase() && /pass$/.test(lower)) return 'pass';
 	return undefined;
 }
 
@@ -109,6 +114,7 @@ export function isPlaceholder(raw: string): boolean {
 	return (
 		value === '' ||
 		WORDS.has(value) ||
+		/^[{[]/.test(value) ||
 		/^<[^<>]{0,40}>$/.test(value) ||
 		/^[*•x]{3,}$|^\.{3}$|^…$/.test(value) ||
 		/^(?:[\w$]+\.)*env\.[\w$]+$/.test(value)
@@ -116,9 +122,16 @@ export function isPlaceholder(raw: string): boolean {
 }
 
 const ASSIGNMENT =
-	/(?<![\w-])([\w-]+)\??["']?[ \t]*[:=](?![=>])[ \t]*(?=(\S+))/g;
+	/(?<![\w-])([\w-]+)\??["']?[ \t]*[:=](?![=>])[ \t]*(?:\r?\n[ \t]*)?(?=(\S+))/g;
 const AUTHORIZATION =
-	/\bAuthorization["']?[ \t]*[:=][ \t]*(?:Basic|Bearer|token)[ \t]+(\S+)/gi;
+	/\bAuthorization["']?[ \t]*[:=][ \t]*(?:(?:Basic|Bearer|Digest|Negotiate|token)[ \t]+)?(\S+)/gi;
+const COOKIE = /\b(?:Set-)?Cookie["']?[ \t]*:[ \t]*(\S+)/gi;
+/** `--password x`, `--token=x`, `--api-key x`. */
+const FLAG =
+	/(?<![\w-])--(password|passwd|pwd|token|secret|api-?key|pass)(?:=|[ \t]+)(?!-)(\S+)/gi;
+/** `mysql -u root -phunter2`: `-p` takes its value attached. */
+const MYSQL_P =
+	/\b(?:mysql|mysqldump|mysqladmin|mariadb)\b[^\n]*?[ \t]-p(\S+)/gi;
 /** `Bearer` followed by a value that looks like a token, not by a word. */
 const BEARER = /\bBearer[ \t]+([\w.~+/=-]{8,})/gi;
 /** Words that follow `Bearer` or `token` in prose. */
@@ -132,8 +145,12 @@ const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY-----/;
 export function findSecrets(text: string): string[] {
 	const found = new Set<string>();
 	for (const match of text.matchAll(ASSIGNMENT)) {
-		const keyword = keywordOf(match[1] ?? '');
-		if (keyword && !isPlaceholder(match[2] ?? '')) found.add(keyword);
+		const name = match[1] ?? '';
+		const value = match[2] ?? '';
+		const keyword = keywordOf(name);
+		if (!keyword || isPlaceholder(value) || value.endsWith(':')) continue;
+		if (QUANTITY.test(name) && SMALL_NUMBER.test(value)) continue;
+		found.add(keyword);
 	}
 	for (const match of text.matchAll(AUTHORIZATION)) {
 		const value = match[1] ?? '';
@@ -141,9 +158,20 @@ export function findSecrets(text: string): string[] {
 			found.add('authorization');
 		}
 	}
+	for (const match of text.matchAll(COOKIE)) {
+		if (!isPlaceholder(match[1] ?? '')) found.add('cookie');
+	}
+	for (const match of text.matchAll(FLAG)) {
+		if (!isPlaceholder(match[2] ?? ''))
+			found.add(keywordOf(match[1] ?? '') ?? 'password');
+	}
+	if (MYSQL_P.test(text)) found.add('password');
 	for (const match of text.matchAll(BEARER)) {
 		const value = match[1] ?? '';
-		if (/[\d._~+/=]/.test(value) && !isPlaceholder(value)) found.add('bearer');
+		const tokenLike = /[\d._~+/=]/.test(value) || value.length >= 16;
+		if (tokenLike && !isPlaceholder(value) && !TOKEN_WORDS.test(value)) {
+			found.add('bearer');
+		}
 	}
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
 	return [...found];
