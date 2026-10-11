@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { buildDenyList, findDenied, scrub, transform } from './scrub';
+import {
+	buildDenyList,
+	type DenyList,
+	findDenied,
+	scrub,
+	transform,
+} from './scrub';
+
+/** A hand-written list: whole-word matching only. */
+const D = (terms: readonly string[]): DenyList => ({ terms, distinctive: [] });
 
 const cwd = '/Users/jane/work/secret-app';
 
@@ -116,31 +125,31 @@ describe('transform: emails, urls, tokens', () => {
 
 describe('findDenied', () => {
 	test('whole words, case-insensitive', () => {
-		expect(findDenied('The Secret-App crashed', ['secret-app'])).toEqual([
+		expect(findDenied('The Secret-App crashed', D(['secret-app']))).toEqual([
 			'secret-app',
 		]);
-		expect(findDenied('use secret-application', ['secret-app'])).toEqual([]);
-		expect(findDenied('mysecret-app', ['secret-app'])).toEqual([]);
-		expect(findDenied('a (secret-app) b', ['secret-app'])).toEqual([
+		expect(findDenied('use secret-application', D(['secret-app']))).toEqual([]);
+		expect(findDenied('mysecret-app', D(['secret-app']))).toEqual([]);
+		expect(findDenied('a (secret-app) b', D(['secret-app']))).toEqual([
 			'secret-app',
 		]);
 	});
 
 	test('owner/repo and regex characters are literal', () => {
-		expect(findDenied('in jane/secret-app.git', ['jane/secret-app'])).toEqual([
-			'jane/secret-app',
-		]);
-		expect(findDenied('axb', ['a.b'])).toEqual([]);
-		expect(findDenied('a+b', ['a+b'])).toEqual(['a+b']);
+		expect(
+			findDenied('in jane/secret-app.git', D(['jane/secret-app'])),
+		).toEqual(['jane/secret-app']);
+		expect(findDenied('axb', D(['a.b']))).toEqual([]);
+		expect(findDenied('a+b', D(['a+b']))).toEqual(['a+b']);
 	});
 
 	test('allow takes a term off', () => {
-		expect(findDenied('thing', ['thing'], ['Thing'])).toEqual([]);
+		expect(findDenied('thing', D(['thing']), ['Thing'])).toEqual([]);
 	});
 
 	test('blank and duplicate terms are ignored', () => {
-		expect(findDenied('x', ['', '  ', 'y'])).toEqual([]);
-		expect(findDenied('y', ['y', 'y'])).toEqual(['y']);
+		expect(findDenied('x', D(['', '  ', 'y']))).toEqual([]);
+		expect(findDenied('y', D(['y', 'y']))).toEqual(['y']);
 	});
 });
 
@@ -156,7 +165,7 @@ describe('buildDenyList', () => {
 			hostname: 'janes-mbp',
 			home: '/Users/jane',
 		});
-		expect(new Set(list).size).toBe(list.length);
+		expect(new Set(list.terms).size).toBe(list.terms.length);
 		for (const term of [
 			'jane/secret-app',
 			'secret-app',
@@ -168,12 +177,12 @@ describe('buildDenyList', () => {
 			'janes-mbp',
 			'/Users/jane',
 		]) {
-			expect(list).toContain(term);
+			expect(list.terms).toContain(term);
 		}
 	});
 
 	test('empty inputs give an empty list', () => {
-		expect(buildDenyList({})).toEqual([]);
+		expect(buildDenyList({}).terms).toEqual([]);
 	});
 });
 
@@ -263,22 +272,24 @@ describe('findDenied: separators and variants', () => {
 		['sec<!-- x -->ret-app'],
 		['use `secret_app` here'],
 	])('refuses %p', (text) => {
-		expect(findDenied(text, deny)).toEqual(deny);
+		expect(findDenied(text, D(deny))).toEqual(deny);
 	});
 
 	test('the underscore is a separator, not a letter', () => {
-		expect(findDenied('secret-app_v2', deny)).toEqual(deny);
-		expect(findDenied('SCHOOLZ_API_URL', ['schoolz-api'])).toEqual([
+		expect(findDenied('secret-app_v2', D(deny))).toEqual(deny);
+		expect(findDenied('SCHOOLZ_API_URL', D(['schoolz-api']))).toEqual([
 			'schoolz-api',
 		]);
-		expect(findDenied('x_secret-app', deny)).toEqual(deny);
+		expect(findDenied('x_secret-app', D(deny))).toEqual(deny);
 	});
 
 	test('a longer word that merely contains the term is not a hit', () => {
-		expect(findDenied('mysecret-app', deny)).toEqual([]);
-		expect(findDenied('mysecretapp and secretapplication', deny)).toEqual([]);
-		expect(findDenied('secret-application', deny)).toEqual([]);
-		expect(findDenied('the secret of this app', deny)).toEqual([]);
+		expect(findDenied('mysecret-app', D(deny))).toEqual([]);
+		expect(findDenied('mysecretapp and secretapplication', D(deny))).toEqual(
+			[],
+		);
+		expect(findDenied('secret-application', D(deny))).toEqual([]);
+		expect(findDenied('the secret of this app', D(deny))).toEqual([]);
 	});
 
 	test('a git name is caught by part, order, spacing and line breaks', () => {
@@ -299,18 +310,18 @@ describe('findDenied: separators and variants', () => {
 
 	test('terms under 4 characters folded stay on the whole-word pass', () => {
 		const short = ['web', 'doe', 'a-b'];
-		expect(findDenied('a deer, a b test, a-bc, the wide one', short)).toEqual(
-			[],
-		);
-		expect(findDenied('webcam, deer, cobweb, fabulous', short)).toEqual([]);
-		expect(findDenied('the web app', short)).toEqual(['web']);
-		expect(findDenied('Doe said a-b', short)).toEqual(['doe', 'a-b']);
-		expect(findDenied('w&#101;b', short)).toEqual(['web']);
-		expect(findDenied('w e b', short)).toEqual([]);
+		expect(
+			findDenied('a deer, a b test, a-bc, the wide one', D(short)),
+		).toEqual([]);
+		expect(findDenied('webcam, deer, cobweb, fabulous', D(short))).toEqual([]);
+		expect(findDenied('the web app', D(short))).toEqual(['web']);
+		expect(findDenied('Doe said a-b', D(short))).toEqual(['doe', 'a-b']);
+		expect(findDenied('w&#101;b', D(short))).toEqual(['web']);
+		expect(findDenied('w e b', D(short))).toEqual([]);
 	});
 
 	test('allow still takes a term off in a variant', () => {
-		expect(findDenied('Secret App', deny, ['secret-app'])).toEqual([]);
+		expect(findDenied('Secret App', D(deny), ['secret-app'])).toEqual([]);
 	});
 });
 
@@ -321,7 +332,7 @@ describe('buildDenyList: scoped packages', () => {
 	});
 
 	test('the scope and the bare name are denied too', () => {
-		expect(list).toEqual(
+		expect(list.terms).toEqual(
 			expect.arrayContaining([
 				'@jane/billing-core',
 				'billing-core',
@@ -506,26 +517,28 @@ describe('findDenied: camelCase and digits', () => {
 		['v2SecretApp', 'secret-app'],
 		['SECRETApp', 'secret-app'],
 	])('refuses %p', (text, term) => {
-		expect(findDenied(text, deny)).toEqual([term]);
+		expect(findDenied(text, D(deny))).toEqual([term]);
 	});
 
 	test('upper-to-upper+lower seam: APIClient reads as API Client', () => {
-		expect(findDenied('APIClient', ['api-client'])).toEqual(['api-client']);
+		expect(findDenied('APIClient', D(['api-client']))).toEqual(['api-client']);
 	});
 
 	test('words that merely contain the term stay clean', () => {
-		expect(findDenied('mysecretapp, secretary, Schoolzapiary', deny)).toEqual(
-			[],
-		);
+		expect(
+			findDenied('mysecretapp, secretary, Schoolzapiary', D(deny)),
+		).toEqual([]);
 	});
 
 	test('short terms do not use the camelCase pass', () => {
-		expect(findDenied('WebServer, jsonDoeX', ['web', 'doe'])).toEqual([]);
+		expect(findDenied('WebServer, jsonDoeX', D(['web', 'doe']))).toEqual([]);
 	});
 
 	test('slash and percent-encoding', () => {
-		expect(findDenied('schoolz/api', ['schoolz-api'])).toEqual(['schoolz-api']);
-		expect(findDenied('schoolz%2Dapi', ['schoolz-api'])).toEqual([
+		expect(findDenied('schoolz/api', D(['schoolz-api']))).toEqual([
+			'schoolz-api',
+		]);
+		expect(findDenied('schoolz%2Dapi', D(['schoolz-api']))).toEqual([
 			'schoolz-api',
 		]);
 	});
@@ -534,23 +547,27 @@ describe('findDenied: camelCase and digits', () => {
 describe('buildDenyList: scope, hostname, domains', () => {
 	test('the scope without @, when 4+ characters', () => {
 		const list = buildDenyList({ appPackages: ['@alxia/web', '@me/x'] });
-		expect(list).toContain('alxia');
-		expect(list).toContain('@alxia');
-		expect(list).not.toContain('me');
+		expect(list.terms).toContain('alxia');
+		expect(list.terms).toContain('@alxia');
+		expect(list.terms).not.toContain('me');
 	});
 
 	test('the first label of the hostname, when 4+ characters', () => {
 		const list = buildDenyList({ hostname: 'steves-mbp.local' });
-		expect(list).toEqual(['steves-mbp.local', 'steves-mbp']);
+		expect(list.terms).toEqual(['steves-mbp.local', 'steves-mbp']);
 		expect(findDenied('on steves mbp', list)).toEqual(['steves-mbp']);
-		expect(buildDenyList({ hostname: 'mac.lan' })).toEqual(['mac.lan']);
+		expect(buildDenyList({ hostname: 'mac.lan' }).terms).toEqual(['mac.lan']);
 	});
 
 	test('appDomains, as-is and folded', () => {
 		const list = buildDenyList({ appDomains: ['api.schoolz.io'] });
-		expect(list).toEqual(['api.schoolz.io', 'schoolz.io', 'schoolz']);
-		expect(findDenied('call api.schoolz.io now', list)).toEqual(list);
-		expect(findDenied('call api-schoolz-io now', list)).toEqual(list);
+		expect(list.terms).toEqual(['api.schoolz.io', 'schoolz.io', 'schoolz']);
+		expect(findDenied('call api.schoolz.io now', list)).toEqual([
+			...list.terms,
+		]);
+		expect(findDenied('call api-schoolz-io now', list)).toEqual([
+			...list.terms,
+		]);
 	});
 });
 
@@ -711,7 +728,7 @@ describe('buildDenyList: product stem and sibling domains', () => {
 	});
 
 	test('stems of 4+ characters, without generic words', () => {
-		expect(list).toEqual(
+		expect(list.terms).toEqual(
 			expect.arrayContaining(['schoolz', 'schoolz-admin-ui', 'billing']),
 		);
 		for (const generic of [
@@ -723,14 +740,14 @@ describe('buildDenyList: product stem and sibling domains', () => {
 			'worker',
 			'admin',
 		]) {
-			expect(list).not.toContain(generic);
+			expect(list.terms).not.toContain(generic);
 		}
-		expect(list).toContain('@schoolz/web');
-		expect(list).not.toContain('web');
+		expect(list.terms).toContain('@schoolz/web');
+		expect(list.terms).not.toContain('web');
 	});
 
 	test('registrable domains and main labels', () => {
-		expect(list).toEqual(
+		expect(list.terms).toEqual(
 			expect.arrayContaining([
 				'api.schoolz.io',
 				'schoolz.io',
@@ -739,7 +756,7 @@ describe('buildDenyList: product stem and sibling domains', () => {
 				'example',
 			]),
 		);
-		expect(list).not.toContain('co.uk');
+		expect(list.terms).not.toContain('co.uk');
 	});
 
 	// Without the scope of `@schoolz/web`, which already denies `schoolz`.
@@ -772,7 +789,7 @@ describe('buildDenyList: product stem and sibling domains', () => {
 
 	test('a short name half is not denied, the scope is', () => {
 		const scoped = buildDenyList({ appPackages: ['@schoolz/web'] });
-		expect(scoped).toEqual(['@schoolz/web', '@schoolz', 'schoolz']);
+		expect(scoped.terms).toEqual(['@schoolz/web', '@schoolz', 'schoolz']);
 	});
 });
 
@@ -893,8 +910,19 @@ describe('findDenied: the application stem glued to a suffix', () => {
 		expect(scrub('hidden-service', { denyList: list }).refused).toBe(true);
 	});
 
+	test('the substring matching survives a JSON round-trip and a copy', () => {
+		const cached = JSON.parse(JSON.stringify(list)) as DenyList;
+		expect(cached.distinctive.length).toBeGreaterThan(0);
+		for (const copy of [cached, { ...list }, structuredClone(list)]) {
+			expect(findDenied('schoolzdb', copy)).not.toEqual([]);
+			expect(scrub('database schoolzprod', { denyList: copy }).refused).toBe(
+				true,
+			);
+		}
+	});
+
 	test('a hand-written list is whole-word only', () => {
-		expect(findDenied('schoolzdb', ['schoolz'])).toEqual([]);
+		expect(findDenied('schoolzdb', D(['schoolz']))).toEqual([]);
 	});
 });
 
@@ -906,13 +934,13 @@ describe('scrub: ordinary filings with a realistic deny-list', () => {
 	});
 
 	test('private repositories are denied by name, not by stem', () => {
-		expect(list).toEqual(
+		expect(list.terms).toEqual(
 			expect.arrayContaining(['secret-app', 'nxgt-federation']),
 		);
 		for (const stem of ['secret', 'nxgt', 'federation', 'quiet', 'gateway']) {
-			expect(list).not.toContain(stem);
+			expect(list.terms).not.toContain(stem);
 		}
-		expect(list).toEqual(
+		expect(list.terms).toEqual(
 			expect.arrayContaining(['alxia', '@alxia', 'schoolz']),
 		);
 	});

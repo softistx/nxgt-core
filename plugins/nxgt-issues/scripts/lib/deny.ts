@@ -70,13 +70,21 @@ const nameTerms = (name: string | undefined): string[] => {
 	return [name ?? '', ...parts, `${last}, ${first}`, `${last} ${first}`];
 };
 
-export type DenyListInput = readonly string[] & {
-	readonly distinctive?: ReadonlySet<string>;
-};
-/** The deny-list, with the terms that are the application's own marked. */
-export type DenyList = string[] & {
-	readonly distinctive?: ReadonlySet<string>;
-};
+/**
+ * The deny-list: every term, and the subset that is the application's own
+ * distinctive vocabulary (matched inside words). Plain data, so it survives a
+ * JSON round-trip (a cache) and a copy with nothing lost; `findDenied` takes
+ * nothing else, so a bare array of terms cannot be passed by accident.
+ */
+export interface DenyList {
+	readonly terms: readonly string[];
+	readonly distinctive: readonly string[];
+}
+
+export const EMPTY_DENY_LIST: DenyList = Object.freeze({
+	terms: [],
+	distinctive: [],
+});
 
 /** Own terms of this many characters match inside words (`schoolzdb`). */
 const MIN_SUBSTRING_LENGTH = 5;
@@ -86,7 +94,7 @@ const MIN_SUBSTRING_LENGTH = 5;
  * The application's own distinctive terms (stems of its repository and
  * packages, its scope, the main label of its domains), 5+ characters, are
  * matched without a word boundary by `findDenied`; they are listed in the
- * non-enumerable `distinctive` set of the result. Private repositories are
+ * `distinctive` list of the result. Private repositories are
  * denied by full name only, not by stem.
  */
 export function buildDenyList(inputs: DenyInputs): DenyList {
@@ -103,7 +111,7 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 			.filter((scope) => (scope?.length ?? 0) >= MIN_LABEL_LENGTH),
 		...(inputs.appDomains ?? []).map(mainLabel),
 	].filter((term): term is string => !!term);
-	const list: DenyList = unique([
+	const terms = unique([
 		inputs.appRepo,
 		repoName,
 		...packages,
@@ -117,12 +125,12 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 		inputs.home,
 		...own,
 	]);
-	Object.defineProperty(list, 'distinctive', {
-		value: new Set(
+	return Object.freeze({
+		terms,
+		distinctive: unique(
 			own.filter((term) => term.length >= MIN_SUBSTRING_LENGTH).map(lower),
 		),
 	});
-	return list;
 }
 
 const lower = (term: string): string => term.toLowerCase();
@@ -167,7 +175,7 @@ const splitWords = (text: string): string =>
 /** Deny-list terms present, as written or in a variant (see the module comment). */
 export function findDenied(
 	text: string,
-	denyList: DenyListInput,
+	denyList: DenyList,
 	allow: readonly string[] = [],
 ): string[] {
 	// Allowing a package also allows its scope and stems, which a deny-list may hold.
@@ -178,13 +186,13 @@ export function findDenied(
 	);
 	const decoded = normalize(text);
 	const spaced = splitWords(decoded);
+	const distinctive = new Set(denyList.distinctive.map(lower));
 	const hits: string[] = [];
-	for (const term of unique(denyList)) {
+	for (const term of unique(denyList.terms)) {
 		if (allowed.has(term.toLowerCase())) continue;
 		const folded = fold(term);
 		const bounded = !(
-			denyList.distinctive?.has(lower(term)) &&
-			folded.length >= MIN_SUBSTRING_LENGTH
+			distinctive.has(lower(term)) && folded.length >= MIN_SUBSTRING_LENGTH
 		);
 		const found =
 			folded.length >= MIN_FOLDED_LENGTH

@@ -9,12 +9,17 @@
  * on this refusing rather than leaking.
  */
 
-import { type DenyListInput, findDenied } from './deny';
+import { type DenyList, EMPTY_DENY_LIST, findDenied } from './deny';
 import { normalize } from './fold';
 import { scrubHosts } from './hosts';
 import { findSecrets, looksLikeSecret, scrubKnownTokens } from './secrets';
 
-export { buildDenyList, type DenyInputs, findDenied } from './deny';
+export {
+	buildDenyList,
+	type DenyInputs,
+	type DenyList,
+	findDenied,
+} from './deny';
 export { findSecrets } from './secrets';
 
 const KEPT_HOSTS = new Set([
@@ -64,7 +69,7 @@ const POSIX_PATH = new RegExp(
 export interface ScrubOptions {
 	/** The working directory: a path under it becomes `<app>/…`. */
 	readonly cwd?: string | undefined;
-	readonly denyList?: DenyListInput;
+	readonly denyList?: DenyList;
 	/** Terms to take off the deny-list, such as the package being reported. */
 	readonly allow?: readonly string[];
 }
@@ -203,7 +208,7 @@ export function transform(
 }
 
 export function scrub(text: string, options: ScrubOptions = {}): ScrubResult {
-	const denyList = options.denyList ?? [];
+	const denyList = options.denyList ?? EMPTY_DENY_LIST;
 	const transformed = transform(
 		text,
 		options.cwd,
