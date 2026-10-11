@@ -229,6 +229,9 @@ describe("compose defaults are judged by the name's last word", () => {
 		`\${DB_PASSWORD:-swordfish}`,
 		`\${JWT_SECRET:-k3J9xQ2mZp7vR4tL}`,
 		`\${API_KEY:-my-app}`,
+		`\${DB_PASSWORD:-12345}`,
+		`\${REDIS_PASSWORD:-123456}`,
+		`\${PIN:-0000}`,
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});

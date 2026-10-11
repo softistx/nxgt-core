@@ -44,9 +44,9 @@ import { hasPositionalSecret } from './positional-secrets';
 import { isGraphqlType } from './sdl-values';
 import { neutralizeSubstitutions } from './shell-values';
 import {
-	expansionDefaults,
 	isPlaceholderExpansionAt,
 	isShellReference,
+	secretDefaults,
 } from './shell-variables';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
@@ -242,9 +242,7 @@ function collectSecrets(text: string, found: Set<string>): void {
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
 	if (hasSecretArgument(text)) found.add('secret-argument');
 	if (hasCredentialPair(text)) found.add('credential-pair');
-	for (const { name, value } of expansionDefaults(text)) {
-		const keyword = keywordOf(name);
-		const facts = { name, first: value.split(/\s/)[0] ?? '' };
-		if (keyword && !isCodeValue(value, facts)) found.add(keyword);
+	for (const keyword of secretDefaults(text, keywordOf, isCodeValue)) {
+		found.add(keyword);
 	}
 }

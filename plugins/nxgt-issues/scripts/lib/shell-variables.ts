@@ -39,9 +39,9 @@ function isShellVariable(value: string): boolean {
 	);
 }
 
-/** A default that holds no secret: a number, an absolute path, a variable, `""`, `<placeholder>`. */
-const BENIGN_DEFAULT =
-	/^(?:\d+|\/[\w./-]*|\$\{?[A-Za-z_]\w*\}?|""|''|<[^<>]*>)$/;
+/** A default that holds no secret: an absolute path, a variable, `""`, `<placeholder>`. */
+const BENIGN_DEFAULT = /^(?:\/[\w./-]*|\$\{?[A-Za-z_]\w*\}?|""|''|<[^<>]*>)$/;
+const PIN = /(?:^|_)PIN$/;
 /** `${NAME:-default}` as a whole value, quoted or not, closing brace optional. */
 const EXPANSION_VALUE = /^["'`]?\$\{([A-Za-z_]\w*):?[-=+](.*?)\}?["'`]?$/s;
 
@@ -51,7 +51,8 @@ const EXPANSION_VALUE = /^["'`]?\$\{([A-Za-z_]\w*):?[-=+](.*?)\}?["'`]?$/s;
  * default is benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
  */
 const isBenignExpansion = (name: string, value: string): boolean =>
-	!namesCredential(name) || BENIGN_DEFAULT.test(value.trim());
+	!(namesCredential(name) || PIN.test(name)) ||
+	BENIGN_DEFAULT.test(value.trim());
 
 /** Whether `value` is a shell variable or an expansion that holds no secret. */
 export function isShellValue(value: string): boolean {
@@ -87,9 +88,24 @@ export function isShellReference(
 /** `${NAME:-default}`, `${NAME:=default}`, `${NAME:+default}`: the default is a literal value. */
 const EXPANSION = /\$\{([A-Za-z_]\w*):?[-=+]([^}\n]+)\}/g;
 
-/** The non-empty defaults of every `${NAME-default}` expansion in `text`. */
-export function expansionDefaults(text: string) {
-	return [...text.matchAll(EXPANSION)]
-		.map((match) => ({ name: match[1] ?? '', value: match[2] ?? '' }))
-		.filter(({ name, value }) => !isBenignExpansion(name, value));
+/**
+ * The keywords of the `${NAME-default}` expansions in `text` whose default is a
+ * literal secret: `keywordOf` names a credential (a `PIN` counts), `isCode`
+ * says whether the default is code.
+ */
+export function secretDefaults(
+	text: string,
+	keywordOf: (name: string) => string | undefined,
+	isCode: (value: string, facts: { name: string; first: string }) => boolean,
+): string[] {
+	const found: string[] = [];
+	for (const match of text.matchAll(EXPANSION)) {
+		const name = match[1] ?? '';
+		const value = match[2] ?? '';
+		if (isBenignExpansion(name, value)) continue;
+		const keyword = keywordOf(name) ?? (PIN.test(name) ? 'pin' : undefined);
+		const facts = { name, first: value.split(/\s/)[0] ?? '' };
+		if (keyword && !isCode(value, facts)) found.push(keyword);
+	}
+	return found;
 }
