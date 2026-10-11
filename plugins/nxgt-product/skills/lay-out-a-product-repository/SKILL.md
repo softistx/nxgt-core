@@ -45,11 +45,22 @@ absent here, read the product's plugin in `softistx/plugins` (marketplace
 `softistx-plugins`), `references/product.md`:
 
 ```bash
-# the installed version first; the cache keeps old ones
-jq -r '.plugins["<product>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+# the installed version first — this checkout's install, else the user one;
+# the cache keeps old versions
+jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  '(.plugins["<product>@softistx-plugins"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+  ~/.claude/plugins/installed_plugins.json 2>/dev/null
 # then read <installPath>/references/product.md; with no install recorded:
 find ~/.claude/plugins/cache/softistx-plugins/<product> -path '*/references/product.md' 2>/dev/null | sort -V | tail -1
+# only when both printed nothing: is the plugin enabled here?
+jq -r '.enabledPlugins["<product>@softistx-plugins"] // false' "$(git rev-parse --show-toplevel)/.claude/settings.json" 2>/dev/null
 ```
+
+If neither finds it but the repository's `.claude/settings.json` enables
+`<product>@softistx-plugins` (the last command prints `true`), the plugin is
+enabled but not installed: stop and tell the user to run
+`claude plugin install <product>@softistx-plugins -s project`, rather than
+carrying on without the reference.
 
 | product | reference |
 | --- | --- |

@@ -204,11 +204,22 @@ in its plugin in `softistx/plugins` (marketplace `softistx-plugins`), as
 `references/workflow.md`:
 
 ```bash
-# the installed version first; the cache keeps old ones
-jq -r '.plugins["<repo>@softistx-plugins"][0].installPath // empty' ~/.claude/plugins/installed_plugins.json 2>/dev/null
+# the installed version first — this checkout's install, else the user one;
+# the cache keeps old versions
+jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  '(.plugins["<repo>@softistx-plugins"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+  ~/.claude/plugins/installed_plugins.json 2>/dev/null
 # then read <installPath>/references/workflow.md; with no install recorded:
 find ~/.claude/plugins/cache/softistx-plugins/<repo> -path '*/references/workflow.md' 2>/dev/null | sort -V | tail -1
+# only when both printed nothing: is the plugin enabled here?
+jq -r '.enabledPlugins["<repo>@softistx-plugins"] // false' "$(git rev-parse --show-toplevel)/.claude/settings.json" 2>/dev/null
 ```
+
+If neither finds it but the repository's `.claude/settings.json` enables
+`<repo>@softistx-plugins` (the last command prints `true`), the plugin is
+enabled but not installed: stop and tell the user to run
+`claude plugin install <repo>@softistx-plugins -s project`, rather than
+carrying on without the reference.
 
 The file carries that repository's green bar, its sequencing
 order, the propagation hops it has, and the access surface its deep review must
