@@ -51,9 +51,34 @@ export default defineHeyApiConfig((config) => ({
 `@hey-api/openapi-ts` with Zod plugin and `src/generated/openapi-ts` as the
 default output.
 
-These helpers evaluate `ts.factory.createTypeReferenceNode(...)` at module
-scope. TypeScript 7's default export has no `.factory`, which is why every
-`@nxgt/*` package pins `typescript` to `^6.0.3`.
+## TypeScript 6 and 7
+
+Both helpers drive TypeScript's compiler API, through `openapi-typescript` and
+`@hey-api/openapi-ts`. TypeScript 7's npm package ships no compiler API — its
+default export holds `version` and nothing else — and both tools read the API
+the moment they are imported. So this package loads them, and `typescript`,
+only when a helper is called:
+
+- **Importing `@nxgt/shared-openapi` works under TypeScript 6 and 7.** The
+  YAML in `openapi/` needs no TypeScript at all.
+- **Running a helper needs TypeScript 6.** Where `typescript` resolves to 7,
+  `generateOpenapiTS` and `defineHeyApiConfig` reject with:
+
+  ```
+  generateOpenapiTS needs TypeScript's compiler API, which TypeScript 7 does not ship, and `typescript` resolves to TypeScript 7.0.2. openapi-typescript and @hey-api/openapi-ts need it too. Run the codegen where `typescript` resolves to 6: install typescript@^6.0.3 there.
+  ```
+
+  Run the codegen from a package whose `typescript` is 6:
+
+  ```bash
+  bun add -d typescript@^6.0.3
+  ```
+
+Before 2.1.0, importing the package under TypeScript 7 threw at once, with
+`undefined is not an object (evaluating 'ts.factory.createKeywordTypeNode')`
+(Bun) or `Cannot read properties of undefined (reading 'createKeywordTypeNode')`
+(Node), raised inside `openapi-typescript`. Upgrade, then follow the message
+above.
 
 ## There is no sort vocabulary here, on purpose
 
