@@ -140,11 +140,23 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
 - **No network outside `scripts/lib/runner.ts`.** No `Bun.spawn`, Bun Shell (`$` templates) or
   `fetch(` anywhere else in `lib/` (`no-network.spec.ts` enforces it); entry
   files alone build the real runner, and specs use the scripted fake.
-- **Text from GitHub is untrusted.** Titles, labels, comments and bodies reach
-  Claude's context only through `oneLine` (one line, control, zero-width and
-  bidirectional characters and angle brackets stripped) under the
-  untrusted-data header; a skill never interpolates `$ARGUMENTS` or issue text
-  into a shell line.
+- **Text from GitHub is untrusted.** Titles, labels, comments, logins and
+  bodies reach Claude's context only through `oneLine` (`untrusted.ts`: one
+  line of code points, control, format, private-use, unassigned, variation
+  selector, Hangul filler and angle-bracket characters stripped) under the
+  untrusted-data header; `--json` outputs go through `cleanJson`. A new CLI
+  `ctx.out` that interpolates GitHub or registry data without them is a
+  finding. A skill never interpolates `$ARGUMENTS` or issue text into a shell
+  line.
+- **A skill pre-approves only reads.** `allowed-tools` lists `dashboard*`,
+  `ready*`, `markers*`, `resolve*`, `sessions*` and `released * --dry-run*`
+  patterns, never `issues.ts *`; `file`, `track`, `deps --file` and a real
+  `released` keep their permission prompt.
+- **The deny-list refuses rather than shrinks.** An empty private list, an
+  owner that drops to 0 against the cache, a stale copy older than 7 days, an
+  unexpandable workspace pattern or a missing git root refuses with
+  `DenyListIncomplete`; the token's organisations and
+  `NXGT_ISSUES_DENY_OWNERS` are deny owners, never filing owners.
 - **Both release copies kept in step** (see "Deliberate" below for what may
   differ): a change to the "Fixed in" comment or its hidden marker, the
   discovery rules, the label, close, comment order, or the idempotency rule is

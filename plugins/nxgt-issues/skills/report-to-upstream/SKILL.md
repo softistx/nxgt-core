@@ -8,15 +8,21 @@ description: >-
   work around, a wrong or missing doc, or a dependency of the package behind
   its latest release — ~/.claude/CLAUDE.md "In-house packages" says these are
   filed through nxgt-issues, never worked around silently.
-allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts *)
+allowed-tools:
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve*)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions*)
 ---
 
 # Report to upstream
 
 The application files the problem where it will be fixed — the package's
 repository — without naming itself, and keeps the link on its own side. Filing
-is automatic once the scrub passes (owner decision): do not ask the user for
-permission to file; report the URL afterwards.
+is automatic once the scrub passes (owner decision): do not ask the user a
+separate question first; report the URL afterwards. `file`, `track` and
+`deps --file` write to GitHub, so they are not pre-approved: Claude Code shows
+the whole command, report JSON included, and asks. That prompt is the user's
+look at exactly what leaves the machine. `resolve` and `sessions` only read and
+need none.
 
 Every command runs from the application's checkout (or takes `--cwd <dir>`).
 
@@ -58,7 +64,7 @@ issue create`. Reasons: `no-repository-field` (ask the package's session to add
 
 For an outdated dependency, `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package>` prints the rows behind
 their latest release; `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package> --file` puts them in the
-package's one rolling dependencies issue. Then skip to step 5.
+package's one rolling dependencies issue (a write: it prompts like `file`). Then skip to step 5.
 
 ## 2. Write a minimal reproduction from scratch
 
@@ -104,7 +110,7 @@ What it prints, and what to do:
 | `released: #n reported this…` (0) | the fix is published; nothing was filed | bump the package to the fixed release and remove the workaround; only if it still fails on that release, run `file --new` |
 | `refused: the application repository … is public` (2) | filing from a public application could tie it to the report | ask the user (AskUserQuestion); only with their OK rerun with `--public-app` (`file` or `deps --file`) |
 | `candidates: …` (4) | open issues that may be the same | read them (`gh issue view`); same problem → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --duplicate-of <n>` with the same JSON; different → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --new` |
-| `refused: <deny list could not be built>` (3) | the deny-list is incomplete: no `appDomains` configured, the owners' private repositories could not be listed, or `git config` failed | fix the named configuration (`.nxgt-issues.json`), or run `gh auth status`; never file by hand. Applies to `deps --file` too |
+| `refused: <deny list could not be built>` (3) | the deny-list is incomplete: no `appDomains` configured, the owners' private repositories (or the token's organisations) could not be listed or came back empty, a workspace pattern could not be expanded, the directory is not in a git checkout, or `git config` failed | fix the named configuration (`.nxgt-issues.json`), or run `gh auth status`; never file by hand. Applies to `deps --file` too |
 | `refused: the text is not anonymous…` (3) | a private term or a credential was found | rewrite the named parts generically and run `file` again; never work around the scrub |
 | `refused: <reason>` (2) | the gate refused | tell the user; file nothing |
 | `rate-limited: …` (5) | GitHub throttled the token | tell the user when calls resume; do not retry in a loop |
