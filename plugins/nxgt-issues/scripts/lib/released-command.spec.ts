@@ -93,6 +93,7 @@ describe('issues.ts released', () => {
 				closing: [12],
 				mergeSha: 'm40',
 				files: ['packages/widget/a.ts', 'packages/other/b.ts'],
+				changesets: ['@nxgt/other'],
 			},
 		},
 		issues: { 12: { body: `## Versions\n\n- \`${name}\` 1.0.0\n` } },

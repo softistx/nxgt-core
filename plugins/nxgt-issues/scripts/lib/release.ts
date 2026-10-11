@@ -10,7 +10,7 @@
 import { type GhContext, gh, RateLimitedError } from './github';
 import { commentIssue } from './github-issues';
 import { fixedComment, versionNames } from './issue-body';
-import { commitTouches } from './release-git';
+import { addedChangesetPackages, commitTouches } from './release-git';
 import {
 	FIXED_MARKER,
 	labelCreated,
@@ -24,7 +24,7 @@ import { formatRepo } from './repo-id';
 export interface ReleaseOptions extends ReleaseInput {
 	readonly owners: readonly string[];
 	readonly dryRun: boolean;
-	/** The names of every package of this repository: an issue naming another one is left to its run. */
+	/** The other packages of this repository (name and folder): an issue naming one is left to its run only under the rule of `leftTo` below. */
 	readonly siblings?: readonly {
 		readonly name: string;
 		readonly dir: string;
@@ -63,22 +63,26 @@ const message = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
 /**
- * The other package of this repository an issue names, when the fixing PR also
- * touched it: that package's run comments, so this one leaves the issue. A
- * named package the PR did not touch (or that git cannot say) never gets a run
- * that finds the issue, so it is handled here.
+ * The other package of this repository an issue names, when its own run is
+ * guaranteed to handle the issue. That holds only when ALL of these do: the fix
+ * is rank 0 (the PR's own closing references name the issue, so the other run,
+ * which reads that PR, finds it too); the PR touched the other package's
+ * folder; and the PR adds a changeset naming it, so it really is published with
+ * this PR in its log or CHANGELOG. If git cannot say, the issue is handled here.
  */
 async function leftTo(
 	ctx: GhContext,
 	options: ReleaseOptions,
 	named: readonly string[],
-	sha: string | undefined,
+	fix: { sha?: string | undefined; rank: number },
 ): Promise<string | undefined> {
-	if (!sha || named.includes(options.pkg)) return undefined;
+	const { sha } = fix;
+	if (!sha || fix.rank !== 0 || named.includes(options.pkg)) return undefined;
 	for (const sibling of options.siblings ?? []) {
 		if (sibling.name === options.pkg || !named.includes(sibling.name)) continue;
-		if ((await commitTouches(ctx, sha, sibling.dir)) === true)
-			return sibling.name;
+		if ((await commitTouches(ctx, sha, sibling.dir)) !== true) continue;
+		const added = await addedChangesetPackages(ctx, sha);
+		if (added?.includes(sibling.name)) return sibling.name;
 	}
 	return undefined;
 }
@@ -89,12 +93,12 @@ async function releaseIssue(
 	options: ReleaseOptions,
 	issue: number,
 	pr: number,
-	sha: string | undefined,
+	fix: { sha?: string | undefined; rank: number },
 ): Promise<IssueOutcome> {
 	const repo = formatRepo(options.repo);
 	const state = await readIssue(ctx, repo, issue);
 	const named = versionNames(state.body);
-	const other = await leftTo(ctx, options, named, sha);
+	const other = await leftTo(ctx, options, named, fix);
 	if (other) {
 		return {
 			number: issue,
@@ -154,9 +158,9 @@ export async function releasePackage(
 		warnings.push(`label released: ${message(error)}`);
 		pending.length = 0;
 	}
-	for (const { issue, pr, sha } of pending) {
+	for (const { issue, pr, sha, rank } of pending) {
 		try {
-			issues.push(await releaseIssue(ctx, options, issue, pr, sha));
+			issues.push(await releaseIssue(ctx, options, issue, pr, { sha, rank }));
 		} catch (error) {
 			if (error instanceof RateLimitedError) throw error;
 			warnings.push(`issue #${issue}: ${message(error)}`);

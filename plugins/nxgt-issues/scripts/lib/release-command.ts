@@ -94,7 +94,12 @@ export async function releasedCommand(
 			dir: relative(root, manifest.dir).replaceAll('\\', '/') || '.',
 			siblings: manifests.flatMap((m) =>
 				m.name && (m.dir !== root || m === manifest)
-					? [{ name: m.name, dir: relative(root, m.dir) || '.' }]
+					? [
+							{
+								name: m.name,
+								dir: relative(root, m.dir).replaceAll('\\', '/') || '.',
+							},
+						]
 					: [],
 			),
 			owners,

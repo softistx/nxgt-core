@@ -20,6 +20,8 @@ export interface WorldPr {
 	closing?: number[];
 	files?: string[];
 	mergeSha?: string;
+	/** The packages a changeset this PR adds names. */
+	changesets?: string[];
 }
 
 export interface WorldIssue {
@@ -189,11 +191,33 @@ export function gh(w: W, argv: readonly string[], stdin?: string): RunResult {
 		: fail(`fake world: no rule for gh ${argv.join(' ')}`);
 }
 
+const noRevision = () => fail('fatal: bad revision');
+
+/** `git diff --name-only --diff-filter=A <sha>^1 <sha> -- .changeset/`: the changeset files a merge added. */
+function addedChangesets(w: W, argv: readonly string[]): RunResult {
+	const sha = String(argv[4]).replace(/\^1$/, '');
+	const pr = Object.values(w.prs).find((p) => p.mergeSha === sha);
+	if (!pr) return noRevision();
+	return ok(
+		(pr.changesets ?? []).map((_, i) => `.changeset/c${i}.md\n`).join(''),
+	);
+}
+
+/** `git show <sha>:.changeset/c<i>.md`: a changeset's frontmatter. */
+function changesetFile(w: W, spec: string): RunResult {
+	const m = /^(\w+):\.changeset\/c(\d+)\.md$/.exec(spec);
+	const pr = Object.values(w.prs).find((p) => p.mergeSha === m?.[1]);
+	const name = pr?.changesets?.[Number(m?.[2])];
+	if (!name) return noRevision();
+	return ok(`---\n"${name}": minor\n---\n\nSomething.\n`);
+}
+
 /** `git diff --name-only <sha>^1 <sha> -- <dir>`: what the merge brought into the package. */
 function diff(w: W, argv: readonly string[]): RunResult {
+	if (argv.includes('--diff-filter=A')) return addedChangesets(w, argv);
 	const sha = String(argv[3]).replace(/\^1$/, '');
 	const pr = Object.values(w.prs).find((p) => p.mergeSha === sha);
-	if (!pr) return fail('fatal: bad revision');
+	if (!pr) return noRevision();
 	const dir = String(argv[argv.length - 1]);
 	const files = (pr.files ?? [`${DIR}/src/a.ts`]).filter(
 		(f) => dir === '.' || f.startsWith(`${dir}/`),
@@ -204,7 +228,11 @@ function diff(w: W, argv: readonly string[]): RunResult {
 export function git(w: W, argv: readonly string[]): RunResult {
 	if (argv[1] === 'tag') return ok(`${w.tags.join('\n')}\n`);
 	if (argv[1] === 'log') return ok(`${w.log.join('\n')}\n`);
-	if (argv[1] === 'show') return ok(w.changelog);
+	if (argv[1] === 'show') {
+		return /^\w+:\.changeset\//.test(String(argv[2]))
+			? changesetFile(w, String(argv[2]))
+			: ok(w.changelog);
+	}
 	if (argv[1] === 'diff') return diff(w, argv);
 	return fail(`fake world: no rule for git ${argv.join(' ')}`);
 }

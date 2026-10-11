@@ -123,3 +123,35 @@ export async function commitTouches(
 	]);
 	return out === undefined ? undefined : out.trim() !== '';
 }
+
+/** The package names in a changeset file's frontmatter (`"@nxgt/x": minor`). */
+export function changesetNames(text: string): string[] {
+	const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? '';
+	return [...front.matchAll(/^["']?([^"':\n]+?)["']?\s*:/gm)].map(
+		(m) => m[1] as string,
+	);
+}
+
+/**
+ * The packages the changesets a merge (or squash) commit added name: the ones
+ * that will really be published with this PR in their log or CHANGELOG.
+ * Undefined when git cannot say.
+ */
+export async function addedChangesetPackages(
+	ctx: GhContext,
+	sha: string,
+): Promise<string[] | undefined> {
+	const listing = await git(ctx, [
+		...['diff', '--name-only', '--diff-filter=A', `${sha}^1`, sha],
+		...['--', '.changeset/'],
+	]);
+	if (listing === undefined) return undefined;
+	const names: string[] = [];
+	for (const file of listing.split('\n').map((f) => f.trim())) {
+		if (!file.endsWith('.md') || file.endsWith('README.md')) continue;
+		const text = await git(ctx, ['show', `${sha}:${file}`]);
+		if (text === undefined) return undefined;
+		names.push(...changesetNames(text));
+	}
+	return names;
+}

@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { fixedComment } from './issue-body';
 import { type ReleaseOptions, releasePackage } from './release';
 import {
+	CHANGELOG,
 	DIR,
 	type Fake,
 	fakeWorld,
@@ -508,6 +509,7 @@ const both = {
 	mergeSha: 'm40',
 	closing: [12],
 	files: [`${DIR}/a.ts`, 'packages/other/b.ts'],
+	changesets: ['@nxgt/other'],
 };
 const alone = { mergeSha: 'm40', closing: [12], files: [`${DIR}/a.ts`] };
 
@@ -533,6 +535,85 @@ describe('an issue that names another package of the repository', () => {
 		expect(report.notes.join(' ')).toContain('@nxgt/other');
 		expect(report.notify).toEqual([]);
 		expect(fake.calls.some((c) => c[1] === 'search')).toBe(false);
+	});
+
+	test('is handled when the PR touched the named package but adds no changeset naming it', async () => {
+		const fake = fakeWorld(
+			simple({
+				prs: { 40: { ...both, changesets: [] } },
+				issues: { 12: { body: versions('@nxgt/other') } },
+			}),
+		);
+		const report = await run(fake, false, { siblings: SIBLINGS });
+		expect(report.issues[0]?.skipped).toBe(false);
+	});
+
+	test('a slice issue is handled even when the integration PR touched the sibling through another slice', async () => {
+		const fake = fakeWorld({
+			...simple({
+				prs: {
+					41: {
+						base: 'feat/x',
+						head: 'fix/s41',
+						closing: [12],
+						mergeSha: 'm41',
+						files: [`${DIR}/a.ts`],
+					},
+					42: {
+						base: 'feat/x',
+						head: 'fix/s42',
+						mergeSha: 'm42',
+						files: ['packages/other/b.ts'],
+						changesets: ['@nxgt/other'],
+					},
+					40: {
+						head: 'feat/x',
+						mergeSha: 'm40',
+						files: [`${DIR}/a.ts`, 'packages/other/b.ts'],
+						changesets: ['@nxgt/other'],
+					},
+				},
+				issues: { 12: { body: versions('@nxgt/other') } },
+			}),
+			changelog: CHANGELOG.replace('[#40]', '[#41]').replace(
+				'- [#30]',
+				'- [#42](https://x/pull/42) Also.\n\n- [#30]',
+			),
+		});
+		const report = await run(fake, false, { siblings: SIBLINGS });
+		expect(report.issues[0]).toMatchObject({
+			number: 12,
+			pr: 40,
+			skipped: false,
+			commented: true,
+		});
+	});
+
+	test('rank 0 + touched + changeset: skipped, and the sibling run comments later', async () => {
+		const fake = fakeWorld({
+			...simple({
+				prs: { 40: both },
+				issues: { 12: { body: versions('@nxgt/other') } },
+			}),
+			tags: [
+				'@nxgt/widget@1.4.0',
+				'@nxgt/widget@1.3.0',
+				'@nxgt/other@1.4.0',
+				'@nxgt/other@1.3.0',
+			],
+		});
+		await run(fake, false, { siblings: SIBLINGS });
+		expect(fake.writes()).toEqual([]);
+		const later = await run(fake, false, {
+			siblings: SIBLINGS,
+			pkg: '@nxgt/other',
+			dir: 'packages/other',
+		});
+		expect(later.issues[0]).toMatchObject({
+			number: 12,
+			commented: true,
+			skipped: false,
+		});
 	});
 
 	test('is handled under this package when the fixing PR did not touch the named one', async () => {

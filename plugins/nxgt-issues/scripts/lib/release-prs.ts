@@ -32,6 +32,8 @@ export interface Fix {
 	readonly pr: number;
 	/** The merge commit of that PR, when GitHub gave one. */
 	readonly sha?: string | undefined;
+	/** 0: the PR's own closing references name the issue; 1: a slice's, named after its integration PR; 2: a slice with none yet. */
+	readonly rank: number;
 }
 
 export interface Discovery {
@@ -202,6 +204,6 @@ export async function discoverFixes(
 	}
 	const fixes = [...found.values()]
 		.sort((a, b) => a.rank - b.rank)
-		.map(({ issue, pr, sha }) => ({ issue, pr, sha }));
+		.map(({ issue, pr, sha, rank }) => ({ issue, pr, sha, rank }));
 	return { prs: touched, fixes, warnings, notes };
 }

@@ -29,17 +29,21 @@ const PUBLISHED = JSON.stringify([{ name: '@nxgt/widget', version: '1.4.0' }]);
 const COMMENT =
 	'Fixed in @nxgt/widget@1.4.0 (#40).\n\n<!-- nxgt-issues:fixed=@nxgt/widget@1.4.0 -->\n';
 
-const CHANGELOG = [
-	'# @nxgt/widget',
-	'',
-	'## 1.4.0',
-	'',
-	'- [#40](https://github.com/softistx/nxgt-widget/pull/40) Adds a thing.',
-	'',
-	'## 1.3.0',
-	'',
-	'- [#30](https://github.com/softistx/nxgt-widget/pull/30) Older.',
-].join('\n');
+const changelogOf = (prs: number[]) =>
+	[
+		'# @nxgt/widget',
+		'',
+		'## 1.4.0',
+		'',
+		...prs.map(
+			(n) =>
+				`- [#${n}](https://github.com/softistx/nxgt-widget/pull/${n}) Thing.`,
+		),
+		'',
+		'## 1.3.0',
+		'',
+		'- [#30](https://github.com/softistx/nxgt-widget/pull/30) Older.',
+	].join('\n');
 
 interface Pr {
 	base?: string;
@@ -48,6 +52,8 @@ interface Pr {
 	closing?: number[];
 	files?: string[];
 	sha?: string;
+	/** The packages a changeset this PR adds names. */
+	changesets?: string[];
 }
 interface Issue {
 	body: string;
@@ -61,6 +67,8 @@ interface World {
 	logs?: Record<string, string[]>;
 	/** Tags like v1.4.0 (a single-package repository). */
 	plain?: boolean;
+	/** The PRs the 1.4.0 CHANGELOG section lists (default #40). */
+	listed?: number[];
 	/** Overrides the tags `git tag` prints. */
 	tagList?: string[];
 	failing?: string[];
@@ -114,10 +122,23 @@ function fakeWorld(init: World) {
 			const dir = String(argv[argv.length - 1]);
 			return ok(`${(init.logs?.[dir] ?? init.log ?? []).join('\n')}\n`);
 		}
-		if (argv[1] === 'show') return ok(CHANGELOG);
+		const find = (sha: string) =>
+			Object.values(init.prs ?? {}).find((p) => p.sha === sha);
+		if (argv[1] === 'show') {
+			const m = /^(\w+):\.changeset\/c(\d+)\.md$/.exec(String(argv[2]));
+			if (!m) return ok(changelogOf(init.listed ?? [40]));
+			const name = find(String(m[1]))?.changesets?.[Number(m[2])];
+			return name ? ok(`---\n"${name}": minor\n---\n\nx\n`) : bad('fatal');
+		}
+		if (argv[1] === 'diff' && argv.includes('--diff-filter=A')) {
+			const pr = find(String(argv[4]).replace(/\^1$/, ''));
+			if (!pr) return bad('fatal: bad revision');
+			return ok(
+				(pr.changesets ?? []).map((_, i) => `.changeset/c${i}.md\n`).join(''),
+			);
+		}
 		if (argv[1] === 'diff') {
-			const sha = String(argv[3]).replace(/\^1$/, '');
-			const pr = Object.values(init.prs ?? {}).find((p) => p.sha === sha);
+			const pr = find(String(argv[3]).replace(/\^1$/, ''));
 			if (!pr) return bad('fatal: bad revision');
 			const dir = String(argv[argv.length - 1]);
 			const files = pr.files ?? ['packages/widget/src/a.ts'];
@@ -531,13 +552,92 @@ describe('several packages published together', () => {
 	test('an issue naming an unpublished sibling that the fixing PR also touched is left to its release', async () => {
 		const world = fakeWorld(
 			simple({
-				prs: { 40: { closing: [12], sha: 'm40', files: everything } },
+				prs: {
+					40: {
+						closing: [12],
+						sha: 'm40',
+						files: everything,
+						changesets: ['@nxgt/c'],
+					},
+				},
 				issues: { 12: { body: versions('@nxgt/c') } },
 			}),
 		);
 		const { lines } = await run(world, [], checkout('a', 'b', 'c'), only);
 		expect(world.writes.filter((w) => w[1] === 'issue')).toEqual([]);
 		expect(lines).toContain('@nxgt/c');
+	});
+
+	test('a touched sibling with no changeset naming it is handled, never skipped', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12], sha: 'm40', files: everything } },
+				issues: { 12: { body: versions('@nxgt/c') } },
+			}),
+		);
+		await run(world, [], checkout('a', 'b', 'c'), only);
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/a@1.4.0 (#40).',
+		);
+	});
+
+	test('a slice issue is handled even when the integration PR touched the sibling through another slice', async () => {
+		const world = fakeWorld({
+			...simple({
+				prs: {
+					41: {
+						base: 'feat/x',
+						head: 'fix/s41',
+						closing: [12],
+						sha: 'm41',
+						files: [touching('a')],
+					},
+					42: {
+						base: 'feat/x',
+						head: 'fix/s42',
+						sha: 'm42',
+						files: [touching('c')],
+						changesets: ['@nxgt/c'],
+					},
+					40: {
+						head: 'feat/x',
+						sha: 'm40',
+						files: [touching('a'), touching('c')],
+						changesets: ['@nxgt/c'],
+					},
+				},
+				issues: { 12: { body: versions('@nxgt/c') } },
+			}),
+			listed: [41, 42],
+		});
+		await run(world, ['--dry-run'], checkout('a', 'b', 'c'), only);
+		expect(world.writes).toEqual([]);
+		const real = await run(world, [], checkout('a', 'b', 'c'), only);
+		expect(real.lines).not.toContain('left to');
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/a@1.4.0',
+		);
+	});
+
+	test('rank 0 + touched + changeset: skipped now, and the sibling run comments later', async () => {
+		const prs = {
+			40: {
+				closing: [12],
+				sha: 'm40',
+				files: [touching('a'), touching('c')],
+				changesets: ['@nxgt/c'],
+			},
+		};
+		const world = fakeWorld(
+			simple({ prs, issues: { 12: { body: versions('@nxgt/c') } } }),
+		);
+		await run(world, [], checkout('a', 'b', 'c'), only);
+		expect(world.writes.filter((w) => w[1] === 'issue')).toEqual([]);
+		const later = JSON.stringify([{ name: '@nxgt/c', version: '1.4.0' }]);
+		await run(world, [], checkout('a', 'b', 'c'), later);
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/c@1.4.0 (#40).',
+		);
 	});
 
 	test('one the fixing PR did not touch is handled under the published package', async () => {

@@ -164,6 +164,24 @@ export async function touches(c: Ctx, p: Pick<Pkg, 'dir'>, pr: Pr) {
 	return pr.files.some((f) => inDir(p.dir, f));
 }
 
+/** The packages a merge commit's added changesets name (what is really published with it); undefined when git cannot say. */
+export async function addedChangesets(c: Ctx, sha: string) {
+	const diff = `git diff --name-only --diff-filter=A ${sha}^1 ${sha} -- .changeset/`;
+	const listing = await c.exec(diff.split(' '));
+	if (listing.code !== 0) return undefined;
+	const names: string[] = [];
+	const files = listing.stdout.split('\n').filter((f) => f.endsWith('.md'));
+	for (const file of files) {
+		const shown = await c.exec(['git', 'show', `${sha}:${file}`]);
+		if (shown.code !== 0) return undefined;
+		const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(shown.stdout)?.[1] ?? '';
+		for (const m of front.matchAll(/^["']?([^"':\n]+?)["']?\s*:/gm)) {
+			names.push(m[1] ?? '');
+		}
+	}
+	return names;
+}
+
 /** The PRs read and the issues the release fixes, each with the PR its comment names and its rank (0 best). */
 export async function fixes(c: Ctx, p: Pkg) {
 	const path = p.dir === '.' ? 'CHANGELOG.md' : `${p.dir}/CHANGELOG.md`;
