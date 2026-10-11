@@ -57,8 +57,16 @@ export async function discoverFixes(
 	const notes: string[] = [];
 	const tag = `${input.pkg}@${input.version}`;
 	const changelog =
-		(await git(ctx, ['show', `${tag}:${changelogPath(input.dir)}`])) ??
-		(await git(ctx, ['show', `HEAD:${changelogPath(input.dir)}`])) ??
+		(await git(ctx, [
+			'show',
+			'--no-textconv',
+			`${tag}:${changelogPath(input.dir)}`,
+		])) ??
+		(await git(ctx, [
+			'show',
+			'--no-textconv',
+			`HEAD:${changelogPath(input.dir)}`,
+		])) ??
 		'';
 	const listed = changelogPrs(changelog, input.version);
 	const { prs: logged, previous } = await loggedPrs(ctx, input, notes);

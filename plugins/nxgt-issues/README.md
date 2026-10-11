@@ -443,6 +443,24 @@ application's `appDomains` and `denyTerms`, see below).
   the whole filing on any hit and print the terms, never a value. A public
   application files only with `--public-app`. Names appear only in the private
   tracking issue.
+- **Git runs against a directory this plugin does not control** (`--cwd`, or
+  the working directory), whose own `.git/config` can name a command. Every
+  `git` the runner spawns therefore starts with `-c core.fsmonitor=false -c
+  log.showSignature=false -c diff.external= -c core.pager=cat -c
+  core.hooksPath=/dev/null -c core.sshCommand=false -c credential.helper= -c
+  protocol.allow=never --no-optional-locks`, and the child's environment loses
+  `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`,
+  `GIT_OBJECT_DIRECTORY`, `GIT_EXTERNAL_DIFF` and every `GIT_CONFIG_*` except
+  `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` (and gains `GIT_PAGER=cat`,
+  `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `GH_PROMPT_DISABLED=1`). This
+  is a list of known keys: a repository's config cannot be disabled wholesale,
+  and `-c` beats it only for the keys named, so re-check the list when git adds
+  config that runs commands. The release reads add `--no-show-signature`,
+  `--no-ext-diff` and `--no-textconv` (a textconv driver has a name of the
+  repository's choosing, so no `-c` can list it), and `gh` runs from the home
+  directory, never the checkout. `scripts/release/close-released-issues*.ts`
+  spawns its own git in the release job's trusted checkout and is not part of
+  this guard.
 - **Untrusted text.** Everything read from GitHub (titles, labels, bodies,
   comments, logins, repository names) and from the registry is data. Every CLI
   command that prints it (`file` candidates, `ready`, the `released` notify

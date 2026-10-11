@@ -88,6 +88,8 @@ describe('PR discovery', () => {
 		expect(diff).toEqual([
 			'git',
 			'diff',
+			'--no-ext-diff',
+			'--no-textconv',
 			'--name-only',
 			'm40^1',
 			'm40',
@@ -720,7 +722,7 @@ describe('a package at the repository root', () => {
 		expect(log).toContain('v1.3.0..v1.4.0');
 		expect(log?.slice(-2)).toEqual(['--', '.']);
 		const show = fake.calls.find((c) => c[1] === 'show');
-		expect(show?.[2]).toEndWith(':CHANGELOG.md');
+		expect(show?.at(-1)).toEndWith(':CHANGELOG.md');
 		expect(fake.calls.find((c) => c[1] === 'diff')?.slice(-2)).toEqual([
 			'--',
 			'.',

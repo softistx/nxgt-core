@@ -40,6 +40,9 @@ export function subjectPr(subject: string): number | undefined {
 	return match?.[1] ? Number(match[1]) : undefined;
 }
 
+/** A second layer under the runner's guard: no external diff driver, no textconv. */
+const NO_EXTERNAL = ['--no-ext-diff', '--no-textconv'] as const;
+
 export async function git(
 	ctx: GhContext,
 	args: readonly string[],
@@ -118,6 +121,7 @@ export async function loggedPrs(
 	}
 	const log = await git(ctx, [
 		'log',
+		'--no-show-signature',
 		'--first-parent',
 		'--format=%s',
 		`${previous}..${tag}`,
@@ -142,6 +146,7 @@ export async function commitTouches(
 ): Promise<boolean | undefined> {
 	const out = await git(ctx, [
 		'diff',
+		...NO_EXTERNAL,
 		'--name-only',
 		`${sha}^1`,
 		sha,
@@ -172,14 +177,21 @@ export async function addedChangesetPackages(
 	sha: string,
 ): Promise<string[] | undefined> {
 	const listing = await git(ctx, [
-		...['diff', '--name-only', '--diff-filter=A', `${sha}^1`, sha],
+		...[
+			'diff',
+			...NO_EXTERNAL,
+			'--name-only',
+			'--diff-filter=A',
+			`${sha}^1`,
+			sha,
+		],
 		...['--', '.changeset/'],
 	]);
 	if (listing === undefined) return undefined;
 	const names: string[] = [];
 	for (const file of listing.split('\n').map((f) => f.trim())) {
 		if (!file.endsWith('.md') || file.endsWith('/README.md')) continue;
-		const text = await git(ctx, ['show', `${sha}:${file}`]);
+		const text = await git(ctx, ['show', '--no-textconv', `${sha}:${file}`]);
 		if (text === undefined) return undefined;
 		names.push(...changesetNames(text));
 	}

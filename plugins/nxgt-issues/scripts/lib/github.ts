@@ -8,6 +8,7 @@
  * and nothing is paused.
  */
 
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readEntry, writeEntry } from './cache';
 import { formatRepo, type RepoId } from './repo-id';
@@ -96,7 +97,8 @@ export async function gh(
 		...(stdin === undefined ? {} : { stdin }),
 		...(ctx.timeoutMs === undefined ? {} : { timeoutMs: ctx.timeoutMs }),
 		...(ctx.signal ? { signal: ctx.signal } : {}),
-		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
+		// Never the working directory: a gh call without -R would resolve remotes through git there.
+		cwd: homedir(),
 	});
 	if (result.timedOut) throw new GhTimeout(args, ctx.timeoutMs);
 	if (result.code === 0) return result.stdout;
