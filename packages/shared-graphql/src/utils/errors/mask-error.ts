@@ -61,7 +61,7 @@ export function createMaskError<K extends LocaleKey>(
 			original instanceof CustomException ||
 			original instanceof mongoose.MongooseError
 		) {
-			return exceptionError(original, translate);
+			return exceptionError(original, translate, isDev);
 		}
 
 		if (isOriginalGraphQLError(error)) return error;
@@ -75,6 +75,7 @@ export function createMaskError<K extends LocaleKey>(
 function exceptionError<K extends LocaleKey>(
 	original: CustomException | mongoose.MongooseError,
 	translate: Translate<K>,
+	isDev: boolean | undefined,
 ): GraphQLError {
 	const exception =
 		original instanceof mongoose.MongooseError
@@ -90,7 +91,7 @@ function exceptionError<K extends LocaleKey>(
 			extensions: {
 				code: exception.errorCode,
 				...(status ? { http: { status } } : {}),
-				...(exception.debugMessage
+				...(isDev && exception.debugMessage
 					? { debugMessage: exception.debugMessage }
 					: {}),
 			},

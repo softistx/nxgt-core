@@ -46,6 +46,21 @@ describe('createMaskError', () => {
 		expect((error as GraphQLError).message).toBe('t(errors.x)');
 	});
 
+	it("keeps an exception's debugMessage only when isDev is on", () => {
+		const exception = CustomException.notFound({
+			message: 'errors.x',
+			debugMessage: 'note 42 is not in the collection',
+		});
+		const production = mask(wrapped(exception), 'Unexpected error.', false);
+		expect((production as GraphQLError).extensions).not.toHaveProperty(
+			'debugMessage',
+		);
+		const development = mask(wrapped(exception), 'Unexpected error.', true);
+		expect((development as GraphQLError).extensions['debugMessage']).toBe(
+			'note 42 is not in the collection',
+		);
+	});
+
 	it('answers an outage 503 SERVICE_UNAVAILABLE, never a denial', () => {
 		const error = mask(
 			wrapped(new OryUnavailable('keto', 503, null)),
