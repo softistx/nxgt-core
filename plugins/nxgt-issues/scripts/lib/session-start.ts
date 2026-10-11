@@ -7,7 +7,9 @@
  *     and not one runner call;
  *   fresh cache -> render it;
  *   stale cache -> render it "as of Nm ago" and start a detached refresh;
- *   no cache    -> one inline refresh capped at 800 ms, else nothing.
+ *   no cache    -> one inline refresh capped at 800 ms, else nothing; over
+ *     budget, the refresh is also started detached so the next start has a
+ *     cache, and a failure leaves a 10-minute stamp (no attempt meanwhile).
  */
 
 import { cachePath, describeAge, readEntry } from './cache';
@@ -15,6 +17,7 @@ import { renderContext } from './context';
 import { type GhContext, rateLimitedUntil } from './github';
 import { disabled } from './hook';
 import { refreshRepo, type Snapshot } from './refresh';
+import { setStamp, stampFresh } from './refresh-state';
 import {
 	allowedOwners,
 	isAllowedOwner,
@@ -42,21 +45,36 @@ const isSnapshot = (value: unknown): value is Snapshot =>
 	Array.isArray((value as Snapshot).tracking) &&
 	typeof (value as Snapshot).repo === 'string';
 
+type Cold = Snapshot | 'timeout' | 'failed';
+
 async function coldRefresh(
 	ctx: GhContext,
 	id: RepoId,
 	owners: readonly string[],
-): Promise<Snapshot | undefined> {
+): Promise<Cold> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	const budget = new Promise<undefined>((done) => {
-		timer = setTimeout(() => done(undefined), COLD_BUDGET_MS);
+	const budget = new Promise<'timeout'>((done) => {
+		timer = setTimeout(() => done('timeout'), COLD_BUDGET_MS);
 	});
 	try {
 		const capped = { ...ctx, timeoutMs: COLD_BUDGET_MS };
-		return await Promise.race([refreshRepo(capped, id, owners), budget]);
+		return await Promise.race([
+			refreshRepo(capped, id, owners).catch((): 'failed' => 'failed'),
+			budget,
+		]);
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+/** Detached `issues.ts refresh`, unless one started under a minute ago. */
+function startRefresh(deps: SessionStartDeps, id: RepoId): void {
+	if (stampFresh(deps.home, id, 'refreshing', deps.now())) return;
+	setStamp(deps.home, id, 'refreshing', deps.now());
+	// Detached: the session never waits for it, and a failure is its own.
+	deps.runner
+		.run(deps.refreshCommand, { detached: true, cwd: deps.cwd })
+		.catch(() => undefined);
 }
 
 /** The `additionalContext` text for this session, or undefined. */
@@ -75,21 +93,23 @@ export async function sessionStartContext(
 			now: deps.now,
 			cwd: deps.cwd,
 		};
-		const paused = rateLimitedUntil(deps.home, now) !== undefined;
+		// A rate-limit pause or a refresh that just failed: use what is cached.
+		const idle =
+			rateLimitedUntil(deps.home, now) !== undefined ||
+			stampFresh(deps.home, id, 'failed', now);
 		const entry = readEntry<unknown>(cachePath(deps.home, id), now);
 		if (entry && isSnapshot(entry.data)) {
-			if (!(entry.fresh || paused)) {
-				// Detached: the session never waits for it, and a failure is its own.
-				deps.runner
-					.run(deps.refreshCommand, { detached: true, cwd: deps.cwd })
-					.catch(() => undefined);
-			}
+			if (!(entry.fresh || idle)) startRefresh(deps, id);
 			const age = entry.fresh ? undefined : describeAge(entry.ageMs);
 			return renderContext(entry.data, { now, ...(age ? { age } : {}) });
 		}
-		if (paused) return undefined;
-		const snapshot = await coldRefresh(ctx, id, owners);
-		return snapshot ? renderContext(snapshot, { now: deps.now() }) : undefined;
+		if (idle) return undefined;
+		const cold = await coldRefresh(ctx, id, owners);
+		if (cold === 'failed') setStamp(deps.home, id, 'failed', deps.now());
+		if (cold === 'timeout') startRefresh(deps, id);
+		return typeof cold === 'string'
+			? undefined
+			: renderContext(cold, { now: deps.now() });
 	} catch {
 		return undefined;
 	}

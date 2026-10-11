@@ -170,3 +170,60 @@ describe('a 403 that is not a rate limit', () => {
 		await expect(gh(ctx, ['x'])).rejects.toBeInstanceOf(RateLimitedError);
 	});
 });
+
+describe('anchored rate-limit phrasing', () => {
+	test.each([
+		'gh: could not find repository acme/abuse-tracker',
+		'HTTP 404: not found (rate-limit-docs)',
+	])('%p is not a rate limit', async (stderr) => {
+		const ctx = ctxWith([{ argv: ['gh'], result: { code: 1, stderr } }]);
+		await expect(gh(ctx, ['x'])).rejects.toBeInstanceOf(GhError);
+		expect(rateLimitedUntil(ctx.home, NOW)).toBeUndefined();
+	});
+
+	test('abuse detection still is', async () => {
+		const ctx = ctxWith([
+			{
+				argv: ['gh'],
+				result: { code: 1, stderr: 'HTTP 403: abuse detection mechanism' },
+			},
+		]);
+		await expect(gh(ctx, ['x'])).rejects.toBeInstanceOf(RateLimitedError);
+	});
+});
+
+describe('gh with partial output allowed', () => {
+	const partial = '{"data":{"u0":null},"errors":[{"type":"NOT_FOUND"}]}';
+
+	test('a failed exit with data in stdout returns it', async () => {
+		const ctx = ctxWith([
+			{
+				argv: ['gh'],
+				result: { code: 1, stdout: partial, stderr: 'gh: Could not resolve' },
+			},
+		]);
+		expect(await gh(ctx, ['x'], undefined, { partial: true })).toBe(partial);
+	});
+
+	test('without data it still throws, and a rate limit still pauses', async () => {
+		const none = ctxWith([
+			{ argv: ['gh'], result: { code: 1, stdout: '{"errors":[]}' } },
+		]);
+		await expect(
+			gh(none, ['x'], undefined, { partial: true }),
+		).rejects.toBeInstanceOf(GhError);
+		const limited = ctxWith([
+			{
+				argv: ['gh'],
+				result: {
+					code: 1,
+					stdout: partial,
+					stderr: 'HTTP 403: API rate limit exceeded',
+				},
+			},
+		]);
+		await expect(
+			gh(limited, ['x'], undefined, { partial: true }),
+		).rejects.toBeInstanceOf(RateLimitedError);
+	});
+});

@@ -55,6 +55,7 @@ export function formatIssueRef(ref: IssueRef): string {
 	return `${ref.repo ? formatRepo(ref.repo) : ''}#${ref.number}`;
 }
 
+const MAX_ISSUE_NUMBER = 2 ** 31 - 1;
 const UPSTREAM = /<!--\s*nxgt-issues:upstream=([\w.-]+)\/([\w.-]+)#(\d+)\s*-->/;
 
 /** The hidden marker a tracking issue carries to name its upstream issue. */
@@ -68,8 +69,9 @@ export function upstreamRef(
 ): { repo: RepoId; number: number } | undefined {
 	const match = UPSTREAM.exec(body);
 	if (!match?.[1] || !match[2] || !match[3]) return undefined;
-	return {
-		repo: { owner: match[1], repo: match[2] },
-		number: Number(match[3]),
-	};
+	const number = Number(match[3]);
+	// GraphQL's Int is 32 bits: a larger number would fail the whole query.
+	if (!Number.isSafeInteger(number) || number > MAX_ISSUE_NUMBER)
+		return undefined;
+	return { repo: { owner: match[1], repo: match[2] }, number };
 }

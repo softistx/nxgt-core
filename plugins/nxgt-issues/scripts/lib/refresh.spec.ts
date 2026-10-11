@@ -166,3 +166,117 @@ describe('refreshRepo', () => {
 		}
 	});
 });
+
+describe('refreshRepo: partial GraphQL answers', () => {
+	test('a failed exit with data is cached; a null upstream is unknown, the rest intact', async () => {
+		const h = home();
+		const runner = fakeRunner({
+			run: [
+				{
+					argv: GRAPHQL,
+					when: (argv) => argv.join(' ').includes('states:OPEN'),
+					result: {
+						stdout: listing({
+							tracking: [
+								{
+									number: 1,
+									title: 'gone',
+									body: marker('softistx/nxgt-vexora#12'),
+								},
+								{
+									number: 2,
+									title: 'fine',
+									body: marker('softistx/nxgt-quillon#3'),
+								},
+							],
+						}),
+					},
+				},
+				{
+					argv: GRAPHQL,
+					when: (argv) => argv.join(' ').includes('u0:repository'),
+					result: {
+						code: 1,
+						stderr: 'gh: Could not resolve to an Issue',
+						stdout: JSON.stringify({
+							data: {
+								u0: null,
+								u1: {
+									issue: {
+										state: 'CLOSED',
+										labels: { nodes: [{ name: 'released' }] },
+										comments: { nodes: [] },
+									},
+								},
+							},
+							errors: [{ type: 'NOT_FOUND' }],
+						}),
+					},
+				},
+			],
+		});
+		const snapshot = await refreshRepo(
+			{ runner, home: h, now: () => NOW },
+			ME,
+			OWNERS,
+		);
+		expect(snapshot.tracking[0]?.upstreamState).toBeUndefined();
+		expect(snapshot.tracking[1]?.upstreamState).toBe('CLOSED');
+		expect(
+			readEntry<Snapshot>(cachePath(h, ME), NOW)?.data.tracking,
+		).toHaveLength(2);
+	});
+
+	test('a missing repository throws', async () => {
+		const runner = fakeRunner({
+			run: [
+				{ argv: GRAPHQL, result: { stdout: '{"data":{"repository":null}}' } },
+			],
+		});
+		await expect(
+			refreshRepo({ runner, home: home(), now: () => NOW }, ME, OWNERS),
+		).rejects.toThrow();
+	});
+});
+
+describe('refreshRepo: the listing', () => {
+	test('one call carries the consumer-report alias and the total, merged without duplicates', async () => {
+		const reportNode = issueNode(60, ['consumer-report']);
+		const runner = fakeRunner({
+			run: [
+				{
+					argv: GRAPHQL,
+					result: {
+						stdout: JSON.stringify({
+							data: {
+								repository: {
+									issues: {
+										totalCount: 75,
+										nodes: [issueNode(1, ['bug']), reportNode],
+									},
+									reports: {
+										nodes: [reportNode, issueNode(61, ['consumer-report'])],
+									},
+									tracking: { totalCount: 0, nodes: [] },
+								},
+							},
+						}),
+					},
+				},
+			],
+		});
+		const snapshot = await refreshRepo(
+			{ runner, home: home(), now: () => NOW },
+			ME,
+			OWNERS,
+		);
+		expect(runner.calls).toHaveLength(1);
+		expect(runner.calls[0]?.argv.join(' ')).toContain(
+			'reports:issues(states:OPEN,labels:["consumer-report"],first:10',
+		);
+		expect(
+			snapshot.issues.map((issue) => issue.number).sort((a, b) => a - b),
+		).toEqual([1, 60, 61]);
+		expect(snapshot.total).toBe(75);
+	});
+});

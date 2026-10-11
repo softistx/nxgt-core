@@ -59,6 +59,7 @@ export function createRunner(
 			const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 			const child = Bun.spawn([...argv], {
 				...(options.cwd ? { cwd: options.cwd } : {}),
+				...(options.detached ? { detached: true } : {}),
 				stdin: options.stdin === undefined ? 'ignore' : 'pipe',
 				stdout: options.detached ? 'ignore' : 'pipe',
 				stderr: options.detached ? 'ignore' : 'pipe',

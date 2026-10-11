@@ -1,6 +1,9 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { createRunner, networkAllowed } from './runner';
 import { fakeRunner } from './runner.fixtures';
+import { removeTempDirs, tempDir } from './temp.fixtures';
 
 const ENTRY = '/x/issues.ts';
 
@@ -147,5 +150,24 @@ describe('fakeRunner', () => {
 		await expect(
 			fake.fetchJson('https://registry.npmjs.org/b'),
 		).rejects.toThrow('timeout');
+	});
+});
+
+afterAll(removeTempDirs);
+
+describe('a detached run', () => {
+	test('returns at once while the process goes on', async () => {
+		const marker = join(tempDir('detached'), 'done');
+		const runner = createRunner({ NXGT_ISSUES_ALLOW_NETWORK: '1' });
+		const started = performance.now();
+		const result = await runner.run(
+			['sh', '-c', `sleep 0.3; touch '${marker}'`],
+			{ detached: true },
+		);
+		expect(result).toEqual({ code: 0, stdout: '', stderr: '' });
+		expect(performance.now() - started).toBeLessThan(250);
+		expect(existsSync(marker)).toBe(false);
+		for (let i = 0; i < 40 && !existsSync(marker); i++) await Bun.sleep(50);
+		expect(existsSync(marker)).toBe(true);
 	});
 });

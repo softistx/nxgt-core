@@ -11,7 +11,7 @@ released, the application adopts it and removes the `// Temporary, until
 > **Status: reporter and session start.** This version ships the
 > `report-to-upstream` skill, the `issues.ts` CLI behind it (`resolve`, `file`,
 > `track`, `deps`, `sessions`, `refresh`) and the `SessionStart` hook. The
-> app-side adoption flow and the `/issues` dashboard follow in later versions.
+> app-side adoption flow (the `adopt-a-released-fix` skill, a later version) and the `/issues` dashboard follow in later versions.
 
 ## Install
 
@@ -21,7 +21,9 @@ claude plugin install nxgt-issues@nxgt-core --scope user
 
 It is not part of `nxgt-base` yet. Installed, it adds the `report-to-upstream`
 skill, which fires when a session hits a bug, a missing feature, a wrong doc or
-an outdated dependency in one of the owner's packages.
+an outdated dependency in one of the owner's packages, and it registers the
+SessionStart hook (below). `NXGT_ISSUES_DISABLE=1` turns the hook, and the
+CLI, off.
 
 ## The reporter flow
 
@@ -43,8 +45,8 @@ owner, the hook adds to Claude's context:
 - the repository's open issues, at most ten: consumer reports first, then the
   oldest; a flag marks one with no activity for 14 days;
 - at most five tracking issues of the application whose upstream issue is
-  closed **and** labelled `released` (the fix is on npm), with a pointer to the
-  adopt-a-released-fix flow.
+  closed **and** labelled `released` (the fix is on npm); shown first, with the
+  release step's `Fixed in <pkg>@<version>` comment when that is the last one.
 
 It prints nothing when there is nothing to show, and stays under about 600
 tokens (titles are cut to one line and introduced as data, not instructions).
@@ -57,8 +59,19 @@ It reads `<home>/cache/<owner>__<repo>.json`, where `<home>` is
 | cache | the hook |
 | --- | --- |
 | fresh | renders it; no gh call |
-| stale | renders it with "as of Nm ago" and starts `issues.ts refresh` detached, so the next session sees fresh data |
-| absent | one inline refresh capped at 800 ms; if it does not finish, prints nothing |
+| stale | renders it with "as of Nm ago" and starts `issues.ts refresh` detached, so the next session sees fresh data; not more than one per minute (a `refreshing` stamp) |
+| absent | one inline refresh capped at 800 ms; if it does not finish, prints nothing and starts the same detached refresh, so the next session finds a cache |
+| failure stamp | a refresh that fails (gh missing, logged out, bad answer) leaves a `failed` stamp beside the entry for 10 minutes: no attempt meanwhile, a stale entry is rendered as it is and an absent one prints nothing |
+| rate-limit pause | a stale entry is rendered without a refresh; an absent one prints nothing, with no call |
+
+Everything shown from GitHub is untrusted: titles, labels and comments are
+cut to one line, stripped of control, zero-width and bidirectional characters
+and of angle brackets, and the output opens with a line saying so. Of a
+tracking issue's last upstream comment only the release step's own shape
+(`Fixed in <pkg>@<version>`, optionally `(#PR)`) is shown. The output is capped
+at 2400 characters; adopt-ready entries come first and every cut is counted in
+a "… and N more" line. The cache keeps the oldest 50 open issues plus the 10
+oldest consumer reports, and the real open count.
 
 It fails open: no `.git`, an `origin` whose owner is not in
 `NXGT_ISSUES_OWNERS` (default `softistx,SteveGT96`; this case makes no gh call
@@ -273,11 +286,12 @@ a name followed by a call or a member access, anything inside a path.
 | module | role |
 | --- | --- |
 | `hook.ts` | the shell every hook of the plugin runs in |
-| `runner.ts` | the only place that spawns a process or fetches a URL, with a scripted fake for specs |
+| `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once), with a scripted fake for specs |
 | `repo-id.ts` | which GitHub repository a directory or a `package.json` belongs to, and whether its owner is allowed |
 | `refs.ts` | closing keywords and upstream references |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
+| `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps beside a cache entry |
 | `refresh.ts` | the two GraphQL calls that fill a repository's cache entry, and the `refresh` command |
 | `context.ts` | pure rendering of a cache entry for the hook: ranking, the caps, the 14-day flag, the token cap |
 | `session-start.ts` | the hook's decision (allowlist, fresh/stale/cold, fail-open), with the runner injected; `scripts/hooks/session-start.ts` is the entry that builds the real one |

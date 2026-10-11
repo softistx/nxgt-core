@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { cachePath, writeEntry } from './cache';
+import { stampFresh } from './refresh-state';
 import { type FakeRunner, fakeRunner } from './runner.fixtures';
 import {
 	checkout,
@@ -207,5 +208,66 @@ describe('sessionStartContext: latency', () => {
 		times.sort((a, b) => a - b);
 		expect(times[15] ?? Number.POSITIVE_INFINITY).toBeLessThan(50);
 		expect(runner.calls).toHaveLength(0);
+	});
+});
+
+describe('sessionStartContext: a refresh that does not finish', () => {
+	test('a cold start over budget starts the detached refresh', async () => {
+		const runner = fakeRunner({ run: [{ argv: ['bun'] }] });
+		runner.run = (async (argv, options) => {
+			(runner.calls as unknown[]).push({ argv, options: options ?? {} });
+			return options?.detached
+				? { code: 0, stdout: '', stderr: '' }
+				: new Promise(() => undefined);
+		}) as typeof runner.run;
+		const d = deps(runner);
+		expect(await sessionStartContext(d)).toBeUndefined();
+		const detached = runner.calls.filter((call) => call.options.detached);
+		expect(detached).toHaveLength(1);
+		expect(detached[0]?.argv).toEqual(REFRESH);
+		// a second start inside a minute does not spawn a second one
+		await sessionStartContext(d);
+		expect(runner.calls.filter((call) => call.options.detached)).toHaveLength(
+			1,
+		);
+	});
+
+	test('a fast failure leaves a stamp, and for ten minutes no call is made', async () => {
+		const runner = fakeRunner({
+			run: [{ argv: GRAPHQL, throws: 'spawn gh ENOENT' }],
+		});
+		const d = deps(runner);
+		expect(await sessionStartContext(d)).toBeUndefined();
+		expect(runner.calls).toHaveLength(1);
+		expect(stampFresh(d.home, ME, 'failed', NOW)).toBe(true);
+		expect(await sessionStartContext(d)).toBeUndefined();
+		expect(runner.calls).toHaveLength(1);
+		const later = { ...d, now: () => NOW + 11 * 60_000 };
+		await sessionStartContext(later);
+		expect(runner.calls).toHaveLength(2);
+	});
+
+	test('a stale cache is rendered but not refreshed while a failure stamp is fresh', async () => {
+		const runner = fakeRunner();
+		const d = deps(runner);
+		seed(d.home, SNAPSHOT, NOW - 25 * 60_000);
+		writeEntry(
+			`${cachePath(d.home, ME)}`.replace('.json', '.failed.json'),
+			{},
+			NOW - 60_000,
+		);
+		expect(await sessionStartContext(d)).toContain('as of 25m ago');
+		expect(runner.calls).toHaveLength(0);
+	});
+
+	test('a stale refresh in progress (lock under 60 s) is not started twice', async () => {
+		const runner = fakeRunner({ run: [{ argv: ['bun'] }] });
+		const d = deps(runner);
+		seed(d.home, SNAPSHOT, NOW - 25 * 60_000);
+		await sessionStartContext(d);
+		await sessionStartContext(d);
+		expect(runner.calls).toHaveLength(1);
+		await sessionStartContext({ ...d, now: () => NOW + 61_000 });
+		expect(runner.calls).toHaveLength(2);
 	});
 });

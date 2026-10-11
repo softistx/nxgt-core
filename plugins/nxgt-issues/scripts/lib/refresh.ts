@@ -12,6 +12,7 @@ import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import type { GhContext } from './github';
 import { GhError, gh, RateLimitedError } from './github';
+import { clearStamps, setStamp } from './refresh-state';
 import { upstreamRef } from './refs';
 import {
 	allowedOwners,
@@ -43,11 +44,14 @@ export interface Snapshot {
 	readonly repo: string;
 	readonly issues: readonly PackageIssue[];
 	readonly tracking: readonly TrackingIssue[];
+	/** Open issues of the repository, tracking issues apart (the list is capped). */
+	readonly total?: number;
 }
 
 const LISTING = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
-issues(states:OPEN,first:50,orderBy:{field:CREATED_AT,direction:ASC}){nodes{number title createdAt updatedAt labels(first:10){nodes{name}}}}
-tracking:issues(states:OPEN,labels:["upstream"],first:30){nodes{number title body}}}}`;
+issues(states:OPEN,first:50,orderBy:{field:CREATED_AT,direction:ASC}){totalCount nodes{number title createdAt updatedAt labels(first:10){nodes{name}}}}
+reports:issues(states:OPEN,labels:["consumer-report"],first:10,orderBy:{field:CREATED_AT,direction:ASC}){nodes{number title createdAt updatedAt labels(first:10){nodes{name}}}}
+tracking:issues(states:OPEN,labels:["upstream"],first:30){totalCount nodes{number title body}}}}`;
 
 type Obj = Record<string, unknown>;
 const obj = (value: unknown): Obj =>
@@ -62,7 +66,9 @@ const labelNames = (value: unknown): string[] =>
 	nodes(obj(value)['labels']).map((node) => text(node['name']));
 
 async function graphql(ctx: GhContext, args: readonly string[]): Promise<Obj> {
-	const out = await gh(ctx, ['api', 'graphql', ...args]);
+	const out = await gh(ctx, ['api', 'graphql', ...args], undefined, {
+		partial: true,
+	});
 	let parsed: Obj;
 	try {
 		parsed = obj(JSON.parse(out));
@@ -102,8 +108,15 @@ export async function refreshRepo(
 		'-f',
 		`name=${id.repo}`,
 	]);
+	if (!data['repository']) {
+		throw new GhError([], 0, `${formatRepo(id)} is not visible to gh`);
+	}
 	const repository = obj(data['repository']);
-	const issues = nodes(repository['issues'])
+	const seen = new Set<number>();
+	const issues = [
+		...nodes(repository['issues']),
+		...nodes(repository['reports']),
+	]
 		.map((node) => ({
 			number: Number(node['number']),
 			title: text(node['title']),
@@ -111,7 +124,11 @@ export async function refreshRepo(
 			createdAt: text(node['createdAt']),
 			updatedAt: text(node['updatedAt']),
 		}))
-		.filter((issue) => !issue.labels.includes('upstream'));
+		.filter((issue) => {
+			if (seen.has(issue.number)) return false;
+			seen.add(issue.number);
+			return !issue.labels.includes('upstream');
+		});
 	const wanted = nodes(repository['tracking']).flatMap((node) => {
 		const ref = upstreamRef(text(node['body']));
 		// Only repositories the plugin may touch are queried.
@@ -139,8 +156,17 @@ export async function refreshRepo(
 			...(comment ? { lastComment: comment.slice(0, 300) } : {}),
 		};
 	});
-	const snapshot: Snapshot = { repo: formatRepo(id), issues, tracking };
+	const total =
+		Number(obj(repository['issues'])['totalCount']) -
+		Number(obj(repository['tracking'])['totalCount'] ?? 0);
+	const snapshot: Snapshot = {
+		repo: formatRepo(id),
+		issues,
+		tracking,
+		...(Number.isFinite(total) && total >= 0 ? { total } : {}),
+	};
 	writeEntry(cachePath(ctx.home, id), snapshot, ctx.now());
+	clearStamps(ctx.home, id);
 	return snapshot;
 }
 
@@ -159,6 +185,7 @@ export async function refreshCommand(ctx: CliContext): Promise<ExitCode> {
 		);
 		return EXIT.ok;
 	} catch (error) {
+		setStamp(ctx.home, id, 'failed', ctx.now());
 		ctx.err(error instanceof Error ? error.message : String(error));
 		return error instanceof RateLimitedError ? EXIT.rateLimited : EXIT.failed;
 	}
