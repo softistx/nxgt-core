@@ -176,7 +176,7 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   differ): a change to the "Fixed in" comment or its hidden marker, the
   discovery rules, the label, close, comment order, or the idempotency rule is
   made in the script files and the lib files alike, with a spec on each side.
-- The hook fails open and silent, and makes no gh call for a foreign owner.
+- The hook fails open (exit 0; a failed refresh prints nothing, and only a failure of its own shell, such as stdin that is not JSON, prints one `systemMessage`), and makes no gh call for a foreign owner.
 
 ## Deliberate — do not report
 

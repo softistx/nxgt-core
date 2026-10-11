@@ -473,6 +473,7 @@ a name followed by a call or a member access, anything inside a path.
 | `dashboard-data.ts`, `dashboard-command.ts` | the three searches and the duplicate-count GraphQL call behind it; the `dashboard` command and its degrade-honestly handling of the optional calls |
 | `repo-packages.ts` | the repository to package names map (root and every `packages/*`), two aliased GraphQL calls (names, then exact manifests; names only, never file bodies), cached 24 hours, a failed repository 1 hour |
 | `app-side.ts` | `loadSnapshot` (cache when fresh, else `refreshRepo`, stale cache on a failed refresh) and the `ready` command |
+| `markers-resolve.ts` | where a marker's upstream comes from: the tracking issue naming its package and number first (so a package that moved repositories still matches), else the registry or the written `owner/repo`, asked once per target |
 | `markers-check.ts` | the `markers` command: resolves each marker's upstream (`resolvePackage` or `gate`) and flags ready, unresolvable and untracked ones, and reports `unreadable` ones (GitHub could not read the upstream issue) apart, with exit 6 |
 | `markers-public.ts`, `markers-types.ts` | a public application's markers read the upstream issue directly (`fetchUpstream`, shared with the refresh); the report types and `MarkerLookupError` (a rate limit or gh failure: exit 5/6, never `unresolvable`) |
 | `session-start.ts` | the hook's decision (allowlist, fresh/stale/cold, fail-open), with the runner injected; `scripts/hooks/session-start.ts` is the entry that builds the real one |
@@ -530,7 +531,7 @@ unless `NXGT_ISSUES_ALLOW_NETWORK=1`.
 
 nxgt-core runs this step itself: `scripts/close-released-issues*.ts` is a copy of
 the four files below, guarded by `scripts/close-released-issues-copy.spec.ts`,
-and `.github/workflows/release.yml` has the step.
+and the `close-issues` job of `.github/workflows/release.yml` runs it.
 
 The package side closes the loop in two halves, because CI can close issues but
 cannot message a session.
@@ -539,42 +540,55 @@ cannot message a session.
   files of `plugins/nxgt-issues/scripts/release/` into its `scripts/`:
   `close-released-issues.ts`, `close-released-issues-lib.ts`,
   `close-released-issues-git.ts` (they import each other by relative path, and
-  nothing from the plugin) and `close-released-issues.spec.ts`. Then `release.yml` changes in two places.
+  nothing from the plugin) and `close-released-issues.spec.ts`. Then `release.yml`
+  changes in two places.
 
-  The workflow's `permissions` gains `issues: write` (a `permissions` block on
-  the job would *replace* the workflow's, so keep the three together at workflow
-  level):
-
-  ```yaml
-  permissions:
-    contents: write
-    pull-requests: write
-    issues: write
-  ```
-
-  The checkout needs the history and the tags (`fetch-depth: 0`; without them
-  only the CHANGELOG is read, and a PR listed in several packages' changelogs
-  cannot be told apart), the `changesets/action` step needs `id: changesets`, and
-  a step follows it (under `jobs.<job>.steps`):
+  The release job gets `id: changesets` on the `changesets/action` step and
+  hands its outputs on; the checkout needs the history and the tags
+  (`fetch-depth: 0`; without them only the CHANGELOG is read, and a PR listed in
+  several packages' changelogs cannot be told apart). The close step is a job of
+  its own, so `issues: write` reaches it alone and not the job that holds the
+  publish token (a `permissions` block on a job *replaces* the workflow's, so
+  the job lists both of its own):
 
   ```yaml
-  steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    # … setup, build …
-    - name: Version or publish
-      id: changesets
-      uses: changesets/action@v2
-      # … as before …
-    - name: Close the issues this release fixed
-      if: steps.changesets.outputs.published == 'true'
-      continue-on-error: true
-      env:
-        GH_TOKEN: ${{ github.token }}
-        PUBLISHED: ${{ steps.changesets.outputs.published-packages }}
-      run: bun scripts/close-released-issues.ts --published "$PUBLISHED"
+  jobs:
+    release:
+      outputs:
+        published: ${{ steps.changesets.outputs.published }}
+        published-packages: ${{ steps.changesets.outputs.published-packages }}
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        # … setup, build …
+        - name: Version or publish
+          id: changesets
+          uses: changesets/action@v2
+          # … as before …
+    close-issues:
+      needs: release
+      if: ${{ !cancelled() && needs.release.outputs.published == 'true' }}
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+        issues: write
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        # … setup …
+        - name: Close the issues this release fixed
+          continue-on-error: true
+          env:
+            GH_TOKEN: ${{ github.token }}
+            PUBLISHED: ${{ needs.release.outputs.published-packages }}
+          run: bun scripts/close-released-issues.ts --published "$PUBLISHED"
   ```
+
+  `!cancelled()` lets the job run when the release job failed after it
+  published (the outputs are still set); `continue-on-error` keeps a failure
+  here from turning the release red.
 
   The output is `published-packages` (hyphenated) in `changesets/action@v2`,
   built from the `git-tag` events the publish script writes to
