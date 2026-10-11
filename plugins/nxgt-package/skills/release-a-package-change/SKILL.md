@@ -46,6 +46,12 @@ release nothing, and `changeset status` will not ask for anything.
 4. **`bun run verify:artifacts`.** Not optional, and not covered by the build —
    see below.
 5. **PR into `develop`.** CI runs all of the above plus `changeset status`.
+   When the change fixes an issue an application reported (the `nxgt-issues`
+   plugin: a `consumer-report` issue, or the SessionStart digest listed it),
+   the PR description says `Fixes #<n>`, one line per issue — on the
+   integration PR into `develop` when the work is sliced; a slice PR into a
+   `feat/*` branch closes nothing. The `fix-a-reported-issue` skill has the
+   whole package side (queue, regression test, the keyword).
 6. **Merge.** The release workflow versions the packages, pushes
    `changeset-release/develop` and opens the "Version packages" pull request
    itself. Merging *that* publishes, tags and stops. If it fails with *GitHub
@@ -54,12 +60,32 @@ release nothing, and `changeset status` will not ask for anything.
    /repos/softistx/nxgt-core/actions/permissions/workflow` should answer
    `write` and `true`. Open the PR by hand meanwhile; nothing else about the
    release changes.
-7. **Tell the consumer sessions.** After the publish, `SendMessage` each live
+7. **Close the issues the release fixed.** When the PR said `Fixes #<n>`,
+   the release workflow's `close-released-issues` step (nxgt-issues) runs after
+   the publish: it labels each issue `released`, closes it if still open and
+   comments "Fixed in `<package>@<version>`". CI cannot message a session, so
+   then, from this checkout and for **each published version**, run the
+   idempotent fallback (a second run changes nothing, and it covers a step that
+   failed, since it is `continue-on-error`):
+
+   ```bash
+   bun <nxgt-issues plugin root>/scripts/issues.ts released <package>@<version>
+   ```
+
+   Its output ends with the `notify` list: the applications whose tracking
+   issues wait on those issues. Send **one** `SendMessage` to each listed app
+   session that is live (`issues.ts sessions <owner/repo>` plus `ListAgents`):
+   the package and version, what was fixed, and `adopt-a-released-fix` (bump,
+   remove the `Temporary, until` markers). `fix-a-reported-issue` steps 4 and 5
+   have the details and the exit codes; do not copy them here. Skip this step
+   when the PR fixed no reported issue.
+8. **Tell the consumer sessions.** After the publish, `SendMessage` each live
    session whose repository depends on the package (`ListAgents` plus their
    `package.json`): the version, what changed, what it must do (bump, adapt,
    nothing) — beside the `/crew announce`, per "Merges and releases" in
-   `~/.claude/CLAUDE.md`.
-8. **Only then**, bump the dependency in the consumer and open its PR.
+   `~/.claude/CLAUDE.md`. A session already told in step 7 gets one message
+   covering both.
+9. **Only then**, bump the dependency in the consumer and open its PR.
 
 ## What a changeset has to say
 
