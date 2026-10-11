@@ -1,0 +1,122 @@
+---
+name: report-to-upstream
+description: >-
+  File an anonymous, deduplicated issue on one of the owner's packages
+  (@nxgt/*, @alxia/*, or any package whose repository belongs to softistx or
+  SteveGT96) and keep a private tracking issue in the application. Use when a
+  session hits a bug in such a package, a missing feature it would otherwise
+  work around, a wrong or missing doc, or a dependency of the package behind
+  its latest release — ~/.claude/CLAUDE.md "In-house packages" says these are
+  filed through nxgt-issues, never worked around silently.
+allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts *)
+---
+
+# Report to upstream
+
+The application files the problem where it will be fixed — the package's
+repository — without naming itself, and keeps the link on its own side. Filing
+is automatic once the scrub passes (owner decision): do not ask the user for
+permission to file; report the URL afterwards.
+
+Every command runs from the application's checkout (or takes `--cwd <dir>`).
+
+## 1. Resolve
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve <package>
+```
+
+It prints `<package> -> owner/repo (public|private, installed x, latest y)`, or
+`refused: <reason>` with a hint (exit 2). **On a refusal, tell the user the
+reason and the hint, and file nothing** — no other route, no hand-written `gh
+issue create`. Reasons: `no-repository-field` (ask the package's session to add
+`repository`), `not-owner`, `issues-disabled`, `archived`, `not-found`,
+`unknown-package`, `rate-limited`, `unreachable`.
+
+For an outdated dependency, `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package>` prints the rows behind
+their latest release; `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package> --file` puts them in the
+package's one rolling dependencies issue. Then skip to step 5.
+
+## 2. Write a minimal reproduction from scratch
+
+Never paste application code, paths, logs, names, domains or data. Write a new,
+minimal example against the package's public API that shows the problem, with
+generic names (`user`, `item`, `example.com`). Include the versions involved,
+what you expected, what happened, and a generic workaround if there is one.
+
+## 3. File
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file <<'JSON'
+{
+  "package": "@nxgt/example",
+  "kind": "bug",
+  "title": "parse() drops the last item of a list",
+  "symptom": "parse drops the last item of a list",
+  "summary": "Parsing a comma-separated list loses its final element.",
+  "versions": { "@nxgt/example": "1.3.0", "bun": "1.3.2" },
+  "expected": "`parse('a,b')` returns `['a', 'b']`.",
+  "actual": "It returns `['a']`.",
+  "repro": "```ts\nimport { parse } from '@nxgt/example';\nconsole.log(parse('a,b'));\n```",
+  "workaround": "Append a trailing comma before parsing.",
+  "keywords": ["parse", "last", "item"],
+  "note": "Also seen with bun 1.3.2."
+}
+JSON
+```
+
+`kind` is `bug`, `enhancement` (a missing feature that forces a workaround),
+`documentation`, or `dependencies` (then `"dependencies": [{ "name", "current",
+"latest" }]` instead of the text fields). `symptom` is the one line the
+duplicate fingerprint is computed from: keep it about the behaviour, not the
+application.
+
+What it prints, and what to do:
+
+| output (exit) | meaning | next |
+| --- | --- | --- |
+| `filed <url>` (0) | a new issue | step 4 with its number |
+| `commented <url> (duplicate of #n…)` (0) | the same report existed; a comment says another consumer hit it | step 4 with `#n` |
+| `candidates: …` (4) | open issues that may be the same | read them (`gh issue view`); same problem → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --duplicate-of <n>` with the same JSON; different → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --new` |
+| `refused: the text is not anonymous…` (3) | a private term or a credential was found | rewrite the named parts generically and run `file` again; never work around the scrub |
+| `refused: <reason>` (2) | the gate refused | tell the user; file nothing |
+| `rate-limited: …` (5) | GitHub throttled the token | tell the user when calls resume; do not retry in a loop |
+
+## 4. Track it in the application
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts track <<'JSON'
+{ "upstream": "owner/repo#12", "package": "@nxgt/example",
+  "title": "parse() drops the last item", "summary": "We append a comma meanwhile." }
+JSON
+```
+
+It opens (or refreshes) a private issue in the application's repository,
+labelled `upstream`, linking the upstream issue. It refuses when the
+application's repository is public, because that would tie the application to
+the anonymous issue: tell the user instead.
+
+Mark every workaround in the code with the upstream issue:
+
+```ts
+// Temporary, until @nxgt/example#12
+```
+
+Then run `track` again so the tracking issue lists the markers (it finds them
+with `git grep`).
+
+## 5. Tell the sessions that have to act
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions owner/repo
+```
+
+It lists the live sessions whose repository depends on a package of
+`owner/repo`. With `ListAgents`, find the session working in `owner/repo`
+itself and those listed: send **one** `SendMessage` to each that has to act —
+the package's session (the issue URL and kind), and a consumer that uses the
+affected API (the URL and the workaround). None when nobody has to act.
+
+## 6. Report
+
+Tell the user the upstream URL, the tracking issue URL, and the markers added.
