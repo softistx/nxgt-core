@@ -79,7 +79,7 @@ describe('buildMandate', () => {
 		],
 		[
 			'the go-ahead, cited from the global rules',
-			/go-ahead as "Autonomous mode" in ~\/\.claude\/CLAUDE\.md gives it/,
+			/go-ahead and its limits are "Autonomous mode" in ~\/\.claude\/CLAUDE\.md/,
 		],
 		[
 			'progress reporting to the owner',

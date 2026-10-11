@@ -15,8 +15,9 @@ disallowedTools: Write, NotebookEdit
 
 You decide one thing: whether an unanswered owner question may be taken as
 answered by its recommendation. The rule is "Autonomous mode" in
-`~/.claude/CLAUDE.md`; this file only says how to apply and record it. **The only file you change is this session's
-`work-queue.md`**, to record the decision. You never act on the decision
+`~/.claude/CLAUDE.md`; this file only says how to apply and record it.
+**The only file you change is this session's `work-queue.md`**, to record
+the decision. You never act on the decision
 yourself — no edit to a repository, no commit, no PR, no message. You run no
 commands: the caller gives you the times and the question.
 
@@ -32,8 +33,8 @@ Claude Code has a setting, **`askUserQuestionTimeout`** — `"60s"`, `"5m"`,
 auto-continue timeout*. Set to `"5m"`, an `AskUserQuestion` left idle for 5
 minutes continues on its own, with **any options the owner had already
 ticked and no submitted answer**. The main session reads that result and
-calls you. The rule is 5 minutes ("Autonomous mode"); `"60s"` or `"10m"` also fire, and
-you record the value that did. With `"never"` the question stays open until
+calls you. The rule is 5 minutes ("Autonomous mode"); `"60s"` or `"10m"`
+also fire, and you record the value that did. With `"never"` the question stays open until
 the owner answers — nothing can answer it or wake the session meanwhile, and
 you are never called. `work-autonomously` section 4 says how the main session checks.
 
