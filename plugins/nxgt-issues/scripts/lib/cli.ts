@@ -10,6 +10,7 @@
  *   refresh                         the SessionStart cache of this checkout's repository
  *   ready [--json]                  tracking issues whose upstream fix is released
  *   dashboard [--json]              open issues of the owners' repositories, ranked, and the fixes awaiting release
+ *   release-plan <pkg@ver> [--json] what released would do, writing nothing (read-only)
  *   released <pkg@ver> [--json] [--dry-run]  close the issues a release fixed, list the tracking issues to notify
  *   markers [--json] [--exclude <pathspec>]…  `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
  */
@@ -197,7 +198,13 @@ export async function main(
 		case 'dashboard':
 			return dashboardCommand(ctx, has('--json'));
 		case 'release-plan':
-			return releasedCommand(ctx, positional[0], has('--json'), true);
+			return releasedCommand(
+				ctx,
+				positional[0],
+				has('--json'),
+				true,
+				'release-plan',
+			);
 		case 'released':
 			return releasedCommand(
 				ctx,

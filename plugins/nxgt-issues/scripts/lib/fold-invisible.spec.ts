@@ -7,6 +7,12 @@ const list = buildDenyList({ privateRepos: ['acme/zorblax-vault'] });
 
 /** One representative of each class of character that renders as nothing. */
 const CLASSES: ReadonlyArray<[string, number]> = [
+	['Khmer inherent vowel AQ', 0x17b4],
+	['Khmer inherent vowel AA', 0x17b5],
+	['Mongolian free variation selector one', 0x180b],
+	['Mongolian free variation selector two', 0x180c],
+	['Mongolian free variation selector three', 0x180d],
+	['Mongolian free variation selector four', 0x180f],
 	['bidi isolate', 0x2066],
 	['Arabic letter mark', 0x061c],
 	['interlinear annotation anchor', 0xfff9],

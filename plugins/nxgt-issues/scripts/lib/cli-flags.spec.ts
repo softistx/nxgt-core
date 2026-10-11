@@ -5,6 +5,7 @@ import { harness, makeApp, removeTempDirs } from './cli.fixtures';
 import { EXIT } from './cli-context';
 import { fakeWorld } from './release.fixtures';
 import { cliContext, makeLibrary } from './release-checkout.fixtures';
+import { releasedCommand } from './release-command';
 
 afterAll(removeTempDirs);
 
@@ -65,8 +66,14 @@ describe('release-plan', () => {
 		expect(JSON.parse(out.join('\n'))).toMatchObject({ dryRun: true });
 	});
 
-	test('needs a package@version', async () => {
-		const { ctx } = cliContext(world(), makeLibrary());
+	test('needs a package@version, and says so under its own name', async () => {
+		const { ctx, err } = cliContext(world(), makeLibrary());
+		expect(
+			await releasedCommand(ctx, 'widget', false, true, 'release-plan'),
+		).toBe(EXIT.usage);
+		expect(err).toEqual([
+			'usage: issues.ts release-plan <pkg>@<version> [--json]',
+		]);
 		expect(await main(ctx, ['release-plan'])).toBe(EXIT.usage);
 	});
 });

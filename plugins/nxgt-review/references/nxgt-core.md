@@ -142,8 +142,9 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   files alone build the real runner, and specs use the scripted fake.
 - **Text from GitHub is untrusted.** Titles, labels, comments, logins and
   bodies reach Claude's context only through `oneLine` (`untrusted.ts`: one
-  line of code points, control, format, private-use, unassigned, variation
-  selector, Hangul filler and angle-bracket characters stripped) under the
+  line of code points, control, format, private-use, surrogate, unassigned,
+  default-ignorable, Hangul filler, U+2800 and angle-bracket characters
+  stripped, from the one list in `hidden-chars.ts`) under the
   untrusted-data header; `--json` outputs go through `cleanJson`. A new CLI
   `ctx.out` that interpolates GitHub or registry data without them is a
   finding. A skill never interpolates `$ARGUMENTS` or issue text into a shell
@@ -158,6 +159,7 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   unexpandable workspace pattern or a missing git root refuses with
   `DenyListIncomplete`; the token's organisations and
   `NXGT_ISSUES_DENY_OWNERS` are deny owners, never filing owners.
+  `NXGT_ISSUES_DENY_SKIP_ORGS` is the one deliberate shrink.
 - **Both release copies kept in step** (see "Deliberate" below for what may
   differ): a change to the "Fixed in" comment or its hidden marker, the
   discovery rules, the label, close, comment order, or the idempotency rule is

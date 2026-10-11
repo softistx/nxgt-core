@@ -68,10 +68,15 @@ export async function releasedCommand(
 	spec: string | undefined,
 	json: boolean,
 	dryRun: boolean,
+	name = 'released',
 ): Promise<ExitCode> {
 	const parsed = spec ? parseSpec(spec) : undefined;
 	if (!parsed) {
-		ctx.err('usage: issues.ts released <pkg>@<version> [--json] [--dry-run]');
+		ctx.err(
+			name === 'released'
+				? 'usage: issues.ts released <pkg>@<version> [--json] [--dry-run]'
+				: `usage: issues.ts ${name} <pkg>@<version> [--json]`,
+		);
 		return EXIT.usage;
 	}
 	const repo = repoOfDirectory(ctx.cwd);

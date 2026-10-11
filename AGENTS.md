@@ -831,12 +831,6 @@ in it. It is not a tidy-up, and it is not this repository's to do unasked.
 
 Inherited from both monorepos and unchanged:
 
-- **A plugin skill pre-approves only read subcommands** (`allowed-tools` as the
-  exact command plus `<command> *`, never `cmd*` or a bare `*`): a subcommand
-  that writes to GitHub keeps its permission prompt, and the CLI refuses any
-  flag it does not know, so a pre-approved pattern cannot reach a write
-  (`nxgt-issues`: `release-plan` previews, `released` writes).
-
 - **Mongoose is imported from `@nxgt/shared-mongo`**, never directly from
   `mongoose`, in every package above it in the layering. `shared` is the one
   exception: it declares `mongoose` directly and is the layer `shared-mongo`
@@ -851,6 +845,12 @@ Inherited from both monorepos and unchanged:
   action.
 
 Established here, and applying to all four repositories:
+
+- **A plugin skill pre-approves only read subcommands** (`allowed-tools` as the
+  exact command plus `<command> *`, never `cmd*` or a bare `*`): a subcommand
+  that writes to GitHub keeps its permission prompt, and the CLI refuses any
+  flag it does not know, so a pre-approved pattern cannot reach a write
+  (`nxgt-issues`: `release-plan` previews, `released` writes).
 
 - **A script is a TypeScript file run by Bun, using Bun Shell — not a `.sh`.**
   `scripts/publish.ts` and `scripts/verify-artifacts.ts` are the references:
