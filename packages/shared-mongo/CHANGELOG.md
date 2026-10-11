@@ -1,5 +1,17 @@
 # @nxgt/shared-mongo
 
+## 1.2.1
+
+### Patch Changes
+
+- [#266](https://github.com/softistx/nxgt-core/pull/266) [`949157c`](https://github.com/softistx/nxgt-core/commit/949157c3c69c3e4bde922fa5cc9cd86d6c91e68b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The README, the published type declarations and the source comments name the consumer repositories and applications generically. No code change in this entry.
+
+- [#266](https://github.com/softistx/nxgt-core/pull/266) [`d5c1502`](https://github.com/softistx/nxgt-core/commit/d5c150211949a61ed2dd57384e048a66acfff1bb) Thanks [@SteveGT96](https://github.com/SteveGT96)! - This package's own log lines now read `[app]` by default through `@nxgt/shared-logging` 2.0.0; set `LOG_TAG` to keep your previous label.
+- Updated dependencies [[`949157c`](https://github.com/softistx/nxgt-core/commit/949157c3c69c3e4bde922fa5cc9cd86d6c91e68b), [`d35aa47`](https://github.com/softistx/nxgt-core/commit/d35aa47afaa4deef218dbfd22946d1b35d72e388), [`d5c1502`](https://github.com/softistx/nxgt-core/commit/d5c150211949a61ed2dd57384e048a66acfff1bb)]:
+  - @nxgt/shared-exceptions@1.1.1
+  - @nxgt/shared@1.1.1
+  - @nxgt/shared-logging@2.0.0
+
 ## 1.2.0
 
 ### Minor Changes

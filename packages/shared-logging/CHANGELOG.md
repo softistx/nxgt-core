@@ -1,5 +1,11 @@
 # @nxgt/shared-logging
 
+## 2.0.0
+
+### Major Changes
+
+- [#266](https://github.com/softistx/nxgt-core/pull/266) [`d35aa47`](https://github.com/softistx/nxgt-core/commit/d35aa47afaa4deef218dbfd22946d1b35d72e388) Thanks [@SteveGT96](https://github.com/SteveGT96)! - **BREAKING:** the default log label is now `app` for every logger: `createLogger` without `tag`, the default `logger`, `getLogger()` and the request logger of `loggerProvider()`. It used to be a private application's name. Set `LOG_TAG` (read when each logger is created) to keep your previous label everywhere, or pass `tag` per logger; `tag` wins over `LOG_TAG`.
+
 ## 1.1.0
 
 ### Minor Changes

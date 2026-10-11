@@ -1,5 +1,11 @@
 # @nxgt/shared-exceptions
 
+## 1.1.1
+
+### Patch Changes
+
+- [#266](https://github.com/softistx/nxgt-core/pull/266) [`949157c`](https://github.com/softistx/nxgt-core/commit/949157c3c69c3e4bde922fa5cc9cd86d6c91e68b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The README, the published type declarations and the source comments name the consumer repositories and applications generically. No code change in this entry.
+
 ## 1.1.0
 
 ### Minor Changes
