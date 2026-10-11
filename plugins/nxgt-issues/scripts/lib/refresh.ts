@@ -80,7 +80,10 @@ const text = (value: unknown): string =>
 const labelNames = (value: unknown): string[] =>
 	nodes(obj(value)['labels']).map((node) => text(node['name']));
 
-async function graphql(ctx: GhContext, args: readonly string[]): Promise<Obj> {
+export async function graphql(
+	ctx: GhContext,
+	args: readonly string[],
+): Promise<Obj> {
 	const out = await gh(ctx, ['api', 'graphql', ...args], undefined, {
 		partial: true,
 	});
