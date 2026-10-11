@@ -67,7 +67,7 @@ function refusesValue(rest: string): boolean {
 
 /** A scheme-only literal and the `+` chain after it: `'Bearer ' + token + 'x'`. */
 const CONCAT =
-	/(["'])(?:Basic|Bearer|Digest|Token)[ \t]+\1((?:[ \t]*\+[ \t]*(?:(["'])(?:\\.|(?!\3).)*\3|[\w$.]+(?:\([^)\n]*\))?))+)/gi;
+	/(["'])(?:Basic|Bearer|Digest|Token)[ \t]+\1((?:[ \t]*\+[ \t]*(?:(["'])(?:\\.|(?!\3).)*\3|\([^()\n]*\)|[\w$.]+(?:\([^)\n]*\))?))+)/gi;
 /** A template that opens with a scheme and code: `` `Bearer ${…}` ``. */
 const SCHEME_TEMPLATE = /`(?:Basic|Bearer|Digest|Token)[ \t]+\$\{/gi;
 const STRING = /(["'])((?:\\.|(?!\1).)*)\1/g;

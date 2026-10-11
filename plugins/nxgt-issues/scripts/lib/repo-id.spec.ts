@@ -50,9 +50,9 @@ describe('parseRemote', () => {
 	});
 
 	test('keeps dots and dashes in names', () => {
-		expect(parseRemote('git@github.com:SteveGT96/csso.api-v2.git')).toEqual({
+		expect(parseRemote('git@github.com:SteveGT96/acme.api-v2.git')).toEqual({
 			owner: 'SteveGT96',
-			repo: 'csso.api-v2',
+			repo: 'acme.api-v2',
 		});
 	});
 });
