@@ -13,6 +13,7 @@ import {
 	createIssue,
 	editIssueBody,
 	issuesWithLabel,
+	removeIssueLabel,
 	reopenIssue,
 } from './github-issues';
 import {
@@ -20,7 +21,7 @@ import {
 	type DependencyRow,
 	dependenciesIssueBody,
 } from './issue-body';
-import { ensureLabels, LABELS } from './labels';
+import { ensureLabels, hasLabel, LABELS } from './labels';
 import type { Resolved } from './resolve';
 import type { DenyList } from './scrub';
 
@@ -84,7 +85,14 @@ export async function upsertRollingIssue(
 		return EXIT.ok;
 	}
 	await editIssueBody(ctx, repo, rolling.number, body);
-	if (!open) await reopenIssue(ctx, repo, rolling.number);
+	if (!open) {
+		await reopenIssue(ctx, repo, rolling.number);
+		// A reopened issue that kept `released` would make the next release report "reopened, fix did not hold".
+		const labels = (rolling.labels ?? []).map((label) => label.name);
+		if (hasLabel(labels, 'released')) {
+			await removeIssueLabel(ctx, repo, rolling.number, LABELS.released.name);
+		}
+	}
 	ctx.out(`${open ? 'updated' : 'reopened'} ${rolling.url}`);
 	return EXIT.ok;
 }

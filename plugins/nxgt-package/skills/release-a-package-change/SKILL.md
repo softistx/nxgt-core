@@ -69,12 +69,22 @@ release nothing, and `changeset status` will not ask for anything.
    failed, since it is `continue-on-error`):
 
    ```bash
-   issues="$(ls ~/.claude/plugins/cache/*/nxgt-issues/*/scripts/issues.ts 2>/dev/null | sort -V | tail -1)"
+   # nxgt-issues: this checkout's install, else the user one, else this checkout's own copy
+   dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+     '(.plugins["nxgt-issues@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+     "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)"
+   issues="$dir/scripts/issues.ts"
+   [ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
+   [ -f "$issues" ] || issues=""
+   # preview first (read-only), show it to the user, then the real run
+   [ -n "$issues" ] && bun "$issues" release-plan <package>@<version>
    [ -n "$issues" ] && bun "$issues" released <package>@<version>
    ```
 
-   (Inside nxgt-core, `plugins/nxgt-issues/scripts/issues.ts` is the same file.
-   nxgt-core itself now runs the CI step too, from `scripts/close-released-issues.ts`.)
+   (The lookup is the one the `nxgt-issues` README documents: the install
+   recorded in `installed_plugins.json`, never a guess in the cache; inside
+   nxgt-core the checkout's own copy. nxgt-core itself now runs the CI step
+   too, from `scripts/close-released-issues.ts`.)
 
    Its output ends with the `notify` list: the applications whose tracking
    issues wait on those issues. Send **one** `SendMessage` to each listed app

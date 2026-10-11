@@ -130,15 +130,22 @@ line, a command and its output, or two places that disagree.
 ### Upstream issues, when `nxgt-issues` is installed
 
 The owner's open issues are candidates nobody has to rediscover. Run once
-(`dashboard` makes search calls; exit 5 is a rate limit, and `dashboard`, `ready` and `markers` exit 2
-in a checkout that is not an application's (or with `NXGT_ISSUES_DISABLE`
-set) and `ready` and `dashboard` 5 on a rate limit: for 2 or 5 write
-`issues: not checked` and go on; for 6 (gh could not check) write
-`issues: could not check` and go on. `markers --json` exits 1 with JSON when
-it found markers: that is flagged markers, not a failure):
+(`dashboard` makes search calls). Exit 2 = foreign origin (the checkout's origin
+is not an allowed owner's, or `NXGT_ISSUES_DISABLE` is set) for `dashboard`,
+`ready` and `markers`; exit 5 = a rate limit; for 2 or 5 write `issues: not
+checked` and go on. Exit 6 = gh could not check: write `issues: could not
+check` and go on. `markers --json` exits 1 with JSON when it found markers:
+that is flagged markers, not a failure; exit 6 with JSON means some markers
+were unreadable, so use the others:
 
 ```bash
-issues="$(ls -d ~/.claude/plugins/cache/*/nxgt-issues/*/scripts/issues.ts 2>/dev/null | sort -V | tail -1)"
+# nxgt-issues: this checkout's install, else the user one, else this checkout's own copy
+dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  '(.plugins["nxgt-issues@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+  "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)"
+issues="$dir/scripts/issues.ts"
+[ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
+[ -f "$issues" ] || issues=""
 [ -n "$issues" ] && bun "$issues" dashboard --json
 [ -n "$issues" ] && bun "$issues" ready --json     # from an application checkout
 ```

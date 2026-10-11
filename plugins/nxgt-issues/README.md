@@ -218,6 +218,23 @@ is shared with usage.
 run from, the application's checkout, or on `--cwd <dir>`. Inputs are JSON on
 stdin.
 
+**From another plugin** (an agent or a skill of `nxgt-autonomy` or `nxgt-package`,
+which have no `${CLAUDE_PLUGIN_ROOT}` of this one) the path comes from
+`installed_plugins.json`, never from a guess in the plugin cache, where old
+versions stay. This is the one lookup; those files carry the same lines:
+
+```bash
+# nxgt-issues: this checkout's install, else the user one, else this checkout's own copy
+dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  '(.plugins["nxgt-issues@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+  "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)"
+issues="$dir/scripts/issues.ts"
+[ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
+[ -f "$issues" ] || issues=""
+```
+
+An empty `$issues` means the plugin is not installed: skip the step and say so.
+
 | command | does |
 | --- | --- |
 | `resolve <pkg> [--json]` | prints `<pkg> -> owner/repo (public\|private, installed x, latest y)` or the refusal |
@@ -278,7 +295,9 @@ What `file` does, in order:
 
 A `dependencies` report never opens a second issue: it edits the one rolling
 issue (marked `<!-- nxgt-issues:deps -->`), merging rows by name, and reopens it
-with only the new rows when the package side closed it.
+with only the new rows when the package side closed it, taking its `released`
+label off so the next release does not read the reopening as a fix that did not
+hold.
 
 ### Exit codes
 

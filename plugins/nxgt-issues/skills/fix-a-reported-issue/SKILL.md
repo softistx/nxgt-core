@@ -38,7 +38,8 @@ refiller can reconcile it with the issue.
 The rolling `dependencies` issue is a table of dependencies behind their latest
 release, kept by `issues.ts deps`. Work it as one item: bump what the table
 lists, release, and **close the issue once the table is empty** (a later
-report reopens it).
+report reopens it and takes its `released` label off, so the next release
+never reads that reopening as a fix that did not hold).
 
 ## 2. A regression test first
 
@@ -75,13 +76,19 @@ second run changes nothing), it covers a repository without the step or a step
 that failed (`continue-on-error`, so the publish was never blocked), and it
 builds the `notify` list that CI cannot.
 
+Fetch first, so the checkout has the release commit and its tag: `git fetch
+--tags` and a fast-forward of the branch you release from. The plan reads the
+tag and the first-parent log locally.
+
 ```bash
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan <package>@<version>
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version>
 ```
 
-The first (`release-plan`, read-only, pre-approved) lists what it would do; the
-second does it, and writes to GitHub, so Claude Code asks first: run the plan,
+The first (`release-plan`, read-only, pre-approved) lists what it would do. A
+note `tag <name> not found locally: the CHANGELOG alone was read` means the
+plan proved nothing about the log: fetch the tags and run it again before
+trusting it. The second does it, and writes to GitHub, so Claude Code asks first: run the plan,
 show its output to the user, then the real run. It works for a package in
 `packages/*` and for the single package of a repository's root. An issue whose
 `## Versions` section names another package of the repository that the fixing PR
