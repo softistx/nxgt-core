@@ -27,6 +27,8 @@ export interface CompilerApi {
 }
 
 /** The `typescript` this package resolves, and its API when it has one. */
+const NOT_INSTALLED = 'none: typescript is not installed';
+
 async function resolveTypeScript(): Promise<{
 	api?: CompilerApi;
 	version: string;
@@ -35,7 +37,7 @@ async function resolveTypeScript(): Promise<{
 	try {
 		module = await import('typescript');
 	} catch {
-		return { version: 'none: typescript is not installed' };
+		return { version: NOT_INSTALLED };
 	}
 	const api = (module.default ?? module) as {
 		version?: unknown;
@@ -52,6 +54,12 @@ function missingCompilerApi(
 	found: string,
 	cause?: unknown,
 ): Error {
+	if (found === NOT_INSTALLED) {
+		return new Error(
+			`${helper} needs \`typescript\`, which is not installed. ` +
+				'Install typescript@^6.0.3 where the codegen runs.',
+		);
+	}
 	return new Error(
 		`${helper} needs TypeScript's compiler API, which TypeScript 7 does not ship, ` +
 			`and \`typescript\` resolves to ${found}. ` +

@@ -49,10 +49,10 @@ export default defineHeyApiConfig((config) => ({
 `generateOpenapiTS` wraps `openapi-typescript` and maps `format: date-time` to
 `Date` and `format: binary` to `File`. `defineHeyApiConfig` wraps
 `@hey-api/openapi-ts` with Zod plugin and `src/generated/openapi-ts` as the
-default output. Since 2.1.0 it returns a `Promise<UserConfig>`, loading
-`@hey-api/openapi-ts` only when called; `openapi-ts` accepts a promise as a
-config file's default export, so `export default defineHeyApiConfig(...)` is
-unchanged.
+default output. It returns a `Promise<UserConfig>`, as `defineConfig` does,
+and since 2.1.0 loads `@hey-api/openapi-ts` only when called; `openapi-ts`
+accepts a promise as a config file's default export, so
+`export default defineHeyApiConfig(...)` works as before.
 
 ## TypeScript 6 and 7
 
