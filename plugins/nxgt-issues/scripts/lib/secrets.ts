@@ -5,14 +5,23 @@
  * "x"`, `Authorization: Bearer x`, a private key block). A refusal reports the
  * keyword, never the value.
  *
- * An assignment whose value is plainly not a secret is let through: a TS type
- * or a literal word (`password: string`), a reference to the environment
- * (`token: process.env.TOKEN`), an object or array opener, a placeholder
- * (`<token>`, `<redacted>`) or a mask (`****`); and a small number or duration
- * for a name that counts something (`tokenTtl: 3600`, `maxToken: 5`). Articles
- * and pronouns are not placeholders: `password: the hunter2` refuses. A value
- * may sit on the next line (JSON, YAML).
+ * An assignment whose value is plainly not a secret is let through (see
+ * `code-values.ts`): a TS type or a literal word (`password: string`,
+ * `session: Session | null`), a reference to the environment
+ * (`token: process.env.TOKEN`, `env['X']`), a member expression of letters
+ * (`ctx.token`), a call whose quoted arguments are all names
+ * (`getToken(c)`, `c.req.header('x-api-key')`, never `hash('hunter2')`), a
+ * fallback chain or an index of those (`options.secret ?? defaultSecret`,
+ * `tokens[0]`), an object or array opener, a placeholder (`<token>`,
+ * `<redacted>`) or a mask (`****`); and a small number or duration for a name
+ * that counts something (`tokenTtl: 3600`, `maxToken: 5`). Calls count only on
+ * the assignment path: a header, a cookie, a `curl -u` or a `--flag` whose
+ * value is a call refuses. Articles and pronouns are not placeholders:
+ * `password: the hunter2` refuses. A value may sit on the next line (JSON,
+ * YAML).
  */
+
+import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -69,32 +78,6 @@ export function scrubKnownTokens(text: string, note: (kind: string) => void) {
 	return out;
 }
 
-const WORDS = new Set(
-	(
-		'string number boolean bigint symbol object array function void never ' +
-		'undefined null unknown any true false required optional missing invalid ' +
-		'empty expired incorrect wrong none yes no await new async typeof'
-	).split(' '),
-);
-
-/** Whole words of a name that mark it as a count, size or duration. */
-const QUANTITY = new Set(
-	(
-		'max min ttl length size count limit expiry expires expire expiration ' +
-		'timeout interval rounds age len num retries attempts ' +
-		'tokens sessions secrets passwords cookies'
-	).split(' '),
-);
-const SMALL_NUMBER = /^(?:\d{1,4}|\d{1,6}(?:ms|s|m|h|d))$/i;
-
-/** The words of a name: split on separators and camelCase seams, lower-cased. */
-const wordsOf = (name: string): string[] =>
-	name
-		.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
-		.toLowerCase()
-		.split(/[^a-z0-9]+/)
-		.filter(Boolean);
-
 /**
  * The canonical keyword a variable name carries, found as a substring of the
  * lower-cased name: `PGPASSWORD`, `dbpassword`, `client_secret`, `sessionId`.
@@ -120,33 +103,6 @@ function keywordOf(name: string): string | undefined {
 	}
 	if (name === name.toUpperCase() && /(?:pass|pw)$/.test(lower)) return 'pass';
 	return undefined;
-}
-
-/** A call or a plain member expression: code that reads a secret, not one. */
-/** A call on an identifier path whose parentheses close: `getToken(c)`, `c.req.header('x')?.slice(7)`. */
-const CALL = /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\(.*\)$/;
-/** A member expression of letters only: `ctx.token`, `config.secret`. */
-const MEMBER = /^[A-Za-z_$]+(?:\??\.[A-Za-z_$]+){1,3}$/;
-
-/** True when `value` cannot be a secret: a type, a word, an env reference, a mask. */
-export function isPlaceholder(raw: string): boolean {
-	const unwrapped = raw.replace(/^(?:await|new|typeof)\s+/i, '');
-	// Tested before the trailing `)` is stripped below: a value like
-	// `Xk9$mP(2qL` opens a parenthesis it never closes, so it is not a call.
-	if (CALL.test(unwrapped.replace(/[\s,;]+$/, ''))) return true;
-	const value = unwrapped
-		.replace(/(?:\[\])+(?=[;,)}\]"'`]*$)/, '')
-		.replace(/^["'`]+|["'`;,)}\]]+$/g, '')
-		.toLowerCase();
-	return (
-		value === '' ||
-		WORDS.has(value) ||
-		/^[{[]/.test(value) ||
-		MEMBER.test(value) ||
-		/^<[^<>]{0,40}>$/.test(value) ||
-		/^[*•x]{3,}$|^\.{3}$|^…$/.test(value) ||
-		/^(?:[\w$]+\.)*env\.[\w$]+$/.test(value)
-	);
 }
 
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
@@ -182,10 +138,9 @@ export function findSecrets(text: string): string[] {
 		const value = match[2] ?? '';
 		const whole = `${value}${match[3] ?? ''}`.trim();
 		const keyword = keywordOf(name);
-		if (!keyword || isPlaceholder(whole) || value.endsWith(':')) continue;
+		if (!keyword || value.endsWith(':')) continue;
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
-		const quantity = wordsOf(name).some((word) => QUANTITY.has(word));
-		if (quantity && SMALL_NUMBER.test(value)) continue;
+		if (isCodeValue(whole, { name, first: value })) continue;
 		found.add(keyword);
 	}
 	for (const match of text.matchAll(AUTHORIZATION)) {
@@ -195,6 +150,8 @@ export function findSecrets(text: string): string[] {
 		}
 	}
 	for (const match of text.matchAll(COOKIE)) {
+		// No `name=value` pair: a key in code (`cookie: 'sid'`); the assignment rule decides.
+		if (!match[1]?.includes('=')) continue;
 		const pairs = (match[1] ?? '')
 			.split(';')
 			.map((pair) => pair.split('=').pop() ?? '');
