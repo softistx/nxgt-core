@@ -23,8 +23,7 @@ a phrase switches on.** The owner's standing instruction, which does not need re
 without me, merge as you go, finish everything queued.** "Merge as you go" is
 what "Merges and releases" in `~/.claude/CLAUDE.md` allows — slices, `develop`
 and publishes included, once its conditions hold — and stops at the gates it keeps
-for the owner's explicit yes (a package's first publish, a major version, a
-breaking change). This skill is what that
+for the owner's explicit yes in every mode (a package's first publish, a breaking change (a major, or a change to a shipped contract such as an error code's meaning), deleting data, a force-push). This skill is what that
 means in practice, so it stops being re-negotiated every session.
 
 The plugin's `SessionStart` hook puts a short mandate in context at the start of
@@ -111,7 +110,10 @@ Per item, in this order, and nothing skipped:
    (who may merge, merge commits or squash, when a Version PR lands); where it
    is silent, "Merges and releases" in `~/.claude/CLAUDE.md` decides — in
    autonomous mode a merge, a `main` move and a publish are done once its
-   conditions hold, except the gates it keeps for the owner's yes. With neither,
+   conditions hold, except the gates it keeps for the owner's yes. After a publish, also tell
+   every consumer session with `SendMessage`, beside the `/crew announce`
+   ("Merges and releases"): the version, what changed, what the consumer must
+   do. With neither,
    open the PR and ask.
 7. **Cross the item off the queue with the PR number**, keeping its slice
    marker (`slice k of n`, `last slice`) when it has one. When the item comes
@@ -185,8 +187,8 @@ the 5 minutes, and this skill claims no other:
   (`date -Iseconds`), then run **`unanswered-question-resolver`** with the
   question, its options in order, both times, the timeout, whether it was
   labelled `(Irreversible)`, and what the owner had ticked. It waits on
-  anything irreversible, outward-facing or breaking, on every merge, release
-  and npm-publish gate, and on an addition to a published package's public API
+  anything irreversible, outward-facing or breaking, on the gates "Merges and
+  releases" keeps for the owner's yes (a package's first publish, a breaking change (a major, or a change to a shipped contract such as an error code's meaning), deleting data, a force-push), and on an addition to a published package's public API
   unless the `Mandate:` line covers features. Act on its `DECISION`; if
   it says wait, take its holding step and carry on with the rest of the
   queue.
@@ -249,7 +251,8 @@ When *In flight* is empty, or everything left in it is blocked:
 4. **`plan-the-roadmap`** — on whatever sits in *Proposed, not approved*: the
    queue running dry is not a reason to stop. It ends in interactive
    questions, and what the owner approves goes back into *In flight*.
-5. **Report**: what landed with PR numbers, what is blocked and on what
+5. **Report**: what landed with PR numbers (each publish too, with the consumer
+   sessions told per "Merges and releases"), what is blocked and on what
    exactly, what the refiller or the scout proposes, and the interactive
    questions.
 

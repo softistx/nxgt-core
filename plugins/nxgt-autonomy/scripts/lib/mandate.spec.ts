@@ -95,6 +95,10 @@ describe('buildMandate', () => {
 			/recommended option first and labelled "\(Recommended\)"/,
 		],
 		['the irreversible-action limit', /waits for the owner's explicit answer/],
+		[
+			'a breaking change is an irreversible action',
+			/a first publish of a package, a breaking change,/,
+		],
 		['no hand-back', /Never end a turn by handing back or waiting/],
 		[
 			'review, then docs',

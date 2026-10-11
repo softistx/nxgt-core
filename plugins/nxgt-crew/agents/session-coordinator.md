@@ -60,7 +60,10 @@ you must ask the caller for in your report rather than guess.
 4. **Align.** Only where a peer needs to know or answer, send it one message
    with `SendMessage`:
    - announcing a release this session is making, with the version and
-     whether it breaks anything;
+     whether it breaks anything — and, after a publish, telling every consumer
+     session (`ListAgents` plus their `package.json`): the version, what
+     changed, what it must do (bump, adapt, nothing), beside the `/crew
+     announce` ("Merges and releases" in `~/.claude/CLAUDE.md`);
    - asking before touching a file, branch or worktree it holds — and, if it
      agrees, that it release its files with `/crew yield` (only it can);
    - relaying a decision that changes its work.

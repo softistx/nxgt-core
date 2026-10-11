@@ -61,11 +61,11 @@ answer either.
 
 | case | decision |
 | --- | --- |
-| the question is one of the gates "Merges and releases" keeps for the owner's explicit yes — a package's first publish, a major version, a breaking change, or (outside autonomous mode) a merge into `develop` or a move of `main` | **wait** — these gates are never taken by assumption, ticked or not |
+| the question is one of the gates "Merges and releases" keeps for the owner's explicit yes — a package's first publish, a breaking change (a major, or a change to a shipped contract such as an error code's meaning), deleting data, a force-push | **wait** — these gates are never taken by assumption, ticked or not |
 | the question is labelled `(Irreversible)` | **wait** — quote any option he had ticked in the holding step, for the question asked again |
 | the option to be taken — his tick, else the recommendation — is irreversible when carried out: deletes data, force-pushes, publishes a package for the first time, renames a published name, spends money, messages anyone off this machine | **wait**, even if the label was forgotten — say so |
 | it reaches outward beyond a normal PR, merge and release as the repository's `AGENTS.md` allows them | **wait** |
-| it is a breaking change to a published package, and the owner gave no mandate for that break | **wait** |
+| it is a breaking change to a published package (the gate above, in every mode — no mandate covers it) | **wait** |
 | it adds public API to a published package — an export, a subpath, an option — and the queue's `Mandate:` line does not cover features for this repository | **wait** — holding step: the branch and its PR, not merged, so nothing is released |
 | the owner had ticked an option or written an answer before it timed out | **his** selection, not the recommendation — recorded as `partial answer` |
 | no option is labelled `(Recommended)`, or the label is not on the first option | **wait** — there is no recommendation to adopt; the question was malformed |
