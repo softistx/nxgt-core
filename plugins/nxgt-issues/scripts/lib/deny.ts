@@ -163,7 +163,14 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 		distinctive: unique(
 			own.filter((term) => term.length >= MIN_SUBSTRING_LENGTH).map(lower),
 		),
-		stems: privateStems.filter((stem) => !own.includes(stem)).map(lower),
+		// A full repository name is searched everywhere, node_modules/ paths included; only a stem derived from a longer name is exempt there.
+		stems: privateStems
+			.filter(
+				(stem) =>
+					!own.includes(stem) &&
+					!bareNames.some((name) => lower(name) === lower(stem)),
+			)
+			.map(lower),
 	});
 }
 

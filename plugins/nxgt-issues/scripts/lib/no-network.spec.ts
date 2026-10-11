@@ -15,7 +15,8 @@ const FORBIDDEN: readonly [string, RegExp][] = [
 		'Bun clients',
 		/\b(?:S3Client|RedisClient|SQL)\b|\b(?:sql|redis)\s*[`(.]|import\s*\{[^}]*\b(?:sql|redis)\b[^}]*\}/,
 	],
-	['any Bun', /\bBun\b(?!\.stdin\b)/],
+	// Bun.Glob and Bun.YAML read the disk (workspaces.ts); they spawn nothing and open no socket.
+	['any Bun', /\bBun\b(?!\.(?:stdin|Glob|YAML)\b)/],
 	['createRequire', /\bcreateRequire\b|['"](?:node:)?module['"]/],
 	['require(variable)', /\brequire\s*\(\s*(?!['"])/],
 	['Worker', /\bWorker\b/],

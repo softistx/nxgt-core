@@ -6,8 +6,8 @@
  * parse is skipped.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 export interface Manifest {
 	readonly dir: string;
@@ -42,25 +42,65 @@ function patternsOf(data: Readonly<Record<string, unknown>>): string[] {
 		: [];
 }
 
-function expand(root: string, pattern: string): string[] {
-	if (pattern.startsWith('!') || pattern.includes('..')) return [];
-	if (!pattern.endsWith('/*')) return [join(root, pattern)];
-	const parent = join(root, pattern.slice(0, -2));
+/** A workspace pattern that cannot be expanded to folders (it leaves the repository, or the file that lists it is unreadable). */
+export class UnexpandableWorkspace extends Error {}
+
+/** The `packages` of `pnpm-workspace.yaml`; a file that does not parse is unexpandable in strict mode. */
+function pnpmPatterns(root: string, strict: boolean): string[] {
+	let text: string;
 	try {
-		return readdirSync(parent, { withFileTypes: true })
-			.filter((entry) => entry.isDirectory())
-			.map((entry) => join(parent, entry.name));
+		text = readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8');
 	} catch {
+		return [];
+	}
+	try {
+		const data = Bun.YAML.parse(text) as { packages?: unknown } | null;
+		return Array.isArray(data?.packages)
+			? data.packages.filter((p): p is string => typeof p === 'string')
+			: [];
+	} catch {
+		if (strict) {
+			throw new UnexpandableWorkspace(
+				'pnpm-workspace.yaml does not parse, so its workspaces are unknown',
+			);
+		}
 		return [];
 	}
 }
 
-/** The root manifest first, then each workspace's. */
-export function manifestsOf(root: string): Manifest[] {
+/** The folders a pattern matches (those that hold a `package.json`); `!` patterns exclude nothing, so the list only ever errs wide. */
+function expand(root: string, pattern: string, strict: boolean): string[] {
+	if (pattern.startsWith('!')) return [];
+	if (pattern.split(/[\\/]/).includes('..') || isAbsolute(pattern)) {
+		if (strict) {
+			throw new UnexpandableWorkspace(
+				`the workspace pattern "${pattern}" leaves the repository`,
+			);
+		}
+		return [];
+	}
+	const folder = pattern.replace(/^\.\//, '').replace(/\/+$/, '');
+	const glob = new Bun.Glob(`${folder}/package.json`);
+	return [...glob.scanSync({ cwd: root, onlyFiles: true })]
+		.filter((path) => !path.split(/[\\/]/).includes('node_modules'))
+		.map((path) => join(root, dirname(path)))
+		.filter((dir) => dir !== root)
+		.sort();
+}
+
+/** The root manifest first, then each workspace's (`package.json` `workspaces` and `pnpm-workspace.yaml`). */
+export function manifestsOf(
+	root: string,
+	options: { readonly strict?: boolean } = {},
+): Manifest[] {
+	const strict = options.strict === true;
 	const top = readManifest(root);
 	if (!top) return [];
-	const workspaces = patternsOf(top.data)
-		.flatMap((pattern) => expand(root, pattern))
+	const patterns = [...patternsOf(top.data), ...pnpmPatterns(root, strict)];
+	const dirs = new Set(
+		patterns.flatMap((pattern) => expand(root, pattern, strict)),
+	);
+	const workspaces = [...dirs]
 		.map(readManifest)
 		.filter((m): m is Manifest => !!m);
 	return [top, ...workspaces];

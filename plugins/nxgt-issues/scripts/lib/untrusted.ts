@@ -18,7 +18,7 @@ export const untrustedHeader = (): string => `nxgt-issues: ${UNTRUSTED}`;
  * separators, variation selectors, and the Hangul fillers that render blank.
  */
 const HIDDEN =
-	/[\p{Cc}\p{Cf}\p{Co}\p{Cn}\u2028\u2029\uFE00-\uFE0F\u{E0100}-\u{E01EF}\u115F\u1160\u3164\uFFA0]+/gu;
+	/(?:[\p{Cc}\p{Cf}\p{Co}\p{Cn}\u2028\u2029\u115F\u1160\u3164\uFFA0]|[\uFE00-\uFE0F]|[\u{E0100}-\u{E01EF}])+/gu;
 
 /** No hidden character, no angle bracket, one run of single spaces. */
 export const plain = (value: string): string =>

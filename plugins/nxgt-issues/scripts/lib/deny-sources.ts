@@ -14,20 +14,18 @@
 
 import { readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { readEntry, writeEntry } from './cache';
 import type { CliContext } from './cli-context';
 import { buildDenyList, type DenyList, unique } from './deny';
-import { privateRepos } from './github-issues';
 import {
-	allowedOwners,
-	DEFAULT_OWNERS,
-	formatRepo,
-	gitConfigPath,
-	repoOfDirectory,
-} from './repo-id';
+	DenyListIncomplete,
+	PRIVATE_REPOS_TTL_MS,
+	privateRepoNames,
+} from './private-repos';
+import { formatRepo, gitConfigPath, repoOfDirectory } from './repo-id';
 import { manifestsOf, repoRoot } from './workspaces';
 
-export const PRIVATE_REPOS_TTL_MS = 24 * 60 * 60 * 1000;
+export { denyOwners } from './private-repos';
+export { DenyListIncomplete, PRIVATE_REPOS_TTL_MS, privateRepoNames };
 
 export interface DenyConfig {
 	/** The application's own domains, such as `api.example-app.io`. */
@@ -85,8 +83,6 @@ export function readDenyConfig(ctx: CliContext, root?: string): DenyConfig {
 	};
 }
 
-export class DenyListIncomplete extends Error {}
-
 /** Whether `<root>/.nxgt-issues.json` says, with `"appDomains": []`, that the app has no domain. */
 export function declaresNoDomains(root: string | undefined): boolean {
 	if (!root) return false;
@@ -112,45 +108,6 @@ function requireDomains(config: DenyConfig, root: string | undefined): void {
 	throw new DenyListIncomplete(
 		'no application domain is configured; list them in .nxgt-issues.json at the repository root ({ "appDomains": ["example-app.com"] }), or write "appDomains": [] when the application has none',
 	);
-}
-
-/**
- * Whose private repositories are denied: the default owners and the configured
- * ones. `NXGT_ISSUES_OWNERS` narrows who receives filings, never what is denied.
- */
-export function denyOwners(env: Record<string, string | undefined>): string[] {
-	const owners: string[] = [];
-	for (const owner of [...DEFAULT_OWNERS, ...allowedOwners(env)]) {
-		if (!owners.some((o) => o.toLowerCase() === owner.toLowerCase()))
-			owners.push(owner);
-	}
-	return owners;
-}
-
-/** Private repositories of every allowed owner, from the cache when fresh. */
-export async function privateRepoNames(ctx: CliContext): Promise<string[]> {
-	const path = join(ctx.home, 'cache', 'private-repos.json');
-	const owners = denyOwners(ctx.env);
-	const cached = readEntry<Record<string, string[]>>(
-		path,
-		ctx.now(),
-		PRIVATE_REPOS_TTL_MS,
-	);
-	const covers = owners.every((o) => Array.isArray(cached?.data[o]));
-	if (cached?.fresh && covers)
-		return owners.flatMap((o) => cached.data[o] ?? []);
-	try {
-		const byOwner: Record<string, string[]> = {};
-		for (const owner of owners) byOwner[owner] = await privateRepos(ctx, owner);
-		writeEntry(path, byOwner, ctx.now());
-		return Object.values(byOwner).flat();
-	} catch (error) {
-		if (cached && covers) return owners.flatMap((o) => cached.data[o] ?? []);
-		const why = error instanceof Error ? error.message : String(error);
-		throw new DenyListIncomplete(
-			`cannot list the owners' private repositories (${why.slice(0, 200)}); a filing without them could leak a private name`,
-		);
-	}
 }
 
 /** `git config --get <key>`: exit 1 is unset; a spawn that throws or another code refuses. */
@@ -190,19 +147,33 @@ function folderTerms(cwd: string): string[] {
 	].filter((term): term is string => !!term);
 }
 
+/** The package names of the root and its workspaces; a pattern that cannot be expanded refuses. */
+function workspaceNames(root: string): string[] {
+	try {
+		return manifestsOf(root, { strict: true })
+			.map((m) => m.name)
+			.filter((n): n is string => !!n);
+	} catch (error) {
+		throw new DenyListIncomplete(
+			`${error instanceof Error ? error.message : String(error)}; the workspace package names cannot all be denied`,
+		);
+	}
+}
+
 /** The deny-list of one filing; throws `DenyListIncomplete` when it cannot be whole. */
 export async function filingDenyList(ctx: CliContext): Promise<DenyList> {
 	const root = repoRoot(ctx.cwd);
+	if (!root) {
+		throw new DenyListIncomplete(
+			'the working directory is not inside a git checkout, so the application cannot be named for the deny-list; run it from the application',
+		);
+	}
 	const app = repoOfDirectory(ctx.cwd);
 	const config = readDenyConfig(ctx, root);
 	requireDomains(config, root);
 	const built = buildDenyList({
 		appRepo: app ? formatRepo(app) : undefined,
-		appPackages: root
-			? manifestsOf(root)
-					.map((m) => m.name)
-					.filter((n): n is string => !!n)
-			: [],
+		appPackages: workspaceNames(root),
 		cwd: ctx.cwd,
 		privateRepos: await privateRepoNames(ctx),
 		gitName: await gitConfig(ctx, 'user.name'),
