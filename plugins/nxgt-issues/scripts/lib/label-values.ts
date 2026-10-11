@@ -95,7 +95,7 @@ function flowSequenceHoldsSecret(value: string): boolean {
 }
 
 const ENCODER =
-	/(?:\bencode|\bBuffer\.from|\bbtoa)\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/;
+	/(?:\b(?:encode|toBase64|base64Encode|b64|encodeBase64)|\bBuffer\.from|\bbtoa)\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/;
 const KEY_LITERAL = { inHeader: false, message: false, keyPosition: true };
 
 /** True when `value` hands an encoder a literal that is not plainly harmless. */

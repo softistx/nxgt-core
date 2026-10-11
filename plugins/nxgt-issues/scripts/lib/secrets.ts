@@ -22,7 +22,7 @@
  * sits (`auth-calls.ts`).
  */
 
-import { hasSecretArgument } from './auth-calls';
+import { CREDENTIAL_HEADER, hasSecretArgument } from './auth-calls';
 import { hasAuthorizationSecret } from './authorization';
 import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
 import { hasCredentialPair } from './credential-pairs';
@@ -34,6 +34,7 @@ import {
 	isLabelMessage,
 } from './label-values';
 import { isGraphqlType } from './sdl-values';
+import { neutralizeSubstitutions } from './shell-values';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -145,7 +146,8 @@ const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----/;
  * The credential assignments in already-transformed text, each a reason to
  * refuse, as keywords: `password`, `api-key`, `bearer`, `authorization`...
  */
-export function findSecrets(text: string): string[] {
+export function findSecrets(source: string): string[] {
+	const text = neutralizeSubstitutions(source);
 	const found = new Set<string>();
 	for (const match of text.matchAll(ASSIGNMENT)) {
 		const name = match[1] ?? '';
@@ -154,6 +156,8 @@ export function findSecrets(text: string): string[] {
 		const keyword = keywordOf(name);
 		if (!keyword || value.endsWith(':')) continue;
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
+		// A credential header's value, like Authorization: `x-gateway-secret: $GATEWAY_SECRET`
+		if (CREDENTIAL_HEADER.test(name) && isPlaceholder(value)) continue;
 		if (encodesSecret(whole)) {
 			found.add(keyword);
 			continue;

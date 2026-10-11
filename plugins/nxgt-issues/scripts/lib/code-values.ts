@@ -73,9 +73,30 @@ export const wordsOf = (name: string): string[] =>
 /** A member expression of letters only: `ctx.token`, `config.secret`. */
 const MEMBER = /^[A-Za-z_$]+(?:\??\.[A-Za-z_$]+){1,3}$/;
 const ENV = /^(?:[\w$]+\.)*env\.[\w$]+$/i;
-/** A shell variable (`$PASS`, `${ADMIN_PASSWORD}`) or a command substitution, quoted or not. */
-const SHELL_VARIABLE = /^["'`]?\$\{?[A-Z_][A-Z0-9_]*\}?["'`]?$/;
-const COMMAND_SUBSTITUTION = /^["'`]?\$\(/;
+const SHELL_VARIABLE = /^["'`]?\$(\{)?([A-Z_][A-Z0-9_]*)\}?["'`]?$/;
+/** Names that read as a credential or an environment setting even without an underscore. */
+const ENV_WORDS = new Set(
+	'USER PASS PASSWORD PASSWD PWD TOKEN SECRET KEY APIKEY HOME HOST PORT URL'.split(
+		' ',
+	),
+);
+
+/**
+ * A shell variable: `$ADMIN_PASSWORD`, `${NAME}`, `$USER`, `$P`. Unbraced, the
+ * name needs an underscore, a known environment word or at most two letters,
+ * so a password that starts with `$` (`$UPERSECRET`) is not taken for one.
+ */
+function isShellVariable(value: string): boolean {
+	const match = SHELL_VARIABLE.exec(value);
+	if (!match) return false;
+	const name = match[2] ?? '';
+	return (
+		match[1] !== undefined ||
+		name.includes('_') ||
+		name.length <= 2 ||
+		ENV_WORDS.has(name)
+	);
+}
 const ENV_BRACKET = /^(?:[\w$]+\.)*env\[\s*(["'])\w+\1\s*\]$/;
 
 /** True when `value` cannot be a secret: a type, a word, an env reference, a mask. */
@@ -84,12 +105,7 @@ export function isPlaceholder(raw: string): boolean {
 		.replace(/^(?:await|new|typeof)\s+/i, '')
 		.replace(/[\s,;]+$/, '');
 	const asserted = unwrapped.replace(/!$/, '');
-	if (
-		ENV_BRACKET.test(asserted) ||
-		SHELL_VARIABLE.test(asserted) ||
-		COMMAND_SUBSTITUTION.test(asserted)
-	)
-		return true;
+	if (ENV_BRACKET.test(asserted) || isShellVariable(asserted)) return true;
 	const value = unwrapped
 		.replace(/(?:\[\])+(?=[;,)}\]"'`]*$)/, '')
 		.replace(/^["'`]+|["'`;,)}\]]+$/g, '')
@@ -138,7 +154,7 @@ function quotedArgumentIsName(call: string, index: number, text: string) {
 /** A call that reads a secret: every literal a name, no bare `P4ss`-like word. */
 export function isSafeCall(raw: string): boolean {
 	const call = raw.replace(/^(?:await|new)\s+/i, '').replace(/[\s,;]+$/, '');
-	if (!CALL.test(call)) return false;
+	if (!CALL.test(call) || call.startsWith('$(')) return false; // `$(…)` is a shell substitution
 	for (const match of call.matchAll(QUOTED)) {
 		if (!quotedArgumentIsName(call, match.index, match[2] ?? '')) return false;
 	}

@@ -3,7 +3,8 @@
  * over the code (a bracket stack, no rescans), so a long or unclosed body
  * costs time linear in its length.
  *
- * - `compare`: an operand of `===`, `!==`, `==`, `!=`, the argument or
+ * - `compare` (and `compare-member`, `compare-scope`; see `operands.ts`, where
+ *   a credential operand makes it `strict`): an operand of `===`, `!==`, `==`, `!=`, the argument or
  *   receiver of a test (`includes`, `startsWith`, `endsWith`, `indexOf`,
  *   `has`, `Object.is`, `localeCompare`), an element of an array or a `Set`
  *   those tests are called on, or an argument of a callee ending `Equal`,
@@ -17,9 +18,15 @@
  * and has no role. Quotes are tracked, so `=>` inside a string is not an arrow.
  */
 
-import { looksLikeCredential } from './literals';
+import {
+	classify,
+	type Operand,
+	pathAtEnd,
+	pathAtStart,
+	type Role,
+} from './operands';
 
-export type Role = 'compare' | 'strict';
+export type { Role };
 
 const OPEN = '([{';
 const CLOSE = ')]}';
@@ -32,7 +39,9 @@ const CALLBACKS = new Set([
 	'timingSafeEqual',
 ]);
 const TEST_WORDS = 'includes|startsWith|endsWith|indexOf|localeCompare';
-const TEST_METHODS = new Set([...TEST_WORDS.split('|'), 'has', 'is', 'equals']);
+const RECEIVER_TESTS = new Set([...TEST_WORDS.split('|'), 'has']);
+const ARGUMENT_TESTS = new Set(['is', 'equals']);
+const TEST_OPEN = /^\s*\??\.\s*\w+\s*\(/;
 const COMPARE_CALLEE = /(?:Equals?|Compare)$/;
 const EQUALITY_BEFORE = /(?:===|!==|==|!=)$/;
 const EQUALITY_AFTER = /^(?:===|!==|==|!=)/;
@@ -64,10 +73,6 @@ export function walk(
 		if (step(char, i, depth)) return;
 	}
 }
-
-/** Whether a compared literal looks like a credential, not an enum value (`refresh_token`). */
-export const comparesSecret = (text: string): boolean =>
-	looksLikeCredential(text) && !/^[a-z]+(?:_[a-z]+)+$/.test(text);
 
 interface Literal {
 	readonly start: number;
@@ -104,55 +109,92 @@ function scanLiterals(code: string) {
 	return { literals, closeOf };
 }
 
-/** The role of a literal handed to the call whose `(` is at `open`. */
-function callRole(
+type CallKind = 'strict' | 'receiver' | 'arguments';
+
+/** How a literal handed to the call whose `(` is at `open` is judged. */
+function callKind(
 	code: string,
 	open: number,
 	isCredentialCall: (name: string) => boolean,
-): Role | undefined {
+): { kind: CallKind; name: string } | undefined {
 	const head = code.slice(Math.max(0, open - WINDOW), open);
 	const name = /([A-Za-z_$][\w$]*)\s*$/.exec(head)?.[1];
 	if (name === undefined) return undefined;
-	if (CALLBACKS.has(name) || isCredentialCall(name)) return 'strict';
-	return TEST_METHODS.has(name) || COMPARE_CALLEE.test(name)
-		? 'compare'
-		: undefined;
+	if (CALLBACKS.has(name) || isCredentialCall(name)) {
+		return { kind: 'strict', name };
+	}
+	if (RECEIVER_TESTS.has(name)) return { kind: 'receiver', name };
+	if (ARGUMENT_TESTS.has(name) || COMPARE_CALLEE.test(name)) {
+		return { kind: 'arguments', name };
+	}
+	return undefined;
+}
+
+/** The receiver of the method call whose `(` is at `open`: `claims.scope` in `claims.scope?.includes(`. */
+function receiverOf(code: string, open: number): Operand {
+	const head = code.slice(Math.max(0, open - WINDOW), open);
+	return pathAtEnd(
+		head.replace(/[A-Za-z_$][\w$]*\s*$/, '').replace(/\??\.\s*$/, ''),
+	);
+}
+
+/** The other arguments of the call whose `(` is at `open`, around the literal. */
+function argumentsAround(
+	code: string,
+	open: number,
+	start: number,
+	end: number,
+) {
+	const left = code.slice(open + 1, start).replace(/,\s*$/, '');
+	const right = code.slice(end, end + WINDOW).replace(/^\s*,/, '');
+	return [pathAtEnd(left.slice(left.lastIndexOf(',') + 1)), pathAtStart(right)];
 }
 
 /** The role of each value literal of `code`, by the index of its opening quote. */
 export function valueRoles(
 	code: string,
 	isCredentialCall: (name: string) => boolean,
+	credentialParams: ReadonlySet<string> = new Set(),
 ): Map<number, Role> {
 	const { literals, closeOf } = scanLiterals(code);
 	const roles = new Map<number, Role>();
-	const followedByTest = (open: number | undefined): boolean => {
+	/** The argument of the test called right after the bracket pair opened at `open`. */
+	const argumentAfter = (open: number | undefined): Operand | 'none' => {
 		const close = open === undefined ? undefined : closeOf.get(open);
-		return (
-			close !== undefined &&
-			TEST_FOLLOWS.test(code.slice(close + 1, close + 1 + WINDOW))
-		);
+		if (close === undefined) return 'none';
+		const rest = code.slice(close + 1, close + 1 + WINDOW);
+		if (!TEST_FOLLOWS.test(rest)) return 'none';
+		return pathAtStart(rest.replace(TEST_OPEN, ''));
 	};
 	for (const { start, end, top, second } of literals) {
 		const before = code.slice(Math.max(0, start - WINDOW), start).trimEnd();
 		const after = code.slice(end, end + WINDOW).trimStart();
+		let operands: Operand[] | undefined;
 		let role: Role | undefined;
-		if (
-			EQUALITY_BEFORE.test(before) ||
-			EQUALITY_AFTER.test(after) ||
-			TEST_AFTER.test(after)
-		)
-			role = 'compare';
-		else if (STRICT_BEFORE.test(before) || STRICT_AFTER.test(after))
+		if (EQUALITY_BEFORE.test(before)) {
+			operands = [pathAtEnd(before.replace(EQUALITY_BEFORE, ''))];
+		} else if (EQUALITY_AFTER.test(after)) {
+			operands = [pathAtStart(after.replace(EQUALITY_AFTER, ''))];
+		} else if (TEST_AFTER.test(after)) {
+			operands = [pathAtStart(after.replace(TEST_OPEN, ''))];
+		} else if (STRICT_BEFORE.test(before) || STRICT_AFTER.test(after)) {
 			role = 'strict';
-		else if (/[(,[]$/.test(before) && top !== undefined) {
-			if (code[top] === '(') role = callRole(code, top, isCredentialCall);
-			else if (
-				code[top] === '[' &&
-				(followedByTest(top) || followedByTest(second))
-			)
-				role = 'compare';
+		} else if (/[(,[]$/.test(before) && top !== undefined) {
+			if (code[top] === '(') {
+				const call = callKind(code, top, isCredentialCall);
+				if (call?.kind === 'strict') role = 'strict';
+				else if (call?.kind === 'receiver') operands = [receiverOf(code, top)];
+				else if (call) operands = argumentsAround(code, top, start, end);
+			} else if (code[top] === '[') {
+				const tested = [argumentAfter(top), argumentAfter(second)];
+				const hit = tested.findIndex((arg) => arg !== 'none');
+				if (hit !== -1) {
+					const arg = tested[hit];
+					operands = [arg === 'none' ? undefined : arg];
+				}
+			}
 		}
+		if (operands) role = classify(operands, credentialParams);
 		if (role) roles.set(start, role);
 	}
 	return roles;

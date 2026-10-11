@@ -8,8 +8,9 @@
  * or `isX`/`check*`/`verify*` (`const isGateway = (c) => …`).
  */
 
-import { comparesSecret, valueRoles, walk } from './literal-roles';
+import { valueRoles, walk } from './literal-roles';
 import { isHarmlessLiteral } from './literals';
+import { passesAsCompared } from './operands';
 
 const QUOTED = /(["'`])((?:\\.|(?!\1).)*)\1/g;
 const SEPARATORS = ',;';
@@ -60,7 +61,7 @@ const KEYS = 'trustedGateway|verify\\w*|secret|password|token|apiKey|getToken';
 const FUNCTION_START = '(?=async\\b|\\(|[A-Za-z_$][\\w$]*\\s*=>|function\\b)';
 /** Keys whose function value guards or yields a credential. */
 const CREDENTIAL_KEY = new RegExp(
-	`\\b(?:${KEYS})\\s*:\\s*${FUNCTION_START}`,
+	`\\b(${KEYS})\\s*:\\s*${FUNCTION_START}`,
 	'g',
 );
 /** `const isGateway = (c) => …`: the name is checked by `CREDENTIAL_NAME`. */
@@ -70,7 +71,7 @@ const CONST_FUNCTION = new RegExp(
 );
 /** `trustedGateway(c) {`, `async isGateway(c) {`, `function checkCaller(c) {`. */
 const METHOD = new RegExp(
-	`\\b(?:${KEYS}|is[A-Z]\\w*|check\\w*)\\s*\\([^()]*\\)\\s*(?::[^{;]+)?\\{`,
+	`\\b(${KEYS}|is[A-Z]\\w*|check\\w*)\\s*\\(([^()]*)\\)\\s*(?::[^{;]+)?\\{`,
 	'g',
 );
 const CREDENTIAL_NAME =
@@ -83,22 +84,41 @@ const VALUE = {
 	keyPosition: false,
 };
 
+interface FunctionStart {
+	readonly start: number;
+	/** The second parameter of a `verify*` callback: the password of `verifyUser(user, password)`. */
+	readonly credentialParams: ReadonlySet<string>;
+}
+
+const PARAMETERS = /^\s*(?:async\s+)?(?:function\b[^(]*)?\(([^()]*)\)/;
+
+/** The credential parameters of the function named `name`, whose parameter list is `params`. */
+function credentialParamsOf(name: string, params: string | undefined) {
+	const second = params?.split(',')[1];
+	const id = /^\s*(?:\.\.\.)?([A-Za-z_$][\w$]*)/.exec(second ?? '')?.[1];
+	return new Set(id !== undefined && /^verify/.test(name) ? [id] : []);
+}
+
 /** Where each checked function value starts, in order. */
-function functionStarts(text: string): number[] {
-	const starts: number[] = [];
+function functionStarts(text: string): FunctionStart[] {
+	const starts: FunctionStart[] = [];
+	const add = (name: string, at: number, params?: string) => {
+		const own = params ?? PARAMETERS.exec(text.slice(at, at + 300))?.[1];
+		starts.push({ start: at, credentialParams: credentialParamsOf(name, own) });
+	};
 	for (const match of text.matchAll(CREDENTIAL_KEY)) {
-		starts.push(match.index + match[0].length);
+		add(match[1] ?? '', match.index + match[0].length);
 	}
 	for (const match of text.matchAll(CONST_FUNCTION)) {
 		const name = match[1] ?? '';
 		if (CREDENTIAL_NAME.test(name) || IS_NAME.test(name)) {
-			starts.push(match.index + match[0].length);
+			add(name, match.index + match[0].length);
 		}
 	}
 	for (const match of text.matchAll(METHOD)) {
-		starts.push(match.index + match[0].length - 1);
+		add(match[1] ?? '', match.index + match[0].length - 1, match[2] ?? '');
 	}
-	return starts.sort((a, b) => a - b);
+	return starts.sort((a, b) => a.start - b.start);
 }
 
 /** A function value under a credential name that compares or returns a literal secret. */
@@ -107,18 +127,18 @@ export function credentialKeyHoldsSecret(
 	isCredentialCall: (name: string) => boolean,
 ): boolean {
 	let covered = 0;
-	for (const start of functionStarts(text)) {
+	for (const { start, credentialParams } of functionStarts(text)) {
 		if (start < covered) continue; // inside a value already checked
 		covered = valueEnd(text, start);
 		const code = text.slice(start, covered);
-		const roles = valueRoles(code, isCredentialCall);
+		const roles = valueRoles(code, isCredentialCall, credentialParams);
 		for (const literal of code.matchAll(QUOTED)) {
 			const role = roles.get(literal.index);
 			if (!role) continue;
 			const body = literal[2] ?? '';
 			const context = { ...VALUE, template: literal[1] === '`' };
 			if (isHarmlessLiteral(body, context)) continue;
-			if (role === 'compare' && !comparesSecret(body)) continue;
+			if (passesAsCompared(role, body)) continue;
 			return true;
 		}
 	}

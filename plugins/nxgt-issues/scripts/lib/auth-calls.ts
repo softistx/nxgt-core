@@ -25,8 +25,9 @@
  */
 
 import { credentialKeyHoldsSecret, functionRegions } from './function-values';
-import { comparesSecret, valueRoles } from './literal-roles';
+import { valueRoles } from './literal-roles';
 import { isHarmlessLiteral, looksLikeCredential } from './literals';
+import { passesAsCompared } from './operands';
 
 const CALL = /(?<![\w$])((?:[A-Za-z_$][\w$]*\??\.)*[A-Za-z_$][\w$]*)\s*\(/g;
 const KEYWORDS = (
@@ -34,6 +35,10 @@ const KEYWORDS = (
 	'decrypt scrypt pbkdf2 argon bcrypt login auth authenticate'
 ).split(' ');
 const SUFFIX = /^(?:\d+|iv|sync|ed|er|ing|s)?$/;
+/** Callees that encode their argument (base64, bytes): a literal credential in one still refuses. */
+const ENCODERS = new Set(
+	'btoa encode toBase64 base64Encode b64 encodeBase64'.split(' '),
+);
 const USER_FIRST = new Set(['login', 'signIn', 'authenticate']);
 const SETTERS = new Set(['set', 'append', 'header', 'setHeader', 'cookie']);
 /** An identifier naming a credential header: `GATEWAY_SECRET_HEADER`, `authHeader`. */
@@ -55,7 +60,7 @@ const parts = (name: string): string[] =>
 /** Whether a callee path names a credential call. */
 export function isCredentialCallee(path: string): boolean {
 	const name = path.split('.').pop() ?? '';
-	if (name === 'btoa' || name === 'encode') return true;
+	if (ENCODERS.has(name)) return true;
 	if (/(?:^|\.)Buffer\.from$/.test(path)) return true;
 	return parts(name).some((part) =>
 		KEYWORDS.some(
@@ -158,7 +163,7 @@ function hasSecretIn(arg: string, position: Position): boolean {
 		};
 		const literal = match[2] ?? '';
 		if (isHarmlessLiteral(literal, context)) continue;
-		if (role === 'compare' && !comparesSecret(literal)) continue;
+		if (role && passesAsCompared(role, literal)) continue;
 		if (!position.encoder || looksLikeCredential(literal)) return true;
 	}
 	return false;
@@ -176,7 +181,7 @@ function positionsOf(name: string, args: string[]): Position[] {
 	const callee = parts(name);
 	const firstIsCode = literalOf(args[0] ?? '') === undefined;
 	const keyCall = hasPart(callee, KEY_PARTS);
-	const encoder = name === 'encode' || name === 'from';
+	const encoder = ENCODERS.has(name) || name === 'from';
 	return args.map((_, index) => ({
 		strict: false,
 		encoder,
