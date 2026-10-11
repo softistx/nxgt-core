@@ -271,7 +271,7 @@ describe('compose names are judged by the credential keyword, not by their last 
 		`\${SECRET_NAME:-app-secrets}`,
 		`\${TOKEN_AUDIENCE:-my-app}`,
 		`\${PIN_LENGTH:-4}`,
-		`\${OAUTH_API_HOSTNAME:-oauth-api.example.com}`,
+		`\${OAUTH_API_HOSTNAME:-quillon-api.example.com}`,
 		`\${OAUTH_CLIENT_ID:-my-app}`,
 		`\${TOKEN_EXPIRES_IN:-1h}`,
 		`\${SESSION_DRIVER:-redis}`,
