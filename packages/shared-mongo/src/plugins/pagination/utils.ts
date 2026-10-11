@@ -30,7 +30,7 @@ const MAX_SIZE = 100;
  *   paginateList        cursor, over a list already in memory
  *   paginateOffset      page/size, {data, metadata}
  *   paginateListOffset  page/size, over a list already in memory
- *   cursorPaginate      cursor, {data, metadata} — the first consumer's third shape
+ *   cursorPaginate      cursor, {data, metadata} — the consumer monorepo's third shape
  */
 export function applyPagination(schema: Schema) {
 	schema.static('paginate', async function () {

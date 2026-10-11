@@ -73,7 +73,7 @@ Model statics the pagination plugin adds:
 | Method | What it returns |
 | --- | --- |
 | `paginate` | Relay connection (federation) |
-| `paginateOffset` | offset page (first consumer) |
+| `paginateOffset` | offset page (what the consumer that pages by offset calls) |
 | `cursorPaginate` | cursor page ordered by `_id` — the cursor *is* the `_id` |
 | `paginateList` / `paginateListOffset` | the same two shapes over an in-memory list |
 

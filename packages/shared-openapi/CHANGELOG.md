@@ -34,7 +34,7 @@
   `SortDirection` shipped to describe it. Nothing ever honoured it. The paginator
   every one of those bodies feeds is `Model.cursorPaginate` in
   `@nxgt/shared-mongo`, which orders by `_id` and never reads `sort` — the cursor
-  *is* the `_id`. Twenty-three endpoints across six services of the first consumer took the
+  *is* the `_id`. Twenty-three endpoints across six services of the consumer monorepo took the
   parameter, documented it, and threw it away; five of them went as far as
   building a Mongo sort object before dropping it on the floor.
   

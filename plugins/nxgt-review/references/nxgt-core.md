@@ -123,9 +123,10 @@ A change under `plugins/` is reviewed too:
 - A plugin whose content changed with no `version` bump in its
   `.claude-plugin/plugin.json`; a new plugin missing from
   `.claude-plugin/marketplace.json`.
-- A private application name is fine here (this is agent guidance, not an
-  npm page), but a secret, a token, a local absolute path or a production
-  host is not.
+- Report any private application name or private repository name as a finding
+  (owner, 2026-10-11): this repository is public, and the wording is "the
+  consumer monorepo". A secret, a token, a local absolute path or a production
+  host is a finding too.
 - The `CLAUDE.md` plugin table out of step with `plugins/`.
 
 ## `nxgt-issues`

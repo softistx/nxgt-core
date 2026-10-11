@@ -10,6 +10,8 @@ depend on. Until 2026-09-06 each monorepo carried its own copy under
 `shared` by ~260. This repository is the single copy, published to the public
 npm registry.
 
+"The consumer monorepo" is this file's name for the one private repository, beside `nxgt-federation`, that consumes these packages. No private application name appears anywhere in this repository (owner, 2026-10-11): use generic wording such as "the consumer monorepo".
+
 It holds thirteen packages: the nine extracted from the consumer monorepo, the two
 that existed only in `nxgt-federation` — `shared-events`, `shared-graphql` —
 `env`, written here on 2026-09-22 and the first with a `bin`, and `i18n-vue`,
@@ -646,7 +648,7 @@ difference: `@nxgt/shared-hono@1.0.2` went out demanding
 `1.1.0`. Bun's isolated linker is right to install both — and both register the
 `Audit` and `Migration` Mongoose models, so the second one throws
 `OverwriteModelError`. It cost 52 failing specs in nxgt-federation, and
-The consumer monorepo had been carrying two copies of `@nxgt/shared-mongo` since its
+the consumer monorepo had been carrying two copies of `@nxgt/shared-mongo` since its
 first install without anyone noticing.
 
 `workspace:^` publishes as `^1.0.0`, which dedupes. `verify-artifacts.ts` fails
@@ -835,7 +837,7 @@ The following pairs exist on purpose:
 | `plugins/nxgt-issues/scripts/lib/crew-registry.ts` and nxgt-crew's `store.ts`, `record.ts`, `settings.ts`, `liveness.ts`, `system.ts` | a minimal read-only copy of nxgt-crew's registry reader (`crewHome`, `readAll` from `store.ts`), its record check (`isRecord` from `record.ts`), its knobs (`NXGT_CREW_STALE_MINUTES` / `NXGT_CREW_IDLE_HOURS` from `settings.ts`), its liveness rule (`liveness.ts`) and its pid probe (`probePid` from `system.ts`), so `issues.ts sessions` names the live sessions that depend on a package without requiring nxgt-crew (owner decision: nxgt-crew stays out of nxgt-base). The record check is looser on purpose: it checks only the fields `sessions` reads, so a record nxgt-crew grows stays readable. It never writes and skips the Linux start-time check. A change to the registry's location, record shape or liveness rule in nxgt-crew must be followed here |
 | `plugins/nxgt-issues/scripts/release/close-released-issues.ts`, `close-released-issues-lib.ts`, `close-released-issues-git.ts` and the spec, copied byte for byte (all four) into each library repository's `scripts/` (nxgt-data, nxgt-http, nxgt-telemetry, nxgt-janus, nxgt-mail, … and nxgt-core's own at `scripts/`, which the `close-issues` job of `.github/workflows/release.yml` runs after the release job, through its output `published-packages`, hyphenated in `@v2`; `scripts/close-released-issues-copy.spec.ts` lists both folders by glob and fails when a copy differs by one byte or exists on one side only), and `plugins/nxgt-issues/scripts/lib/release.ts`, `release-prs.ts`, `release-pr-info.ts`, `release-git.ts`, `release-github.ts` and `release-command.ts` | the release step that comments, labels `released` and closes the issues a published version fixes. The script stands alone (only `gh`; the three files import each other by relative path and nothing from the plugin, since they are copied where the plugin does not exist), so it re-implements on purpose the discovery and per-issue logic the lib runs behind `issues.ts released` through the plugin's runner (the session fallback, which also builds the notification list the script cannot). Each has its own spec, and `lib/release-script-comment.spec.ts` runs the script's real "Fixed in" comment through `fixedComment` and `releaseFix`. The script is the canonical copy: change it here first, then every repository's copy; a change to the "Fixed in" comment or its hidden marker (`issue-body.ts` `fixedComment`, which `context.ts` `releaseFix` parses) must be followed in both. **Same rules in both:** label, close, then comment (the marker last); at most one "Fixed in" comment ever (any trusted fixed marker means done); a root package (`.`, tags `v1.2.3` or `name@1.2.3`); an integration PR of a reused `feat/*` branch that shipped before is dropped (`git merge-base --is-ancestor` against the previous tag, else older than the slice by `mergedAt`); a CHANGELOG-listed slice that did not touch the package still leads to its integration PR. **Differences kept on purpose:** the script reads the CHANGELOG and ranges the log up to `HEAD` (the release commit in CI), where the lib reads the tag and needs it locally; the script collects the issues of all published packages before posting and names the package the issue's `## Versions` section lists (else the lowest rank, else the first), where the lib handles one package per call; the script tells the packages from its own `packages/*` and root manifests, the lib from `manifestsOf`; the skip note's wording differs; the lib decides from `siblings` (the checkout's other manifests, the root left out unless the root is the released package) and `commitTouches`, the script from the published set plus the same touch check on each unpublished sibling; either skips an issue only when the sibling's run will surely handle it: the fix is rank 0 (the PR's own closing references name the issue), that PR touched the sibling's folder, it adds a `.changeset/*.md` naming the sibling (`git diff --diff-filter=A` and `git show` at the merge commit), and the sibling has an earlier tag in the clone (`hasTags`), so its run can read the first-parent log; when git cannot say it handles the issue. Both look up the integration PR of a CHANGELOG-listed slice that did not touch the package and read its own issues at rank 0 when that merge touched the package. Three smaller rules are copies of one rule each: the keyword stripping (`withoutQuoted` in `refs.ts`, `unquoted` in the lib file), the changeset frontmatter parser (`changesetNames`, again in the git file) and the `## Versions` parser (`versionNames` in `issue-body.ts`, again in the lib file; fenced blocks stripped) |
 | the `issues.ts` lookup (the `jq` over `installed_plugins.json`, honouring `CLAUDE_CONFIG_DIR`, falling back to the checkout's own `plugins/nxgt-issues/scripts/issues.ts`) in `plugins/nxgt-issues/README.md` ("The CLI"), `plugins/nxgt-autonomy/agents/queue-refiller.md`, `plugins/nxgt-autonomy/agents/work-queue-auditor.md` and `plugins/nxgt-package/skills/release-a-package-change/SKILL.md` | one lookup, written where the agent or skill that needs it reads it: a plugin cannot import from another, and a guess in the plugin cache finds old versions. The README holds the canonical text; change every copy together |
-| `paginate` (offset) and `paginateCursor` (Relay) | the first consumer pages by offset, federation by cursor; same name, incompatible signatures |
+| `paginate` (offset) and `paginateCursor` (Relay) | the consumer monorepo pages by offset, federation by cursor; same name, incompatible signatures |
 | `Principal` and `TokenPrincipal` | gateway-header shape vs JWT-claims shape — two different models of "the authenticated caller" |
 | the REST filter helpers and the GraphQL filter DSL | two filter philosophies that shared a filename and two function names |
 | `objectIdFromString` and `toObjectId` | the same conversion under two names; one aliases the other |
@@ -880,7 +882,7 @@ Established here, and applying to all four repositories:
   `@nxgt/shared-openapi` shipped a `sort` on the generic `SearchRequest`, plus
   `SortField` / `SortOrder` / `SortDirection`, for a paginator that has never
   read `sort` — `cursorPaginate` orders by `_id`, because the cursor *is* the
-  `_id`. Twenty-three endpoints in the first consumer documented sorting and discarded it, and
+  `_id`. Twenty-three endpoints in the consumer monorepo documented sorting and discarded it, and
   no build, lint or test could see it: the parameter type-checked, validated,
   and went nowhere. When you add a field to a shared schema, follow it to the
   code that consumes it in the same change, or do not add it.
@@ -888,7 +890,7 @@ Established here, and applying to all four repositories:
   read by someone who has never seen this repository and does not know the
   private applications that consume it. Organize by section, each with a
   concise copy-paste example; never name a private app, a private monorepo,
-  or "the parc" there — those names belong in this file. The long version
+  or "the parc" there — those names do not belong here either: see the rule on private names above. The long version
   is the package's `docs/` folder, named in `files` — `env`, `i18n-vue`, `shared-graphql` and `shared-hono` have one;
   the `nxgt-docs` agents write it: guide pages with the
   detail and an example for each point, `troubleshooting.md` headed by the

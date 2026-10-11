@@ -46,10 +46,12 @@ getLogger().info('from a service, uses the request logger when there is one');
 through a nested `node_modules` is what `tsc` refuses to emit (TS2883) for a
 consumer installing from the registry.
 
-Level comes from `LOG_LEVEL`, default `info`. `tag` defaults to `'app'`.
+Level comes from `LOG_LEVEL`, default `info`. `tag` defaults to `'app'`; pass `tag` to use another label.
 Pass `disableConsole: true` to keep only the file transport.
 
 ## Line format
+
+The sample lines come from a logger created without `tag`:
 
 ```
 [2026-06-10 22:40:20] [app] [info] ready

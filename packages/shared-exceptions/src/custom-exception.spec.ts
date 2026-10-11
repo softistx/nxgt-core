@@ -104,7 +104,7 @@ describe('CustomException', () => {
 			expect(err).toBeInstanceOf(CustomException);
 		});
 
-		it('unauthorized is exactly unauthenticated, under the first consumer’s name', () => {
+		it('unauthorized is exactly unauthenticated, under the consumer monorepo’s name', () => {
 			expect(CustomException.unauthorized({}).errorCode).toBe(
 				CustomException.unauthenticated({}).errorCode,
 			);
