@@ -101,10 +101,10 @@ earlier tag; an issue whose Versions also names the released package is never
 skipped, and if git cannot say, the issue is handled under the released
 package.
 
-Exit 1 is a malformed
-`<package>@<version>` or a package this checkout does not hold, 2 a checkout
-that is not an allowed owner's or `NXGT_ISSUES_DISABLE` set, 5 a GitHub rate limit (try later), 6 a failure
-on one PR or issue (the rest was done; read the message and rerun once). A note
+Exit 1 is a malformed `<package>@<version>`, a package this checkout does not
+hold or a monorepo's private root, 2 a checkout that is not an allowed owner's
+or `NXGT_ISSUES_DISABLE` set, 5 a GitHub rate limit (try later), 6 a failure on
+one PR or issue (the rest was done; read the message and rerun once). A note
 that an issue "was reopened after the release" means the fix did not hold: say
 so to the user instead of closing it again.
 

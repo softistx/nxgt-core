@@ -19,6 +19,8 @@ the security model below).
 | `fix-a-reported-issue` | skill | the package side: queue placement, regression test, `Fixes #n`, release, notify the applications |
 | `issues` (`/issues`) | skill, slash command | the dashboard across the owner's repositories; `/issues ready`, `/issues markers`, `/issues released <pkg@ver>` |
 
+Maintainer details: [docs/internals.md](docs/internals.md)
+
 ## The loop end to end
 
 1. **Application side, reporting.** A session hits a defect in an `@nxgt/*`
@@ -97,8 +99,7 @@ It prints nothing when there is nothing to show, and stays under about 600
 tokens (titles are cut to one line and introduced as data, not instructions).
 It reads a per-repository cache, fresh for 10 minutes, refreshed in the
 background when stale; the cache states, the stamps and the file modes are in
-[docs/internals.md](docs/internals.md#the-hooks-cache). Turn the hook off with
-`NXGT_ISSUES_DISABLE=1`.
+[docs/internals.md](docs/internals.md#the-hooks-cache).
 
 Everything it shows from GitHub is untrusted data, handled as the security
 model below describes. Of a tracking issue's last upstream comment only the
@@ -109,7 +110,7 @@ written by an owner, member or collaborator, is shown. The output is capped at
 oldest consumer reports, and the real open count.
 
 It fails open: no `.git`, an `origin` whose owner is not in
-`NXGT_ISSUES_OWNERS` (default `softistx,SteveGT96`; this case makes no gh call
+`NXGT_ISSUES_OWNERS` (default: see Requirements; this case makes no gh call
 at all), gh missing or not logged in, an unparseable answer or a rate limit all
 print nothing and exit 0. The hook's timeout is 5 seconds. A refresh is two
 GraphQL calls (the open and `upstream`-labelled issues, then the state, labels
@@ -195,9 +196,6 @@ nxgt-core runs this step itself: `scripts/close-released-issues*.ts` is a copy o
 the four files below, guarded by `scripts/close-released-issues-copy.spec.ts`,
 and the `close-issues` job of `.github/workflows/release.yml` runs it.
 
-The package side closes the loop in two halves, because CI can close issues but
-cannot message a session.
-
 - **At the release (CI).** A library repository copies, byte for byte, the four
   files of `plugins/nxgt-issues/scripts/release/` into its `scripts/`:
   `close-released-issues.ts`, `close-released-issues-lib.ts`,
@@ -269,11 +267,10 @@ cannot message a session.
   will surely handle it (all of: the fix is rank 0, the PR's own closing
   references name the issue; that PR touched the package's folder; it adds a
   `.changeset/*.md` naming the package; and the package has an earlier tag in the
-  clone; if git cannot say, the issue is handled now). A CHANGELOG-listed slice
-  that did not touch the package still leads to its integration PR, whose own
-  issues count at rank 0 when that merge touched the package. The label and the
-  close come first and the comment (the marker) last, so a failure part-way is
-  redone by a manual `issues.ts released` (CI's next run starts at the next tag and does not look back) and never reads as "reopened". A single package at the
+  clone; if git cannot say, the issue is handled now). The order (label, close,
+  comment last) means a failure part-way is redone by a manual `issues.ts
+  released` (CI's next run starts at the next tag and does not look back) and
+  never reads as "reopened". A single package at the
   repository root works too (tags `v1.2.3` or `name@1.2.3`, the whole tree as the
   path, the root CHANGELOG); the script also takes the root of a monorepo when
   it is published, where `issues.ts released` refuses a root that has
@@ -501,7 +498,8 @@ tool. These are not detected, so never paste a real value:
 
 - prose secrets ("the password is …");
 - variable indirection (`const X = '…'; secret(X)`);
-- XML elements (`<password>…</password>`).
+- XML elements (`<password>…</password>`);
+- percent-encoding is undone only three layers deep.
 
 The reproduction is always written from scratch, with generic values, never
 copied from the application.
@@ -525,7 +523,8 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
   checkout of a worktree);
 - the working directory's name (`file` and `deps --file` refuse outside a git
   checkout);
-- every private repository of the default owners (`softistx`, `SteveGT96`),
+- every private repository of the owners in `NXGT_ISSUES_OWNERS` (default: the
+  maintainer's),
   by full name, and by each distinctive stem as a whole word outside
   `node_modules/` paths (`zorblax` from `zorblax-api`); a stem that is a
   common English word or a framework, library or tool name (`compose`,
