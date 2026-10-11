@@ -78,9 +78,19 @@ const INNER = {
 	keyPosition: false,
 };
 
-/** A string literal in `code` that is not plainly harmless. */
+/**
+ * A string literal in `code` that is an operand (after `+`, or directly in
+ * `${…}`) and not plainly harmless. A literal after `(`, `,` or `[` is a call
+ * argument or a subscript key (`getItem('token')`), left to the call rules;
+ * escapes (`'\\n'`) are not letters.
+ */
 const holdsLiteral = (code: string): boolean =>
-	[...code.matchAll(STRING)].some((m) => !isHarmlessLiteral(m[2] ?? '', INNER));
+	[...code.matchAll(STRING)].some((m) => {
+		const before = code.slice(0, m.index).trimEnd().at(-1);
+		if (before === '(' || before === ',' || before === '[') return false;
+		const unescaped = (m[2] ?? '').replace(/\\./g, '');
+		return !isHarmlessLiteral(unescaped, INNER);
+	});
 
 /** Literals glued to a scheme, by `+` or inside `${…}`, wherever they sit. */
 function schemeHoldsLiteral(text: string): boolean {

@@ -40,16 +40,16 @@ describe("the app's own common-word stems", () => {
 
 describe('an allowed term never hides a private name built from it', () => {
 	const list = buildDenyList({
-		privateRepos: ['acme/nxgt-hono', 'acme/zorb-sdk'],
+		privateRepos: ['acme/vexora-hono', 'acme/zorb-sdk'],
 	});
 	const allow = ['@nxgt/shared-hono', 'hono', '@acme/zorb-sdk'];
 
 	test.each([
-		'acme/nxgt-hono',
-		'nxgt-hono',
-		'NXGT-HONO',
-		"import x from 'nxgt-hono'",
-		'the nxgt hono app',
+		'acme/vexora-hono',
+		'vexora-hono',
+		'VEXORA-HONO',
+		"import x from 'vexora-hono'",
+		'the vexora hono app',
 	])('%p refuses', (text) => {
 		expect(findDenied(text, list, allow)).not.toEqual([]);
 	});

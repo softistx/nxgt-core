@@ -72,7 +72,7 @@ const allowForms = (term: string, held: ReadonlySet<string>): string[] => {
  * The text with every occurrence of an allowed term blanked, as written in
  * any case (`@acme/zorb-sdk`, `node_modules/@acme/zorb-sdk/`), so a private
  * name that folds onto it (`acme/zorb-sdk`) cannot match inside it. An
- * occurrence joined to a word (`nxgt-hono` for an allowed `hono`) or in an
+ * occurrence joined to a word (`vexora-hono` for an allowed `hono`) or in an
  * `owner/name` form outside `node_modules/` stays.
  */
 function blankAllowed(text: string, allow: readonly string[]): string {
@@ -125,8 +125,8 @@ const viewsOf = (text: string) => ({
 /**
  * Deny-list terms present, as written or in a variant (see the module comment).
  * A term found only once the allowed terms are put back counts unless it
- * matches inside an allowed term itself (the folding case): `the nxgt hono
- * app` refuses for a private `nxgt-hono` although `hono` is allowed.
+ * matches inside an allowed term itself (the folding case): `the vexora hono
+ * app` refuses for a private `vexora-hono` although `hono` is allowed.
  */
 export function findDenied(
 	text: string,

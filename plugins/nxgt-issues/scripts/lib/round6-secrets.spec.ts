@@ -40,6 +40,15 @@ describe('literals concatenated to or inside a scheme', () => {
 		"'Basic ' + btoa(user + ':' + pass)",
 		// biome-ignore lint/suspicious/noTemplateCurlyInString: source text under test
 		"`Bearer ${tokens['access']}`",
+		"'Bearer ' + localStorage.getItem('token')",
+		"'Bearer ' + c.get('token')",
+		"'Bearer ' + session.get('accessToken')",
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: source text under test
+		"`Bearer ${localStorage.getItem('token')}`",
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: source text under test
+		"`Basic ${Buffer.from('admin:' + pw).toString('base64')}`",
+		"'Bearer ' + token + '\\n'",
+		"Authorization: 'Bearer ' + c.get('token')",
 	])('%p passes', passes);
 });
 
@@ -61,4 +70,24 @@ describe('SDL blocks and YAML sequences', () => {
 		'const cookieSecret = [process.env.COOKIE_SECRET]',
 		'secrets: [oldSecret, newSecret]',
 	])('%p passes', passes);
+});
+
+describe('a function value is code, never a secret argument', () => {
+	test('an arrow under an auth option passes', () => {
+		passes(
+			"oryAuth(ory, { trustedGateway: (c) => c.req.header('x-gateway') === secret })",
+		);
+	});
+
+	test.each([
+		"oryAuth(ory, { trustedGateway: function (c) { return c.req.header('x-gateway') === secret } })",
+		"login(page, async () => { await page.fill('#email', 'a') })",
+	])('%p passes', passes);
+
+	test.each([
+		"oryAuth(ory, { trustedGateway: 'literal-secret-123' })",
+		"oryAuth(ory, { trustedGateway: (c) => check(c), secret: 'literal-secret-123' })",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
 });

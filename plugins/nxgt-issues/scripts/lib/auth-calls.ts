@@ -140,8 +140,34 @@ const looksLikeCredential = (text: string): boolean =>
 	/secret|passw|pwd|token|key|auth/i.test(text) ||
 	(!/\s/.test(text) && /\d/.test(text) && /[A-Za-z]/.test(text));
 
+/**
+ * `arg` with every function value blanked, from `=>` or `function` to the end
+ * of the value: a function is code, never a secret argument (`trustedGateway:
+ * (c) => c.req.header('x-gateway') === secret`). A credential call inside it
+ * is still found on its own.
+ */
+function withoutFunctions(arg: string): string {
+	let out = arg;
+	for (const match of arg.matchAll(/=>|\bfunction\b/g)) {
+		let end = arg.length;
+		scan(arg, match.index, (char, i, depth) => {
+			if (depth < 0 || (depth === 0 && char === ',')) {
+				end = i;
+				return true;
+			}
+			return undefined;
+		});
+		out =
+			out.slice(0, match.index) +
+			' '.repeat(end - match.index) +
+			out.slice(end);
+	}
+	return out;
+}
+
 /** A quoted literal in `arg` that is a secret. */
-function hasSecretIn(arg: string, position: Position): boolean {
+function hasSecretIn(whole: string, position: Position): boolean {
+	const arg = withoutFunctions(whole);
 	for (const match of arg.matchAll(QUOTED)) {
 		const key = KEY_BEFORE.exec(arg.slice(0, match.index))?.[1];
 		if (key && NAMING_KEYS.has(key)) continue;
