@@ -8,12 +8,13 @@ package side sees its open issues when a session starts; once the fix is
 released, the application adopts it and removes the `// Temporary, until
 <package>#<n>` markers.
 
-> **Status: reporter, session start, app side and dashboard.** This version
-> ships the `report-to-upstream`, `adopt-a-released-fix` and `issues` (`/issues`)
-> skills, the `issues.ts` CLI behind them (`resolve`, `file`, `track`, `deps`,
-> `sessions`, `refresh`, `ready`, `markers`, `dashboard`) and the `SessionStart`
-> hook. The package-side skill and `/issues released <pkg@ver>` follow in later
-> versions.
+> **Status: reporter, session start, app side, dashboard and release side.**
+> This version ships the `report-to-upstream`, `adopt-a-released-fix`, `issues`
+> (`/issues`) and `fix-a-reported-issue` skills, the `issues.ts` CLI behind them
+> (`resolve`, `file`, `track`, `deps`, `sessions`, `refresh`, `ready`, `markers`,
+> `dashboard`, `released`), the canonical `close-released-issues.ts` and the
+> `SessionStart` hook. The integrations with the other plugins follow in a later
+> version.
 
 ## Install
 
@@ -27,7 +28,9 @@ an outdated dependency in one of the owner's packages, the `adopt-a-released-fix
 skill, which fires when such a fix has been released (below), the `issues` skill
 (`/issues`, `/issues ready`, `/issues markers`: the dashboard of everything open
 across the owner's repositories, and the app-side commands; `/issues released
-<pkg@ver>` arrives with the release step), and it registers
+<pkg@ver>`: close what a release fixed, from the package's checkout), the
+`fix-a-reported-issue` skill (the package side: queue, regression test, `Fixes
+#n`, release), and it registers
 the SessionStart hook (below). `NXGT_ISSUES_DISABLE=1` turns the hook, and the
 CLI, off.
 
@@ -119,6 +122,7 @@ stdin.
 | `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and an owner, member, collaborator or the release bot (GraphQL author type `Bot`, login `github-actions`) wrote it, from a PR of this or another repository; from the cache when fresh, else a refresh (two GraphQL calls; a failed refresh falls back to a stale cache, with a warning on stderr); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
 | `dashboard [--json]` | the `/issues` dashboard: open issues of the allowed owners' non-archived repositories (`NXGT_ISSUES_OWNERS`), grouped by repository and headed by the packages it publishes, each group ranked live marker first (an open tracking issue of some application still links the issue, `●`), then applications affected (tracking links, or the reporter plus the "Another consumer hit this" comments an owner, member or collaborator wrote), then oldest; `⚑` after 14 days without activity; tracking issues themselves are not listed; then a "Merged, awaiting release" section (`is:closed label:consumer-report -label:released`, oldest merge first). Three `gh search issues` calls (open issues, open `upstream` tracking issues, closed unreleased reports; the search API allows 30 a minute; a search that returns its 200-result limit adds a "truncated" note) are the dashboard: if one fails the command exits 5 (rate-limited, the shared pause applies) or 6 (gh failed). Up to three GraphQL calls are optional: the duplicate comments of up to 30 open reports (more reports add a note; one that is not counted shows `affected ?`), and the package names of the repositories that render. The package lookup reads names only: call A (25 repositories a call) reads each root `package.json` and the entry names of `packages/`, call B (at most 100 objects a call) reads exactly `packages/<dir>/package.json` for each directory (directory names are checked against `[\w.-]` first). It is cached 24 hours per repository in `cache/repo-packages.json`, only for a repository answered without an error under its alias; a missing file means the repository publishes nothing; a repository whose lookup failed is cached as failed for an hour (so one slow repository cannot fail every run) and shows under its repository name. A cold run is at most 3 searches and 3 GraphQL calls for a few repositories; with the package map cached, 1 GraphQL call. Each failed optional call adds a note and a warning on stderr, never an exit code. Third-party text goes through the same one-line cleaning and untrusted-data header as the hook's context. `--json` prints `{groups, awaiting, notes}` (no issue bodies) |
 | `markers [--json] [--exclude <pathspec>]…` | every `Temporary, until <upstream>#<n>` marker (`git grep`; each `--exclude <pathspec>` or `--exclude=<pathspec>` becomes an `:(exclude)<pathspec>` so a repository can skip its fixtures and docs examples), judged against this repository's open tracking issues: `ready` (upstream closed and released: remove it), `unresolvable` (bad reference, repository not found, not an allowed owner, archived or issues off), `untracked` (no open tracking issue here links that upstream issue; flagged in a private application), or `waiting` (not flagged). A **public** application has no tracking issues, so its markers read the upstream issue directly (`ready` or `waiting`, with `untracked` only as a note, not a flag). **Exit 1 when any marker is flagged**, 0 when none is, 2 for a foreign origin, 5 rate-limited, 6 when `git grep` or gh fails; a rate limit or a gh failure is never reported as `unresolvable`. Exit 1 is shared with usage: a CI step runs `markers --json` and treats stdout that is not JSON as a failure. The marker names its upstream as `<npm-name>#n` or `owner/repo#n`; an npm name resolves like `resolve` |
+| `released <pkg@ver> [--json] [--dry-run]` | from the library's checkout: the issues the published version fixes get "Fixed in `<pkg>@<ver>` (#PR)" (once), the `released` label (created when missing) and are closed; prints the application tracking issues linking them (the sessions to notify). Idempotent; `--dry-run` reads and writes nothing; exit 1 for a malformed `<pkg@ver>` or a package this checkout lacks, 2 for a foreign checkout, 5 rate-limited, 6 when a PR or an issue failed (the rest was done) |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent) |
 
 `file` reads one report:
@@ -313,6 +317,8 @@ a name followed by a call or a member access, anything inside a path.
 | `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once), with a scripted fake for specs |
 | `repo-id.ts` | which GitHub repository a directory or a `package.json` belongs to, and whether its owner is allowed |
 | `refs.ts` | closing keywords and upstream references |
+| `release-prs.ts` | `<pkg>@<version>` to the issues it fixes: the CHANGELOG section's `[#N]` links and the `git log <prevTag>..` of `packages/<dir>` (kept when the PR touches the package), then `closingIssuesReferences` and the body keywords; a PR merged into `feat/*` leads to the integration PR holding its merge commit (`commits/<sha>/pulls`) |
+| `release.ts`, `release-command.ts` | per issue, once: the "Fixed in" comment (skipped when an identical trusted comment exists), the `released` label, the close; the notification list (open `upstream` tracking issues whose hidden marker names a released issue); the `released` command |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
 | `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/` |
@@ -373,6 +379,46 @@ the duplicate comment) and runs `scrub()` on the rendered text, refusing on
 process, opens a socket or calls `fetch` (it reads the library recursively); the
 real runner throws in a test run (`NODE_ENV=test`, or a `*.spec.ts` entry file)
 unless `NXGT_ISSUES_ALLOW_NETWORK=1`.
+
+## The release side
+
+The package side closes the loop in two halves, because CI can close issues but
+cannot message a session.
+
+- **At the release (CI).** A library repository copies
+  `plugins/nxgt-issues/scripts/release/close-released-issues.ts` byte for byte
+  into its `scripts/` (with its spec, `close-released-issues.spec.ts`) and runs it
+  after `changesets/action` in `release.yml`:
+
+  ```yaml
+  permissions:
+    issues: write
+  # …
+  - name: Close the issues this release fixed
+    if: steps.changesets.outputs.published == 'true'
+    continue-on-error: true
+    run: bun scripts/close-released-issues.ts --published '${{ steps.changesets.outputs.publishedPackages }}'
+  ```
+
+  (the `changesets/action` step needs `id: changesets`; add `permissions: issues:
+  write` to the workflow or the job). For each published `{ name, version }` it
+  does what `issues.ts released` does, with `gh` and `GITHUB_TOKEN` alone, and
+  never fails the release: a problem is a printed warning and the exit code is
+  0. It posts as `github-actions[bot]`, whose comments the app side trusts. It
+  cannot see the applications' private tracking issues, so it prints no
+  notification list. `--repo owner/repo` overrides `GITHUB_REPOSITORY`;
+  `--dry-run` writes nothing.
+- **In the session (fallback and notification).** `issues.ts released
+  <pkg@ver>` from the library's checkout does the same work (idempotent, so it
+  is safe after the CI step too) and lists the tracking issues to notify; the
+  `fix-a-reported-issue` skill then sends one `SendMessage` per application
+  session.
+
+An issue is found through `Fixes #n` in a PR of the version (the integration PR
+into `develop` closes it at its merge, before the publish; the release step adds
+the comment and the `released` label that the application side keys on, together
+with the closed state). The comment's second line is the hidden marker
+`<!-- nxgt-issues:fixed=<pkg>@<version> -->`, which makes the step idempotent.
 
 ## Configuration
 

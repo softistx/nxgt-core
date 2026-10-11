@@ -7,7 +7,7 @@ description: >-
   upstream that this application can adopt, or its workaround markers. Use
   when the user runs /issues, asks what is open across the packages, what is
   stuck or stale, or what is merged but not yet released.
-argument-hint: "[ready | markers]"
+argument-hint: "[ready | markers | released <pkg@ver>]"
 allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts *)
 ---
 
@@ -56,7 +56,20 @@ It lists the `Temporary, until <pkg>#<n>` markers: `ready` ones can be removed
 (`adopt-a-released-fix`), `unresolvable` and `untracked` ones need a decision.
 Exit 1 means at least one marker is flagged, not that the command failed.
 
-**`released <pkg@ver>`** — not available yet: it arrives with the release
-step in a later version. Say so; do not guess.
+**`released <pkg@ver>`** — from the checkout of the package's repository, run
+(`<pkg@ver>` is the argument, for instance `@nxgt/widget@1.4.0`; run it only when
+it is a package name and a version, with no spaces or shell characters, and pass
+it as one quoted word)
+
+```bash
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released '<pkg@ver>' --dry-run
+```
+
+It finds the issues that published version fixes and says what it would do:
+comment "Fixed in …", label `released`, close. Show it, then run the same
+command without `--dry-run` to do it (idempotent). The output ends with the
+`notify` list of the applications' tracking issues; offer to message those
+sessions (`fix-a-reported-issue`, step 5). Exit 2 means the checkout is not an
+allowed owner's repository, 5 a rate limit, 6 a failure on one PR or issue.
 
 Anything else: show the argument hint above.
