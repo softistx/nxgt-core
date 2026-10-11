@@ -80,6 +80,13 @@ describe('normalize', () => {
 		expect(normalize('%E0%A4%A')).toBe('%E0%A4%A');
 	});
 
+	test('the fallback decodes two-, three- and four-byte sequences beside a malformed byte', () => {
+		expect(normalize('caf%C3%A9%80')).toBe('café%80');
+		expect(normalize('a%E2%80%93%FF')).toBe('a–%FF');
+		expect(normalize('%F0%9F%98%80%80')).toBe('😀%80');
+		expect(normalize('%C3%A9%C3')).toBe('é%C3');
+	});
+
 	test('a name followed by a malformed byte is still denied', () => {
 		const list = buildDenyList({ privateRepos: ['acme/quintor'] });
 		for (const text of ['quinto%72%80', 'quinto%2572%26%2337%3B80']) {

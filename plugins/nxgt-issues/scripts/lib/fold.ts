@@ -2,8 +2,9 @@
  * Normalization for the deny-list check: undo the ways a name can be written so
  * that a plain whole-word search misses it. `normalize` decodes the text to the
  * form a reader sees (NFKC, no HTML comments, entities decoded, markdown
- * backslash escapes removed, percent-encoding decoded (until stable, at most three rounds), invisible characters dropped); `fold` goes on to
- * lower-case it and drop spaces, underscores, dots, slashes and every dash, which is how
+ * backslash escapes removed, percent-encoding decoded (until stable, at most
+ * three rounds), invisible characters dropped); `fold` goes on to lower-case
+ * it and drop spaces, underscores, dots, slashes and every dash, which is how
  * `Secret App`, `secretApp`, `secret.app` and `secret_app` all become
  * `secretapp`.
  *
@@ -11,7 +12,7 @@
  * NFKC folds fullwidth and compatibility forms, not look-alikes; a skeleton
  * table would be the fix and is not worth its weight here. Also out of scope:
  * a name hidden by an encoding (base64, hex, rot13); only percent-encoding is
- * undone, and only three layers deep.
+ * undone, and only three rounds deep.
  */
 
 import { HIDDEN_SOURCE } from './hidden-chars';
