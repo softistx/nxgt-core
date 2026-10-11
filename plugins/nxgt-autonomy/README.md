@@ -7,12 +7,12 @@ and ask the owner only what only the owner can decide.
 | part | what it is for |
 | --- | --- |
 | `SessionStart` hook | puts the mandate below in context at the start of every session in a git repository |
-| skill `work-autonomously` | the loop: one item, one branch, one PR — reviewed, documented, merged |
+| skill `work-autonomously` | the loop: one item, one branch, one PR — reviewed, documented, merged; it points at the `nxgt-issues` SessionStart context and the `/issues` dashboard as queue input |
 | skill `plan-the-roadmap` | the planning cycle that refills the queue from candidates and roadmap entries, in eight steps; with `nxgt-crew` enabled, it aligns with other sessions (`/crew align`) and records accepted entries (`/crew announce --kind plan`) |
-| agent `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and the roadmaps with the queue; says what remains |
+| agent `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and the roadmaps with the queue; with `nxgt-issues` installed, also the owner's open upstream issues (filed but untracked, released but not adopted, reported but not queued); says what remains |
 | agent `improvement-scout` | proposes improvements into the queue, applies none |
 | agent `green-bar-verifier` | refuses to call anything done that was not measured |
-| agent `queue-refiller` | when the queue is empty and the owner said to keep going: reconciles it with `git` and `gh`, sweeps for improvements and features, and writes the top items into it — under *In flight* only when the queue's `Mandate:` line covers the item (its repository, and features if it adds public API), it is reversible, and no other session planned it; names the sibling sessions that look idle. Edits the queue file only |
+| agent `queue-refiller` | when the queue is empty and the owner said to keep going: reconciles it with `git` and `gh`, sweeps for improvements and features (and, with `nxgt-issues` installed, the owner's open upstream issues: `bug`, `documentation` and `dependencies` ones are In flight work, `enhancement` ones are Proposed), and writes the top items into it — under *In flight* only when the queue's `Mandate:` line covers the item (its repository, and features if it adds public API), it is reversible, and no other session planned it; names the sibling sessions that look idle. Edits the queue file only |
 | agent `unanswered-question-resolver` | when a question came back unanswered after 5 minutes: takes the recommended option if it is reversible and inside the autonomy mandate (a public-API addition also needs the queue's `Mandate:` line to cover features), records a taken decision under *Assumed, not answered*; otherwise waits under *Blocked on the user* with a holding step. Edits the queue file only |
 
 ## Enable it
