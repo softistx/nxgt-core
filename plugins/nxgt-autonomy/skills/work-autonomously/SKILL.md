@@ -21,8 +21,10 @@ description: >-
 **This is the default mode of every session in a git repository, not something
 a phrase switches on.** The owner's standing instruction, which does not need repeating: **carry on
 without me, merge as you go, finish everything queued.** "Merge as you go" is
-what the merge rules of step 6 allow — slices into their integration branch —
-never `develop`, `main` or a publish without the owner's yes. This skill is what that
+what "Merges and releases" in `~/.claude/CLAUDE.md` allows — slices, `develop`
+and publishes included, once its conditions hold — and stops at the gates it keeps
+for the owner's explicit yes (a package's first publish, a major version, a
+breaking change). This skill is what that
 means in practice, so it stops being re-negotiated every session.
 
 The plugin's `SessionStart` hook puts a short mandate in context at the start of
@@ -107,9 +109,10 @@ Per item, in this order, and nothing skipped:
    worktree** if it had one ("Git worktrees" in `~/.claude/CLAUDE.md`, else
    `git worktree remove` and `git worktree prune`). **Merges and releases follow the repository's `AGENTS.md`**
    (who may merge, merge commits or squash, when a Version PR lands); where it
-   is silent, "Merges and releases" in `~/.claude/CLAUDE.md` decides — a slice
-   into its `feat/*` once green, `develop`, `main` and every publish on the
-   owner's yes. With neither, open the PR and ask.
+   is silent, "Merges and releases" in `~/.claude/CLAUDE.md` decides — in
+   autonomous mode a merge, a `main` move and a publish are done once its
+   conditions hold, except the gates it keeps for the owner's yes. With neither,
+   open the PR and ask.
 7. **Cross the item off the queue with the PR number**, keeping its slice
    marker (`slice k of n`, `last slice`) when it has one. When the item comes
    from a roadmap entry, `roadmap-keeper` moves that entry to **Shipped**, with

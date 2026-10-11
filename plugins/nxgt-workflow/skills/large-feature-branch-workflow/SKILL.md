@@ -45,8 +45,8 @@ before drawing the slices.
 
 **Read `references/<repo>.md` first.** `nxgt-federation` does not use an
 integration branch at all — every PR there targets `develop`, rules 1, 3, 4
-and 6 below do not apply, and each PR waits for the owner's yes like any PR
-into `develop`. The other three repositories work as described here.
+and 6 below do not apply, and each PR into `develop` follows "Merges and
+releases" in `~/.claude/CLAUDE.md` like any other. The other three repositories work as described here.
 
 ```
 develop
@@ -67,13 +67,14 @@ develop
    `develop`, and a slice that lands there by accident has skipped the whole
    point. A slice never PRs into another slice.
 4. **The integration branch is the only thing that PRs into `develop`**, once
-   every slice is merged and the effort is green. Say so and wait for the
-   owner's explicit yes before merging it: that PR *is* the effort, and it is
-   the one a human reads.
+   every slice is merged and the effort is green. Its merge follows
+   "Merges and releases" in `~/.claude/CLAUDE.md` (autonomous mode: once green
+   and the code-reviewer's pass is the deep review of the whole effort; else the
+   owner's explicit yes). That PR *is* the effort, and it is the one a human reads.
 5. **`develop` is the terminus.** Nothing here targets `main`, and finishing an
    effort does not touch it — `main` is aligned from `develop` separately
-   (fast-forward only: `git checkout main && git merge --ff-only develop`),
-   on the owner's explicit yes.
+   (fast-forward only: `git checkout main && git merge --ff-only develop`), as
+   "Merges and releases" allows.
 6. **Merge each slice into the integration branch without asking once it is
    green**, as "Merges and
    releases" in `~/.claude/CLAUDE.md` defines it — the green bar passes, the
