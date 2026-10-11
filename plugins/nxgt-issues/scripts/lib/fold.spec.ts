@@ -16,6 +16,11 @@ describe('normalize', () => {
 		expect(normalize(input)).toBe(expected);
 	});
 
+	test('percent-encoding is decoded; a malformed run is left alone', () => {
+		expect(normalize('schoolz%2Dapi%20x')).toBe('schoolz-api x');
+		expect(normalize('100% sure %zz %E0%A4%A')).toBe('100% sure %zz %E0%A4%A');
+	});
+
 	test('an unknown named entity is left as written', () => {
 		expect(normalize('a&nosuch;b')).toBe('a&nosuch;b');
 	});
@@ -34,12 +39,14 @@ describe('fold', () => {
 		['\uFF53ecret-app'],
 		['secret\\-app'],
 		['sec\u200Bret\u00AD-app'],
+		['secret%2Dapp'],
+		['secret/app'],
 	])('%p folds to secretapp', (input) => {
 		expect(fold(input)).toBe('secretapp');
 	});
 
 	test('other punctuation stays', () => {
-		expect(fold('@Jane/Web')).toBe('@jane/web');
+		expect(fold('@Jane/Web')).toBe('@janeweb');
 		expect(fold('Doe, Jane')).toBe('doe,jane');
 	});
 });

@@ -10,8 +10,11 @@
  */
 
 import { findDenied } from './deny';
+import { scrubHosts } from './hosts';
+import { findSecrets, looksLikeSecret, scrubKnownTokens } from './secrets';
 
 export { buildDenyList, type DenyInputs, findDenied } from './deny';
+export { findSecrets } from './secrets';
 
 const KEPT_HOSTS = new Set([
 	'github.com',
@@ -21,45 +24,9 @@ const KEPT_HOSTS = new Set([
 	'registry.npmjs.org',
 ]);
 
-const TOKEN_PATTERNS: readonly RegExp[] = [
-	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
-	/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g,
-	/\bnpm_[A-Za-z0-9]{20,}\b/g,
-	/\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/g,
-	/\bAKIA[0-9A-Z]{16}\b/g,
-];
-
-function entropy(text: string): number {
-	const counts = new Map<string, number>();
-	for (const char of text) counts.set(char, (counts.get(char) ?? 0) + 1);
-	let bits = 0;
-	for (const count of counts.values()) {
-		const p = count / text.length;
-		bits -= p * Math.log2(p);
-	}
-	return bits;
-}
-
-/** A 40-hex git SHA, alone between non-alphanumerics: useful upstream, not private. */
-const GIT_SHA = /(?<![0-9A-Za-z])[0-9a-f]{40}(?![0-9A-Za-z])/g;
-
-/**
- * A run over 32 characters that mixes letters and digits and looks random.
- * Full SHAs are taken out first; short SHAs (7 to 12 hex) never reach the
- * length threshold.
- */
-const looksLikeSecret = (run: string): boolean => {
-	const rest = run.replace(GIT_SHA, '');
-	return (
-		rest.length > 32 &&
-		/[A-Za-z]/.test(rest) &&
-		/\d/.test(rest) &&
-		entropy(rest) >= 3.5
-	);
-};
-
 const SCHEME_URL = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`)\]]+/gi;
-const EMAIL_PATTERN = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+/** Not `git@github.com:o/r` (kept scp form), whose host is no mailbox. */
+const EMAIL_PATTERN = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+(?![\w-]|:[\w~./-])/g;
 
 const WIN_SEGMENT = '[^\\\\/\\s"\'`<>|:*?]+';
 const WIN_USER = '[^\\\\/\\r\\n"\'`<>|:*?,;]+';
@@ -71,17 +38,27 @@ const WINDOWS_PATH = new RegExp(
 
 const SEG = String.raw`[\p{L}\p{N}_.@+~-]`;
 const KNOWN_ROOT = '(?:Users|home|opt|srv|var|tmp|etc|root|mnt|Volumes)';
-/** `/a/b`, `~/a`, and a path after `:` or `=` when it starts at a known root. */
+/**
+ * `/a/b`, `~/a`, and a path after `:` or `=` when it starts at a known root.
+ * Only a path that starts at a known root or `~`, lies under the cwd or ends in
+ * a file extension is rewritten (`keepsPath`): `/api/v1/users/:id` is a route.
+ */
+const NOT_AFTER = String.raw`(?<![\p{L}\p{N}_.:/@~>-])`;
+/** `/Users/Jane Doe/proj`: a home folder with spaces, whose rest is a path. */
+const HOME_WITH_SPACES = new RegExp(
+	String.raw`${NOT_AFTER}\/(?:Users|home)\/${SEG}+(?: ${SEG}+)+(?:\/${SEG}+)*\/?`,
+	'gu',
+);
+/** `\\server\share\dir\file`. */
+const UNC_PATH =
+	/(?<![\\\w])\\\\[\w.$-]+\\[^\\\s"'`<>|:*?]+(?:\\[^\\\s"'`<>|:*?]+)*/g;
+/** `user@host:path` (the scp form of a git remote). */
+const SCP_URL =
+	/(?<![\w.+@/-])[\w.-]+@([a-z0-9.-]+):(?!\d+\b)[\w~./-][^\s<>"'`)\]]*/gi;
 const POSIX_PATH = new RegExp(
 	String.raw`(?:(?<![\p{L}\p{N}_.:/@~>-])~?\/|(?<=[:=])\/(?=${KNOWN_ROOT}\/))(?:${SEG}+\/)+${SEG}*|(?<![\p{L}\p{N}_.:/@~>-])~\/${SEG}*`,
 	'gu',
 );
-
-const SECRET_ASSIGNMENT =
-	/(?<![A-Za-z0-9])(password|passwd|pwd|secret|token|bearer|api[_-]?key)["']?\s*[:=]\s*(\S+)/gi;
-const BEARER = /\b(Bearer)\s+(\S+)/gi;
-/** Placeholders the transforms write; nothing identifying is behind them. */
-const PLACEHOLDER = /^<(?:token|url|email)>[.,;:)\]"']*$/;
 
 export interface ScrubOptions {
 	/** The working directory: a path under it becomes `<app>/…`. */
@@ -100,6 +77,17 @@ export interface ScrubResult {
 	/** Credential assignments (`password: x`, `Bearer x`), by keyword, that make it refuse. */
 	readonly secrets: string[];
 	readonly refused: boolean;
+}
+
+const FILE_EXTENSION = /\.[A-Za-z0-9]{1,8}(?::\d+){0,2}$/;
+
+/** Whether a matched `/a/b` is a route or prose rather than a filesystem path. */
+function keepsPath(path: string, cwd: string | undefined): boolean {
+	const trimmed = path.replace(/[.,;)]+$/, '');
+	if (trimmed.startsWith('~') || FILE_EXTENSION.test(trimmed)) return false;
+	if (new RegExp(`^/${KNOWN_ROOT}/`).test(trimmed)) return false;
+	const root = cwd?.replace(/\\/g, '/').replace(/\/+$/, '');
+	return !(root && trimmed.startsWith(`${root}/`));
 }
 
 function scrubPath(path: string, cwd: string | undefined): string {
@@ -158,51 +146,58 @@ function scrubUrl(
 	return `<url>${tail}`;
 }
 
+/** Long random-looking runs become `<token>`; a kept URL's path is left intact. */
+function scrubEntropy(text: string, note: (kind: string) => void): string {
+	const replaceRuns = (part: string): string =>
+		part.replace(/[A-Za-z0-9+/_=-]{33,}/g, (run) => {
+			if (!looksLikeSecret(run)) return run;
+			note('token');
+			return '<token>';
+		});
+	return text.replace(
+		/\bhttps?:\/\/[^\s<>"'`)\]]+|[A-Za-z0-9+/_=-]{33,}/gi,
+		(match) => {
+			if (!/^https?:/i.test(match)) return replaceRuns(match);
+			const cut = match.search(/[?#]/);
+			return cut === -1
+				? match
+				: match.slice(0, cut) + replaceRuns(match.slice(cut));
+		},
+	);
+}
+
 export function transform(
 	text: string,
 	cwd?: string,
 ): { text: string; changes: string[] } {
 	const changes: string[] = [];
 	const note = (kind: string) => changes.push(kind);
-	let out = text;
-
-	for (const pattern of TOKEN_PATTERNS) {
-		out = out.replace(pattern, () => {
-			note('token');
-			return '<token>';
-		});
-	}
-	out = out.replace(/[A-Za-z0-9+/_=-]{33,}/g, (run) => {
-		if (!looksLikeSecret(run)) return run;
-		note('token');
-		return '<token>';
-	});
+	const path = (found: string): string => {
+		if (keepsPath(found, cwd)) return found;
+		note('path');
+		return scrubPath(found, cwd);
+	};
+	let out = scrubKnownTokens(text, note);
 	out = out.replace(SCHEME_URL, (url) => scrubUrl(url, cwd, note));
+	out = out.replace(SCP_URL, (url, host: string) => {
+		if (KEPT_HOSTS.has(host.toLowerCase())) return url;
+		note('url');
+		return '<url>';
+	});
+	out = scrubEntropy(out, note);
 	out = out.replace(EMAIL_PATTERN, () => {
 		note('email');
 		return '<email>';
 	});
-	for (const pattern of [WINDOWS_PATH, POSIX_PATH]) {
-		out = out.replace(pattern, (path) => {
+	out = scrubHosts(out, note);
+	for (const pattern of [WINDOWS_PATH, UNC_PATH, HOME_WITH_SPACES]) {
+		out = out.replace(pattern, (found) => {
 			note('path');
-			return scrubPath(path, cwd);
+			return scrubPath(found, cwd);
 		});
 	}
+	out = out.replace(POSIX_PATH, path);
 	return { text: out, changes };
-}
-
-/**
- * The credential assignments in already-transformed text, each a reason to
- * refuse. Only the keyword is reported (`password`, `Bearer`), never the value.
- */
-export function findSecrets(text: string): string[] {
-	const found: string[] = [];
-	for (const pattern of [SECRET_ASSIGNMENT, BEARER]) {
-		for (const match of text.matchAll(pattern)) {
-			if (!PLACEHOLDER.test(match[2] ?? '')) found.push(match[1] ?? '');
-		}
-	}
-	return [...new Set(found.map((word) => word.toLowerCase()))];
 }
 
 export function scrub(text: string, options: ScrubOptions = {}): ScrubResult {

@@ -7,9 +7,11 @@
  * contains `schoolz-api`'s words but `mysecret-app` does not contain
  * `secret-app`. The folded pass (see `fold.ts`) matches the term's characters
  * with any run of spaces, dots, underscores or dashes (Unicode dashes included)
- * allowed between them, on text with its HTML comments, entities, markdown
- * escapes, invisible characters and compatibility forms undone; it keeps the
- * word boundary at both ends. A term shorter than 4 characters once folded
+ * allowed between them (`/` too), on text with its HTML comments, entities,
+ * markdown escapes, percent-encoding, invisible characters and compatibility
+ * forms undone, and again on a copy with a space at every camelCase seam
+ * (`useSchoolzApi()`, `MySecretApp`, `APIClient`, `v2Secret`); it keeps the word
+ * boundary at both ends. A term shorter than 4 characters once folded
  * (`web`, `doe`) is searched on the original pass only, in the raw and the
  * decoded text: folded, it would refuse ordinary prose.
  */
@@ -28,6 +30,8 @@ export interface DenyInputs {
 	readonly gitName?: string | undefined;
 	readonly gitEmail?: string | undefined;
 	readonly hostname?: string | undefined;
+	/** The application's own domains, such as `api.schoolz.io`. */
+	readonly appDomains?: readonly string[];
 	readonly home?: string | undefined;
 }
 
@@ -43,10 +47,24 @@ const basename = (path: string): string =>
 		.split(/[\\/]/)
 		.pop() ?? '';
 
-/** `@scope/name` also denies `name` and `@scope`. */
+const MIN_LABEL_LENGTH = 4;
+
+/** `@scope/name` also denies `name`, `@scope` and `scope` (4+ characters). */
 const scopedParts = (pkg: string): string[] => {
 	const match = /^(@[^/\s]+)\/([^/\s]+)$/.exec(pkg.trim());
-	return match?.[1] && match[2] ? [match[1], match[2]] : [];
+	if (!match?.[1] || !match[2]) return [];
+	const bare = match[1].slice(1);
+	return [
+		match[1],
+		match[2],
+		...(bare.length >= MIN_LABEL_LENGTH ? [bare] : []),
+	];
+};
+
+/** The hostname, and its first label when it has 4+ characters. */
+const hostTerms = (hostname: string | undefined): string[] => {
+	const first = hostname?.trim().split('.')[0] ?? '';
+	return [hostname ?? '', first.length >= MIN_LABEL_LENGTH ? first : ''];
 };
 
 /** The name, each of its parts, and the "Last, First" order. */
@@ -74,7 +92,8 @@ export function buildDenyList(inputs: DenyInputs): string[] {
 		...privates,
 		...nameTerms(inputs.gitName),
 		inputs.gitEmail,
-		inputs.hostname,
+		...hostTerms(inputs.hostname),
+		...(inputs.appDomains ?? []),
 		inputs.home,
 	]);
 }
@@ -97,6 +116,18 @@ const looseWord = (folded: string): RegExp =>
 
 const MIN_FOLDED_LENGTH = 4;
 
+/**
+ * A separator at each camelCase seam: lower→Upper, letter↔digit, and
+ * Upper→Upper+lower (`APIClient` → `API Client`), so that `useSchoolzApi()`
+ * reads as the words it is made of.
+ */
+const splitWords = (text: string): string =>
+	text
+		.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
+		.replace(/(\p{L})(\p{N})/gu, '$1 $2')
+		.replace(/(\p{N})(\p{L})/gu, '$1 $2')
+		.replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, '$1 $2');
+
 /** Deny-list terms present, as written or in a variant (see the module comment). */
 export function findDenied(
 	text: string,
@@ -105,13 +136,16 @@ export function findDenied(
 ): string[] {
 	const allowed = new Set(allow.map((term) => term.toLowerCase()));
 	const decoded = normalize(text);
+	const spaced = splitWords(decoded);
 	const hits: string[] = [];
 	for (const term of unique(denyList)) {
 		if (allowed.has(term.toLowerCase())) continue;
 		const folded = fold(term);
 		const found =
 			folded.length >= MIN_FOLDED_LENGTH
-				? wholeWord(term).test(text) || looseWord(folded).test(decoded)
+				? wholeWord(term).test(text) ||
+					looseWord(folded).test(decoded) ||
+					looseWord(folded).test(spaced)
 				: wholeWord(term).test(text) || wholeWord(term).test(decoded);
 		if (found) hits.push(term);
 	}

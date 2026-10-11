@@ -340,7 +340,7 @@ describe('buildDenyList: scoped packages', () => {
 		).toEqual(['billing-core']);
 		expect(
 			scrub('uses @jane/other-pkg', { cwd, denyList: list }).denied,
-		).toEqual(['@jane']);
+		).toEqual(['@jane', 'jane']);
 	});
 });
 
@@ -416,11 +416,12 @@ describe('scrub: credentials refuse instead of being stripped', () => {
 		['{"password": "hunter2"}', 'password'],
 		['db_pwd = x', 'pwd'],
 		['client_secret: abc', 'secret'],
-		['api_key=abc', 'api_key'],
-		['apiKey: abc', 'apikey'],
+		['api_key=abc', 'api-key'],
+		['apiKey: abc', 'api-key'],
 		['x-api-key: abc', 'api-key'],
+		['maxToken: 5', 'token'],
 		['token: abc', 'token'],
-		['Authorization: Bearer abc.def', 'bearer'],
+		['Authorization: Bearer abc.def', 'authorization'],
 	])('%p', (text, keyword) => {
 		const result = scrub(text, {});
 		expect(result.refused).toBe(true);
@@ -431,7 +432,7 @@ describe('scrub: credentials refuse instead of being stripped', () => {
 	test('ordinary prose and placeholders pass', () => {
 		for (const text of [
 			'the passwords table has a token count',
-			'maxToken: 5 and tokens: 3',
+			'tokens: 3',
 			'token=ghp_a1B2c3D4e5F6g7H8i9J0k1L2',
 			'secrets are stored elsewhere',
 		]) {
@@ -452,6 +453,8 @@ describe('transform: idempotence', () => {
 		'key=ghp_a1B2c3D4e5F6g7H8i9J0k1L2 aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0dF3gH6',
 		'https://jane:hunter2@github.com/o/r and plain text, v1.2.3',
 		`(${cwd}/a.ts), "${cwd}/b/c.ts".`,
+		'db.corp:5432 10.0.0.1 ENOTFOUND x.lan /Users/Jane Doe/p/a.ts \\\\srv\\sh\\f',
+		'git@gitlab.corp:t/r.git /api/v1/users/:id password: hunter2',
 	];
 
 	test.each(corpus)('%p', (text) => {
@@ -478,5 +481,222 @@ describe('transform: git SHAs are kept', () => {
 		expect(
 			transform(`${sha}aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0dF3gH6`, cwd).text,
 		).toBe('<token>');
+	});
+});
+
+describe('findDenied: camelCase and digits', () => {
+	const deny = [
+		'schoolz-api',
+		'nxgt-federation',
+		'sellix-monorepo',
+		'secret-app',
+	];
+
+	test.each([
+		['SchoolzApiService.handle', 'schoolz-api'],
+		['useSchoolzApi()', 'schoolz-api'],
+		['schoolzApiClient', 'schoolz-api'],
+		['class NxgtFederationGateway', 'nxgt-federation'],
+		['sellixMonorepoRoot', 'sellix-monorepo'],
+		['MySecretApp', 'secret-app'],
+		['secret-app2', 'secret-app'],
+		['v2SecretApp', 'secret-app'],
+		['SECRETApp', 'secret-app'],
+	])('refuses %p', (text, term) => {
+		expect(findDenied(text, deny)).toEqual([term]);
+	});
+
+	test('upper-to-upper+lower seam: APIClient reads as API Client', () => {
+		expect(findDenied('APIClient', ['api-client'])).toEqual(['api-client']);
+	});
+
+	test('words that merely contain the term stay clean', () => {
+		expect(findDenied('mysecretapp, secretary, Schoolzapiary', deny)).toEqual(
+			[],
+		);
+	});
+
+	test('short terms do not use the camelCase pass', () => {
+		expect(findDenied('WebServer, jsonDoeX', ['web', 'doe'])).toEqual([]);
+	});
+
+	test('slash and percent-encoding', () => {
+		expect(findDenied('schoolz/api', ['schoolz-api'])).toEqual(['schoolz-api']);
+		expect(findDenied('schoolz%2Dapi', ['schoolz-api'])).toEqual([
+			'schoolz-api',
+		]);
+	});
+});
+
+describe('buildDenyList: scope, hostname, domains', () => {
+	test('the scope without @, when 4+ characters', () => {
+		const list = buildDenyList({ appPackages: ['@alxia/web', '@me/x'] });
+		expect(list).toContain('alxia');
+		expect(list).toContain('@alxia');
+		expect(list).not.toContain('me');
+	});
+
+	test('the first label of the hostname, when 4+ characters', () => {
+		const list = buildDenyList({ hostname: 'steves-mbp.local' });
+		expect(list).toEqual(['steves-mbp.local', 'steves-mbp']);
+		expect(findDenied('on steves mbp', list)).toEqual(['steves-mbp']);
+		expect(buildDenyList({ hostname: 'mac.lan' })).toEqual(['mac.lan']);
+	});
+
+	test('appDomains, as-is and folded', () => {
+		const list = buildDenyList({ appDomains: ['api.schoolz.io'] });
+		expect(list).toEqual(['api.schoolz.io']);
+		expect(findDenied('call api.schoolz.io now', list)).toEqual(list);
+		expect(findDenied('call api-schoolz-io now', list)).toEqual(list);
+	});
+});
+
+describe('transform: hosts', () => {
+	test.each([
+		['db.prod.internal.corp:5432', '<host>'],
+		['connecting to 10.12.0.4:27017', 'connecting to <host>'],
+		['mongo1.internal:27017', '<host>'],
+		['ENOTFOUND mongo1.prod.billing.lan', 'ENOTFOUND <host>'],
+		[
+			'getaddrinfo ENOTFOUND mongo1.prod.billing.lan.',
+			'getaddrinfo ENOTFOUND <host>.',
+		],
+		['getaddrinfo EAI_AGAIN db.corp', 'getaddrinfo EAI_AGAIN <host>'],
+		['getaddrinfo db.corp', 'getaddrinfo <host>'],
+		['peer 192.168.1.20 down', 'peer <host> down'],
+		[
+			'peer fe80::1 and ::1 and 2001:db8:0:0:0:0:0:1',
+			'peer <host> and <host> and <host>',
+		],
+		['[::1]:8080', '<host>'],
+	])('%p', (text, expected) => {
+		expect(transform(text, cwd).text).toBe(expected);
+	});
+
+	test('code, versions, times and traces are not hosts', () => {
+		for (const text of [
+			'process.env and Promise.all',
+			'at a.ts:12:5 and index.js:2000',
+			'v1.2.3 and 1.2.3.999 at 12:30:45',
+			'localhost:3000 and std::vector',
+			'https://github.com/o/r and https://registry.npmjs.org/p',
+		]) {
+			expect(transform(text, cwd).text).toBe(text);
+		}
+	});
+
+	test('idempotent', () => {
+		const once = transform('db.corp:5432 10.0.0.1 ENOTFOUND x.lan', cwd).text;
+		expect(transform(once, cwd).text).toBe(once);
+	});
+});
+
+describe('scrub: credentials, wider', () => {
+	test.each([
+		['DB_PASS=hunter2', 'pass'],
+		['secret_key: abc', 'secret'],
+		['DB_CREDENTIALS=abc', 'credentials'],
+		['private_key = abc', 'private-key'],
+		['privateKey: abc', 'private-key'],
+		['auth: abc123', 'auth'],
+		['Authorization: Basic dXNlcjpwdw==', 'authorization'],
+		['Authorization: token ghx12345', 'authorization'],
+		['curl -H "Authorization: Bearer abcd1234efgh"', 'authorization'],
+		['uses Bearer abcd1234efgh', 'bearer'],
+		['-----BEGIN RSA PRIVATE KEY-----', 'private-key-block'],
+		['-----BEGIN PRIVATE KEY-----', 'private-key-block'],
+		['password: <hunter2>x', 'password'],
+	])('%p refuses', (text, keyword) => {
+		const result = scrub(text, {});
+		expect(result.refused).toBe(true);
+		expect(result.secrets).toContain(keyword);
+	});
+
+	test.each([
+		'The bearer token is read from the header',
+		'Bearer tokens expire',
+		'Bearer authentication',
+		'password: string;',
+		'interface Opts { token: string; secret?: string }',
+		'pass the token = undefined',
+		'set apiKey: process.env.KEY',
+		'the secret: it fails',
+		'Error: password: required',
+		'pwd: the cwd',
+		'token: <redacted>',
+		'password: ****',
+		'secret: string[]',
+		'const author: Person; bypass: true; compass: the one',
+		'Authorization: Bearer token',
+		'token: import.meta.env.TOKEN',
+	])('%p passes', (text) => {
+		const result = scrub(text, {});
+		expect(result.secrets).toEqual([]);
+		expect(result.refused).toBe(false);
+	});
+});
+
+describe('transform: urls and routes', () => {
+	test('a kept URL survives the entropy rule intact', () => {
+		for (const url of [
+			'https://github.com/softistx/nxgt-core/issues/123',
+			'https://github.com/softistx/nxgt-core/pull/123/files',
+			'https://www.npmjs.com/package/@nxgt/shared-hono-something/v/1.2.3',
+		]) {
+			expect(transform(`see ${url} now`, cwd).text).toBe(`see ${url} now`);
+		}
+	});
+
+	test('a random run in a kept URL query is still a token', () => {
+		const out = transform(
+			'https://github.com/o/r?x=aB3dE6gH9jK2mN5pQ8sT1vW4yZ7bC0dF3gH6',
+			cwd,
+		).text;
+		expect(out).toBe('https://github.com/o/r?<token>');
+	});
+
+	test('routes survive; paths with a root, ~ or an extension do not', () => {
+		for (const text of [
+			'/api/v1/users/:id',
+			'route /users/me/settings',
+			'GET /api/v1/users/42 failed',
+			'and/or /usr/local/bin/node',
+		]) {
+			expect(transform(text, cwd).text).toBe(text);
+		}
+		expect(transform('see /api/v1/openapi.json', cwd).text).toBe('see <app>/…');
+		expect(transform('see ~/notes/todo', cwd).text).toBe('see <app>/…');
+		expect(transform(`${cwd}/src/dir`, cwd).text).toBe('<app>/src/dir');
+		expect(transform('see /home/jane/x/y', cwd).text).toBe('see <app>/…');
+	});
+});
+
+describe('transform: more paths and remotes', () => {
+	test('a POSIX home folder with a space', () => {
+		const out = transform('at /Users/Jane Doe/proj/x.ts:3', cwd).text;
+		expect(out).toBe('at <app>/…:3');
+		expect(transform('/home/Jane Q Public/a', cwd).text).not.toMatch(
+			/Jane|Public/,
+		);
+	});
+
+	test('a UNC path', () => {
+		expect(
+			transform('open \\\\fileserver\\share\\team\\x.txt now', cwd).text,
+		).toBe('open <app>/… now');
+		expect(transform('a\\\\b\\c', cwd).text).toBe('a\\\\b\\c');
+	});
+
+	test('the scp form of a remote', () => {
+		expect(
+			transform('clone git@gitlab.internal.corp:team/billing-app.git', cwd)
+				.text,
+		).toBe('clone <url>');
+		expect(transform('git@github.com:softistx/nxgt-core.git', cwd).text).toBe(
+			'git@github.com:softistx/nxgt-core.git',
+		);
+		expect(transform('mail jane@example.com: hi', cwd).text).toBe(
+			'mail <email>: hi',
+		);
 	});
 });
