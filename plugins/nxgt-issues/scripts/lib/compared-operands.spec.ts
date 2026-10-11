@@ -67,3 +67,29 @@ describe('credential headers, header lists and base64 encoders', () => {
 		expect(refused(text)).toBe(true);
 	});
 });
+
+describe('credential comparisons outside a credential-named function', () => {
+	test.each([
+		"if (req.body.password === 'swordfish') {}",
+		"if (password === 'acoolproject') {}",
+		"if (c.req.header('x-api-key') !== 'acoolproject') {}",
+		"if ('acoolproject' === password) {}",
+		"if (headers.get('authorization') === 'acoolproject') {}",
+		'authorize: (u, p) => p === "x"',
+		"validate: (u, p) => p === 'hunter2x'",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		"if (method === 'GET') {}",
+		"if (kind !== 'refresh_token') {}",
+		"if (role === 'admin') {}",
+		"if (status === 'active') {}",
+		"if (e.key === 'Escape') {}",
+		"if (input.type === 'password') {}",
+		"if (authMode === 'oauth') {}",
+		"if (c.req.header('content-type') === 'application/json') {}",
+		'if (password === other) {}',
+	])('%p passes', passes);
+});

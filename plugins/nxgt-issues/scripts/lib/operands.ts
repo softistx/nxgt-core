@@ -4,7 +4,8 @@
  * `verifyUser` callback) and an ordinary value when it is not (`method`,
  * `s.kind`). The role of the literal follows:
  *
- * - `strict`: a credential operand; the literal is checked like any value.
+ * - `credential`: a credential operand; the literal is checked like any value.
+ * - `strict`: a returned or fallback literal, also checked like any value.
  * - `compare-scope`: a member named like a scope list (`claims.scope`,
  *   `user.roles`), where `read:users` is a permission, not `user:pass`.
  * - `compare-member`: a member that is not a credential (`s.kind`), where an
@@ -15,13 +16,18 @@
 import { wordsOf } from './code-values';
 import { looksLikeCredential } from './literals';
 
-export type Role = 'strict' | 'compare' | 'compare-member' | 'compare-scope';
+export type Role =
+	| 'strict'
+	| 'credential'
+	| 'compare'
+	| 'compare-member'
+	| 'compare-scope';
 export type Operand = string | undefined;
 
 const PATH = '[A-Za-z_$][\\w$]*(?:\\??\\.[A-Za-z_$][\\w$]*)*';
 const PATH_AT_END = new RegExp(`(${PATH})$`);
 const PATH_AT_START = new RegExp(`^(${PATH})(?![\\w$]|\\s*\\()`);
-const CREDENTIAL_WORDS = new Set(
+export const CREDENTIAL_WORDS = new Set(
 	'password pass passwd pwd secret token key apikey'.split(' '),
 );
 const SCOPE_WORDS = new Set(
@@ -41,7 +47,8 @@ export const pathAtEnd = (text: string): Operand =>
 export const pathAtStart = (text: string): Operand =>
 	PATH_AT_START.exec(text.trimStart())?.[1];
 
-const lastName = (path: string): string => path.split(/\??\./).pop() ?? path;
+export const lastName = (path: string): string =>
+	path.split(/\??\./).pop() ?? path;
 
 function isCredential(path: string, params: ReadonlySet<string>): boolean {
 	const name = lastName(path);
@@ -54,7 +61,7 @@ export function classify(
 	params: ReadonlySet<string>,
 ): Role {
 	const paths = operands.filter((op): op is string => op !== undefined);
-	if (paths.some((path) => isCredential(path, params))) return 'strict';
+	if (paths.some((path) => isCredential(path, params))) return 'credential';
 	const member = paths.find((path) => path.includes('.'));
 	if (member === undefined) return 'compare';
 	return wordsOf(lastName(member)).some((w) => SCOPE_WORDS.has(w))
@@ -84,4 +91,4 @@ export function comparesSecret(text: string, role: Role): boolean {
 
 /** Whether a literal of this role may pass: compared, and not a credential. */
 export const passesAsCompared = (role: Role, text: string): boolean =>
-	role !== 'strict' && !comparesSecret(text, role);
+	role !== 'strict' && role !== 'credential' && !comparesSecret(text, role);

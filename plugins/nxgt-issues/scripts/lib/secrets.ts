@@ -25,6 +25,7 @@
 import { CREDENTIAL_HEADER, hasSecretArgument } from './auth-calls';
 import { hasAuthorizationSecret } from './authorization';
 import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
+import { hasCredentialComparison } from './comparisons';
 import { hasCredentialPair } from './credential-pairs';
 import { isNamingKey } from './key-names';
 import {
@@ -33,6 +34,7 @@ import {
 	isEnvNameValue,
 	isLabelMessage,
 } from './label-values';
+import { hasPositionalSecret } from './positional-secrets';
 import { isGraphqlType } from './sdl-values';
 import { neutralizeSubstitutions } from './shell-values';
 
@@ -121,6 +123,17 @@ function keywordOf(name: string): string | undefined {
 	return undefined;
 }
 
+/**
+ * `GITHUB_TOKEN=$(gh auth token) bun run release` (a variable or a command
+ * substitution as the first word, then the command it feeds) and the
+ * pass-through `PGPASSWORD=$PGPASSWORD psql`.
+ */
+function isShellReference(name: string, value: string): boolean {
+	if (!value.startsWith('$')) return false;
+	const bare = value.replace(/^\$\{?|\}?$/g, '');
+	return isPlaceholder(value) || bare === name;
+}
+
 const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
@@ -147,8 +160,20 @@ const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----/;
  * refuse, as keywords: `password`, `api-key`, `bearer`, `authorization`...
  */
 export function findSecrets(source: string): string[] {
-	const text = neutralizeSubstitutions(source);
 	const found = new Set<string>();
+	// The rules run on the text with each safe `$(…)` made a placeholder, with
+	// and without the whitespace of the unsafe ones made opaque (shell-values.ts).
+	const texts = new Set([
+		neutralizeSubstitutions(source, false),
+		neutralizeSubstitutions(source, true),
+	]);
+	for (const text of texts) collectSecrets(text, found);
+	if (hasPositionalSecret(source)) found.add('password');
+	if (hasCredentialComparison(source)) found.add('credential-comparison');
+	return [...found];
+}
+
+function collectSecrets(text: string, found: Set<string>): void {
 	for (const match of text.matchAll(ASSIGNMENT)) {
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
@@ -158,6 +183,7 @@ export function findSecrets(source: string): string[] {
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
 		// A credential header's value, like Authorization: `x-gateway-secret: $GATEWAY_SECRET`
 		if (CREDENTIAL_HEADER.test(name) && isPlaceholder(value)) continue;
+		if (isShellReference(name, value)) continue;
 		if (encodesSecret(whole)) {
 			found.add(keyword);
 			continue;
@@ -204,5 +230,4 @@ export function findSecrets(source: string): string[] {
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
 	if (hasSecretArgument(text)) found.add('secret-argument');
 	if (hasCredentialPair(text)) found.add('credential-pair');
-	return [...found];
 }

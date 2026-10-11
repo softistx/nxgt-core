@@ -58,10 +58,16 @@ export function functionRegions(code: string): Array<[number, number]> {
 }
 
 const KEYS = 'trustedGateway|verify\\w*|secret|password|token|apiKey|getToken';
+/** Keys of validators: only a credential parameter compared with a literal counts (`validate: (u, p) => p === 'x'`). */
+const VALIDATORS = 'authorize\\w*|validate\\w*';
 const FUNCTION_START = '(?=async\\b|\\(|[A-Za-z_$][\\w$]*\\s*=>|function\\b)';
 /** Keys whose function value guards or yields a credential. */
 const CREDENTIAL_KEY = new RegExp(
 	`\\b(${KEYS})\\s*:\\s*${FUNCTION_START}`,
+	'g',
+);
+const VALIDATOR_KEY = new RegExp(
+	`\\b(${VALIDATORS})\\s*:\\s*${FUNCTION_START}`,
 	'g',
 );
 /** `const isGateway = (c) => …`: the name is checked by `CREDENTIAL_NAME`. */
@@ -88,6 +94,8 @@ interface FunctionStart {
 	readonly start: number;
 	/** The second parameter of a `verify*` callback: the password of `verifyUser(user, password)`. */
 	readonly credentialParams: ReadonlySet<string>;
+	/** A validator: only literals compared with a credential count. */
+	readonly compareOnly?: boolean;
 }
 
 const PARAMETERS = /^\s*(?:async\s+)?(?:function\b[^(]*)?\(([^()]*)\)/;
@@ -96,7 +104,9 @@ const PARAMETERS = /^\s*(?:async\s+)?(?:function\b[^(]*)?\(([^()]*)\)/;
 function credentialParamsOf(name: string, params: string | undefined) {
 	const second = params?.split(',')[1];
 	const id = /^\s*(?:\.\.\.)?([A-Za-z_$][\w$]*)/.exec(second ?? '')?.[1];
-	return new Set(id !== undefined && /^verify/.test(name) ? [id] : []);
+	return new Set(
+		id !== undefined && /^(?:verify|authorize|validate)/.test(name) ? [id] : [],
+	);
 }
 
 /** Where each checked function value starts, in order. */
@@ -108,6 +118,15 @@ function functionStarts(text: string): FunctionStart[] {
 	};
 	for (const match of text.matchAll(CREDENTIAL_KEY)) {
 		add(match[1] ?? '', match.index + match[0].length);
+	}
+	for (const match of text.matchAll(VALIDATOR_KEY)) {
+		const at = match.index + match[0].length;
+		const own = PARAMETERS.exec(text.slice(at, at + 300))?.[1];
+		starts.push({
+			start: at,
+			credentialParams: credentialParamsOf(match[1] ?? '', own),
+			compareOnly: true,
+		});
 	}
 	for (const match of text.matchAll(CONST_FUNCTION)) {
 		const name = match[1] ?? '';
@@ -127,14 +146,14 @@ export function credentialKeyHoldsSecret(
 	isCredentialCall: (name: string) => boolean,
 ): boolean {
 	let covered = 0;
-	for (const { start, credentialParams } of functionStarts(text)) {
+	for (const { start, credentialParams, compareOnly } of functionStarts(text)) {
 		if (start < covered) continue; // inside a value already checked
 		covered = valueEnd(text, start);
 		const code = text.slice(start, covered);
 		const roles = valueRoles(code, isCredentialCall, credentialParams);
 		for (const literal of code.matchAll(QUOTED)) {
 			const role = roles.get(literal.index);
-			if (!role) continue;
+			if (!role || (compareOnly && role !== 'credential')) continue;
 			const body = literal[2] ?? '';
 			const context = { ...VALUE, template: literal[1] === '`' };
 			if (isHarmlessLiteral(body, context)) continue;

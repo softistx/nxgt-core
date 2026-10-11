@@ -10,10 +10,14 @@
  *
  * `neutralizeSubstitutions` rewrites the text before the credential rules run:
  * a safe substitution becomes `$COMMAND_SUBSTITUTION` (a placeholder), an
- * unsafe one keeps its text with the whitespace of its whole body (up to the
- * matching `)`) made opaque, so every rule that reads a value up to the next
- * space reads the whole substitution and finds the literal in it.
+ * unsafe one keeps its text. With `opaque`, the whitespace of its whole body
+ * (up to the matching `)`) is made opaque, so a rule that reads a value up to
+ * the next space reads the whole substitution; without it, the rules that need
+ * real spaces (`curl -u`, `mysql -p`, `--password x`) see the command as typed.
+ * `findSecrets` runs its rules on both texts.
  */
+
+import { isSecretCommand } from './positional-secrets';
 
 const MAX_BODY = 400;
 const OPAQUE = '\u0001';
@@ -21,7 +25,18 @@ const PLACEHOLDER = '$COMMAND_SUBSTITUTION';
 const SEGMENT = /\|\||&&|[|;&]/;
 const COMMAND = /^[a-z][a-z0-9._/-]*$/;
 const FLAG = /^--?[A-Za-z][\w-]*$/;
+const ATTACHED_P = /^-p[A-Za-z\d]{2,}/;
+const NAME_VALUE = /^(--?[A-Za-z][\w-]*)=(.*)$/;
+const SECRET_FLAG =
+	/^--?(?:password|passwd|pwd|plaintext|token|secret|api-?key|pass)$/;
 const PATH = /^[\w.~/<>…-]*[/~][\w.~/<>…-]*$/;
+const FILENAME = /^(?:\.[\w-]+|[\w-]+(?:\.[\w-]+)+)$/;
+const PLACEHOLDER_WORD = /^<[\w-]+>$/;
+const REFERENCE = /^op:\/\/[\w./-]+$/;
+/** A jq or jsonpath accessor: `.access_token`, `jsonpath='{.data.secret}'`. */
+const ACCESSOR = /^(?:[A-Za-z-]+=)?["']?\{?\.[\w.[\]*-]*\}?["']?$/;
+/** A quoted format or separator with no letter or digit: `'%{http_code}'`, `"\n"`. */
+const FORMAT = /^(["'])(?:%\{\w+\}|(?:\\[nrt]|[^A-Za-z\d\\])*)\1$/;
 const WORD = /^[A-Za-z][A-Za-z_-]*$/;
 const VARIABLE_PARTS = /["']?(?:\$\{\w+\}|\$\w+)["']?/g;
 const PRINTERS = new Set(['echo', 'printf']);
@@ -30,21 +45,53 @@ const PRINTERS = new Set(['echo', 'printf']);
 const isVariables = (arg: string): boolean =>
 	arg.includes('$') && /^[\s:@/.,_-]*$/.test(arg.replace(VARIABLE_PARTS, ''));
 
+/** A value that only refers to a secret: a variable, a path, `<x>`. */
+const isReference = (arg: string): boolean =>
+	isVariables(arg) || PATH.test(arg) || PLACEHOLDER_WORD.test(arg);
+
+/** An argument that names, reads or measures something: it carries no secret value. */
 function isSafeArgument(arg: string, command: string): boolean {
-	if (FLAG.test(arg) || isVariables(arg) || PATH.test(arg)) return true;
-	return !PRINTERS.has(command) && WORD.test(arg);
+	if (isVariables(arg)) return true;
+	if (PRINTERS.has(command)) return FLAG.test(arg);
+	if (ATTACHED_P.test(arg)) return false;
+	const named = NAME_VALUE.exec(arg);
+	if (named) {
+		const value = named[2] ?? '';
+		if (SECRET_FLAG.test(named[1] ?? '')) return isReference(value);
+		return value === '' || isSafeArgument(value, command);
+	}
+	return (
+		FLAG.test(arg) ||
+		/^\d+$/.test(arg) ||
+		PATH.test(arg) ||
+		FILENAME.test(arg) ||
+		PLACEHOLDER_WORD.test(arg) ||
+		REFERENCE.test(arg) ||
+		ACCESSOR.test(arg) ||
+		FORMAT.test(arg) ||
+		WORD.test(arg)
+	);
+}
+
+/** One pipeline segment: a lower-case command and arguments that carry no value. */
+function isReadOnlySegment(segment: string): boolean {
+	if (isSecretCommand(segment)) return false;
+	const [command = '', ...args] = segment.trim().split(/\s+/);
+	if (!COMMAND.test(command)) return false;
+	let secretNext = false;
+	for (const arg of args) {
+		const ok = secretNext ? isReference(arg) : isSafeArgument(arg, command);
+		if (!ok) return false;
+		secretNext = SECRET_FLAG.test(arg);
+	}
+	return !secretNext;
 }
 
 /** Whether the body of a `$(…)` only reads: no literal value in it. */
 export function isReadOnlyBody(body: string): boolean {
 	if (/[`]|\$\(/.test(body)) return false;
-	return body.split(SEGMENT).every((segment) => {
-		const [command = '', ...args] = segment.trim().split(/\s+/);
-		if (!COMMAND.test(command)) return false;
-		return args.every((arg) => isSafeArgument(arg, command));
-	});
+	return body.split(SEGMENT).every(isReadOnlySegment);
 }
-
 /** The index of the `)` that closes the `(` before `from`, or -1. */
 function closing(text: string, from: number): number {
 	let depth = 1;
@@ -61,8 +108,11 @@ function closing(text: string, from: number): number {
 	return -1;
 }
 
-/** `text` with every command substitution made a placeholder or opaque (see the header). */
-export function neutralizeSubstitutions(text: string): string {
+/**
+ * `text` with every command substitution made a placeholder; an unsafe one is
+ * kept, with the whitespace of its body made opaque when `opaque` is set.
+ */
+export function neutralizeSubstitutions(text: string, opaque: boolean): string {
 	if (!text.includes('$(')) return text;
 	let out = '';
 	let from = 0;
@@ -73,7 +123,7 @@ export function neutralizeSubstitutions(text: string): string {
 		out += text.slice(from, at);
 		out += isReadOnlyBody(body)
 			? PLACEHOLDER
-			: `$(${body.replace(/\s/g, OPAQUE)})`;
+			: `$(${opaque ? body.replace(/\s/g, OPAQUE) : body})`;
 		from = end + 1;
 	}
 	return out + text.slice(from);
