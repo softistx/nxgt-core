@@ -6,8 +6,8 @@ description: >-
   SteveGT96) and keep a private tracking issue in the application. Use when a
   session hits a bug in such a package, a missing feature it would otherwise
   work around, a wrong or missing doc, or a dependency of the package behind
-  its latest release — ~/.claude/CLAUDE.md "In-house packages" says these are
-  filed through nxgt-issues, never worked around silently.
+  its latest release. A bug in one of the configured owners' packages is filed
+  through nxgt-issues, never worked around silently.
 allowed-tools:
   - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve)
   - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve *)
@@ -19,8 +19,9 @@ allowed-tools:
 
 The application files the problem where it will be fixed — the package's
 repository — without naming itself, and keeps the link on its own side. Filing
-is automatic once the scrub passes (owner decision): do not ask the user a
-separate question first; report the URL afterwards. `file`, `track` and
+is automatic once the scrub passes, because the Claude Code prompt on the
+write command already shows the user exactly what leaves the machine: do not
+ask a separate question first; report the URL afterwards. `file`, `track` and
 `deps --file` write to GitHub, so they are not pre-approved: Claude Code shows
 the whole command, report JSON included, and asks. That prompt is the user's
 look at exactly what leaves the machine. `resolve` and `sessions` only read and
@@ -69,6 +70,11 @@ their latest release (read-only, but not pre-approved: it prompts); `bun ${CLAUD
 package's one rolling dependencies issue (a write: it prompts like `file`). Then skip to step 5.
 
 ## 2. Write a minimal reproduction from scratch
+
+The scrub has known limits: it does not detect prose secrets ("the password is
+…"), variable indirection (`const X = '…'; secret(X)`) or XML elements
+(`<password>…</password>`). So never paste a real value anywhere in the
+report; the reproduction is written from scratch, with invented values.
 
 Never paste application code, paths, logs, names, domains or data. Write a new,
 minimal example against the package's public API that shows the problem, with

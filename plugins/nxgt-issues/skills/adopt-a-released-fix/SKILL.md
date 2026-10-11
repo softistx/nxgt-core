@@ -20,7 +20,7 @@ allowed-tools:
 The package side fixed what this application reported and published it; the
 application now drops its workaround. Every command runs from the application's
 checkout (or takes `--cwd <dir>`). The work is one branch, one PR, in its own
-worktree as `~/.claude/CLAUDE.md` asks.
+worktree, so the main checkout and other sessions are never moved.
 
 ## 1. What is ready
 

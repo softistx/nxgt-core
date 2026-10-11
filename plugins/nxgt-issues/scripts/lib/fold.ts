@@ -2,7 +2,7 @@
  * Normalization for the deny-list check: undo the ways a name can be written so
  * that a plain whole-word search misses it. `normalize` decodes the text to the
  * form a reader sees (NFKC, no HTML comments, entities decoded, markdown
- * backslash escapes removed, percent-encoding decoded, invisible characters dropped); `fold` goes on to
+ * backslash escapes removed, percent-encoding decoded (until stable, at most three rounds), invisible characters dropped); `fold` goes on to
  * lower-case it and drop spaces, underscores, dots, slashes and every dash, which is how
  * `Secret App`, `secretApp`, `secret.app` and `secret_app` all become
  * `secretapp`.
@@ -11,7 +11,7 @@
  * NFKC folds fullwidth and compatibility forms, not look-alikes; a skeleton
  * table would be the fix and is not worth its weight here. Also out of scope:
  * a name hidden by an encoding (base64, hex, rot13); only percent-encoding is
- * undone.
+ * undone, and only three layers deep.
  */
 
 import { HIDDEN_SOURCE } from './hidden-chars';
@@ -63,18 +63,28 @@ const decodePercent = (run: string): string => {
 	}
 };
 
+/** Rounds of percent-decoding: `%252D` and `%25252D` are one separator hidden twice and thrice. */
+const PERCENT_ROUNDS = 3;
+
+const decodePercentRuns = (text: string): string => {
+	let current = text;
+	for (let round = 0; round < PERCENT_ROUNDS; round++) {
+		const next = current.replace(/(?:%[0-9a-f]{2})+/gi, decodePercent);
+		if (next === current) break;
+		current = next;
+	}
+	return current;
+};
+
 /** Everything `hidden-chars.ts` lists: invisible, and no part of what a reader sees. */
 const INVISIBLE = new RegExp(HIDDEN_SOURCE, 'gu');
 
 /** What a reader sees: the text with the markup and the invisible characters undone. */
 export function normalize(text: string): string {
-	return decodeEntities(
+	const unescaped = decodeEntities(
 		decodeEntities(text.normalize('NFKC').replace(/<!--[\s\S]*?-->/g, '')),
-	)
-		.replace(/\\([!-/:-@[-`{-~])/g, '$1')
-		.replace(/(?:%[0-9a-f]{2})+/gi, decodePercent)
-		.normalize('NFKC')
-		.replace(INVISIBLE, '');
+	).replace(/\\([!-/:-@[-`{-~])/g, '$1');
+	return decodePercentRuns(unescaped).normalize('NFKC').replace(INVISIBLE, '');
 }
 
 /** The characters `fold` removes: whitespace, underscore, dot, slash, every dash. */
