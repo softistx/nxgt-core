@@ -23,10 +23,17 @@
  */
 
 import { hasSecretArgument } from './auth-calls';
+import { hasAuthorizationSecret } from './authorization';
 import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
 import { hasCredentialPair } from './credential-pairs';
 import { isNamingKey } from './key-names';
-import { encodesSecret, isLabelMessage } from './label-values';
+import {
+	arrayHoldsSecret,
+	encodesSecret,
+	isEnvNameValue,
+	isGraphqlType,
+	isLabelMessage,
+} from './label-values';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -114,12 +121,9 @@ function keywordOf(name: string): string | undefined {
 }
 
 const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
-/** Words that make any literal under a `key` name a secret: `signingKey = 'users'`. */
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
-	/(?<![\w-])([\w-]+)\??["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
-const AUTHORIZATION =
-	/\bAuthorization["']?[ \t]*[:=][ \t]*(?:(?:Basic|Bearer|Digest|Negotiate|token)[ \t]+)?(\S+)/gi;
+	/(?<![\w-])([\w-]+)(?:[ \t]*(?:\?\?|\|\||&&)(?==)|\?)?["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
 const COOKIE = /\b(?:Set-)?Cookie["']?[ \t]*:[ \t]*([^\n]+)/gi;
 /** `--password x`, `--token=x`, `--api-key x`. */
 const FLAG =
@@ -156,21 +160,25 @@ export function findSecrets(text: string): string[] {
 		}
 		if (keyword === 'key' && isNamingKey(name, whole)) continue;
 		if (isLabelMessage(name, match[0], whole)) continue;
+		if (isEnvNameValue(name, whole)) continue;
+		const before = text.slice(0, match.index);
+		if (isGraphqlType(value, match[3] ?? '', before)) continue;
+		if (arrayHoldsSecret(whole)) {
+			found.add(keyword);
+			continue;
+		}
 		if (isCodeValue(whole, { name, first: value })) continue;
 		found.add(keyword);
 	}
-	for (const match of text.matchAll(AUTHORIZATION)) {
-		const value = match[1] ?? '';
-		if (!isPlaceholder(value) && !TOKEN_WORDS.test(value)) {
-			found.add('authorization');
-		}
-	}
+	if (hasAuthorizationSecret(text)) found.add('authorization');
 	for (const match of text.matchAll(COOKIE)) {
 		// No `name=value` pair: a key in code (`cookie: 'sid'`); the assignment rule decides.
 		if (!match[1]?.includes('=')) continue;
 		const pairs = (match[1] ?? '')
 			.split(';')
-			.map((pair) => pair.split('=').pop() ?? '');
+			.map((pair) => pair.split('=').pop() ?? '')
+			// A closing quote and punctuation after the header: `-H 'Cookie: a=<redacted>'.`
+			.map((value) => value.trim().replace(/["'`]+[.,;:)\]]*$/, ''));
 		if (!pairs.every(isPlaceholder)) found.add('cookie');
 	}
 	for (const match of text.matchAll(CURL_USER)) {

@@ -34,6 +34,12 @@ const KEYWORDS = (
 const SUFFIX = /^(?:\d+|iv|sync|ed|er|ing|s)?$/;
 const USER_FIRST = new Set(['login', 'signIn', 'authenticate']);
 const SETTERS = new Set(['set', 'append', 'header', 'setHeader', 'cookie']);
+/** An identifier naming a credential header: `GATEWAY_SECRET_HEADER`, `authHeader`. */
+const CREDENTIAL_NAME = /^[A-Za-z_$][\w$.]*$/;
+const CREDENTIAL_WORD =
+	/secret|token|passw|api_?key|auth(?!or)|cookie|session/i;
+export const namesCredential = (identifier: string): boolean =>
+	CREDENTIAL_NAME.test(identifier) && CREDENTIAL_WORD.test(identifier);
 export const CREDENTIAL_HEADER =
 	/^(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|.*-(?:secret|token|key|password))$/i;
 
@@ -182,11 +188,10 @@ export function hasSecretArgument(text: string): boolean {
 		const header = literalOf(args[0] ?? '');
 		const cookieJar =
 			name === 'cookie' || /cookie/i.test(path.slice(0, -name.length));
-		if (
-			SETTERS.has(name) &&
-			header &&
-			(cookieJar || CREDENTIAL_HEADER.test(header))
-		) {
+		const credentialHeader = header
+			? cookieJar || CREDENTIAL_HEADER.test(header)
+			: namesCredential(args[0] ?? '');
+		if (SETTERS.has(name) && credentialHeader) {
 			const value = { strict: true, key: false };
 			if (hasSecretIn(args[1] ?? '', value)) return true;
 			continue;

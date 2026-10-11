@@ -26,7 +26,6 @@ import {
 	scopeOf,
 	stems,
 } from './deny-terms';
-import { fold, normalize, SEPARATORS } from './fold';
 
 export interface DenyInputs {
 	/** The application's repository, `owner/repo`. */
@@ -96,6 +95,8 @@ export const EMPTY_DENY_LIST: DenyList = Object.freeze({
 /** Own terms of this many characters match inside words (`schoolzdb`). */
 const MIN_SUBSTRING_LENGTH = 5;
 
+const lower = (term: string): string => term.toLowerCase();
+
 /**
  * The terms that may never appear in a filing, from what the session knows.
  * The application's own distinctive terms (stems of its repository and
@@ -125,9 +126,11 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 		entry.includes('/'),
 	);
 	const privates = [...owned, ...bareNames, ...privateStems];
+	const distinctiveStems = (name: string | undefined) =>
+		stems(name).filter((stem) => !isCommonWord(stem, GENERIC));
 	const own = [
-		...stems(repoName),
-		...packages.flatMap((pkg) => stems(pkg)),
+		...distinctiveStems(repoName),
+		...packages.flatMap(distinctiveStems),
 		...packages
 			.map(scopeOf)
 			.filter((scope) => (scope?.length ?? 0) >= MIN_LABEL_LENGTH),
@@ -137,7 +140,15 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 		inputs.appRepo,
 		repoName,
 		...packages,
-		...packages.flatMap(scopedParts),
+		// The scope always; a name part or stem only when it is not a common word.
+		...packages.flatMap((pkg) =>
+			scopedParts(pkg).filter(
+				(part) =>
+					part.startsWith('@') ||
+					part === scopeOf(pkg) ||
+					!isCommonWord(part, GENERIC),
+			),
+		),
 		inputs.cwd ? basename(inputs.cwd) : undefined,
 		...privates,
 		...nameTerms(inputs.gitName),
@@ -156,86 +167,4 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 	});
 }
 
-const lower = (term: string): string => term.toLowerCase();
-
-const escapeRegExp = (text: string): string =>
-	text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-const BOUNDARY_BEFORE = String.raw`(?<![\p{L}\p{N}])`;
-const BOUNDARY_AFTER = String.raw`(?![\p{L}\p{N}])`;
-
-const wholeWord = (term: string, bounded = true): RegExp =>
-	new RegExp(
-		bounded
-			? `${BOUNDARY_BEFORE}${escapeRegExp(term)}${BOUNDARY_AFTER}`
-			: escapeRegExp(term),
-		'iu',
-	);
-
-/** The term's folded characters, any separators allowed between them. */
-const looseWord = (folded: string, bounded = true): RegExp => {
-	const body = [...folded].map(escapeRegExp).join(`${SEPARATORS}*`);
-	return new RegExp(
-		bounded ? `${BOUNDARY_BEFORE}${body}${BOUNDARY_AFTER}` : body,
-		'iu',
-	);
-};
-
-const MIN_FOLDED_LENGTH = 4;
-
-/**
- * A separator at each camelCase seam: lower→Upper, letter↔digit, and
- * Upper→Upper+lower (`APIClient` → `API Client`), so that `useSchoolzApi()`
- * reads as the words it is made of.
- */
-const splitWords = (text: string): string =>
-	text
-		.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
-		.replace(/(\p{L})(\p{N})/gu, '$1 $2')
-		.replace(/(\p{N})(\p{L})/gu, '$1 $2')
-		.replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, '$1 $2');
-
-/** A path under `node_modules/`, up to the next space, quote or bracket. */
-const PACKAGE_PATH = /node_modules[\\/][^\s'"()<>]*/g;
-
-const searchable = (raw: string) => {
-	const decoded = normalize(raw);
-	return { raw, decoded, spaced: splitWords(decoded) };
-};
-
-/** Deny-list terms present, as written or in a variant (see the module comment). */
-export function findDenied(
-	text: string,
-	denyList: DenyList,
-	allow: readonly string[] = [],
-): string[] {
-	// Allowing a package also allows its scope and stems, which a deny-list may hold.
-	const allowed = new Set(
-		allow
-			.flatMap((term) => [term, ...scopedParts(term)])
-			.map((term) => term.toLowerCase()),
-	);
-	const distinctive = new Set(denyList.distinctive.map(lower));
-	const stemSet = new Set((denyList.stems ?? []).map(lower));
-	const full = searchable(text);
-	const outsidePackages = searchable(text.replace(PACKAGE_PATH, ' '));
-	const hits: string[] = [];
-	for (const term of unique(denyList.terms)) {
-		if (allowed.has(term.toLowerCase())) continue;
-		const { raw, decoded, spaced } = stemSet.has(lower(term))
-			? outsidePackages
-			: full;
-		const folded = fold(term);
-		const bounded = !(
-			distinctive.has(lower(term)) && folded.length >= MIN_SUBSTRING_LENGTH
-		);
-		const found =
-			folded.length >= MIN_FOLDED_LENGTH
-				? wholeWord(term, bounded).test(raw) ||
-					looseWord(folded, bounded).test(decoded) ||
-					looseWord(folded, bounded).test(spaced)
-				: wholeWord(term).test(raw) || wholeWord(term).test(decoded);
-		if (found) hits.push(term);
-	}
-	return hits;
-}
+export { findDenied } from './deny-search';

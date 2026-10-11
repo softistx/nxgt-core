@@ -1,7 +1,8 @@
 /**
  * Credentials written as a pair rather than a call or an assignment: a header
  * set by index (`headers['authorization'] = 'Basic x'`), a header tuple
- * (`new Headers([['authorization', 'Basic x']])`) and a flag followed by its
+ * (`new Headers([['authorization', 'Basic x']])`), a computed key whose name
+ * holds a credential word (`{ [GATEWAY_SECRET_HEADER]: 'x' }`) and a flag followed by its
  * value in an argument array (`['--password', 'hunter2']`, `['-W', 'x']`,
  * `['-p', 'x']`, `['-a', 'x']`, and `'-px'` after a database client). A port
  * after `-p` passes (`['-p', '8080:80']` for docker or ssh) unless a database
@@ -10,12 +11,15 @@
  * code passes); a flag value refuses unless it is a placeholder.
  */
 
-import { CREDENTIAL_HEADER } from './auth-calls';
+import { CREDENTIAL_HEADER, namesCredential } from './auth-calls';
 import { isPlaceholder } from './code-values';
 import { isHarmlessLiteral } from './literals';
 
 /** `x['authorization'] = 'value'`. */
 const INDEXED = /\[\s*["']([\w-]+)["']\s*\]\s*=\s*(["'`])((?:\\.|(?!\2).)*)\2/g;
+/** `{ [GATEWAY_SECRET_HEADER]: 'value' }` or `x[SECRET_HEADER] = 'value'`. */
+const COMPUTED =
+	/\[\s*([A-Za-z_$][\w$.]*)\s*\]\s*[:=](?!=)\s*(["'`])((?:\\.|(?!\2).)*)\2/g;
 /** `['authorization', 'value']`. */
 const TUPLE = /\[\s*["']([\w-]+)["']\s*,\s*(["'`])((?:\\.|(?!\2).)*)\2\s*\]/g;
 /** `'--password', 'value'` side by side in an array. */
@@ -45,6 +49,11 @@ export function hasCredentialPair(text: string): boolean {
 			const context = { ...HEADER_VALUE, template: match[2] === '`' };
 			if (!isHarmlessLiteral(match[3] ?? '', context)) return true;
 		}
+	}
+	for (const match of text.matchAll(COMPUTED)) {
+		if (!namesCredential(match[1] ?? '')) continue;
+		const context = { ...HEADER_VALUE, template: match[2] === '`' };
+		if (!isHarmlessLiteral(match[3] ?? '', context)) return true;
 	}
 	for (const match of text.matchAll(ARRAY_FLAG)) {
 		const value = match[3] ?? '';

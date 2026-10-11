@@ -350,7 +350,7 @@ describe('buildDenyList: scoped packages', () => {
 				cwd,
 				denyList: list,
 			}).denied,
-		).toEqual(['billing-core', 'billing']);
+		).toEqual(['billing-core']);
 		expect(
 			scrub('uses @jane/other-pkg', { cwd, denyList: list }).denied,
 		).toEqual(['@jane', 'jane']);
@@ -729,11 +729,12 @@ describe('buildDenyList: product stem and sibling domains', () => {
 		appDomains: ['api.schoolz.io', 'www.example.co.uk'],
 	});
 
-	test('stems of 4+ characters, without generic words', () => {
+	test('stems of 4+ characters, without generic or common words', () => {
 		expect(list.terms).toEqual(
-			expect.arrayContaining(['schoolz', 'schoolz-admin-ui', 'billing']),
+			expect.arrayContaining(['schoolz', 'schoolz-admin-ui', 'billing-core']),
 		);
 		for (const generic of [
+			'billing',
 			'api',
 			'web',
 			'core',
