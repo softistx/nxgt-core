@@ -99,7 +99,7 @@ export function isSchemeSecret(value: string, credentialName = false): boolean {
 	const filler =
 		SCHEME_WORDS.test(credential) ||
 		((SCREAMING.test(credential) || FILLER.test(credential)) &&
-			!(credentialName && hasDigit(credential)));
+			!hasDigit(credential));
 	return tokenLike && !filler;
 }
 

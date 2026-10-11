@@ -415,6 +415,10 @@ describe('round 12: header names without auth, filler with digits, placeholder w
 		`\${AUTH_HEADER:-Token SK_LIVE_ABC123XYZ}`,
 		`\${AUTH_HEADER:-Digest YourSecretKey2024}`,
 		`\${AUTH_HEADER:-Bearer changeme}`,
+		'Bearer YOUR_TOKEN_2',
+		'Bearer YOUR_K3J9XQ2MP7VL',
+		`\${MSG:-Token your_k3J9xQ2mP7vL}`,
+		`\${MSG:-Token ABC123_DEF456}`,
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});
@@ -425,5 +429,7 @@ describe('round 12: header names without auth, filler with digits, placeholder w
 		`\${AUTH_HEADER:-Bearer redacted}`,
 		`\${AUTH_HEADER:-Bearer placeholder}`,
 		`\${AUTH_HEADER:-Bearer REDACTED}`,
+		'Set the header to Bearer YOUR_TOKEN',
+		`\${MSG:-Basic YOUR_BASE64_HERE}`,
 	])('%p passes', passes);
 });
