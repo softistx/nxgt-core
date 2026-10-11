@@ -19,7 +19,9 @@
 import {
 	domainTerms,
 	MIN_LABEL_LENGTH,
+	mainLabel,
 	scopedParts,
+	scopeOf,
 	stems,
 } from './deny-terms';
 import { fold, normalize, SEPARATORS } from './fold';
@@ -68,29 +70,62 @@ const nameTerms = (name: string | undefined): string[] => {
 	return [name ?? '', ...parts, `${last}, ${first}`, `${last} ${first}`];
 };
 
-/** The terms that may never appear in a filing, from what the session knows. */
-export function buildDenyList(inputs: DenyInputs): string[] {
+export type DenyListInput = readonly string[] & {
+	readonly distinctive?: ReadonlySet<string>;
+};
+/** The deny-list, with the terms that are the application's own marked. */
+export type DenyList = string[] & {
+	readonly distinctive?: ReadonlySet<string>;
+};
+
+/** Own terms of this many characters match inside words (`schoolzdb`). */
+const MIN_SUBSTRING_LENGTH = 5;
+
+/**
+ * The terms that may never appear in a filing, from what the session knows.
+ * The application's own distinctive terms (stems of its repository and
+ * packages, its scope, the main label of its domains), 5+ characters, are
+ * matched without a word boundary by `findDenied`; they are listed in the
+ * non-enumerable `distinctive` set of the result. Private repositories are
+ * denied by full name only, not by stem.
+ */
+export function buildDenyList(inputs: DenyInputs): DenyList {
 	const repoName = inputs.appRepo?.split('/')[1];
 	const packages = inputs.appPackages ?? [];
 	const privates = (inputs.privateRepos ?? []).flatMap((entry) =>
 		entry.includes('/') ? [entry, entry.split('/')[1]] : [entry],
 	);
-	return unique([
+	const own = [
+		...stems(repoName),
+		...packages.flatMap((pkg) => stems(pkg)),
+		...packages
+			.map(scopeOf)
+			.filter((scope) => (scope?.length ?? 0) >= MIN_LABEL_LENGTH),
+		...(inputs.appDomains ?? []).map(mainLabel),
+	].filter((term): term is string => !!term);
+	const list: DenyList = unique([
 		inputs.appRepo,
 		repoName,
 		...packages,
 		...packages.flatMap(scopedParts),
-		...stems(repoName),
 		inputs.cwd ? basename(inputs.cwd) : undefined,
 		...privates,
-		...privates.flatMap((entry) => stems(entry?.split('/').pop())),
 		...nameTerms(inputs.gitName),
 		inputs.gitEmail,
 		...hostTerms(inputs.hostname),
 		...(inputs.appDomains ?? []).flatMap(domainTerms),
 		inputs.home,
+		...own,
 	]);
+	Object.defineProperty(list, 'distinctive', {
+		value: new Set(
+			own.filter((term) => term.length >= MIN_SUBSTRING_LENGTH).map(lower),
+		),
+	});
+	return list;
 }
+
+const lower = (term: string): string => term.toLowerCase();
 
 const escapeRegExp = (text: string): string =>
 	text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -98,15 +133,22 @@ const escapeRegExp = (text: string): string =>
 const BOUNDARY_BEFORE = String.raw`(?<![\p{L}\p{N}])`;
 const BOUNDARY_AFTER = String.raw`(?![\p{L}\p{N}])`;
 
-const wholeWord = (term: string): RegExp =>
-	new RegExp(`${BOUNDARY_BEFORE}${escapeRegExp(term)}${BOUNDARY_AFTER}`, 'iu');
-
-/** The term's folded characters, any separators allowed between them. */
-const looseWord = (folded: string): RegExp =>
+const wholeWord = (term: string, bounded = true): RegExp =>
 	new RegExp(
-		`${BOUNDARY_BEFORE}${[...folded].map(escapeRegExp).join(`${SEPARATORS}*`)}${BOUNDARY_AFTER}`,
+		bounded
+			? `${BOUNDARY_BEFORE}${escapeRegExp(term)}${BOUNDARY_AFTER}`
+			: escapeRegExp(term),
 		'iu',
 	);
+
+/** The term's folded characters, any separators allowed between them. */
+const looseWord = (folded: string, bounded = true): RegExp => {
+	const body = [...folded].map(escapeRegExp).join(`${SEPARATORS}*`);
+	return new RegExp(
+		bounded ? `${BOUNDARY_BEFORE}${body}${BOUNDARY_AFTER}` : body,
+		'iu',
+	);
+};
 
 const MIN_FOLDED_LENGTH = 4;
 
@@ -125,7 +167,7 @@ const splitWords = (text: string): string =>
 /** Deny-list terms present, as written or in a variant (see the module comment). */
 export function findDenied(
 	text: string,
-	denyList: readonly string[],
+	denyList: DenyListInput,
 	allow: readonly string[] = [],
 ): string[] {
 	// Allowing a package also allows its scope and stems, which a deny-list may hold.
@@ -140,11 +182,15 @@ export function findDenied(
 	for (const term of unique(denyList)) {
 		if (allowed.has(term.toLowerCase())) continue;
 		const folded = fold(term);
+		const bounded = !(
+			denyList.distinctive?.has(lower(term)) &&
+			folded.length >= MIN_SUBSTRING_LENGTH
+		);
 		const found =
 			folded.length >= MIN_FOLDED_LENGTH
-				? wholeWord(term).test(text) ||
-					looseWord(folded).test(decoded) ||
-					looseWord(folded).test(spaced)
+				? wholeWord(term, bounded).test(text) ||
+					looseWord(folded, bounded).test(decoded) ||
+					looseWord(folded, bounded).test(spaced)
 				: wholeWord(term).test(text) || wholeWord(term).test(decoded);
 		if (found) hits.push(term);
 	}

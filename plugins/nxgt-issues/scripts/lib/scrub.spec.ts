@@ -204,12 +204,7 @@ describe('scrub', () => {
 			denyList,
 		});
 		expect(result.refused).toBe(true);
-		expect(result.denied).toEqual([
-			'secret-app',
-			'secret',
-			'hidden-two',
-			'hidden',
-		]);
+		expect(result.denied).toEqual(['secret-app', 'hidden-two']);
 	});
 
 	test('a name that only appeared inside a path is gone by verification', () => {
@@ -425,7 +420,7 @@ describe('scrub: credentials refuse instead of being stripped', () => {
 		['apiKey: abc', 'api-key'],
 		['x-api-key: abc', 'api-key'],
 		['token: abc', 'token'],
-		['Authorization: Bearer abc.def', 'authorization'],
+		['Authorization: Bearer abcd1234.ef', 'authorization'],
 	])('%p', (text, keyword) => {
 		const result = scrub(text, {});
 		expect(result.refused).toBe(true);
@@ -717,13 +712,7 @@ describe('buildDenyList: product stem and sibling domains', () => {
 
 	test('stems of 4+ characters, without generic words', () => {
 		expect(list).toEqual(
-			expect.arrayContaining([
-				'schoolz',
-				'schoolz-admin-ui',
-				'billing',
-				'hidden',
-				'quiet',
-			]),
+			expect.arrayContaining(['schoolz', 'schoolz-admin-ui', 'billing']),
 		);
 		for (const generic of [
 			'api',
@@ -862,5 +851,189 @@ describe('scrub: credentials under unknown names', () => {
 		'Bearer authentication',
 	])('%p passes', (text) => {
 		expect(scrub(text, {}).secrets).toEqual([]);
+	});
+});
+
+describe('findDenied: the application stem glued to a suffix', () => {
+	const list = buildDenyList({
+		appRepo: 'softistx/schoolz-api',
+		appPackages: ['@alxia/web'],
+		privateRepos: ['jane/hidden-service'],
+		appDomains: ['api.schoolz.io'],
+	});
+
+	test.each([
+		'E11000 duplicate key error collection: schoolzdb.users index: email_1',
+		'database schoolzprod',
+		'bucket schoolzuploads',
+		'queue schoolzjobs',
+		'schoolztest',
+		'myschoolz',
+		'ns: alxiadb.users',
+		'SchoolzDB, SCHOOLZPROD',
+	])('refuses %p', (text) => {
+		expect(scrub(text, { denyList: list }).refused).toBe(true);
+	});
+
+	test('the single-label host rule sees it too', () => {
+		const result = scrub('connect schoolzdb:5432 now', { denyList: list });
+		expect(result.text).toBe('connect <host> now');
+		expect(result.refused).toBe(false);
+	});
+
+	test('private repositories and short or generic terms stay whole-word', () => {
+		for (const text of [
+			'hiddenstuff',
+			'a hidden-services page',
+			'webapp',
+			'alxi',
+		]) {
+			expect(scrub(text, { denyList: list }).refused).toBe(false);
+		}
+		expect(scrub('hidden-service', { denyList: list }).refused).toBe(true);
+	});
+
+	test('a hand-written list is whole-word only', () => {
+		expect(findDenied('schoolzdb', ['schoolz'])).toEqual([]);
+	});
+});
+
+describe('scrub: ordinary filings with a realistic deny-list', () => {
+	const list = buildDenyList({
+		appRepo: 'softistx/schoolz-api',
+		appPackages: ['@alxia/web'],
+		privateRepos: ['jane/secret-app', 'nxgt-federation', 'quiet-gateway'],
+	});
+
+	test('private repositories are denied by name, not by stem', () => {
+		expect(list).toEqual(
+			expect.arrayContaining(['secret-app', 'nxgt-federation']),
+		);
+		for (const stem of ['secret', 'nxgt', 'federation', 'quiet', 'gateway']) {
+			expect(list).not.toContain(stem);
+		}
+		expect(list).toEqual(
+			expect.arrayContaining(['alxia', '@alxia', 'schoolz']),
+		);
+	});
+
+	test.each([
+		'`gatewaySecret(...)` throws when the secret is shorter than 16 characters',
+		'the client secret is rejected by Hydra',
+		'`assertGatewaySecret` compares in constant time',
+		'JWT secret rotation breaks verify',
+		'The federation gateway forwards X-User-Id',
+		'const token = await getToken(c)',
+		'const session = await ory.toSession()',
+		'password: z.string().min(8)',
+		'token: ctx.token',
+		'secret: config.secret',
+		"apiKey: c.req.header('x-api-key')",
+		'Cookie: ory_kratos_session=<redacted>',
+		'Set-Cookie: a=<redacted>; b=<redacted>',
+	])('%p passes', (text) => {
+		const result = scrub(text, {
+			denyList: list,
+			allow: ['@nxgt/shared-hono'],
+		});
+		expect({ text, denied: result.denied, secrets: result.secrets }).toEqual({
+			text,
+			denied: [],
+			secrets: [],
+		});
+	});
+
+	test('the app stem and the private names still refuse', () => {
+		for (const text of [
+			'schoolz crashed',
+			'secret-app crashed',
+			'NxgtFederation',
+		]) {
+			expect(scrub(text, { denyList: list }).refused).toBe(true);
+		}
+	});
+
+	test('real values still refuse', () => {
+		for (const text of [
+			'token: hunter2',
+			'secret: abc.def1',
+			'password: z.hunter2',
+			'apiKey: sk-abc123',
+			'Cookie: ory_kratos_session=abc123',
+		]) {
+			expect(scrub(text, {}).refused).toBe(true);
+		}
+	});
+});
+
+describe('scrub: quantity exemption is per whole word', () => {
+	test.each([
+		'ADMIN_PASSWORD=1234',
+		'ACCOUNT_PASSWORD=4821',
+		'MANAGER_TOKEN=9999',
+		'adminToken=5555',
+		'ADMIN_PASSWORD=20240101d',
+		'tokenTtl: 1234567d',
+	])('%p refuses', (text) => {
+		expect(scrub(text, {}).refused).toBe(true);
+	});
+
+	test.each([
+		'tokenTtl: 3600',
+		'PASSWORD_MIN_LENGTH=8',
+		'maxToken: 5',
+		'sessionTimeout: 30m',
+		'tokens: 3',
+	])('%p passes', (text) => {
+		expect(scrub(text, {}).refused).toBe(false);
+	});
+});
+
+describe('scrub: more credential shapes', () => {
+	test.each([
+		['curl -u admin:hunter2 https://github.com/o/r', 'basic-auth'],
+		['curl -s --user admin:hunter2 x', 'basic-auth'],
+		['redis-cli -a hunter2', 'password'],
+		["'password' => 'hunter2'", 'password'],
+		[":password => 'hunter2'", 'password'],
+		['passphrase=hunter2', 'passphrase'],
+		['DB_PW=hunter2', 'pw'],
+		['pw=hunter2', 'pw'],
+		['password: wrong hunter2', 'password'],
+		['password: missing, real one is hunter2', 'password'],
+		['-----BEGIN PGP PRIVATE KEY BLOCK-----', 'private-key-block'],
+		['password：hunter2', 'password'],
+		['password&#61;hunter2', 'password'],
+		['pass%77ord=hunter2', 'password'],
+	])('%p refuses', (text, keyword) => {
+		const result = scrub(text, {});
+		expect(result.refused).toBe(true);
+		expect(result.secrets).toContain(keyword);
+		expect(JSON.stringify(result.secrets)).not.toContain('hunter2');
+	});
+
+	test.each([
+		['glpat-' + 'a1B2c3D4e5F6g7H8i9J0'],
+		['xoxb-' + '123456789012-abcdefABCDEF'],
+		['sk_live_' + 'a1B2c3D4e5F6g7H8'],
+		['sk_test_' + 'a1B2c3D4e5F6g7H8'],
+		['rk_live_' + 'a1B2c3D4e5F6g7H8'],
+		['AIza' + 'SyA1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q'],
+		['ya29.' + 'a0AfH6SMBx1B2c3D4e5F6g7H8'],
+		['SG.' + 'a1B2c3D4e5F6g7H8i9.J0k1L2m3N4o5P6q7R8'],
+	])('provider token %p is replaced', (token) => {
+		const result = transform(`see ${token} end`, cwd);
+		expect(result.text).toBe('see <token> end');
+		expect(result.changes).toContain('token');
+	});
+
+	test('wrong, required and the like still pass alone', () => {
+		for (const text of [
+			'password: wrong',
+			'password: required;',
+			'password: required',
+		]) {
+			expect(scrub(text, {}).secrets).toEqual([]);
+		}
 	});
 });

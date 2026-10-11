@@ -10,11 +10,12 @@ export const MIN_LABEL_LENGTH = 4;
 const GENERIC = new Set(
 	(
 		'api core web ui server client app apps service services backend frontend ' +
-		'admin shared common utils lib libs sdk docs monorepo mobile worker gateway'
+		'admin shared common utils lib libs sdk docs monorepo mobile worker gateway ' +
+		'secret federation token session auth security nxgt alxia'
 	).split(' '),
 );
 
-/** Hyphen segments of 4+ characters of a name, except generic words. */
+/** Hyphen segments of 4+ characters of a name, except generic words (never the scope). */
 export function stems(name: string | undefined): string[] {
 	const bare = (name ?? '').trim().replace(/^@[^/]*\//, '');
 	return bare
@@ -58,4 +59,14 @@ export function domainTerms(domain: string): string[] {
 		registrable,
 		...(main.length >= MIN_LABEL_LENGTH ? [main] : []),
 	];
+}
+
+/** The bare scope of `@scope/name` (no generic filter: the scope is the app's own). */
+export function scopeOf(pkg: string): string | undefined {
+	return /^@([^/\s]+)\//.exec(pkg.trim())?.[1];
+}
+
+/** The main label of a domain's registrable part. */
+export function mainLabel(domain: string): string {
+	return registrableDomain(domain).split('.')[0] ?? '';
 }

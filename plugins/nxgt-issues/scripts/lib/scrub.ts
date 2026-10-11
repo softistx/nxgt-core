@@ -9,7 +9,8 @@
  * on this refusing rather than leaking.
  */
 
-import { findDenied } from './deny';
+import { type DenyListInput, findDenied } from './deny';
+import { normalize } from './fold';
 import { scrubHosts } from './hosts';
 import { findSecrets, looksLikeSecret, scrubKnownTokens } from './secrets';
 
@@ -63,7 +64,7 @@ const POSIX_PATH = new RegExp(
 export interface ScrubOptions {
 	/** The working directory: a path under it becomes `<app>/…`. */
 	readonly cwd?: string | undefined;
-	readonly denyList?: readonly string[];
+	readonly denyList?: DenyListInput;
 	/** Terms to take off the deny-list, such as the package being reported. */
 	readonly allow?: readonly string[];
 }
@@ -209,7 +210,13 @@ export function scrub(text: string, options: ScrubOptions = {}): ScrubResult {
 		(label) => findDenied(label, denyList, options.allow).length > 0,
 	);
 	const denied = findDenied(transformed.text, denyList, options.allow);
-	const secrets = findSecrets(transformed.text);
+	// Also as a reader sees it: fullwidth colons, entities, percent-encoding.
+	const secrets = [
+		...new Set([
+			...findSecrets(transformed.text),
+			...findSecrets(normalize(transformed.text)),
+		]),
+	];
 	return {
 		text: transformed.text,
 		changes: transformed.changes,
