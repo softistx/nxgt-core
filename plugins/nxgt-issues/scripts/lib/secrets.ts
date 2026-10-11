@@ -22,9 +22,16 @@
  * sits (`auth-calls.ts`).
  */
 
-import { hasSecretArgument } from './auth-calls';
+import { CREDENTIAL_HEADER, hasSecretArgument } from './auth-calls';
 import { hasAuthorizationSecret } from './authorization';
-import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
+import {
+	isCodeValue,
+	isPlaceholder,
+	isPredicate,
+	startsWithPlaceholder,
+} from './code-values';
+import { hasCredentialComparison } from './comparisons';
+import { keywordOf } from './credential-keyword';
 import { hasCredentialPair } from './credential-pairs';
 import { isNamingKey } from './key-names';
 import {
@@ -33,7 +40,16 @@ import {
 	isEnvNameValue,
 	isLabelMessage,
 } from './label-values';
+import { hasPositionalSecret } from './positional-secrets';
 import { isGraphqlType } from './sdl-values';
+import { neutralizeSubstitutions } from './shell-values';
+import {
+	isPlaceholderExpansionAt,
+	isShellReference,
+	literalDefaultOf,
+	namesSecret,
+	secretDefaults,
+} from './shell-variables';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -90,37 +106,6 @@ export function scrubKnownTokens(text: string, note: (kind: string) => void) {
 	return out;
 }
 
-/**
- * The canonical keyword a variable name carries, found as a substring of the
- * lower-cased name: `PGPASSWORD`, `dbpassword`, `client_secret`, `sessionId`.
- * `pass` and `sid` over-match as substrings (`bypass`, `compass`, `inside`), so
- * they count only as a whole word of the name (`DB_PASS`, `sid`) or, for
- * `pass`, as the end of an all-capitals name (`REDISPASS`); `auth` does not
- * count in `author` or `authority`. `key` counts as a whole word of the name
- * (`MASTER_KEY`, `signingKey`, `key`), and so do `signing` and `hmac`
- * (`JWT_SIGNING`).
- */
-function keywordOf(name: string): string | undefined {
-	const lower = name.toLowerCase();
-	const found =
-		/password|passwd|passphrase|pwd|secret|token|cookie|session|auth(?!or)/.exec(
-			lower,
-		);
-	if (found) return found[0];
-	if (/api[_-]?key/.test(lower)) return 'api-key';
-	if (/private[_-]?key/.test(lower)) return 'private-key';
-	if (/credential/.test(lower)) return 'credentials';
-	if (lower.includes('bearer')) return 'bearer';
-	const words = wordsOf(name);
-	for (const word of ['pass', 'pw', 'sid']) {
-		if (words.includes(word)) return word;
-	}
-	if (name === name.toUpperCase() && /(?:pass|pw)$/.test(lower)) return 'pass';
-	if (words.some((word) => KEY_WORDS.has(word))) return 'key';
-	return undefined;
-}
-
-const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
 	/(?<![\w-])([\w-]+)(?:[ \t]*(?:\?\?|\|\||&&)(?==)|\?)?["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
@@ -138,22 +123,45 @@ const TOKEN_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
 /** `curl -u user:pass`. */
 const CURL_USER = /\bcurl\b[^\n]*?[ \t](?:-u|--user)[ \t]+(\S+:\S+)/g;
 /** `redis-cli -a pass`. */
-const REDIS_A = /\bredis-cli\b[^\n]*?[ \t]-a[ \t]+(?!-)\S+/;
+const REDIS_A = /\bredis-cli\b[^\n]*?[ \t]-a[ \t]+(?!-)(\S+)/g;
 const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----/;
 
 /**
  * The credential assignments in already-transformed text, each a reason to
  * refuse, as keywords: `password`, `api-key`, `bearer`, `authorization`...
  */
-export function findSecrets(text: string): string[] {
+export function findSecrets(source: string): string[] {
 	const found = new Set<string>();
+	// The rules run on the text with each safe `$(…)` made a placeholder, with
+	// and without the whitespace of the unsafe ones made opaque (shell-values.ts).
+	const texts = new Set([
+		neutralizeSubstitutions(source, false),
+		neutralizeSubstitutions(source, true),
+	]);
+	for (const text of texts) collectSecrets(text, found);
+	if (hasPositionalSecret(source)) found.add('password');
+	if (hasCredentialComparison(source)) found.add('credential-comparison');
+	return [...found];
+}
+
+function collectSecrets(text: string, found: Set<string>): void {
 	for (const match of text.matchAll(ASSIGNMENT)) {
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
 		const whole = `${value}${match[3] ?? ''}`.trim();
 		const keyword = keywordOf(name);
 		if (!keyword || value.endsWith(':')) continue;
+		if (namesSecret(name) && literalDefaultOf(value) !== undefined) {
+			found.add(keyword); // `password: ${APP_NAME:-swordfish}`
+			continue;
+		}
+		if (isPlaceholderExpansionAt(text, match.index)) continue; // `${NAME:-}`
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
+		// A credential header's value, like Authorization: `x-gateway-secret: $GATEWAY_SECRET`
+		if (CREDENTIAL_HEADER.test(name) && isPlaceholder(value)) continue;
+		if (isShellReference(name, value, isPlaceholder)) continue;
+		if (startsWithPlaceholder(value)) continue;
+		if (isPredicate(name, whole)) continue; // function-values.ts judges it
 		if (encodesSecret(whole)) {
 			found.add(keyword);
 			continue;
@@ -167,7 +175,14 @@ export function findSecrets(text: string): string[] {
 			found.add(keyword);
 			continue;
 		}
-		if (isCodeValue(whole, { name, first: value })) continue;
+		const end =
+			match.index + match[0].length + value.length + (match[3] ?? '').length;
+		const facts = {
+			name,
+			first: value,
+			site: { text, start: match.index, end },
+		};
+		if (isCodeValue(whole, facts)) continue;
 		found.add(keyword);
 	}
 	if (hasAuthorizationSecret(text)) found.add('authorization');
@@ -184,7 +199,9 @@ export function findSecrets(text: string): string[] {
 	for (const match of text.matchAll(CURL_USER)) {
 		if (!isPlaceholder(match[1]?.split(':')[1] ?? '')) found.add('basic-auth');
 	}
-	if (REDIS_A.test(text)) found.add('password');
+	for (const match of text.matchAll(REDIS_A)) {
+		if (!isPlaceholder(match[1] ?? '')) found.add('password');
+	}
 	for (const match of text.matchAll(FLAG)) {
 		if (!isPlaceholder(match[2] ?? ''))
 			found.add(keywordOf(match[1] ?? '') ?? 'password');
@@ -200,5 +217,7 @@ export function findSecrets(text: string): string[] {
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
 	if (hasSecretArgument(text)) found.add('secret-argument');
 	if (hasCredentialPair(text)) found.add('credential-pair');
-	return [...found];
+	for (const keyword of secretDefaults(text, keywordOf, isCodeValue)) {
+		found.add(keyword);
+	}
 }

@@ -22,18 +22,15 @@
  *   a quoted cookie name for a key whose name ends in `cookie` (`cookie: 'sid'`).
  */
 
+import { isShellValue } from './shell-variables';
+import { isType, isTypedParameter, type Site } from './ts-types';
+
 const WORDS = new Set(
 	(
 		'string number boolean bigint symbol object array function void never ' +
 		'undefined null unknown any true false required optional missing invalid ' +
 		'empty expired incorrect wrong none yes no await new async typeof'
 	).split(' '),
-);
-
-const PRIMITIVES = new Set(
-	'string number boolean bigint symbol object unknown any never void null undefined'.split(
-		' ',
-	),
 );
 
 /** Whole words of a name that mark it as a count, size or duration. */
@@ -81,7 +78,7 @@ export function isPlaceholder(raw: string): boolean {
 		.replace(/^(?:await|new|typeof)\s+/i, '')
 		.replace(/[\s,;]+$/, '');
 	const asserted = unwrapped.replace(/!$/, '');
-	if (ENV_BRACKET.test(asserted)) return true;
+	if (ENV_BRACKET.test(asserted) || isShellValue(asserted)) return true;
 	const value = unwrapped
 		.replace(/(?:\[\])+(?=[;,)}\]"'`]*$)/, '')
 		.replace(/^["'`]+|["'`;,)}\]]+$/g, '')
@@ -99,7 +96,8 @@ export function isPlaceholder(raw: string): boolean {
 }
 
 /** A call on an identifier path whose parentheses close: `getToken(c)`, `c.req.header('x')?.slice(7)`. */
-const CALL = /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\(.*\)$/;
+const CALL =
+	/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\(.*\)(?:\[\d{1,3}\])?$/;
 const QUOTED = /(["'`])((?:\\.|(?!\1).)*)\1/g;
 
 /** Prefixes of provider tokens: `sk-live-…` is a key, not a header name. */
@@ -114,8 +112,13 @@ export function isReaderKey(text: string): boolean {
 	return text.split(/[-_.]/).every((segment) => NAME_SEGMENT.test(segment));
 }
 
+/** Literals that carry no value: empty, blank, or a bare scheme word (`'Bearer '`). */
+const NO_VALUE = /^\s*(?:(?:Basic|Bearer|Digest|Negotiate|token)\s*)?$/i;
+
 function quotedArgumentIsName(call: string, index: number, text: string) {
-	if (KNOWN_LITERALS.has(text.toLowerCase())) return true;
+	if (KNOWN_LITERALS.has(text.toLowerCase()) || NO_VALUE.test(text)) {
+		return true;
+	}
 	const method = /([A-Za-z_$][\w$]*)\(\s*$/.exec(call.slice(0, index))?.[1];
 	if (method && READERS.has(method)) return isReaderKey(text);
 	return /^[A-Za-z]+$/.test(text);
@@ -124,7 +127,7 @@ function quotedArgumentIsName(call: string, index: number, text: string) {
 /** A call that reads a secret: every literal a name, no bare `P4ss`-like word. */
 export function isSafeCall(raw: string): boolean {
 	const call = raw.replace(/^(?:await|new)\s+/i, '').replace(/[\s,;]+$/, '');
-	if (!CALL.test(call)) return false;
+	if (!CALL.test(call) || call.startsWith('$(')) return false; // `$(…)` is a shell substitution
 	for (const match of call.matchAll(QUOTED)) {
 		if (!quotedArgumentIsName(call, match.index, match[2] ?? '')) return false;
 	}
@@ -143,18 +146,6 @@ export function isSafeCall(raw: string): boolean {
 const isCode = (value: string): boolean =>
 	isPlaceholder(value) || isSafeCall(value);
 
-/** A TypeScript type: primitives and PascalCase names joined by `|`, `&`, `<>`, `,`, `[]`. */
-function isType(value: string, name: string): boolean {
-	if (!/^[A-Za-z<>[\]|&, ]+$/.test(value)) return false;
-	const words = value.match(/[A-Za-z]+/g) ?? [];
-	const typed = words.every(
-		(w) => PRIMITIVES.has(w) || /^[A-Z][A-Za-z]*$/.test(w),
-	);
-	if (!typed) return false;
-	if (/[|&<[]/.test(value) || PRIMITIVES.has(value)) return true;
-	return value.toLowerCase() === name.toLowerCase();
-}
-
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z$]*$/;
 const INDEXED =
 	/^[A-Za-z_$][A-Za-z$]*(?:\.[A-Za-z_$][A-Za-z$]*)*\[(?:\d{1,3}|[A-Za-z_$][A-Za-z$]*)\]$/;
@@ -171,6 +162,8 @@ export interface AssignmentFacts {
 	readonly name: string;
 	/** The first token of the value, which the small-number rule reads. */
 	readonly first: string;
+	/** Where the assignment sits in its text, which a typed parameter reads. */
+	readonly site?: Site | undefined;
 }
 
 /** The assignment-path test: true when `whole` is code, not a credential. */
@@ -181,7 +174,12 @@ export function isCodeValue(whole: string, facts: AssignmentFacts): boolean {
 	if (typed?.[1] && typed[2] && isType(typed[1], facts.name)) {
 		return isCodeValue(typed[2], facts);
 	}
-	if (isType(value, facts.name)) return true;
+	if (
+		isType(value, facts.name) ||
+		isTypedParameter(whole.trim(), facts.name, facts.site)
+	) {
+		return true;
+	}
 	if (isFallbackChain(value) || INDEXED.test(value)) return true;
 	if (
 		IDENTIFIER.test(value) &&
@@ -196,3 +194,16 @@ export function isCodeValue(whole: string, facts: AssignmentFacts): boolean {
 		/^(["'])[A-Za-z][A-Za-z_.-]{0,39}\1$/.test(value)
 	);
 }
+
+/** The first quoted string of a JSON-like value when it is a placeholder and more JSON follows: `"<redacted>","path":…`. */
+export function startsWithPlaceholder(value: string): boolean {
+	const first = /^(["'`])((?:\\.|(?!\1).)*)\1(?=,|$)/.exec(value);
+	return first !== null && isPlaceholder(first[0]);
+}
+
+/** `const isSecret = (field) => field.type === 'password'`: a predicate, not a credential. */
+export const isPredicate = (name: string, value: string): boolean =>
+	/^is[A-Z]/.test(name) &&
+	/^(?:async\s+)?(?:function\b|\([^)]*\)\s*(?::[^=]+)?=>|[A-Za-z_$][\w$]*\s*=>)/.test(
+		value,
+	);

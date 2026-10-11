@@ -46,6 +46,8 @@ export function hasCredentialPair(text: string): boolean {
 	for (const pattern of [INDEXED, TUPLE]) {
 		for (const match of text.matchAll(pattern)) {
 			if (!CREDENTIAL_HEADER.test(match[1] ?? '')) continue;
+			// A list of header names (`redact: ['authorization', 'cookie']`), not a pair.
+			if (CREDENTIAL_HEADER.test(match[3] ?? '')) continue;
 			const context = { ...HEADER_VALUE, template: match[2] === '`' };
 			if (!isHarmlessLiteral(match[3] ?? '', context)) return true;
 		}

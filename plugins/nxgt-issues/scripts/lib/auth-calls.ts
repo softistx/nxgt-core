@@ -24,12 +24,10 @@
  * `authenticate` is the user name and stays allowed.
  */
 
-import {
-	credentialKeyHoldsSecret,
-	functionRegions,
-	isValueLiteral,
-} from './function-values';
-import { isHarmlessLiteral } from './literals';
+import { credentialKeyHoldsSecret, functionRegions } from './function-values';
+import { valueRoles } from './literal-roles';
+import { isHarmlessLiteral, looksLikeCredential } from './literals';
+import { passesAsCompared } from './operands';
 
 const CALL = /(?<![\w$])((?:[A-Za-z_$][\w$]*\??\.)*[A-Za-z_$][\w$]*)\s*\(/g;
 const KEYWORDS = (
@@ -37,6 +35,10 @@ const KEYWORDS = (
 	'decrypt scrypt pbkdf2 argon bcrypt login auth authenticate'
 ).split(' ');
 const SUFFIX = /^(?:\d+|iv|sync|ed|er|ing|s)?$/;
+/** Callees that encode their argument (base64, bytes): a literal credential in one still refuses. */
+const ENCODERS = new Set(
+	'btoa encode toBase64 base64Encode b64 encodeBase64'.split(' '),
+);
 const USER_FIRST = new Set(['login', 'signIn', 'authenticate']);
 const SETTERS = new Set(['set', 'append', 'header', 'setHeader', 'cookie']);
 /** An identifier naming a credential header: `GATEWAY_SECRET_HEADER`, `authHeader`. */
@@ -58,7 +60,7 @@ const parts = (name: string): string[] =>
 /** Whether a callee path names a credential call. */
 export function isCredentialCallee(path: string): boolean {
 	const name = path.split('.').pop() ?? '';
-	if (name === 'btoa' || name === 'encode') return true;
+	if (ENCODERS.has(name)) return true;
 	if (/(?:^|\.)Buffer\.from$/.test(path)) return true;
 	return parts(name).some((part) =>
 		KEYWORDS.some(
@@ -139,26 +141,17 @@ interface Position {
 	readonly encoder?: boolean;
 }
 
-/** What an encoder's literal must look like to refuse: `user:pass`, a secret word, key material. */
-const looksLikeCredential = (text: string): boolean =>
-	/^[^\s:]+:\S+$/.test(text) ||
-	/secret|passw|pwd|token|key|auth/i.test(text) ||
-	(!/\s/.test(text) && /\d/.test(text) && /[A-Za-z]/.test(text));
-
 /** A quoted literal in `arg` that is a secret. */
 function hasSecretIn(arg: string, position: Position): boolean {
 	const regions = functionRegions(arg);
+	const roles =
+		regions.length > 0 ? valueRoles(arg, isCredentialCallee) : undefined;
 	for (const match of arg.matchAll(QUOTED)) {
-		const end = match.index + match[0].length;
 		const inFunction = regions.some(
 			([a, b]) => match.index > a && match.index < b,
 		);
-		if (
-			inFunction &&
-			!isValueLiteral(arg, match.index, end, isCredentialCallee)
-		) {
-			continue; // a key inside a function value: `c.req.header('x-gateway')`
-		}
+		const role = inFunction ? roles?.get(match.index) : undefined;
+		if (inFunction && !role) continue; // a key inside a function value: `c.req.header('x-gateway')`
 		const key = KEY_BEFORE.exec(arg.slice(0, match.index))?.[1];
 		if (key && NAMING_KEYS.has(key)) continue;
 		const message = key !== undefined && MESSAGE_KEYS.has(key);
@@ -170,6 +163,7 @@ function hasSecretIn(arg: string, position: Position): boolean {
 		};
 		const literal = match[2] ?? '';
 		if (isHarmlessLiteral(literal, context)) continue;
+		if (role && passesAsCompared(role, literal)) continue;
 		if (!position.encoder || looksLikeCredential(literal)) return true;
 	}
 	return false;
@@ -187,7 +181,7 @@ function positionsOf(name: string, args: string[]): Position[] {
 	const callee = parts(name);
 	const firstIsCode = literalOf(args[0] ?? '') === undefined;
 	const keyCall = hasPart(callee, KEY_PARTS);
-	const encoder = name === 'encode' || name === 'from';
+	const encoder = ENCODERS.has(name) || name === 'from';
 	return args.map((_, index) => ({
 		strict: false,
 		encoder,

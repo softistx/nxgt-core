@@ -31,7 +31,9 @@ export function isLabelMessage(
 	value: string,
 ): boolean {
 	if (ERROR_CLASS.test(name) && !operator.includes('=')) {
-		return ERROR_MESSAGE.test(value) && !isKeyMaterial(value);
+		// Up to the quote that closes the JSON string, if any.
+		const message = value.replace(/["'`].*$/s, '').replace(/[\s}\]),;]+$/, '');
+		return ERROR_MESSAGE.test(message) && !isKeyMaterial(message);
 	}
 	if (STATUS_PHRASE.test(value)) return true;
 	return (
@@ -94,7 +96,7 @@ function flowSequenceHoldsSecret(value: string): boolean {
 }
 
 const ENCODER =
-	/(?:\bencode|\bBuffer\.from|\bbtoa)\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/;
+	/(?:\b(?:encode|toBase64|base64Encode|b64|encodeBase64)|\bBuffer\.from|\bbtoa)\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/;
 const KEY_LITERAL = { inHeader: false, message: false, keyPosition: true };
 
 /** True when `value` hands an encoder a literal that is not plainly harmless. */
