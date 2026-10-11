@@ -10,7 +10,7 @@ depend on. Until 2026-09-06 each monorepo carried its own copy under
 `shared` by ~260. This repository is the single copy, published to the public
 npm registry.
 
-"The consumer monorepo" is this file's name for the one private repository, beside `nxgt-federation`, that consumes these packages. No private application name appears anywhere in this repository (owner, 2026-10-11): use generic wording such as "the consumer monorepo".
+"The consumer monorepo" is this file's name for the one private repository, beside `nxgt-federation`, that consumes these packages. No private application name appears anywhere in this repository, nor an internal name for the set of applications ("the parc", "the estate") (owner, 2026-10-11): use generic wording such as "the consumer monorepo" or "the applications that use these packages". Repository names under `nxgt-*` are fine.
 
 It holds thirteen packages: the nine extracted from the consumer monorepo, the two
 that existed only in `nxgt-federation` — `shared-events`, `shared-graphql` —
@@ -330,7 +330,7 @@ any of it.
 
 `nxgt-material` and `stx-sdk` use `runs-on: self-hosted` because they are
 private and minutes are metered. This repository is public, so GitHub-hosted
-minutes are free — and the estate's single self-hosted runner is a VPS that is
+minutes are free — and the single self-hosted runner is a VPS that is
 not always online. CI here sat queued for an hour behind it before the switch.
 Do not copy `self-hosted` in from a sibling repo.
 
@@ -890,7 +890,8 @@ Established here, and applying to all four repositories:
   read by someone who has never seen this repository and does not know the
   private applications that consume it. Organize by section, each with a
   concise copy-paste example; never name a private app, a private monorepo,
-  or "the parc" there — those names do not belong here either: see the rule on private names above. The long version
+  or an internal name for the set of applications there (see the rule on
+  private names above). The long version
   is the package's `docs/` folder, named in `files` — `env`, `i18n-vue`, `shared-graphql` and `shared-hono` have one;
   the `nxgt-docs` agents write it: guide pages with the
   detail and an example for each point, `troubleshooting.md` headed by the

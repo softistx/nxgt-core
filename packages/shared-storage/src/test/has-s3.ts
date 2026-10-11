@@ -1,5 +1,5 @@
 /**
- * These suites talk to a real S3 — MinIO in the estate — and there is no
+ * These suites talk to a real S3 — MinIO in the local stack — and there is no
  * usable fake: the point of them is the wire behaviour of `Bun.s3`.
  *
  * So they run where an S3 is configured and are skipped where it is not,

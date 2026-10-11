@@ -3,6 +3,7 @@
 '@nxgt/shared-mongo': patch
 '@nxgt/shared': patch
 '@nxgt/shared-graphql': patch
+'@nxgt/security': patch
 ---
 
-The README and source comments name the consumer repositories generically. No code change in this entry. Through `@nxgt/shared-logging` 2.0.0, the audit and migration loggers of `@nxgt/shared-mongo` now print `[app]` by default instead of a private application's name.
+The README, the published type declarations and the source comments name the consumer repositories and applications generically. No code change in this entry.

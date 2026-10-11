@@ -44,8 +44,8 @@ Not for a spec-only change, a private helper, or a comment.
 | how a *consumer* works | the consumer repo's `AGENTS.md`, in the consumer PR |
 | a rule a future package must follow | the relevant skill |
 
-Estate-specific names (`oauth-ui`, `kratos-ui`, a monorepo, "the parc")
-belong in `AGENTS.md`. They do **not** belong on the npm page, nor in `docs/`.
+Application-specific names (`oauth-ui`, `kratos-ui`, a monorepo) are
+not written in this public repository at all, and do **not** belong on the npm page, nor in `docs/`.
 
 ## README shape
 
@@ -72,7 +72,7 @@ this order:
 Rules that decide tone:
 
 - **The reader does not work here.** Never name a private application, a
-  private monorepo, or "the parc" / "the estate" on the README. Write "an
+  private monorepo, or an internal name for the set of applications on the README. Write "an
   SSR app" not `kratos-ui`; write "the consumer" not the name of a consumer repository.
 - **Examples are the documentation.** Prefer 15 lines of working code over
   40 lines of prose.

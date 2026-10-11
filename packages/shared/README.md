@@ -38,7 +38,7 @@ gateway's `X-User-*` headers describe them — `id`, `username`, `authorities`.
 describes them — `sub`, `uid`, `scope`, `roles`.
 
 They are different sets of fields from different sources, and both are in
-production: one consumer's services read the first, federation's the second. Do not
+production: a consumer that pages by offset reads the first, federation's the second. Do not
 "unify" them. A class that reads more than `name` says which one it means
 through a type parameter (`MongoCrudService<…, TokenPrincipal>`).
 

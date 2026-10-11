@@ -123,9 +123,10 @@ A change under `plugins/` is reviewed too:
 - A plugin whose content changed with no `version` bump in its
   `.claude-plugin/plugin.json`; a new plugin missing from
   `.claude-plugin/marketplace.json`.
-- Report any private application name or private repository name as a finding
-  (owner, 2026-10-11): this repository is public, and the wording is "the
-  consumer monorepo". A secret, a token, a local absolute path or a production
+- Report any private application name, or an internal name for the set of
+  applications ("the parc", "the estate"), as a finding (owner, 2026-10-11):
+  this repository is public, and the wording is "the consumer monorepo". The
+  `nxgt-*` repository names are fine. A secret, a token, a local absolute path or a production
   host is a finding too.
 - The `CLAUDE.md` plugin table out of step with `plugins/`.
 
@@ -237,5 +238,5 @@ From the table in `AGENTS.md`:
   never `changeset publish` or `npm publish`.
 - A fix here is a release before it is a consumer PR. A consumer PR opened
   before the version answers on `registry.npmjs.org` is not reviewable.
-- `CHANGELOG.md` is generated; a hand edit is a finding.
+- `CHANGELOG.md` is generated; a hand edit is a finding, except a line rewritten to remove a private application name.
 - Commit types: `feat`, `fix`, `update`, `chore`, `docs`, `typo`, and `ci` for the workflows and the setup action.

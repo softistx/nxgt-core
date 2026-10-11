@@ -84,7 +84,7 @@ and private helpers are out of scope — say so and stop.
 4. The errors the package throws (`grep -rn "throw new" src`), to check
    `docs/troubleshooting.md` against them.
 5. `AGENTS.md` only if the change is a trap that already cost more than an
-   hour — that file, not the README, is where estate-specific names live.
+   hour — that file, not the README, is where repository-specific detail lives.
 
 ## Gaps to report
 
@@ -94,7 +94,7 @@ and private helpers are out of scope — say so and stop.
 | public export a consumer will import, unnamed | bug |
 | required peer or shipped asset (`files` outside `dist`) unnamed | bug |
 | trap that fails at import, install, or first call, unnamed | bug |
-| private application, private monorepo, "the parc", or "the estate" named on the README | bug |
+| private application, private monorepo, an internal name for the set of applications named on the README | bug |
 | heading names the wrong package | bug |
 | usage section with no copy-paste example | bug |
 | example importing something the subpath does not export | bug |

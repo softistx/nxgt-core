@@ -207,7 +207,7 @@
   not have; it now falls back to `sub`, then `clientId`.
   
   Consumers: an Ory-native app that reads `claims.exp` gets a number where it got
-  a string. Nothing in the parc did. A GraphQL app can switch its `getClaims` from
+  a string. No application that used it did. A GraphQL app can switch its `getClaims` from
   `context.user` to `context.claims` to gain the four claims it was missing.
 
 ### Patch Changes

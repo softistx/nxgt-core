@@ -9,8 +9,7 @@ import { mongoose } from '../mongoose';
  * the consumer monorepo, and one shell export was enough to point a whole
  * suite at a real database and empty it — which is how a real database was
  * lost once. Bun gives the process environment precedence over `--env-file`,
- * so `MONGODB_URI` set in
- * a shell silently beats `.env.test` — and the centralized env layout makes a
+ * so `MONGODB_URI` set in a shell silently beats `.env.test` — and the centralized env layout makes a
  * forgotten `--env-file=.env.test` resolve to the production URI just as
  * quietly.
  *

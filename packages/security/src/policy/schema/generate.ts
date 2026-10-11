@@ -7,7 +7,7 @@ import { RulesSchema } from '../rules.schema';
  * checked in so editors get YAML autocompletion without running anything.
  *
  * It lives at the package root, and in `files`, so that it **ships**. Every
- * rules file in the parc opens with a `# yaml-language-server: $schema=`
+ * rules file of the applications that use this package opens with a `# yaml-language-server: $schema=`
  * pragma, and a consumer can only point that at a path it actually has:
  * `node_modules/@nxgt/security/schema/rules.schema.json`. When this package
  * lived inside the consuming monorepo the pragmas pointed at its source tree;

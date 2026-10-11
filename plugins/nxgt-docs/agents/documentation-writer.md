@@ -30,7 +30,7 @@ link them from the index and the README.
 Someone who has never seen this repository, found the package on npmjs, and
 wants to use it in the next ten minutes. They do not know the private
 applications that consume it. **Never name one** — nor a private monorepo,
-nor "the parc" or "the estate". Write "an SSR app", "the consumer".
+nor an internal name for the set of applications. Write "an SSR app", "the consumer".
 
 ## Gather before writing
 

@@ -2,8 +2,8 @@
  * Framework-agnostic claims object passed to every policy evaluator — the
  * only thing a rule ever sees about the caller.
  *
- * The vocabulary is **Kratos/OIDC first**. That is not cosmetic: the parc's
- * identity core is Ory (Kratos for people, Hydra for clients, Keto for what
+ * The vocabulary is **Kratos/OIDC first**. That is not cosmetic: the identity core of the applications that use this
+ * package is Ory (Kratos for people, Hydra for clients, Keto for what
  * they may do), and `sub`, `email`, `email_verified`, `aal`, `aud`, `scope`,
  * `iss` and `exp` are all registered or Ory-defined names with settled
  * meanings. A rule written against them reads the same on every transport and
@@ -113,7 +113,7 @@ export interface PolicyClaims {
 	/** @deprecated oauth-api vocabulary. Unioned with `authorities`. */
 	roles?: string[];
 
-	/** @deprecated oauth-api vocabulary. Read by nothing in the parc. */
+	/** @deprecated oauth-api vocabulary. Read by no application that uses this package. */
 	permissions?: string[];
 
 	/** @deprecated oauth-api vocabulary. A duplicate of `sub`. */
@@ -123,8 +123,8 @@ export interface PolicyClaims {
 	 * The full user profile some oauth-api tokens carry.
 	 *
 	 * @deprecated oauth-api vocabulary. `unknown`, not `any`: it used to
-	 * disable type checking on everything reached through it, and nothing in
-	 * the parc reads it.
+	 * disable type checking on everything reached through it, and no application
+	 * that uses this package reads it.
 	 */
 	user?: unknown;
 
