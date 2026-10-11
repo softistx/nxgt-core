@@ -122,6 +122,7 @@ describe('refreshRepo', () => {
 				title: 'widget bug',
 				upstream: 'softistx/nxgt-vexora#12',
 				packageName: '@nxgt/vexora',
+				tracksUpstream: 'softistx/nxgt-vexora#12',
 				upstreamState: 'CLOSED',
 				upstreamLabels: ['released'],
 				lastComment: 'Fixed in @nxgt/vexora@1.2.3',

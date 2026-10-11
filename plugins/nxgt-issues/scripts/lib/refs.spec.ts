@@ -4,6 +4,7 @@ import {
 	formatIssueRef,
 	parseIssueRef,
 	trackedPackage,
+	trackedUpstream,
 	upstreamMarker,
 	upstreamRef,
 } from './refs';
@@ -138,5 +139,14 @@ describe('trackedPackage', () => {
 		expect(trackedPackage('nothing')).toBeUndefined();
 		expect(trackedPackage('Tracks a/b#1 (`two words`).')).toBeUndefined();
 		expect(trackedPackage('see Tracks a/b#1 (`quillon`).')).toBeUndefined();
+	});
+});
+
+describe('trackedUpstream', () => {
+	test('reads the o/r#n of the Tracks line', () => {
+		expect(trackedUpstream('Tracks acme/zorblax#7 (`zorblax`).')).toBe(
+			'acme/zorblax#7',
+		);
+		expect(trackedUpstream('nothing')).toBeUndefined();
 	});
 });

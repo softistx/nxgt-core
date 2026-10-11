@@ -52,6 +52,26 @@ describe('markers', () => {
 		expect(h.runner.fetches).toEqual([]);
 	});
 
+	test('two entries for one name and number: the one whose Tracks line agrees with its hidden marker wins', async () => {
+		const h = seeded(
+			{ run: [grep('src/w.ts:4:// Temporary, until @acme/zorblax#7\n')] },
+			[
+				tracking(41, 'softistx/zorblax-edited#7', {
+					packageName: '@acme/zorblax',
+					tracksUpstream: 'softistx/zorblax-old#7',
+				}),
+				tracking(42, 'softistx/zorblax-old#7', {
+					packageName: '@acme/zorblax',
+					tracksUpstream: 'softistx/zorblax-old#7',
+					lastComment: 'Fixed in @acme/zorblax@2.0.1 (#9).',
+					lastCommentBy: 'OWNER',
+				}),
+			],
+		);
+		expect(await run(h)).toBe(EXIT.flagged);
+		expect(h.out[0]).toContain('tracking #42');
+	});
+
 	test('the name is matched with the number: another package with the same number does not match', async () => {
 		const h = seeded(
 			{

@@ -15,6 +15,8 @@ export interface TrackingIssue {
 	readonly upstream: string;
 	/** The package the body's `Tracks o/r#n (\`pkg\`).` line names; a marker for it matches here even after the package moved repositories. */
 	readonly packageName?: string;
+	/** The `o/r#n` that `Tracks` line names; it equals `upstream` unless the body was edited. */
+	readonly tracksUpstream?: string;
 	readonly upstreamState?: 'OPEN' | 'CLOSED';
 	readonly upstreamLabels?: readonly string[];
 	/** GitHub could not read the upstream issue (any error but NOT_FOUND): neither ready nor known to be missing. */

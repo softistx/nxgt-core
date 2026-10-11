@@ -62,12 +62,17 @@ export function trackedByName(
 ): { repo: string; upstream: string } | undefined {
 	if (marker.target.kind !== 'package') return undefined;
 	const name = marker.target.name;
-	const found = snapshot.tracking.find(
+	const matches = snapshot.tracking.filter(
 		(t) =>
 			t.packageName !== undefined &&
 			same(t.packageName, name) &&
 			t.upstream.endsWith(`#${marker.number}`),
 	);
+	// Two entries: the one whose `Tracks` line agrees with its hidden marker.
+	const found =
+		matches.find(
+			(t) => t.tracksUpstream && same(t.tracksUpstream, t.upstream),
+		) ?? matches[0];
 	return found
 		? {
 				repo: found.upstream.slice(0, found.upstream.lastIndexOf('#')),
