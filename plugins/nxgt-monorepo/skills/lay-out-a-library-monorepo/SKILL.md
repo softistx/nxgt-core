@@ -7,7 +7,7 @@ description: >-
   from nxgt-data, which ones each repository owns, and the shape of one
   package. Use when creating such a repository, adding a package to one,
   touching a root config file, or checking that a repository still follows the
-  pattern. Not for a product repository (nxgt-product) nor for a package in
+  pattern. Not for a product repository (product-repo@softistx-plugins) nor for a package in
   nxgt-core itself (nxgt-package).
 ---
 
