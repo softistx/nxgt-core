@@ -128,6 +128,56 @@ A change under `plugins/` is reviewed too:
   host is not.
 - The `CLAUDE.md` plugin table out of step with `plugins/`.
 
+## `nxgt-issues`
+
+A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
+
+- **The scrub runs on the rendered text before any public filing.** `file` and
+  `deps --file` render the body, title and comments, then `scrub()` the result
+  and refuse on a hit; a new template or field that reaches GitHub without
+  passing through it is a finding. Filings stay anonymous: no application name
+  in a package issue or comment, names only in the private tracking issue.
+- **No network outside `scripts/lib/runner.ts`.** No `Bun.spawn`, Bun Shell (`$` templates) or
+  `fetch(` anywhere else in `lib/`, in `scripts/hooks/*.ts` or in a
+  `*.fixtures.ts` (`no-network.spec.ts` enforces it; a fixture imports only
+  `type Runner`); entry files alone build the real runner, and specs use the
+  scripted fake. The runner leads its own process group per call and kills the
+  group at the timeout or on `signal`, so even a grandchild holding the pipes
+  is bounded and no `gh` outlives the hook; a call it cut is `timedOut`, which
+  `gh()` raises as `GhTimeout`: in the hook's inline refresh a timeout, never a failed stamp.
+- **One exit-code mapping.** A command's error goes through `exitForError`
+  (`filing.ts`), with its message on stderr; `NXGT_ISSUES_DISABLE` exits 2, so
+  `markers` exit 1 only ever means flagged or usage. A GraphQL answer with
+  errors is never cached as a full snapshot and an unreadable alias is never
+  read as "not found" (`graphql-partial.ts` is the one transport). Label names
+  are lower-cased where parsed and compared through `hasLabel` and the
+  `LABELS` keys, never a bare literal.
+- **Text from GitHub is untrusted.** Titles, labels, comments, logins and
+  bodies reach Claude's context only through `oneLine` (`untrusted.ts`: one
+  line of code points, control, format, private-use, surrogate, unassigned,
+  default-ignorable, Hangul filler, U+2800 and angle-bracket characters
+  stripped, from the one list in `hidden-chars.ts`) under the
+  untrusted-data header; `--json` outputs go through `cleanJson`. A new CLI
+  `ctx.out` that interpolates GitHub or registry data without them is a
+  finding. A skill never interpolates `$ARGUMENTS` or issue text into a shell
+  line.
+- **A skill pre-approves only reads.** `allowed-tools` lists the exact read
+  subcommand and `<command> *` (`ready`, `dashboard`, `markers`, `resolve`,
+  `sessions`, `release-plan`), never `issues.ts *` nor a `cmd*` prefix;
+  `file`, `track`, `deps` and `released` (alias `--dry-run` included) keep
+  their permission prompt, and every subcommand refuses an unknown flag.
+- **The deny-list refuses rather than shrinks.** An empty private list, an
+  owner that drops to 0 against the cache, a stale copy older than 7 days, an
+  unexpandable workspace pattern or a missing git root refuses with
+  `DenyListIncomplete`; the token's organisations and
+  `NXGT_ISSUES_DENY_OWNERS` are deny owners, never filing owners.
+  `NXGT_ISSUES_DENY_SKIP_ORGS` is the one deliberate shrink.
+- **Both release copies kept in step** (see "Deliberate" below for what may
+  differ): a change to the "Fixed in" comment or its hidden marker, the
+  discovery rules, the label, close, comment order, or the idempotency rule is
+  made in the script files and the lib files alike, with a spec on each side.
+- The hook fails open (exit 0; a failed refresh prints nothing, and only a failure of its own shell, such as stdin that is not JSON, prints one `systemMessage`), and makes no gh call for a foreign owner.
+
 ## Deliberate — do not report
 
 From the table in `AGENTS.md`:
@@ -140,8 +190,25 @@ From the table in `AGENTS.md`:
   `ci.yml` — nxgt-data's copy plus `UNINSTALLED`, not shared.
 - `scripts/seaweedfs.ts` and its spec, with the "Start SeaweedFS" steps in
   `ci.yml` — nxgt-data's copy, not shared.
-- `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs}/scripts/lib/hook.ts`
+- `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs,nxgt-issues}/scripts/lib/hook.ts`
   — the hook shell copied in each plugin, since each installs on its own.
+- `plugins/nxgt-issues/scripts/lib/crew-registry.ts` — a read-only copy of
+  nxgt-crew's `store.ts`, `record.ts`, `settings.ts`, `liveness.ts` and
+  `system.ts` (reader, record check, knobs, liveness, pid probe); its record
+  check is looser on purpose.
+- The release side of `nxgt-issues`, written twice on purpose:
+  `plugins/nxgt-issues/scripts/release/close-released-issues.ts`,
+  `close-released-issues-lib.ts`, `close-released-issues-git.ts` and the spec
+  (copied byte for byte into each library repository, so standalone: only `gh`,
+  nothing imported from the plugin) against `scripts/lib/release*.ts` (what
+  `issues.ts released` runs through the plugin's runner). Their different
+  behaviour is deliberate, as the `AGENTS.md` row states: the script reads the
+  CHANGELOG and ranges the log up to `HEAD` (CI's release commit) and handles
+  all published packages together; the lib reads the tag, which must exist
+  locally, one package per call, and also builds the notify list. The keyword
+  stripping, the changeset frontmatter parser and the `## Versions` parser are
+  copies of one rule. Report a change made to one side and not the other, not
+  the two sides differing.
 - `LICENSE` at the root and in every `packages/*/`.
 - `stx-sdk` as a peer of `shared-hono` and `shared-graphql`, and a root
   devDependency.

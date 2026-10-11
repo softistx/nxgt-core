@@ -48,6 +48,10 @@
 		{
 			"name": "nxgt-ui-docs",
 			"source": "./plugins/nxgt-ui-docs"
+		},
+		{
+			"name": "nxgt-issues",
+			"source": "./plugins/nxgt-issues"
 		}
 	]
 }

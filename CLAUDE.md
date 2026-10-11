@@ -23,7 +23,7 @@ included — consumes them by enabling the plugin in its own committed
 | plugin | skills |
 | --- | --- |
 | `nxgt-workflow` | `large-feature-branch-workflow`, `write-a-repo-script` |
-| `nxgt-package` | `create-a-package`, `release-a-package-change` |
+| `nxgt-package` | `create-a-package`, `release-a-package-change` (with the nxgt-issues release steps: `Fixes #n`, `issues.ts released`, notify the app sessions) |
 | `ory-app` (moved to `softistx/plugins`, marketplace `softistx-plugins`; formerly `nxgt-ory-app` here) | `create-ory-native-rest-api`, `create-ory-native-graphql-api`, `create-ory-native-ui`, `admin-screen-pattern` — enable `ory-app@softistx-plugins` |
 | `nxgt-docs` | `keep-docs-current`; agents `documentation-writer`, `troubleshooting-writer`, `roadmap-keeper`, `documentation-auditor` |
 | `nxgt-ui-docs` | `document-a-component-library`; agents `component-docs-writer`, `ui-docs-auditor` — the twelve-category taxonomy, WebP previews and forms guide shared by `@nxgt/material` and `@nxgt/material-vue` |
@@ -31,11 +31,12 @@ included — consumes them by enabling the plugin in its own committed
 | `bun-api` (moved to `softistx/plugins`, marketplace `softistx-plugins`; formerly `nxgt-api` here) | `build-a-bun-hono-api`, `build-a-graphql-yoga-api`, `handle-a-file-upload` — enable `bun-api@softistx-plugins` |
 | `nxgt-compose` | `compose-a-stack`, with a `references/<repo>.md` per repository |
 | `product-repo` (moved to `softistx/plugins`, marketplace `softistx-plugins`; formerly `nxgt-product` here) | `lay-out-a-product-repository`, `extract-a-product-from-a-monorepo` — enable `product-repo@softistx-plugins` |
-| `nxgt-autonomy` | `work-autonomously`, `plan-the-roadmap`; agents `work-queue-auditor`, `improvement-scout`, `green-bar-verifier`; a `SessionStart` hook that makes autonomy the default mode of every session in a git repository (`NXGT_AUTONOMY_DISABLE=1` opts out) — see its README |
+| `nxgt-autonomy` | `work-autonomously`, `plan-the-roadmap`; agents `work-queue-auditor`, `improvement-scout`, `green-bar-verifier` (the auditor and `queue-refiller` also reconcile the owner's upstream issues with the queue when nxgt-issues is installed); a `SessionStart` hook that makes autonomy the default mode of every session in a git repository (`NXGT_AUTONOMY_DISABLE=1` opts out) — see its README |
 | `nxgt-economy` | no skills; a `SessionStart` hook that puts the token-economy rule in context, and a `PreToolUse` hook on `Agent` that reminds the session to pass a `model` (`NXGT_ECONOMY_DISABLE=1` opts out) — see its README |
 | `nxgt-monorepo` | `lay-out-a-library-monorepo` — the skeleton nxgt-data, nxgt-http, nxgt-telemetry and nxgt-janus share |
-| `nxgt-base` | none — a bundle whose `dependencies` are `nxgt-monorepo`, `nxgt-review`, `nxgt-docs`, `nxgt-autonomy` and `nxgt-economy`; `claude plugin install nxgt-base@nxgt-core --scope user` makes all five active in every project |
+| `nxgt-base` | none — a bundle whose `dependencies` are `nxgt-monorepo`, `nxgt-review`, `nxgt-docs`, `nxgt-autonomy`, `nxgt-economy` and `nxgt-issues`; `claude plugin install nxgt-base@nxgt-core --scope user` makes all six active in every project |
 | `nxgt-crew` | `crew`; agent `session-coordinator`; hooks that keep a registry of live sessions and block an edit to a file another session holds, or a checkout, reset or worktree removal where it works — see its README |
+| `nxgt-issues` | `report-to-upstream`, `adopt-a-released-fix`, `fix-a-reported-issue`, `issues` (`/issues`); a `SessionStart` hook — closes the loop between an application and the packages it consumes: anonymous deduplicated issues filed upstream and a private tracking issue per report; a session-start digest of open issues and of released fixes ready to adopt, and the adoption flow (`issues.ts ready`, `markers`), the `/issues` dashboard across the owner's repositories, and the release side (`issues.ts released`, the canonical `scripts/release/close-released-issues.ts` and its lib each library repository copies) — see its README (part of `nxgt-base`) |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
 frontmatter, which is what decides when it fires, and `claude plugin details

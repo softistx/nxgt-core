@@ -1,0 +1,129 @@
+import { describe, expect, test } from 'bun:test';
+import { scrub } from './scrub';
+
+const refused = (text: string) => scrub(text, {}).refused;
+const passes = (text: string) =>
+	expect({ text, secrets: scrub(text, {}).secrets }).toEqual({
+		text,
+		secrets: [],
+	});
+
+describe('a name that only starts or contains a credential word is not a credential', () => {
+	test.each([
+		"if (session.tokenType === 'refresh_token') {}",
+		"if (data.token_type !== 'Bearer') {}",
+		"if (body.token_type === 'bearer') {}",
+		"if (tokenType === 'access') {}",
+		"if (keyType === 'rsa') {}",
+		"if (secretType === 'opaque') {}",
+		"if (passwordStrength === 'weak') {}",
+		"if (passwordPolicy === 'strict') {}",
+		"if (secretManager === 'vault') {}",
+		"if (tokenSource === 'cookie') {}",
+		"if (tokenLocation === 'header') {}",
+		"if (tokenEndpointAuthMethod === 'client_secret_post') {}",
+		"if (sortKey === 'createdAt') {}",
+		"if (primaryKey === 'id') {}",
+		"if (storageKey === 'theme') {}",
+		"if (cacheKey === 'v2') {}",
+		"if (lexer.token === 'EOF') {}",
+		"if ('weak' === passwordStrength) {}",
+	])('%p passes', passes);
+
+	test.each([
+		"if (req.body.password === 'swordfish') {}",
+		"if (userPassword === 'swordfish') {}",
+		"if (c.req.header('x-api-key') !== 'acoolproject') {}",
+		"if (config.apiKey === 'acoolproject') {}",
+		"if (signingKey === 'acoolproject') {}",
+		"if (secretKey !== 'acoolproject') {}",
+		"if (privateKey === 'acoolproject') {}",
+		"if (token === 'acoolproject') {}",
+		"if ('acoolproject' === password) {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});
+
+describe('a predicate named isSecret compares field types', () => {
+	test.each([
+		"const isSecret = (field) => field.type === 'password'",
+		'function isPasswordField(f) { return f.type === "password"; }',
+		"const isTokenField = (f) => f.kind === 'token'",
+	])('%p passes', passes);
+
+	test.each([
+		"const isSecret = (input) => input === 'swordfish1'",
+		"const isPasswordField = (f) => f.password === 'swordfish'",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});
+
+describe('the all-caps exemption is for lexer tokens only', () => {
+	test.each(["if (lexer.token === 'EOF') {}", "if (tok.token === 'IDENT') {}"])(
+		'%p passes',
+		passes,
+	);
+
+	test.each([
+		"if (c.req.header('x-api-key') !== 'SUPERSECRETKEY') {}",
+		"if (apiKey === 'ABCDEFGHIJKLMNOP') {}",
+		"if (process.env.ADMIN_TOKEN !== 'LETMEIN') {}",
+		"if (password === 'SWORDFISH') {}",
+		"if (token === 'SWORDFISH') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});
+
+describe('bracket reads and method calls keep a credential operand', () => {
+	test.each([
+		"if (req.headers['x-api-key'] === 'liveKey123abc') {}",
+		'if (req.headers["authorization"] === "liveKey123abc") {}',
+		"if (password.trim() === 'hunter2xyz') {}",
+		"if (req.body.password?.trim() === 'hunter2xyz') {}",
+		"if (c.req.header('x-api-key')?.trim() === 'liveKey123abc') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		"if (req.headers['content-type'] === 'application/json') {}",
+		"if (name.trim() === 'admin') {}",
+	])('%p passes', passes);
+});
+
+describe('method calls with arguments and the token exemption', () => {
+	test.each([
+		"if (req.headers.authorization.split(' ')[1] === 'devtoken') {}",
+		"if (password.slice(0) === 'swordfish') {}",
+		"if (body.password.slice(0, 64) === 'swordfish') {}",
+		"if (config.apiToken === 'SWORDFISHSWORDFISH') {}",
+		"if (req.query.token === 'LETMEIN') {}",
+		"if (this.token === 'SWORDFISH') {}",
+		"if (ctx.params.token === 'LETMEIN') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		"if (lexer.token === 'EOF') {}",
+		"if (req.headers.authorization.split(' ')[0] !== 'Bearer') {}",
+		"if (name.slice(0, 3) === 'adm') {}",
+	])('%p passes', passes);
+});
+
+describe('a lone scheme word compared with authorization', () => {
+	test.each([
+		"if (authorization === 'Bearer') {}",
+		"if (req.headers.authorization !== 'Basic') {}",
+	])('%p passes', passes);
+
+	test.each([
+		"if (authorization === 'Bearer k3J9xQ2mZp7vR4tL') {}",
+		"if (authorization == 'Basic YWRtaW46aHVudGVyMg==') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});

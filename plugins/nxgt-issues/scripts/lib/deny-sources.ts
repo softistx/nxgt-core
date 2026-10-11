@@ -1,0 +1,192 @@
+/**
+ * Where a filing's deny-list comes from, gathered once per filing: the
+ * application's repository (`origin`; without one, the checkout's root folder
+ * and main checkout folder names), its package and workspace names, the
+ * working directory, every private repository of the default and configured
+ * owners (`gh repo
+ * list`, cached 24 h, the stale copy used when gh fails, and no filing at all
+ * when there is neither), `git config user.name` / `user.email`, the hostname,
+ * the home folder, and the application's own domains and extra terms from the
+ * configuration (see `readDenyConfig`). No domain configured and no explicit
+ * `"appDomains": []` in the repository's `.nxgt-issues.json` refuses the
+ * filing.
+ */
+
+import { readFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
+import type { CliContext } from './cli-context';
+import { buildDenyList, type DenyList } from './deny';
+import { unique } from './deny-terms';
+import {
+	DenyListIncomplete,
+	PRIVATE_REPOS_TTL_MS,
+	privateRepoNames,
+} from './private-repos';
+import { formatRepo, gitConfigPath, repoOfDirectory } from './repo-id';
+import { manifestsOf, repoRoot } from './workspaces';
+
+export { denyOwners } from './private-repos';
+export { DenyListIncomplete, PRIVATE_REPOS_TTL_MS, privateRepoNames };
+
+export interface DenyConfig {
+	/** The application's own domains, such as `api.example-app.io`. */
+	readonly appDomains: readonly string[];
+	/** Any other term that must never appear in a filing. */
+	readonly denyTerms: readonly string[];
+}
+
+const list = (value: unknown): string[] =>
+	Array.isArray(value)
+		? value.filter((v): v is string => typeof v === 'string')
+		: [];
+
+function readConfigFile(path: string): DenyConfig {
+	try {
+		const data = JSON.parse(readFileSync(path, 'utf8')) as Record<
+			string,
+			unknown
+		>;
+		return {
+			appDomains: list(data['appDomains']),
+			denyTerms: list(data['denyTerms']),
+		};
+	} catch {
+		return { appDomains: [], denyTerms: [] };
+	}
+}
+
+const csv = (value: string | undefined): string[] =>
+	(value ?? '')
+		.split(',')
+		.map((part) => part.trim())
+		.filter(Boolean);
+
+/**
+ * The union of `NXGT_ISSUES_APP_DOMAINS` / `NXGT_ISSUES_DENY_TERMS`
+ * (comma-separated), `<nxgt-issues home>/config.json` (every application) and
+ * `<repository root>/.nxgt-issues.json` (this one), each file
+ * `{ "appDomains": [...], "denyTerms": [...] }`.
+ */
+export function readDenyConfig(ctx: CliContext, root?: string): DenyConfig {
+	const files = [
+		readConfigFile(join(ctx.home, 'config.json')),
+		...(root ? [readConfigFile(join(root, '.nxgt-issues.json'))] : []),
+	];
+	return {
+		appDomains: unique([
+			...csv(ctx.env['NXGT_ISSUES_APP_DOMAINS']),
+			...files.flatMap((f) => f.appDomains),
+		]),
+		denyTerms: unique([
+			...csv(ctx.env['NXGT_ISSUES_DENY_TERMS']),
+			...files.flatMap((f) => f.denyTerms),
+		]),
+	};
+}
+
+/** Whether `<root>/.nxgt-issues.json` says, with `"appDomains": []`, that the app has no domain. */
+export function declaresNoDomains(root: string | undefined): boolean {
+	if (!root) return false;
+	try {
+		const data = JSON.parse(
+			readFileSync(join(root, '.nxgt-issues.json'), 'utf8'),
+		);
+		const domains = (data as Record<string, unknown> | null)?.['appDomains'];
+		return Array.isArray(domains) && domains.length === 0;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * No configured domain and no explicit `appDomains: []` in the repository's
+ * file: the filing cannot be checked whole. Only an entry that looks like a
+ * host (it holds a dot) counts, so `none` or a bare word is no domain.
+ */
+function requireDomains(config: DenyConfig, root: string | undefined): void {
+	const hosts = config.appDomains.filter((domain) => /\w\.\w/.test(domain));
+	if (hosts.length > 0 || declaresNoDomains(root)) return;
+	throw new DenyListIncomplete(
+		'no application domain is configured; list them in .nxgt-issues.json at the repository root ({ "appDomains": ["example-app.com"] }), or write "appDomains": [] when the application has none',
+	);
+}
+
+/** `git config --get <key>`: exit 1 is unset; a spawn that throws or another code refuses. */
+async function gitConfig(ctx: CliContext, key: string) {
+	let result: Awaited<ReturnType<CliContext['runner']['run']>>;
+	try {
+		result = await ctx.runner.run(['git', 'config', '--get', key], {
+			cwd: ctx.cwd,
+		});
+	} catch (error) {
+		const why = error instanceof Error ? error.message : String(error);
+		throw new DenyListIncomplete(
+			`cannot read git config ${key} (${why.slice(0, 200)})`,
+		);
+	}
+	if (result.code === 0) return result.stdout.trim() || undefined;
+	if (result.code === 1) return undefined;
+	throw new DenyListIncomplete(
+		`git config ${key} failed (${result.code}): ${result.stderr.trim().slice(0, 200)}`,
+	);
+}
+
+const folderName = (path: string | undefined): string | undefined =>
+	path ? basename(path) || undefined : undefined;
+
+/**
+ * Without a GitHub origin the repository has no name to deny, so its folders
+ * stand in: the checkout root, and the folder holding the git common dir (the
+ * main checkout of a linked worktree).
+ */
+function folderTerms(cwd: string): string[] {
+	const config = gitConfigPath(cwd);
+	const common = config ? dirname(config) : undefined;
+	return [
+		folderName(repoRoot(cwd)),
+		folderName(common ? dirname(common) : undefined),
+	].filter((term): term is string => !!term);
+}
+
+/** The package names of the root and its workspaces; a pattern that cannot be expanded refuses. */
+function workspaceNames(root: string): string[] {
+	try {
+		return manifestsOf(root, { strict: true })
+			.map((m) => m.name)
+			.filter((n): n is string => !!n);
+	} catch (error) {
+		throw new DenyListIncomplete(
+			`${error instanceof Error ? error.message : String(error)}; the workspace package names cannot all be denied`,
+		);
+	}
+}
+
+/** The deny-list of one filing; throws `DenyListIncomplete` when it cannot be whole. */
+export async function filingDenyList(ctx: CliContext): Promise<DenyList> {
+	const root = repoRoot(ctx.cwd);
+	if (!root) {
+		throw new DenyListIncomplete(
+			'the working directory is not inside a git checkout, so the application cannot be named for the deny-list; run it from the application',
+		);
+	}
+	const app = repoOfDirectory(ctx.cwd);
+	const config = readDenyConfig(ctx, root);
+	requireDomains(config, root);
+	const built = buildDenyList({
+		appRepo: app ? formatRepo(app) : undefined,
+		appPackages: workspaceNames(root),
+		cwd: ctx.cwd,
+		privateRepos: await privateRepoNames(ctx),
+		gitName: await gitConfig(ctx, 'user.name'),
+		gitEmail: await gitConfig(ctx, 'user.email'),
+		hostname: ctx.hostname,
+		appDomains: config.appDomains,
+		home: ctx.homeDir,
+	});
+	const folders = app ? [] : folderTerms(ctx.cwd);
+	return Object.freeze({
+		terms: unique([...built.terms, ...config.denyTerms, ...folders]),
+		distinctive: built.distinctive,
+		stems: built.stems ?? [],
+	});
+}

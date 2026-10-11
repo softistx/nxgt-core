@@ -720,6 +720,22 @@ peers" job rewrites both root fields to `^7.0.0` and runs everything else on
 7, codegen's TS 7 branch included. Raising the root to 7 waits for `vue-tsc`
 to run on it.
 
+### The issues a release fixed are closed by a job of their own
+
+After `release` publishes, the `close-issues` job of `.github/workflows/release.yml`
+runs `scripts/close-released-issues.ts`: it comments on, labels `released` and
+closes the issues the published versions fix (nxgt-issues). It is a job of its
+own so that `issues: write` reaches that job alone (`contents: read` +
+`pull-requests: read` (the script runs `gh pr view` and `gh pr list`; a job-level
+block leaves unlisted scopes at none) + `issues: write`; the workflow level keeps `contents: write` and `pull-requests:
+write`), not the job that holds `NPM_TOKEN`. `needs: release`; the release job
+passes `published` and `published-packages` as job outputs; `if: ${{ !cancelled()
+&& needs.release.outputs.published == 'true' }}` runs it even when the release job
+failed after publishing; the step is `continue-on-error`, because the packages are
+on npm by then and a failure here must not turn the release red. Redo it by hand
+with `issues.ts released <package>@<version>` (nxgt-issues, from a checkout;
+idempotent).
+
 ## Releasing, and what it means for a consumer
 
 Changesets, independent versions. `bun changeset` describes a change; merging to
@@ -815,7 +831,10 @@ The following pairs exist on purpose:
 | --- | --- |
 | `scripts/newest-peers.ts` and its spec, with the "Newest peers" job in `ci.yml` | nxgt-data's copy (alxia's before it; nxgt-http and nxgt-telemetry have it too), not shared: each repository releases on its own. This copy adds `UNINSTALLED` and a spec for it; the other lines are byte for byte. Change every copy the reason applies to |
 | `scripts/seaweedfs.ts` and its spec, with the "Start SeaweedFS" steps in `ci.yml` | nxgt-data's copy, not shared (this repo's tsconfig forbids `process.env.WEED_BIN`, so those lines read `process.env['WEED_BIN']`; the rest is byte for byte): each repository releases on its own. It only fetches the `weed` binary (cached under `.cache/seaweedfs`, CI keys on this file's hash); nxgt-data's specs start a gateway per file, here CI starts one on 8333 for `shared-storage`. The workflow steps are this repository's own. Raise `SEAWEEDFS_VERSION` in every copy |
-| `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs}/scripts/lib/hook.ts` | the shell each plugin's hooks run in — read the event from stdin, run, print at most one JSON object, exit 0 whatever happens — copied, not shared: each plugin installs on its own and cannot import from another. The copies differ in what is plugin-specific (the event fields read, the opt-out variable, the failure message; nxgt-docs fails silent where the others print a `systemMessage`). Change every copy the reason applies to |
+| `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs,nxgt-issues}/scripts/lib/hook.ts` | the shell each plugin's hooks run in — read the event from stdin, run, print at most one JSON object, exit 0 whatever happens — copied, not shared: each plugin installs on its own and cannot import from another. The copies differ in what is plugin-specific (the event fields read, the opt-out variable, the failure message; nxgt-docs fails silent where the others print a `systemMessage`; nxgt-issues keeps `disabled` in the file, as nxgt-crew does, where nxgt-autonomy imports it from `mandate.ts`). Change every copy the reason applies to |
+| `plugins/nxgt-issues/scripts/lib/crew-registry.ts` and nxgt-crew's `store.ts`, `record.ts`, `settings.ts`, `liveness.ts`, `system.ts` | a minimal read-only copy of nxgt-crew's registry reader (`crewHome`, `readAll` from `store.ts`), its record check (`isRecord` from `record.ts`), its knobs (`NXGT_CREW_STALE_MINUTES` / `NXGT_CREW_IDLE_HOURS` from `settings.ts`), its liveness rule (`liveness.ts`) and its pid probe (`probePid` from `system.ts`), so `issues.ts sessions` names the live sessions that depend on a package without requiring nxgt-crew (owner decision: nxgt-crew stays out of nxgt-base). The record check is looser on purpose: it checks only the fields `sessions` reads, so a record nxgt-crew grows stays readable. It never writes and skips the Linux start-time check. A change to the registry's location, record shape or liveness rule in nxgt-crew must be followed here |
+| `plugins/nxgt-issues/scripts/release/close-released-issues.ts`, `close-released-issues-lib.ts`, `close-released-issues-git.ts` and the spec, copied byte for byte (all four) into each library repository's `scripts/` (nxgt-data, nxgt-http, nxgt-telemetry, nxgt-janus, nxgt-mail, … and nxgt-core's own at `scripts/`, which the `close-issues` job of `.github/workflows/release.yml` runs after the release job, through its output `published-packages`, hyphenated in `@v2`; `scripts/close-released-issues-copy.spec.ts` lists both folders by glob and fails when a copy differs by one byte or exists on one side only), and `plugins/nxgt-issues/scripts/lib/release.ts`, `release-prs.ts`, `release-pr-info.ts`, `release-git.ts`, `release-github.ts` and `release-command.ts` | the release step that comments, labels `released` and closes the issues a published version fixes. The script stands alone (only `gh`; the three files import each other by relative path and nothing from the plugin, since they are copied where the plugin does not exist), so it re-implements on purpose the discovery and per-issue logic the lib runs behind `issues.ts released` through the plugin's runner (the session fallback, which also builds the notification list the script cannot). Each has its own spec, and `lib/release-script-comment.spec.ts` runs the script's real "Fixed in" comment through `fixedComment` and `releaseFix`. The script is the canonical copy: change it here first, then every repository's copy; a change to the "Fixed in" comment or its hidden marker (`issue-body.ts` `fixedComment`, which `context.ts` `releaseFix` parses) must be followed in both. **Same rules in both:** label, close, then comment (the marker last); at most one "Fixed in" comment ever (any trusted fixed marker means done); a root package (`.`, tags `v1.2.3` or `name@1.2.3`); an integration PR of a reused `feat/*` branch that shipped before is dropped (`git merge-base --is-ancestor` against the previous tag, else older than the slice by `mergedAt`); a CHANGELOG-listed slice that did not touch the package still leads to its integration PR. **Differences kept on purpose:** the script reads the CHANGELOG and ranges the log up to `HEAD` (the release commit in CI), where the lib reads the tag and needs it locally; the script collects the issues of all published packages before posting and names the package the issue's `## Versions` section lists (else the lowest rank, else the first), where the lib handles one package per call; the script tells the packages from its own `packages/*` and root manifests, the lib from `manifestsOf`; the skip note's wording differs; the lib decides from `siblings` (the checkout's other manifests, the root left out unless the root is the released package) and `commitTouches`, the script from the published set plus the same touch check on each unpublished sibling; either skips an issue only when the sibling's run will surely handle it: the fix is rank 0 (the PR's own closing references name the issue), that PR touched the sibling's folder, it adds a `.changeset/*.md` naming the sibling (`git diff --diff-filter=A` and `git show` at the merge commit), and the sibling has an earlier tag in the clone (`hasTags`), so its run can read the first-parent log; when git cannot say it handles the issue. Both look up the integration PR of a CHANGELOG-listed slice that did not touch the package and read its own issues at rank 0 when that merge touched the package. Three smaller rules are copies of one rule each: the keyword stripping (`withoutQuoted` in `refs.ts`, `unquoted` in the lib file), the changeset frontmatter parser (`changesetNames`, again in the git file) and the `## Versions` parser (`versionNames` in `issue-body.ts`, again in the lib file; fenced blocks stripped) |
+| the `issues.ts` lookup (the `jq` over `installed_plugins.json`, honouring `CLAUDE_CONFIG_DIR`, falling back to the checkout's own `plugins/nxgt-issues/scripts/issues.ts`) in `plugins/nxgt-issues/README.md` ("The CLI"), `plugins/nxgt-autonomy/agents/queue-refiller.md`, `plugins/nxgt-autonomy/agents/work-queue-auditor.md` and `plugins/nxgt-package/skills/release-a-package-change/SKILL.md` | one lookup, written where the agent or skill that needs it reads it: a plugin cannot import from another, and a guess in the plugin cache finds old versions. The README holds the canonical text; change every copy together |
 | `paginate` (offset) and `paginateCursor` (Relay) | sellix pages by offset, federation by cursor; same name, incompatible signatures |
 | `Principal` and `TokenPrincipal` | gateway-header shape vs JWT-claims shape — two different models of "the authenticated caller" |
 | the REST filter helpers and the GraphQL filter DSL | two filter philosophies that shared a filename and two function names |
@@ -843,6 +862,12 @@ Inherited from both monorepos and unchanged:
   action.
 
 Established here, and applying to all four repositories:
+
+- **A plugin skill pre-approves only read subcommands** (`allowed-tools` as the
+  exact command plus `<command> *`, never `cmd*` or a bare `*`): a subcommand
+  that writes to GitHub keeps its permission prompt, and the CLI refuses any
+  flag it does not know, so a pre-approved pattern cannot reach a write
+  (`nxgt-issues`: `release-plan` previews, `released` writes).
 
 - **A script is a TypeScript file run by Bun, using Bun Shell — not a `.sh`.**
   `scripts/publish.ts` and `scripts/verify-artifacts.ts` are the references:
@@ -877,7 +902,7 @@ Established here, and applying to all four repositories:
 and an S3 up: 862 in the packages (the 4 skips are `shared-hono`'s;
 `shared-storage` runs its 6 against the S3 and reports 0 pass 0 fail
 without one; `i18n-vue`'s 115 include a real `nuxt build`), then 127 in
-`scripts/`. Since then (2026-10-10, without MongoDB or S3): `scripts/` is 130,
+`scripts/`. Since then (2026-10-11, without MongoDB or S3): `scripts/` is 191,
 and `shared-openapi` has its first suite, 5 tests and 2 skipped (its TypeScript
 7 half runs in Newest peers); re-measure the total with both up. Without an S3 the storage suites skip. Treat any failure as yours.
 
