@@ -21,10 +21,17 @@ app.onError(createErrorHandler(translate));
 Every body also carries `status`, the same number as the response's, and
 `timestamp`.
 
+An `HTTPException`'s `message` and a `CustomException`'s message key reach the
+client in every environment, production included (a key the translator does
+not know is sent as written). Never build either from internal detail such as
+another error's `message`; put that in `debugMessage`.
+
 ## Each environment
 
-The handler reads `NODE_ENV` on every request, through the package's own
-`env` — the same one that gates `oryAuth`'s mock headers. It accepts
+The handler reads the package's own `env` on every request — parsed from
+`NODE_ENV` once, when the package is first imported, and the same one that
+gates `oryAuth`'s mock headers. Changing `process.env.NODE_ENV` afterwards has
+no effect. It accepts
 `development`, `test` and `production`, and **an unset `NODE_ENV` is
 `development`**.
 
