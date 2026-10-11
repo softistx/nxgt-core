@@ -41,6 +41,9 @@ export function subjectPr(subject: string): number | undefined {
 }
 
 /** A second layer under the runner's guard: no external diff driver, no textconv. */
+/** Ends git's options, so a revision or a name read from elsewhere is never taken for one. */
+export const END_OF_OPTIONS = '--end-of-options';
+
 const NO_EXTERNAL = ['--no-ext-diff', '--no-textconv'] as const;
 
 export async function git(
@@ -62,9 +65,9 @@ export async function previousTag(
 	// A root package of a single-package repository is tagged `v1.2.3` by changesets.
 	const plain = input.dir === '.' ? `v${input.version}` : undefined;
 	const listing = await git(ctx, [
-		...['tag', '--list', `${input.pkg}@*`],
+		...['tag', '--list', '--sort=-version:refname', END_OF_OPTIONS],
+		`${input.pkg}@*`,
 		...(plain ? ['v[0-9]*'] : []),
-		'--sort=-version:refname',
 	]);
 	const all = (listing ?? '')
 		.split('\n')
@@ -90,7 +93,7 @@ export async function isAncestor(
 	tag: string,
 ): Promise<boolean | undefined> {
 	const result = await ctx.runner.run(
-		['git', 'merge-base', '--is-ancestor', sha, tag],
+		['git', 'merge-base', '--is-ancestor', END_OF_OPTIONS, sha, tag],
 		{ ...(ctx.cwd ? { cwd: ctx.cwd } : {}) },
 	);
 	if (result.code === 0) return true;
@@ -124,6 +127,7 @@ export async function loggedPrs(
 		'--no-show-signature',
 		'--first-parent',
 		'--format=%s',
+		END_OF_OPTIONS,
 		`${previous}..${tag}`,
 		'--',
 		input.dir,
@@ -148,6 +152,7 @@ export async function commitTouches(
 		'diff',
 		...NO_EXTERNAL,
 		'--name-only',
+		END_OF_OPTIONS,
 		`${sha}^1`,
 		sha,
 		'--',
@@ -182,6 +187,7 @@ export async function addedChangesetPackages(
 			...NO_EXTERNAL,
 			'--name-only',
 			'--diff-filter=A',
+			END_OF_OPTIONS,
 			`${sha}^1`,
 			sha,
 		],
@@ -191,7 +197,12 @@ export async function addedChangesetPackages(
 	const names: string[] = [];
 	for (const file of listing.split('\n').map((f) => f.trim())) {
 		if (!file.endsWith('.md') || file.endsWith('/README.md')) continue;
-		const text = await git(ctx, ['show', '--no-textconv', `${sha}:${file}`]);
+		const text = await git(ctx, [
+			'show',
+			'--no-textconv',
+			END_OF_OPTIONS,
+			`${sha}:${file}`,
+		]);
 		if (text === undefined) return undefined;
 		names.push(...changesetNames(text));
 	}
@@ -200,6 +211,6 @@ export async function addedChangesetPackages(
 
 /** Whether the package has a tag in this clone: its next release then has an earlier tag to log from. */
 export async function hasTags(ctx: GhContext, pkg: string): Promise<boolean> {
-	const out = await git(ctx, ['tag', '--list', `${pkg}@*`]);
+	const out = await git(ctx, ['tag', '--list', END_OF_OPTIONS, `${pkg}@*`]);
 	return (out ?? '').split('\n').some((t) => t.startsWith(`${pkg}@`));
 }

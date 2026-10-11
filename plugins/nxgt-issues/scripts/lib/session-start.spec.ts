@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { cachePath, writeEntry } from './cache';
 import { claimStamp, setStamp, stampFresh } from './refresh-state';
@@ -18,6 +19,7 @@ import {
 } from './session.fixtures';
 import {
 	COLD_BUDGET_MS,
+	refreshCommandFor,
 	type SessionStartDeps,
 	sessionStartContext,
 } from './session-start';
@@ -118,6 +120,41 @@ describe('sessionStartContext: the cache', () => {
 		expect(runner.calls).toHaveLength(1);
 		expect(runner.calls[0]?.argv).toEqual(REFRESH);
 		expect(runner.calls[0]?.options.detached).toBe(true);
+		// Never the repository: bun would load its bunfig.toml and .env there.
+		expect(runner.calls[0]?.options.cwd).toBe(homedir());
+	});
+
+	test('the refresh and the hook run bun with no .env and the plugin bunfig', () => {
+		const argv = refreshCommandFor(
+			'bun',
+			'/p/issues.ts',
+			'/p/bunfig.toml',
+			'/r',
+		);
+		expect(argv).toEqual([
+			'bun',
+			'--no-env-file',
+			'--config=/p/bunfig.toml',
+			'/p/issues.ts',
+			'refresh',
+			'--cwd',
+			'/r',
+		]);
+		const plugin = join(import.meta.dir, '..', '..');
+		const hooks = JSON.parse(
+			readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8'),
+		);
+		const ROOT = '$' + '{CLAUDE_PLUGIN_ROOT}';
+		const entry = hooks.hooks.SessionStart[0].hooks[0];
+		expect(entry.command).toBe('bun');
+		expect(entry.args).toEqual([
+			'--no-env-file',
+			`--config=${ROOT}/bunfig.toml`,
+			`${ROOT}/scripts/hooks/session-start.ts`,
+		]);
+		expect(readFileSync(join(plugin, 'bunfig.toml'), 'utf8')).not.toMatch(
+			/^\s*[a-z]/m,
+		);
 	});
 
 	test('stale and a spawn that throws: still renders', async () => {

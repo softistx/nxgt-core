@@ -91,6 +91,7 @@ describe('PR discovery', () => {
 			'--no-ext-diff',
 			'--no-textconv',
 			'--name-only',
+			'--end-of-options',
 			'm40^1',
 			'm40',
 			'--',

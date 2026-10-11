@@ -7,6 +7,8 @@
  * loudly instead of calling `gh`.
  */
 
+import { childEnv, hardenGit } from './git-guard';
+
 export interface RunOptions {
 	readonly timeoutMs?: number;
 	readonly stdin?: string;
@@ -53,55 +55,6 @@ function drain(stream: ReadableStream<Uint8Array>) {
 }
 
 type Env = Record<string, string | undefined>;
-
-/**
- * Config git would take from a repository we do not control, switched off for
- * the keys that can run a command. This is a list of known keys: a repository's
- * own config cannot be disabled wholesale, and `-c` beats it only for the keys
- * named here. Re-check the list when git adds config that runs commands.
- */
-export const GIT_GUARD: readonly string[] = [
-	...['-c', 'core.fsmonitor=false'],
-	...['-c', 'log.showSignature=false'],
-	...['-c', 'diff.external='],
-	...['-c', 'core.pager=cat'],
-	...['-c', 'core.hooksPath=/dev/null'],
-	...['-c', 'core.sshCommand=false'],
-	...['-c', 'credential.helper='],
-	...['-c', 'protocol.allow=never'],
-	'--no-optional-locks',
-];
-
-/** `git <args>` becomes `git <guard> <args>`; any other command is unchanged. Apply it once. */
-export function hardenGit(argv: readonly string[]): string[] {
-	return argv[0] === 'git'
-		? ['git', ...GIT_GUARD, ...argv.slice(1)]
-		: [...argv];
-}
-
-const REDIRECTING_GIT_ENV =
-	/^(GIT_DIR|GIT_WORK_TREE|GIT_INDEX_FILE|GIT_COMMON_DIR|GIT_OBJECT_DIRECTORY|GIT_EXTERNAL_DIFF|GIT_CONFIG_PARAMETERS|GIT_CONFIG_COUNT|GIT_CONFIG_KEY_\d+|GIT_CONFIG_VALUE_\d+)$/;
-
-/**
- * The environment of every child: the parent's, minus what would point git at
- * another repository or inject config, plus no pager, no prompt and no
- * optional locks. `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` stay.
- */
-export function childEnv(base: Env): Record<string, string> {
-	const kept: Record<string, string> = {};
-	for (const [key, value] of Object.entries(base)) {
-		if (value !== undefined && !REDIRECTING_GIT_ENV.test(key)) {
-			kept[key] = value;
-		}
-	}
-	return {
-		...kept,
-		GIT_PAGER: 'cat',
-		GIT_TERMINAL_PROMPT: '0',
-		GIT_OPTIONAL_LOCKS: '0',
-		GH_PROMPT_DISABLED: '1',
-	};
-}
 
 const TEST_ENTRY = /\.(spec|test)\.[cm]?[jt]sx?$/;
 

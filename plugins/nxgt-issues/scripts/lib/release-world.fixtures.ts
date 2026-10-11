@@ -240,6 +240,7 @@ const SECOND_LAYER = new Set([
 	'--no-show-signature',
 	'--no-ext-diff',
 	'--no-textconv',
+	'--end-of-options',
 ]);
 
 export function git(w: W, called: readonly string[]): RunResult {

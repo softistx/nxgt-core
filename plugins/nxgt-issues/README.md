@@ -446,21 +446,44 @@ application's `appDomains` and `denyTerms`, see below).
 - **Git runs against a directory this plugin does not control** (`--cwd`, or
   the working directory), whose own `.git/config` can name a command. Every
   `git` the runner spawns therefore starts with `-c core.fsmonitor=false -c
-  log.showSignature=false -c diff.external= -c core.pager=cat -c
-  core.hooksPath=/dev/null -c core.sshCommand=false -c credential.helper= -c
-  protocol.allow=never --no-optional-locks`, and the child's environment loses
-  `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`,
-  `GIT_OBJECT_DIRECTORY`, `GIT_EXTERNAL_DIFF` and every `GIT_CONFIG_*` except
-  `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` (and gains `GIT_PAGER=cat`,
-  `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `GH_PROMPT_DISABLED=1`). This
-  is a list of known keys: a repository's config cannot be disabled wholesale,
-  and `-c` beats it only for the keys named, so re-check the list when git adds
-  config that runs commands. The release reads add `--no-show-signature`,
-  `--no-ext-diff` and `--no-textconv` (a textconv driver has a name of the
-  repository's choosing, so no `-c` can list it), and `gh` runs from the home
-  directory, never the checkout. `scripts/release/close-released-issues*.ts`
-  spawns its own git in the release job's trusted checkout and is not part of
-  this guard.
+  log.showSignature=false -c core.pager=cat -c core.hooksPath=/dev/null -c
+  core.sshCommand=false -c credential.helper= -c protocol.allow=never -c
+  protocol.ext.allow=never -c protocol.file.allow=never -c
+  protocol.ssh.allow=never --no-optional-locks` (`lib/git-guard.ts`).
+  `protocol.allow=never` alone is beaten by a repository's own
+  `protocol.<name>.allow=always`, which is why the per-protocol keys are named
+  and why `GIT_NO_LAZY_FETCH=1` is set: a repository that declares itself a
+  partial clone (a promisor remote with an `uploadpack` command) otherwise runs
+  that command the moment a read such as `git show` finds a blob missing. An
+  empty `diff.external=` is not in the list (git would run the command `''`
+  and every patch diff would die with 128): the release reads pass
+  `--no-ext-diff` instead.
+  The child's environment is the parent's minus exactly: `GIT_DIR`,
+  `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_EXTERNAL_DIFF`, `GIT_EXEC_PATH`,
+  `GIT_ALLOW_PROTOCOL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_PARAMETERS`,
+  `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_<n>`, `GIT_CONFIG_VALUE_<n>`, every
+  `GIT_TRACE*` and `BUN_OPTIONS`; and plus `GIT_PAGER=cat`,
+  `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `GIT_NO_LAZY_FETCH=1` and
+  `GH_PROMPT_DISABLED=1`. `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` stay,
+  since the user's own `user.name` is read through them; on the hook path a
+  repository's `.env` could have set them, which `--no-env-file` (below)
+  closes. This is a list of known keys: a repository's config cannot be
+  disabled wholesale, and `-c` beats it only for the keys named, so re-check the
+  list when git adds config that runs commands. The release reads add
+  `--no-show-signature`, `--no-ext-diff`, `--no-textconv` and
+  `--end-of-options` (before any revision or name read from elsewhere), and
+  `gh` runs from the home directory, never the checkout.
+  `scripts/release/close-released-issues*.ts` spawns its own git in the release
+  job's trusted checkout and is not part of this guard.
+- **Bun in the untrusted directory.** Bun loads a directory's `bunfig.toml`
+  (a `preload` runs code) and `.env`. The SessionStart hook and the detached
+  refresh therefore run `bun --no-env-file --config=<plugin>/bunfig.toml` (the
+  plugin's own, empty file), the refresh from the home directory. The skills'
+  `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts …` commands do not carry the
+  flags, so a CLI run from inside an untrusted repository still loads that
+  repository's `bunfig.toml` and `.env`: a known limit, which Claude Code's
+  workspace trust already gates.
 - **Untrusted text.** Everything read from GitHub (titles, labels, bodies,
   comments, logins, repository names) and from the registry is data. Every CLI
   command that prints it (`file` candidates, `ready`, the `released` notify

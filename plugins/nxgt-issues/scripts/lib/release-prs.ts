@@ -17,6 +17,7 @@ import { type GhContext, RateLimitedError } from './github';
 import {
 	changelogPath,
 	changelogPrs,
+	END_OF_OPTIONS,
 	git,
 	loggedPrs,
 	type ReleaseInput,
@@ -60,11 +61,13 @@ export async function discoverFixes(
 		(await git(ctx, [
 			'show',
 			'--no-textconv',
+			END_OF_OPTIONS,
 			`${tag}:${changelogPath(input.dir)}`,
 		])) ??
 		(await git(ctx, [
 			'show',
 			'--no-textconv',
+			END_OF_OPTIONS,
 			`HEAD:${changelogPath(input.dir)}`,
 		])) ??
 		'';
