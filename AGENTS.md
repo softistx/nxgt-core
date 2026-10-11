@@ -873,11 +873,13 @@ Established here, and applying to all four repositories:
 
 ## Known state
 
-`bun run test` is **989 pass, 4 skip, 0 fail** on 2026-10-06 with MongoDB
+`bun run test` was **989 pass, 4 skip, 0 fail** on 2026-10-06 with MongoDB
 and an S3 up: 862 in the packages (the 4 skips are `shared-hono`'s;
 `shared-storage` runs its 6 against the S3 and reports 0 pass 0 fail
-without one; `i18n-vue`'s 115 include a real `nuxt build`), then 130 in
-`scripts/`. `shared-openapi` runs 5 specs and skips 2 (measured 2026-10-10). Without an S3 the storage suites skip. Treat any failure as yours.
+without one; `i18n-vue`'s 115 include a real `nuxt build`), then 127 in
+`scripts/`. Since then (2026-10-10, without MongoDB or S3): `scripts/` is 130,
+and `shared-openapi` has its first suite, 5 tests and 2 skipped (its TypeScript
+7 half runs in Newest peers); re-measure the total with both up. Without an S3 the storage suites skip. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running the packages together in one

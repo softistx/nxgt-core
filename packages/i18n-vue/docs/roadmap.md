@@ -40,6 +40,9 @@ server and hydrates from the payload.
 
 ## Shipped
 
+- **TypeScript 7 as well as 6** — the `typescript` peer accepts either. Under
+  7, `tsc` checks the `.ts` files and the `.vue` templates go unchecked until
+  `vue-tsc` runs on 7; see the troubleshooting page.
 - **Catalogue keys in kebab-case, `@nxgt/i18n`'s own convention** — a key is
   written `sign-in` or `signIn`, either one, and `t()` finds the message
   whichever spelling the call uses. `@nxgt/i18n`'s own catalogues, kebab-case
