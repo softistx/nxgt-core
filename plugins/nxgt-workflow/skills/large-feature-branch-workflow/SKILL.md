@@ -46,8 +46,8 @@ before drawing the slices.
 **Read `references/<repo>.md` first.** `nxgt-federation` does not use an
 integration branch at all — every PR there targets `develop`, rules 1, 3, 4
 and 6 below do not apply, and each PR into `develop` follows "Merges and
-releases" in `~/.claude/CLAUDE.md` like any other. The other three repositories work as described
-here.
+releases" in `~/.claude/CLAUDE.md` like any other. The other three
+repositories work as described here.
 
 ```
 develop
@@ -75,12 +75,12 @@ develop
    reads.
 5. **`develop` is the terminus.** Nothing here targets `main`, and finishing an
    effort does not touch it — `main` is aligned from `develop` separately
-   (fast-forward only: `git checkout main && git merge --ff-only develop`), as
-   "Merges and releases" allows.
+   (fast-forward only: `git checkout main && git merge --ff-only develop`).
+   Per "Merges and releases" it is always the owner's call: it is asked right
+   after the merge into `develop`, and no answer leaves `main` where it is.
 6. **Merge each slice into the integration branch without asking once it is
-   green**, as "Merges and
-   releases" in `~/.claude/CLAUDE.md` defines it — the green bar passes, the
-   `code-reviewer` reports `ready: true`, the `documentation-auditor` reports
+   green**, as "Merges and releases" in `~/.claude/CLAUDE.md` defines it —
+   the green bar passes, the `code-reviewer` reports `ready: true`, the `documentation-auditor` reports
    `ok: true` when a public surface changed, and no owner decision is open —
    and name the four in the slice PR's description. Without that file, a
    repository's `AGENTS.md` decides, else ask.

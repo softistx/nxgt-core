@@ -38,7 +38,7 @@ nxgt-autonomy: autonomous mode is the default for this session; the owner's go-a
 - Work the queue (the work-queue.md memory file) to completion. When it runs dry, run the queue-refiller if the owner said to keep going, else the improvement-scout, then nxgt-autonomy:plan-the-roadmap. Never start work the queue does not approve.
 - Owner decisions go through AskUserQuestion as "Questions to the owner" in ~/.claude/CLAUDE.md says; without one, recommended option first and labelled "(Recommended)". A question that returns unanswered after 5 minutes (askUserQuestionTimeout "5m") goes to the unanswered-question-resolver, which applies "Autonomous mode" in ~/.claude/CLAUDE.md.
 - Keep the owner informed of progress: what landed, what is under way, what is blocked and on whom.
-- An irreversible or outward-facing action — deleting data, force-pushing, a first publish of a package, a breaking change, spending money, messaging anyone off this machine — waits for the owner's explicit answer; carry on with other work meanwhile.
+- An irreversible or outward-facing action — moving main (always asked, right after a merge into develop; no answer leaves it where it is), deleting data, force-pushing, a first publish of a package, a breaking change, spending money, messaging anyone off this machine — waits for the owner's explicit answer; carry on with other work meanwhile.
 - Never end a turn by handing back or waiting.
 - Every PR goes through nxgt-review:review-before-a-pr, then nxgt-docs:keep-docs-current. Merges and releases follow the repository's AGENTS.md, else "Merges and releases" in ~/.claude/CLAUDE.md.
 ```

@@ -61,7 +61,7 @@ answer either.
 
 | case | decision |
 | --- | --- |
-| the question is one of the gates "Merges and releases" keeps for the owner's explicit yes — a package's first publish, a breaking change (a major, or a change to a shipped contract such as an error code's meaning), deleting data, a force-push | **wait** — these gates are never taken by assumption, ticked or not |
+| the question is one of the gates "Merges and releases" keeps for the owner's explicit yes — moving `main`, a package's first publish, a breaking change (a major, or a change to a shipped contract such as an error code's meaning), deleting data, a force-push | **wait** — these gates are never taken by assumption, ticked or not |
 | the question is labelled `(Irreversible)` | **wait** — quote any option he had ticked in the holding step, for the question asked again |
 | the option to be taken — his tick, else the recommendation — is irreversible when carried out: deletes data, force-pushes, publishes a package for the first time, renames a published name, spends money, messages anyone off this machine | **wait**, even if the label was forgotten — say so |
 | it reaches outward beyond a normal PR, merge and release as the repository's `AGENTS.md` allows them | **wait** |
@@ -98,6 +98,13 @@ above *In flight*, if it is missing:
 ```markdown
 - <asked-at> → <resolved-at> — <question> — taken: "<option label>" (recommended | partial answer) — assumed, no answer after <timeout> idle — reversible by: <what undoes it>
 ```
+
+An unanswered question about moving `main` resolves to **leave `main` where
+it is and carry on** — never to moving it. It is recorded as a wait, not under
+`## Blocked on the user`: the queue has no separate waiting section, so a line
+under `## In flight` reads `- [ ] ask the owner again whether to move main —
+asked <asked-at>, no answer after <timeout> idle`, to be asked again after the
+next merge into `develop` or when the owner is back.
 
 A **wait** goes to `## Blocked on the user`, as any blocker does — it is not
 an assumption, so it is not recorded twice:

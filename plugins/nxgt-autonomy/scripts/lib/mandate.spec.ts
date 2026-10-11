@@ -99,6 +99,10 @@ describe('buildMandate', () => {
 			'a breaking change is an irreversible action',
 			/a first publish of a package, a breaking change,/,
 		],
+		[
+			'moving main is a gate that always asks',
+			/moving main \(always asked, right after a merge into develop; no answer leaves it where it is\)/,
+		],
 		['no hand-back', /Never end a turn by handing back or waiting/],
 		[
 			'review, then docs',
