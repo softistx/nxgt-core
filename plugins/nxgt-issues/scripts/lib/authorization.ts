@@ -50,8 +50,20 @@ function quoted(rest: string): { body: string; after: string } | undefined {
 	return { body: rest.slice(1, end), after: rest.slice(end + 1) };
 }
 
+/** `${NAME:-default}` at the start of `rest`: the default is judged like the plain header value. */
+const EXPANSION_HEAD = /^\$\{[A-Za-z_]\w*:?[-=+]([^}\n]*)\}/;
+
 function refusesValue(rest: string): boolean {
 	const literal = quoted(rest);
+	const fallback = EXPANSION_HEAD.exec(rest)?.[1]?.trim();
+	if (fallback) {
+		const credential = fallback.replace(SCHEME, '');
+		return (
+			credential !== '' &&
+			!isPlaceholder(credential) &&
+			!TOKEN_WORDS.test(credential)
+		);
+	}
 	if (!literal) {
 		const value = rest.replace(SCHEME, '').split(/\s/)[0] ?? '';
 		return value !== '' && !isPlaceholder(value) && !TOKEN_WORDS.test(value);

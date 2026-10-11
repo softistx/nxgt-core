@@ -346,3 +346,28 @@ describe('round 9: fused auth names, authkey flag, scheme defaults, vault ids', 
 		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
 	])('%p passes', passes);
 });
+
+describe('round 10: short Basic credentials, header defaults, goauth', () => {
+	test.each([
+		`\${AUTH_HEADER:-Basic dXNlcjpwYXNz}`,
+		`\${AUTH_HEADER:-Basic ZGVtbzpkZW1v}`,
+		`\${AUTH_HEADER:-Basic YXBwOmhlbGxv}`,
+		`Authorization: \${AUTH_HEADER:-Bearer swordfish}`,
+		`curl -H "Authorization: \${AUTH_HEADER:-Bearer devtoken}" https://x.example.com`,
+		'command: ["tailscale", "up", "--authkey", "Hunter2024"]',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		`\${PLAN:-Basic subscription}`,
+		`\${TIER:-Basic membership}`,
+		`\${MSG:-Basic authentication}`,
+		`\${X:-Basic YOUR_BASE64_HERE}`,
+		`\${MSG:-Bearer credentials required}`,
+		`Authorization: \${AUTH_HEADER}`,
+		"GOAUTH='netrc'",
+		'set GOAUTH=netrc',
+		`\${GOAUTH:-netrc}`,
+	])('%p passes', passes);
+});

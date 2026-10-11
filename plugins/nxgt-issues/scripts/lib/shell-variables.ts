@@ -52,11 +52,23 @@ const SCHEME_DEFAULT =
 const SCHEME_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
 const SCREAMING = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
 
+/** Base64 that decodes to printable ASCII holding a `user:pass` colon. */
+function decodesToUserPass(credential: string): boolean {
+	if (credential.length % 4 !== 0 || !/^[A-Za-z0-9+/]+$/.test(credential))
+		return false;
+	return /^[\x20-\x7e]*:[\x20-\x7e]*$/.test(
+		Buffer.from(credential, 'base64').toString('latin1'),
+	);
+}
+
 /** Whether `value` is a scheme and a credential, as a `Bearer` token is in secrets.ts (a word or `YOUR_TOKEN` is not one). */
 export function isSchemeSecret(value: string): boolean {
 	const credential = SCHEME_DEFAULT.exec(value.trim())?.[1];
 	if (credential === undefined) return false;
-	const tokenLike = /[\d._~+/=]/.test(credential) || credential.length >= 16;
+	const tokenLike =
+		/[\d._~+/=]/.test(credential) ||
+		credential.length >= 16 ||
+		(/^Basic/i.test(value.trim()) && decodesToUserPass(credential));
 	return (
 		tokenLike && !SCHEME_WORDS.test(credential) && !SCREAMING.test(credential)
 	);
