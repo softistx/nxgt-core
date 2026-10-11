@@ -11,6 +11,10 @@ bunx @nxgt/env check           # missing, empty, unknown keys — exits 1
 bunx @nxgt/env rotate SESSION_SECRET
 ```
 
+Public on npmjs; no token needed to install. TypeScript is a peer:
+`^6.0.3 || ^7.0.0`, the same range in every `@nxgt/*` package, so the set
+installs with either.
+
 ## Why it refuses as often as it generates
 
 `SESSION_SECRET` has no right answer — any 64 random characters will do, and

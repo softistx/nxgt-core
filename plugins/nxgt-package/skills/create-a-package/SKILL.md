@@ -140,7 +140,7 @@ every package and should stay that way:
   "nxgt": { "entrypoints": ["src/index.ts"] },
   "dependencies": { "@nxgt/shared-logging": "workspace:^" },
   "devDependencies": { "@types/bun": "^1.4.0" },
-  "peerDependencies": { "typescript": "^6.0.3" }
+  "peerDependencies": { "typescript": "^6.0.3 || ^7.0.0" }
 }
 ```
 
@@ -188,10 +188,11 @@ and two Mongoose `model()` calls on one connection throw
 `OverwriteModelError`. Both monorepos carried that for a week.
 `verify:artifacts` refuses an exact sibling pin.
 
-`typescript` is a peer, pinned `^6.0.3` on every package. Do not widen it in
-one: the set becomes unsatisfiable, and under TypeScript 7
-`@nxgt/shared-openapi` throws at import because `ts.factory` is not on the
-default export.
+`typescript` is a peer, `^6.0.3 || ^7.0.0` on every package, and the ranges
+move together: a new package copies the range, and a change to it is made in
+all of them at once. Why, and what TypeScript 7 means for code that touches
+the compiler API, is AGENTS.md's "`typescript` is a peer, 6 or 7, widened
+together".
 
 ### 4. `bun build` ships no assets
 

@@ -9,7 +9,7 @@ It deliberately holds no guidance of its own.
 applies to any coding agent working here lives there — the layering and the
 no-cycles rule, why declarations are the hard part of the build, the traps that
 have already cost time (star re-exports below an entry point, requiring a peer
-that is on no registry, the pinned `typescript` peer, the absent `.npmrc`), how
+that is on no registry, the `typescript` peer widened together, the absent `.npmrc`), how
 releasing works, and the table of duplications that are deliberate and must not
 be "cleaned up".
 

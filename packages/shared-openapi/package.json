@@ -1,6 +1,6 @@
 {
 	"name": "@nxgt/shared-openapi",
-	"version": "2.0.2",
+	"version": "2.1.0",
 	"license": "MIT",
 	"type": "module",
 	"main": "./dist/index.js",
@@ -31,6 +31,7 @@
 	},
 	"scripts": {
 		"build": "bun run ../../build.ts",
+		"test": "bun test src",
 		"typecheck": "tsc --noEmit"
 	},
 	"nxgt": {
@@ -44,6 +45,6 @@
 	"peerDependencies": {
 		"@hey-api/openapi-ts": "^0.99.0",
 		"openapi-typescript": "^7.13.0",
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3 || ^7.0.0"
 	}
 }
