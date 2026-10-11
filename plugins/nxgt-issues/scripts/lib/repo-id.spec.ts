@@ -27,6 +27,8 @@ describe('parseRemote', () => {
 		'git@github.com:softistx/nxgt-core',
 		'ssh://git@github.com/softistx/nxgt-core.git',
 		'ssh://git@github.com:22/softistx/nxgt-core.git',
+		'ssh://git@ssh.github.com:443/softistx/nxgt-core.git',
+		'git@ssh.github.com:softistx/nxgt-core.git',
 		'git+https://github.com/softistx/nxgt-core.git',
 		'git://github.com/softistx/nxgt-core.git',
 		'  https://github.com/softistx/nxgt-core.git\n',
@@ -145,6 +147,17 @@ describe('originUrlFromConfig', () => {
 			originUrlFromConfig('[remote "upstream"]\n\turl = x'),
 		).toBeUndefined();
 		expect(originUrlFromConfig('')).toBeUndefined();
+	});
+
+	test('keys and the section name are case-insensitive; quotes are stripped', () => {
+		expect(originUrlFromConfig('[Remote "origin"]\n\tURL = u1')).toBe('u1');
+		expect(originUrlFromConfig('[remote "origin"]\n\tUrl=u2')).toBe('u2');
+		expect(
+			originUrlFromConfig(
+				'[remote "origin"]\n\turl = "git@github.com:softistx/nxgt-core.git"',
+			),
+		).toBe('git@github.com:softistx/nxgt-core.git');
+		expect(originUrlFromConfig('[remote "Origin"]\n\turl = x')).toBeUndefined();
 	});
 
 	test('tolerates CRLF', () => {

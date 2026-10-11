@@ -2,7 +2,7 @@
  * The only module of the plugin that spawns a process or reaches the network.
  * Everything else takes a `Runner` as a parameter, so a spec hands it the
  * scripted fake of `runner.fixtures.ts` and nothing real ever runs. Only an
- * entry file builds the real one; under `NODE_ENV=test` it throws on every call
+ * entry file builds the real one; in a test run (`NODE_ENV=test`, or a `*.spec.ts` entry) it throws on every call
  * unless `NXGT_ISSUES_ALLOW_NETWORK=1`, so a spec that forgot the fake fails
  * loudly instead of calling `gh`.
  */
@@ -28,15 +28,26 @@ export const DEFAULT_TIMEOUT_MS = 10_000;
 
 type Env = Record<string, string | undefined>;
 
-export function networkAllowed(env: Env): boolean {
-	return env['NODE_ENV'] !== 'test' || env['NXGT_ISSUES_ALLOW_NETWORK'] === '1';
+const TEST_ENTRY = /\.(spec|test)\.[cm]?[jt]sx?$/;
+
+/**
+ * False in a test run unless `NXGT_ISSUES_ALLOW_NETWORK=1`. A test run is
+ * `NODE_ENV=test` or an entry file named `*.spec.ts` / `*.test.ts`, so
+ * `NODE_ENV=development bun test` does not slip past the guard.
+ */
+export function networkAllowed(env: Env, main: string = Bun.main): boolean {
+	if (env['NXGT_ISSUES_ALLOW_NETWORK'] === '1') return true;
+	return env['NODE_ENV'] !== 'test' && !TEST_ENTRY.test(main);
 }
 
-export function createRunner(env: Env = process.env): Runner {
+export function createRunner(
+	env: Env = process.env,
+	main: string = Bun.main,
+): Runner {
 	const guard = (what: string): void => {
-		if (!networkAllowed(env)) {
+		if (!networkAllowed(env, main)) {
 			throw new Error(
-				`nxgt-issues: ${what} is blocked under NODE_ENV=test; use the fake runner (or set NXGT_ISSUES_ALLOW_NETWORK=1).`,
+				`nxgt-issues: ${what} is blocked in a test run; use the fake runner (or set NXGT_ISSUES_ALLOW_NETWORK=1).`,
 			);
 		}
 	};

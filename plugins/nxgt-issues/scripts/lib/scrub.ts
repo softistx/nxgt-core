@@ -1,57 +1,17 @@
 /**
  * The anonymity pass over text that will land in a public issue. It transforms
- * what is identifying but generic (absolute paths, emails, foreign URLs,
- * tokens), then verifies against a deny-list of names that must never appear
- * (the application, its packages, private repositories, the person, the
- * machine). Any hit after the transforms refuses the filing: the caller files
- * nothing and says why. The deny-list is an input; nothing here reaches out.
+ * what is identifying but generic (absolute paths, emails, URLs, tokens),
+ * refuses text that carries a credential assignment, then verifies against a
+ * deny-list of names that must never appear (the application, its packages,
+ * private repositories, the person, the machine; see `deny.ts`). Any hit
+ * refuses the filing: the caller files nothing and says why. The deny-list is
+ * an input; nothing here reaches out. Auto-filing on a public repository relies
+ * on this refusing rather than leaking.
  */
 
-export interface DenyInputs {
-	/** The application's repository, `owner/repo`. */
-	readonly appRepo?: string | undefined;
-	/** The application's package and workspace names. */
-	readonly appPackages?: readonly string[];
-	/** The working directory; its basename is denied. */
-	readonly cwd?: string | undefined;
-	/** `owner/repo` or bare names of every private repository of the owners. */
-	readonly privateRepos?: readonly string[];
-	readonly gitName?: string | undefined;
-	readonly gitEmail?: string | undefined;
-	readonly hostname?: string | undefined;
-	readonly home?: string | undefined;
-}
+import { findDenied } from './deny';
 
-const unique = (terms: readonly (string | undefined)[]): string[] => [
-	...new Set(
-		terms.map((term) => term?.trim()).filter((term): term is string => !!term),
-	),
-];
-
-const basename = (path: string): string =>
-	path
-		.replace(/[\\/]+$/, '')
-		.split(/[\\/]/)
-		.pop() ?? '';
-
-/** The terms that may never appear in a filing, from what the session knows. */
-export function buildDenyList(inputs: DenyInputs): string[] {
-	const repoName = inputs.appRepo?.split('/')[1];
-	const privates = (inputs.privateRepos ?? []).flatMap((entry) =>
-		entry.includes('/') ? [entry, entry.split('/')[1]] : [entry],
-	);
-	return unique([
-		inputs.appRepo,
-		repoName,
-		...(inputs.appPackages ?? []),
-		inputs.cwd ? basename(inputs.cwd) : undefined,
-		...privates,
-		inputs.gitName,
-		inputs.gitEmail,
-		inputs.hostname,
-		inputs.home,
-	]);
-}
+export { buildDenyList, type DenyInputs, findDenied } from './deny';
 
 const KEPT_HOSTS = new Set([
 	'github.com',
@@ -80,17 +40,48 @@ function entropy(text: string): number {
 	return bits;
 }
 
-/** A run over 32 characters that mixes letters and digits and looks random. */
-const looksLikeSecret = (run: string): boolean =>
-	run.length > 32 &&
-	/[A-Za-z]/.test(run) &&
-	/\d/.test(run) &&
-	entropy(run) >= 3.5;
+/** A 40-hex git SHA, alone between non-alphanumerics: useful upstream, not private. */
+const GIT_SHA = /(?<![0-9A-Za-z])[0-9a-f]{40}(?![0-9A-Za-z])/g;
 
-const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`)\]]+/gi;
+/**
+ * A run over 32 characters that mixes letters and digits and looks random.
+ * Full SHAs are taken out first; short SHAs (7 to 12 hex) never reach the
+ * length threshold.
+ */
+const looksLikeSecret = (run: string): boolean => {
+	const rest = run.replace(GIT_SHA, '');
+	return (
+		rest.length > 32 &&
+		/[A-Za-z]/.test(rest) &&
+		/\d/.test(rest) &&
+		entropy(rest) >= 3.5
+	);
+};
+
+const SCHEME_URL = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`)\]]+/gi;
 const EMAIL_PATTERN = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
-const WINDOWS_PATH = /\b[A-Za-z]:\\(?:[^\\\s"'`<>|:]+\\?)+/g;
-const POSIX_PATH = /(?<![\w.:/@~-])\/(?:[\w.@+~-]+\/)+[\w.@+~-]*/g;
+
+const WIN_SEGMENT = '[^\\\\/\\s"\'`<>|:*?]+';
+const WIN_USER = '[^\\\\/\\r\\n"\'`<>|:*?,;]+';
+/** `C:\…`; the folder under `Users\` may hold spaces, inner folders may too; a last segment may not. */
+const WINDOWS_PATH = new RegExp(
+	`\\b[A-Za-z]:\\\\(?:Users\\\\${WIN_USER}\\\\?)?(?:${WIN_SEGMENT}(?: ${WIN_SEGMENT})*\\\\)*(?:${WIN_SEGMENT})?`,
+	'g',
+);
+
+const SEG = String.raw`[\p{L}\p{N}_.@+~-]`;
+const KNOWN_ROOT = '(?:Users|home|opt|srv|var|tmp|etc|root|mnt|Volumes)';
+/** `/a/b`, `~/a`, and a path after `:` or `=` when it starts at a known root. */
+const POSIX_PATH = new RegExp(
+	String.raw`(?:(?<![\p{L}\p{N}_.:/@~>-])~?\/|(?<=[:=])\/(?=${KNOWN_ROOT}\/))(?:${SEG}+\/)+${SEG}*|(?<![\p{L}\p{N}_.:/@~>-])~\/${SEG}*`,
+	'gu',
+);
+
+const SECRET_ASSIGNMENT =
+	/(?<![A-Za-z0-9])(password|passwd|pwd|secret|token|bearer|api[_-]?key)["']?\s*[:=]\s*(\S+)/gi;
+const BEARER = /\b(Bearer)\s+(\S+)/gi;
+/** Placeholders the transforms write; nothing identifying is behind them. */
+const PLACEHOLDER = /^<(?:token|url|email)>[.,;:)\]"']*$/;
 
 export interface ScrubOptions {
 	/** The working directory: a path under it becomes `<app>/…`. */
@@ -106,6 +97,8 @@ export interface ScrubResult {
 	readonly changes: string[];
 	/** Deny-list terms still present after the transforms; non-empty means refuse. */
 	readonly denied: string[];
+	/** Credential assignments (`password: x`, `Bearer x`), by keyword, that make it refuse. */
+	readonly secrets: string[];
 	readonly refused: boolean;
 }
 
@@ -123,6 +116,46 @@ function scrubPath(path: string, cwd: string | undefined): string {
 		return `<app>/${rest}${tail}`;
 	}
 	return `<app>/…${tail}`;
+}
+
+/** A `file://` URL as the path it names. */
+function filePath(url: string): string {
+	let path = url.replace(/^file:\/\//i, '');
+	if (!path.startsWith('/')) path = path.replace(/^[^/]*/, '');
+	path = path.replace(/^\/([A-Za-z]:)/, '$1');
+	try {
+		path = decodeURIComponent(path);
+	} catch {
+		// keep it percent-encoded
+	}
+	return path;
+}
+
+/** One URL: a file path, a kept host without its credentials, else `<url>`. */
+function scrubUrl(
+	url: string,
+	cwd: string | undefined,
+	note: (kind: string) => void,
+): string {
+	if (/^file:\/\//i.test(url)) {
+		note('path');
+		return scrubPath(filePath(url), cwd);
+	}
+	const trimmed = url.replace(/[.,;:!?]+$/, '');
+	const tail = url.slice(trimmed.length);
+	let host = '';
+	try {
+		host = new URL(trimmed).hostname.toLowerCase();
+	} catch {
+		// not parseable: treated as foreign
+	}
+	if (/^https?:\/\//i.test(trimmed) && KEPT_HOSTS.has(host)) {
+		const bare = trimmed.replace(/^([a-z]+:\/\/)[^/?#]*@/i, '$1');
+		if (bare !== trimmed) note('url');
+		return `${bare}${tail}`;
+	}
+	note('url');
+	return `<url>${tail}`;
 }
 
 export function transform(
@@ -144,54 +177,32 @@ export function transform(
 		note('token');
 		return '<token>';
 	});
-	out = out.replace(URL_PATTERN, (url) => {
-		const trimmed = url.replace(/[.,;:!?]+$/, '');
-		const tail = url.slice(trimmed.length);
-		let host = '';
-		try {
-			host = new URL(trimmed).hostname.toLowerCase();
-		} catch {
-			// not parseable: treated as foreign
-		}
-		if (KEPT_HOSTS.has(host)) return url;
-		note('url');
-		return `<url>${tail}`;
-	});
+	out = out.replace(SCHEME_URL, (url) => scrubUrl(url, cwd, note));
 	out = out.replace(EMAIL_PATTERN, () => {
 		note('email');
 		return '<email>';
 	});
-	out = out.replace(WINDOWS_PATH, (path) => {
-		note('path');
-		return scrubPath(path, cwd);
-	});
-	out = out.replace(POSIX_PATH, (path) => {
-		note('path');
-		return scrubPath(path, cwd);
-	});
+	for (const pattern of [WINDOWS_PATH, POSIX_PATH]) {
+		out = out.replace(pattern, (path) => {
+			note('path');
+			return scrubPath(path, cwd);
+		});
+	}
 	return { text: out, changes };
 }
 
-const escapeRegExp = (term: string): string =>
-	term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** Deny-list terms present as whole words, case-insensitively. */
-export function findDenied(
-	text: string,
-	denyList: readonly string[],
-	allow: readonly string[] = [],
-): string[] {
-	const allowed = new Set(allow.map((term) => term.toLowerCase()));
-	const hits: string[] = [];
-	for (const term of unique(denyList)) {
-		if (allowed.has(term.toLowerCase())) continue;
-		const pattern = new RegExp(
-			`(?<![A-Za-z0-9_])${escapeRegExp(term)}(?![A-Za-z0-9_])`,
-			'i',
-		);
-		if (pattern.test(text)) hits.push(term);
+/**
+ * The credential assignments in already-transformed text, each a reason to
+ * refuse. Only the keyword is reported (`password`, `Bearer`), never the value.
+ */
+export function findSecrets(text: string): string[] {
+	const found: string[] = [];
+	for (const pattern of [SECRET_ASSIGNMENT, BEARER]) {
+		for (const match of text.matchAll(pattern)) {
+			if (!PLACEHOLDER.test(match[2] ?? '')) found.push(match[1] ?? '');
+		}
 	}
-	return hits;
+	return [...new Set(found.map((word) => word.toLowerCase()))];
 }
 
 export function scrub(text: string, options: ScrubOptions = {}): ScrubResult {
@@ -201,10 +212,12 @@ export function scrub(text: string, options: ScrubOptions = {}): ScrubResult {
 		options.denyList ?? [],
 		options.allow,
 	);
+	const secrets = findSecrets(transformed.text);
 	return {
 		text: transformed.text,
 		changes: transformed.changes,
 		denied,
-		refused: denied.length > 0,
+		secrets,
+		refused: denied.length > 0 || secrets.length > 0,
 	};
 }

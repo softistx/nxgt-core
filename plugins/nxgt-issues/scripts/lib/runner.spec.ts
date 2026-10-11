@@ -2,23 +2,65 @@ import { describe, expect, test } from 'bun:test';
 import { createRunner, networkAllowed } from './runner';
 import { fakeRunner } from './runner.fixtures';
 
+const ENTRY = '/x/issues.ts';
+
 describe('networkAllowed', () => {
 	test('is allowed outside tests', () => {
-		expect(networkAllowed({})).toBe(true);
-		expect(networkAllowed({ NODE_ENV: 'production' })).toBe(true);
+		expect(networkAllowed({}, ENTRY)).toBe(true);
+		expect(networkAllowed({ NODE_ENV: 'production' }, ENTRY)).toBe(true);
 	});
 
 	test('is blocked under NODE_ENV=test', () => {
-		expect(networkAllowed({ NODE_ENV: 'test' })).toBe(false);
+		expect(networkAllowed({ NODE_ENV: 'test' }, ENTRY)).toBe(false);
 		expect(
-			networkAllowed({ NODE_ENV: 'test', NXGT_ISSUES_ALLOW_NETWORK: '0' }),
+			networkAllowed(
+				{ NODE_ENV: 'test', NXGT_ISSUES_ALLOW_NETWORK: '0' },
+				ENTRY,
+			),
 		).toBe(false);
 	});
 
 	test('NXGT_ISSUES_ALLOW_NETWORK=1 lifts the block', () => {
 		expect(
-			networkAllowed({ NODE_ENV: 'test', NXGT_ISSUES_ALLOW_NETWORK: '1' }),
+			networkAllowed(
+				{ NODE_ENV: 'test', NXGT_ISSUES_ALLOW_NETWORK: '1' },
+				ENTRY,
+			),
 		).toBe(true);
+	});
+});
+
+describe('networkAllowed: a spec entry is a test run whatever NODE_ENV says', () => {
+	test.each([
+		'/x/a.spec.ts',
+		'/x/a.test.ts',
+		'/x/a.spec.tsx',
+		'/x/a.test.mjs',
+		'C:/x/a.spec.cts',
+	])('%s', (main) => {
+		expect(networkAllowed({ NODE_ENV: 'development' }, main)).toBe(false);
+		expect(networkAllowed({}, main)).toBe(false);
+		expect(networkAllowed({ NXGT_ISSUES_ALLOW_NETWORK: '1' }, main)).toBe(true);
+	});
+
+	test('a real entry file is allowed', () => {
+		expect(networkAllowed({ NODE_ENV: 'development' }, '/x/issues.ts')).toBe(
+			true,
+		);
+		expect(networkAllowed({}, '/x/spec.ts')).toBe(true);
+		expect(networkAllowed({}, '/x/respec.tsx.bak')).toBe(true);
+	});
+
+	test('the default entry, under bun test here, is a test run', () => {
+		expect(networkAllowed({ NODE_ENV: 'development' })).toBe(false);
+	});
+
+	test('createRunner throws for a spec entry under NODE_ENV=development', async () => {
+		const runner = createRunner({ NODE_ENV: 'development' });
+		await expect(runner.run(['gh'])).rejects.toThrow(/blocked in a test run/);
+		await expect(runner.fetchJson('https://x.invalid')).rejects.toThrow(
+			/blocked in a test run/,
+		);
 	});
 });
 
@@ -27,13 +69,13 @@ describe('the real runner under NODE_ENV=test', () => {
 
 	test('run throws without spawning', async () => {
 		await expect(runner.run(['gh', 'auth', 'status'])).rejects.toThrow(
-			/blocked under NODE_ENV=test/,
+			/blocked in a test run/,
 		);
 	});
 
 	test('fetchJson throws without fetching', async () => {
 		await expect(runner.fetchJson('https://example.com/x')).rejects.toThrow(
-			/blocked under NODE_ENV=test/,
+			/blocked in a test run/,
 		);
 	});
 });

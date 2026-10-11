@@ -3,6 +3,12 @@
  * comments later runs key on: `fp` (duplicate fingerprint), `upstream` (the
  * issue a tracking issue follows), `deps` (the rolling dependencies issue) and
  * `fixed` (the release comment, so it is posted once).
+ *
+ * These templates do NOT scrub. They put whatever they are given on the page.
+ * The caller that files a public issue must render the whole body (and the
+ * duplicate comment) first and run `scrub()` on the RENDERED text, so that the
+ * template's own fields, versions and markers are covered too, and must refuse
+ * on `refused`. Scrubbing the inputs before rendering is not enough.
  */
 
 import { fingerprintMarker } from './fingerprint';

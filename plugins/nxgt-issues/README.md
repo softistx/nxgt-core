@@ -32,13 +32,19 @@ later version adds skills and hooks.
 | `refs.ts` | closing keywords and upstream references |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
-| `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit |
+| `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
+| `deny.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |
 | `issue-body.ts` | the issue and comment templates, with their HTML-comment markers |
 
+The `issue-body.ts` templates do not scrub. A filer must render the whole body
+(and the duplicate comment) and run `scrub()` on the rendered text, refusing on
+`refused`; scrubbing the inputs alone is not enough.
+
 `no-network.spec.ts` fails if any module other than `runner.ts` spawns a
-process or calls `fetch(`; the real runner throws under `NODE_ENV=test` unless
-`NXGT_ISSUES_ALLOW_NETWORK=1`.
+process, opens a socket or calls `fetch` (it reads the library recursively); the
+real runner throws in a test run (`NODE_ENV=test`, or a `*.spec.ts` entry file)
+unless `NXGT_ISSUES_ALLOW_NETWORK=1`.
 
 ## Configuration
 

@@ -24,6 +24,17 @@ describe('closingRefs', () => {
 		expect(closingRefs(text)).toEqual([{ number: 12 }]);
 	});
 
+	test('a github.com issue URL after a keyword', () => {
+		expect(closingRefs('Fixes https://github.com/o/r/issues/5')).toEqual([
+			{ repo: { owner: 'o', repo: 'r' }, number: 5 },
+		]);
+		expect(
+			closingRefs('closes: https://www.github.com/softistx/x.y/issues/7.'),
+		).toEqual([{ repo: { owner: 'softistx', repo: 'x.y' }, number: 7 }]);
+		expect(closingRefs('See https://github.com/o/r/issues/5')).toEqual([]);
+		expect(closingRefs('Fixes https://github.com/o/r/pull/5')).toEqual([]);
+	});
+
 	test('several references, each once, in order', () => {
 		expect(closingRefs('Fixes #3, fixes #1.\nCloses #3\nResolves #2')).toEqual([
 			{ number: 3 },

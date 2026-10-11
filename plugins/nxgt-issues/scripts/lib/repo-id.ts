@@ -17,7 +17,8 @@ export interface RepoId {
 export const DEFAULT_OWNERS = ['softistx', 'SteveGT96'] as const;
 
 const NAME = '[\\w.-]+';
-const HOST = '(?:www\\.)?github\\.com';
+/** `ssh.github.com` is the SSH-over-443 host. */
+const HOST = '(?:www\\.|ssh\\.)?github\\.com';
 
 const cleanRepo = (repo: string): string => repo.replace(/\.git$/i, '');
 
@@ -90,18 +91,24 @@ export function sameRepo(a: RepoId, b: RepoId): boolean {
 
 export const formatRepo = (id: RepoId): string => `${id.owner}/${id.repo}`;
 
-/** The `url` of `[remote "origin"]` in a git config, or undefined. */
+/** The `url` of `[remote "origin"]` in a git config (keys case-insensitive, quotes stripped), or undefined. */
 export function originUrlFromConfig(config: string): string | undefined {
 	let inOrigin = false;
 	for (const raw of config.split(/\r?\n/)) {
 		const line = raw.trim();
 		if (line.startsWith('[')) {
-			inOrigin = /^\[remote\s+"origin"\s*\]$/.test(line);
+			inOrigin = /^\[remote\s+"origin"\s*\]$/.test(
+				line.replace(/^\[\s*remote/i, '[remote'),
+			);
 			continue;
 		}
 		if (!inOrigin) continue;
-		const match = /^url\s*=\s*(.+)$/.exec(line);
-		if (match?.[1]) return match[1].trim();
+		const match = /^url\s*=\s*(.+)$/i.exec(line);
+		const value = match?.[1]
+			?.trim()
+			.replace(/^"(.*)"$/, '$1')
+			.trim();
+		if (value) return value;
 	}
 	return undefined;
 }

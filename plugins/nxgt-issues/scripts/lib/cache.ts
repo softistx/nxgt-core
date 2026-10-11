@@ -60,8 +60,14 @@ export function readEntry<T>(
 			return undefined;
 		}
 		const { writtenAt, data } = parsed as { writtenAt: number; data: T };
-		const ageMs = Math.max(0, now - writtenAt);
-		return { data, writtenAt, ageMs, fresh: ageMs < ttlMs };
+		const age = now - writtenAt;
+		// A writtenAt in the future (clock moved back) cannot be trusted: stale.
+		return {
+			data,
+			writtenAt,
+			ageMs: Math.max(0, age),
+			fresh: age >= 0 && age < ttlMs,
+		};
 	} catch {
 		return undefined;
 	}
