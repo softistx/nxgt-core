@@ -1,0 +1,8 @@
+{
+	"name": "nxgt-issues",
+	"description": "Closes the loop between the applications and the in-house packages they consume: a consumer files an anonymous, deduplicated issue on the package's repository and keeps a private tracking issue, the package side sees its open issues at session start, and a released fix is adopted by the application and its markers removed. This version ships the library only; skills and hooks arrive in later versions.",
+	"version": "0.1.0",
+	"author": {
+		"name": "softistx"
+	}
+}
