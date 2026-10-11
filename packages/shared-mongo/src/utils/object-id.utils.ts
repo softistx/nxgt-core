@@ -21,7 +21,7 @@ export function validObjectIds(ids?: string[] | null) {
 }
 
 /**
- * sellix-monorepo's name for {@link toObjectId}.
+ * The consumer monorepo's name for {@link toObjectId}.
  *
  * It answered a `mongoose.mongo.ObjectId` (the BSON driver's class) where
  * `toObjectId` answers a `Types.ObjectId` (Mongoose's own). The two are

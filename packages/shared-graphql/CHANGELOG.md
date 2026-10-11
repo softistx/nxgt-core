@@ -361,7 +361,7 @@
   resolved to `1.1.0`. Both landed in the tree, each registered the `Audit` and
   `Migration` Mongoose models, and the second threw `OverwriteModelError` — 52
   failing specs in nxgt-federation, and two copies of the package in
-  sellix-monorepo already.
+  the consumer monorepo already.
   
   Internal dependencies are now `workspace:^`, which publishes as a caret range
   and dedupes. `verify-artifacts.ts` fails on an exact sibling pin so this cannot
@@ -402,7 +402,7 @@
 ### Minor Changes
 
 - [#8](https://github.com/softistx/nxgt-core/pull/8) [`8628ff5`](https://github.com/softistx/nxgt-core/commit/8628ff5c89ed4ea64a588b0744af02ec12800f22) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The GraphQL context carries a `TokenPrincipal`, not a `Principal`. This package
-  is nxgt-federation's alone — sellix-monorepo has no GraphQL — and what its
+  is nxgt-federation's alone — the consumer monorepo has no GraphQL — and what its
   server puts in the context is a decoded JWT: `sub`, `uid`, `scope`. `Principal`
   is the gateway-header shape, and after the merge it is the one the plain name
   resolves to, so `GraphQLBaseContext`, `PrincipalContext`, the `extract-jwt`

@@ -34,7 +34,7 @@
   `SortDirection` shipped to describe it. Nothing ever honoured it. The paginator
   every one of those bodies feeds is `Model.cursorPaginate` in
   `@nxgt/shared-mongo`, which orders by `_id` and never reads `sort` — the cursor
-  *is* the `_id`. Twenty-three endpoints across six sellix services took the
+  *is* the `_id`. Twenty-three endpoints across six services of the first consumer took the
   parameter, documented it, and threw it away; five of them went as far as
   building a Mongo sort object before dropping it on the floor.
   
@@ -78,7 +78,7 @@
   resolved to `1.1.0`. Both landed in the tree, each registered the `Audit` and
   `Migration` Mongoose models, and the second threw `OverwriteModelError` — 52
   failing specs in nxgt-federation, and two copies of the package in
-  sellix-monorepo already.
+  the consumer monorepo already.
   
   Internal dependencies are now `workspace:^`, which publishes as a caret range
   and dedupes. `verify-artifacts.ts` fails on an exact sibling pin so this cannot
@@ -100,7 +100,7 @@
 ### Minor Changes
 
 - [#3](https://github.com/softistx/nxgt-core/pull/3) [`7631c60`](https://github.com/softistx/nxgt-core/commit/7631c6086304f388f96713276edc4c9bdf9ef3ef) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The package now ships its `openapi/` fragments, not just `dist/`. They are half
-  of what it is for: 296 spec files in `sellix-monorepo` `$ref` into
+  of what it is for: 296 spec files in the consumer monorepo `$ref` into
   `openapi/components/**` by relative path, and with the tarball carrying only
   `dist/` there was nothing for them to point at once the packages moved out of
   the monorepo. 56 files, 224 KB.

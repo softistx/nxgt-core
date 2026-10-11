@@ -53,7 +53,7 @@ carrying on without the reference.
 | --- | --- |
 | `nxgt-ory` | `references/nxgt-ory.md` — **the worked example**, converted first |
 | `nxgt-docker` | `references/nxgt-docker.md` — the platform layer, owns `proxy` and traefik |
-| an application (`sellix-monorepo`, `nxgt-federation`, …) | its plugin in `softistx/plugins`, `references/compose.md` |
+| an application (the two consumer repositories, …) | its plugin in `softistx/plugins`, `references/compose.md` |
 
 A repository with no reference here still follows the eleven rules; add its
 reference when you convert it, in the shape of the others — what it is, what is

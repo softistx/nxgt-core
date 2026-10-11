@@ -27,7 +27,7 @@ all invisible to the build and fatal to a consumer.
 1. **The package change**, with its changeset, in its own slice.
 2. **The release** — see `release-a-package-change`. It is not a slice; it is a
    Version PR that merges and publishes.
-3. **The consumer PRs**, in `sellix-monorepo` and `nxgt-federation`, opened
+3. **The consumer PRs**, in the two consumer repositories, opened
    only once the version answers 200 on `registry.npmjs.org`.
 4. **Docs and skills last.**
 

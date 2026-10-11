@@ -12,7 +12,7 @@ description: >-
 ## Purpose
 
 Every change to a package in `nxgt-core` has to travel: change here → release →
-bump in `sellix-monorepo` and `nxgt-federation`. This skill is that sequence,
+bump in the two consumer repositories. This skill is that sequence,
 and the checks that stop each of its known failure modes.
 
 ## When to use

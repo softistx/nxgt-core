@@ -73,7 +73,7 @@ Rules that decide tone:
 
 - **The reader does not work here.** Never name a private application, a
   private monorepo, or "the parc" / "the estate" on the README. Write "an
-  SSR app" not `kratos-ui`; write "the consumer" not `sellix-monorepo`.
+  SSR app" not `kratos-ui`; write "the consumer" not the name of a consumer repository.
 - **Examples are the documentation.** Prefer 15 lines of working code over
   40 lines of prose.
 - **Do not catalogue** every component or every type alias. Name the groups

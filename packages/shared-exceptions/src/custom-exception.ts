@@ -6,7 +6,7 @@ import type { StatusCode } from './status';
  * The two repositories had forked this class, and everything either of them
  * throws is built on it:
  *
- *   - sellix-monorepo took a positional constructor and a **numeric** `code`,
+ *   - The consumer monorepo took a positional constructor and a **numeric** `code`,
  *     the HTTP status. `shared-hono`'s error handler does `c.status(err.code)`
  *     straight off it.
  *   - nxgt-federation took an object constructor and a **string** `code`, the
@@ -152,7 +152,7 @@ export class CustomException<T extends string = LocaleKey> extends Error {
 		});
 	}
 
-	/** sellix-monorepo's name for {@link CustomException.unauthenticated}. */
+	/** The consumer monorepo's name for {@link CustomException.unauthenticated}. */
 	static unauthorized<T extends string = LocaleKey>(
 		params: ErrorProps<T> = {},
 	) {

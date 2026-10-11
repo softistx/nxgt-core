@@ -10,7 +10,7 @@ export type { SoftDeleteScope, WidthDeleted } from './soft-delete-scope';
  * plain names (`PaginationOptions`, `NestedPaginationOptions`), because that is
  * what `Model.paginate` answers and what every consumer of it passes. These
  * carry the `Offset` prefix so both can be exported from one package; they had
- * the plain names in sellix-monorepo, where nothing called them.
+ * the plain names in the consumer monorepo, where nothing called them.
  */
 export class OffsetPaginationOptions {
 	filter?: object;

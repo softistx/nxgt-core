@@ -15,7 +15,7 @@ Any automation that lives in a repository — release plumbing, a codemod, a
 verification probe, a maintenance chore — is a **TypeScript file run by Bun**,
 using Bun Shell for the commands it needs. Not a `.sh`.
 
-This is the convention across `nxgt-core`, `sellix-monorepo`,
+This is the convention across `nxgt-core`, the consumer monorepo,
 `nxgt-federation` and `nxgt-ory`. `scripts/publish.ts` and
 `scripts/verify-artifacts.ts` are the reference implementations.
 

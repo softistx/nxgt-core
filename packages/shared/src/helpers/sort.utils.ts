@@ -1,7 +1,7 @@
 /**
  * Sort order, matching the OpenAPI `SortOrder` schema.
  *
- * `SortDirection` is the name sellix-monorepo gave the identical enum in
+ * `SortDirection` is the name the consumer monorepo gave the identical enum in
  * `@nxgt/shared-mongo`. The two packages carried the same twenty lines under
  * two names; this is the one copy, and `@nxgt/shared-mongo` re-exports it so
  * neither repository's imports change.
@@ -11,7 +11,7 @@ export enum SortOrder {
 	DESC = 'desc',
 }
 
-/** sellix-monorepo's name for {@link SortOrder}. */
+/** The consumer monorepo's name for {@link SortOrder}. */
 export const SortDirection = SortOrder;
 export type SortDirection = SortOrder;
 

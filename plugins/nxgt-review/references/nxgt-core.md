@@ -1,7 +1,7 @@
 # `code-reviewer` in nxgt-core
 
 nxgt-core is the Bun workspace behind the shared `@nxgt/*` packages that
-`sellix-monorepo` and `nxgt-federation` install from npmjs, and it is the
+the two consumer repositories install from npmjs, and it is the
 marketplace for the nxgt plugins under `plugins/`. It is upstream of every
 other repository: a defect here reaches consumers only after a release, and
 the build proves almost nothing about the artifact they install, because
