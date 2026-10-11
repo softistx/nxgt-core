@@ -20,6 +20,17 @@ export const MARKER_GREP_ARGV = [
 	'Temporary, until ',
 ] as const;
 
+/** The grep command; each `exclude` is a pathspec the repository wants skipped (fixtures, docs examples). */
+export function markerGrepArgv(excludes: readonly string[] = []): string[] {
+	return excludes.length === 0
+		? [...MARKER_GREP_ARGV]
+		: [
+				...MARKER_GREP_ARGV,
+				'--',
+				...excludes.map((path) => `:(exclude)${path}`),
+			];
+}
+
 export type MarkerTarget =
 	| { readonly kind: 'package'; readonly name: string }
 	| { readonly kind: 'repo'; readonly repo: RepoId };

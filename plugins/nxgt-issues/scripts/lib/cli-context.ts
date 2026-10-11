@@ -21,6 +21,8 @@ export interface CliContext extends ResolveContext {
 export const EXIT = {
 	ok: 0,
 	usage: 1,
+	/** `markers`: at least one marker is flagged (the same number as `usage`). */
+	flagged: 1,
 	refusedGate: 2,
 	refusedScrub: 3,
 	candidates: 4,

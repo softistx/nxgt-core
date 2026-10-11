@@ -72,17 +72,18 @@ export interface ResolveContext extends GhContext {
 
 const PACKAGE_NAME = /^(?:@[a-z0-9~-][\w.~-]*\/)?[a-z0-9~-][\w.~-]*$/i;
 
+/** The registry's answer; `unreachable` is a failure that is no 404 (timeout, 5xx, offline), as opposed to a package that does not exist. */
 async function fromRegistry(
 	ctx: ResolveContext,
 	pkg: string,
-): Promise<PackageManifest | undefined> {
+): Promise<{ manifest?: PackageManifest | undefined; unreachable: boolean }> {
 	try {
 		const url = `${REGISTRY}/${pkg.replace('/', '%2F')}/latest`;
-		return asPackageManifest(
-			await ctx.runner.fetchJson(url, REGISTRY_TIMEOUT_MS),
-		);
-	} catch {
-		return undefined;
+		const json = await ctx.runner.fetchJson(url, REGISTRY_TIMEOUT_MS);
+		return { manifest: asPackageManifest(json), unreachable: false };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return { unreachable: !/\b404\b/.test(message) };
 	}
 }
 
@@ -167,12 +168,16 @@ export async function resolvePackage(
 	if (!PACKAGE_NAME.test(pkg)) {
 		return refuse(pkg, 'invalid-name', `"${pkg}" is not an npm package name.`);
 	}
-	const registry = await fromRegistry(ctx, pkg);
+	const { manifest: registry, unreachable } = await fromRegistry(ctx, pkg);
 	const installed = fromNodeModules(ctx.cwd, pkg);
 	const id =
 		parseRepositoryField(registry?.repository) ??
 		parseRepositoryField(installed?.repository);
 	if (!id) {
+		if (!registry && !installed && unreachable) {
+			const hint = `The npm registry could not be reached and ${pkg} is not installed under node_modules from here. Try again.`;
+			return refuse(pkg, 'unreachable', hint);
+		}
 		if (!registry && !installed) {
 			const hint = `${pkg} is neither on the registry nor installed under node_modules from here. Check the name.`;
 			return refuse(pkg, 'unknown-package', hint);

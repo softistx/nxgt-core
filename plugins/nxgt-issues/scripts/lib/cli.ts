@@ -8,8 +8,11 @@
  *   deps <pkg> [--file [--public-app]] the dependencies behind latest; --file updates the rolling issue
  *   sessions <owner/repo> [--json]  live crew sessions that depend on the repository's packages
  *   refresh                         the SessionStart cache of this checkout's repository
+ *   ready [--json]                  tracking issues whose upstream fix is released
+ *   markers [--json] [--exclude <pathspec>]…                `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
  */
 
+import { readyCommand } from './app-side';
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import { filingDenyList } from './deny-sources';
@@ -18,6 +21,7 @@ import { behindDependencies } from './deps-behind';
 import { type FileFlags, fileCommand } from './file';
 import { refuseInPublicApp } from './file-checks';
 import { exitForError, printGateRefusal } from './filing';
+import { markersCommand } from './markers-check';
 import { refreshCommand } from './refresh';
 import { formatRepo } from './repo-id';
 import { resolvePackage } from './resolve';
@@ -30,7 +34,9 @@ export const USAGE = `usage: issues.ts <command>
   track                                 tracking JSON on stdin
   deps <pkg> [--file [--public-app]]
   sessions <owner/repo> [--json]
-  refresh                               refresh this checkout's issue cache`;
+  refresh                               refresh this checkout's issue cache
+  ready [--json]                        fixes released upstream, ready to adopt
+  markers [--json] [--exclude <pathspec>]… workaround markers; exit 1 when any is flagged`;
 
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
 	const result = await resolvePackage(ctx, pkg);
@@ -84,6 +90,23 @@ async function depsCommand(
 	}
 }
 
+/** Every value of a repeatable `--flag <value>` or `--flag=<value>`; undefined when one has none. */
+export function optionValues(
+	args: readonly string[],
+	flag: string,
+): string[] | undefined {
+	const values: string[] = [];
+	for (const [i, arg] of args.entries()) {
+		let value: string | undefined;
+		if (arg === flag) value = args[i + 1];
+		else if (arg.startsWith(`${flag}=`)) value = arg.slice(flag.length + 1);
+		else continue;
+		if (!value || value.startsWith('--')) return undefined;
+		values.push(value);
+	}
+	return values;
+}
+
 /** `--duplicate-of <n>` (a positive integer), `--new`, `--public-app`; undefined when invalid. */
 export function fileFlags(args: readonly string[]): FileFlags | undefined {
 	const index = args.indexOf('--duplicate-of');
@@ -125,6 +148,13 @@ export async function main(
 			);
 		case 'refresh':
 			return refreshCommand(ctx);
+		case 'ready':
+			return readyCommand(ctx, has('--json'));
+		case 'markers': {
+			const excludes = optionValues(args, '--exclude');
+			if (!excludes) break;
+			return markersCommand(ctx, has('--json'), excludes);
+		}
 		case 'sessions':
 			return sessionsCommand(ctx, positional[0], has('--json'));
 	}

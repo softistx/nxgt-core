@@ -78,6 +78,15 @@ describe('resolvePackage', () => {
 		expect(!result.ok && result.reason).toBe('unknown-package');
 	});
 
+	test('registry unreachable and not installed is unreachable, not unknown', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			fetch: [{ url: 'nope', throws: 'timeout' }],
+		});
+		const result = await resolvePackage(h.ctx, 'nope');
+		expect(!result.ok && result.reason).toBe('unreachable');
+	});
+
 	test('an invalid name is refused before anything runs', async () => {
 		const h = harness({ cwd: makeApp() });
 		const result = await resolvePackage(h.ctx, '../../etc');
