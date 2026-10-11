@@ -77,7 +77,10 @@ export async function releasedCommand(
 	}
 	const root = repoRoot(ctx.cwd);
 	const manifests = root ? manifestsOf(root) : [];
-	const manifest = manifests.find((m) => m.name === parsed.pkg);
+	// The root is releasable only in a single-package repository (no `workspaces`), and then it is the only sibling-less package.
+	const single = (m: { dir: string; data: Record<string, unknown> }) =>
+		m.dir !== root || !m.data['workspaces'];
+	const manifest = manifests.find((m) => m.name === parsed.pkg && single(m));
 	if (!(root && manifest)) {
 		ctx.err(
 			`nxgt-issues: ${parsed.pkg} is not a workspace package of this checkout`,
@@ -89,7 +92,11 @@ export async function releasedCommand(
 			repo,
 			...parsed,
 			dir: relative(root, manifest.dir).replaceAll('\\', '/') || '.',
-			siblings: manifests.flatMap((m) => (m.name ? [m.name] : [])),
+			siblings: manifests.flatMap((m) =>
+				m.name && (m.dir !== root || m === manifest)
+					? [{ name: m.name, dir: relative(root, m.dir) || '.' }]
+					: [],
+			),
 			owners,
 			dryRun,
 		});

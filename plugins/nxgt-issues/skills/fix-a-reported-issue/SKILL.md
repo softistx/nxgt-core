@@ -57,9 +57,9 @@ slice did the work. Add the changeset (`release-a-package-change`); its
 Follow `release-a-package-change`. The library repository's release workflow
 then runs `scripts/close-released-issues.ts` after the publish: for each
 published version it finds the PRs, their `Fixes #n` issues, and, once per
-issue, comments "Fixed in <package>@<version> (#PR)", adds `released` and
-closes it if still open. That comment and label are what the application side
-keys on, together with the closed state.
+issue, adds `released`, closes it if still open and, last, comments "Fixed in
+<package>@<version> (#PR)". That comment and label are what the application
+side keys on, together with the closed state.
 
 **After every publish, run `released` for each published version from the
 library's checkout**, whether or not the CI step ran: it is idempotent (a
@@ -72,7 +72,11 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version> --dry-r
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version>
 ```
 
-The first lists what it would do; the second does it. It works for a package in `packages/*` and for the single package of a repository's root. An issue whose `## Versions` section names another package of the repository is left to that package's run (a note says so): run `released` for each published version. Exit 1 is a malformed
+The first lists what it would do; the second does it. It works for a package in
+`packages/*` and for the single package of a repository's root. An issue whose
+`## Versions` section names another package of the repository that the fixing
+PR also touched is left to that package's run (a note says so): run `released`
+for each published version. Exit 1 is a malformed
 `<package>@<version>` or a package this checkout does not hold, 2 a checkout
 that is not an allowed owner's, 5 a GitHub rate limit (try later), 6 a failure
 on one PR or issue (the rest was done; read the message and rerun once). A note

@@ -41,12 +41,13 @@ export const inDir = (dir: string, file: string) =>
 	dir === '.' || file.startsWith(`${dir}/`);
 
 /** The package names a filed issue's `## Versions` section lists. */
-export const versionNames = (body: string): string[] =>
-	[
-		...(
-			/^## Versions\s*\n([\s\S]*?)(?=^## |$(?![\s\S]))/m.exec(body)?.[1] ?? ''
-		).matchAll(/^- `([^`]+)`/gm),
-	].map((m) => m[1] ?? '');
+export const versionNames = (body: string): string[] => {
+	const text = body.replace(/(```|~~~)[\s\S]*?(?:\1|$)/g, '');
+	const section = /^## Versions\s*\n([\s\S]*?)(?=^## |$(?![\s\S]))/m.exec(text);
+	return [...(section?.[1] ?? '').matchAll(/^- `([^`]+)`/gm)].map(
+		(m) => m[1] ?? '',
+	);
+};
 
 export const lower = (v: unknown) => String(v).toLowerCase();
 export const message = (e: unknown) =>
@@ -115,7 +116,7 @@ function toPr(raw: Obj, repo: string) {
 		files: rows(raw['files']).map((f) => String(f['path'])),
 	};
 }
-type Pr = ReturnType<typeof toPr>;
+export type Pr = ReturnType<typeof toPr>;
 
 /** PR numbers named by the first-parent commits touching the package since its previous tag. */
 async function loggedPrs(c: Ctx, p: Pkg) {
@@ -129,7 +130,10 @@ async function loggedPrs(c: Ctx, p: Pkg) {
 		.filter(Boolean);
 	const tag = all.includes(p.tag) ? p.tag : plain;
 	const same = all.filter((t) =>
-		(tag === plain ? /^v\d/ : RegExp(`^${p.name}@`)).test(t),
+		(tag === plain
+			? /^v\d/
+			: RegExp(`^${p.name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}@`)
+		).test(t),
 	);
 	const previous = same[same.indexOf(tag) + 1];
 	if (!tag || !previous || !all.includes(tag)) return [];
@@ -144,7 +148,7 @@ async function loggedPrs(c: Ctx, p: Pkg) {
 }
 
 /** Whether the PR's merge (or squash) commit changed the package; its files when git cannot say. */
-async function touches(c: Ctx, p: Pkg, pr: Pr) {
+export async function touches(c: Ctx, p: Pick<Pkg, 'dir'>, pr: Pr) {
 	const diff =
 		pr.sha &&
 		(await c.exec([
@@ -170,9 +174,11 @@ export async function fixes(c: Ctx, p: Pkg) {
 		return [];
 	});
 	// rank 0: a direct or integration PR's issues; 1: a slice's, named after its integration PR; 2: a slice with none yet
-	const found = new Map<number, { pr: number; rank: number }>();
-	const keep = (issue: number, pr: number, rank: number) => {
-		if (rank < (found.get(issue)?.rank ?? 3)) found.set(issue, { pr, rank });
+	const found = new Map<number, { pr: number; rank: number; info: Pr }>();
+	const keep = (issue: number, info: Pr, rank: number) => {
+		if (rank < (found.get(issue)?.rank ?? 3)) {
+			found.set(issue, { pr: info.number, rank, info });
+		}
 	};
 	const merged = new Map<string, Pr[]>();
 	const read: number[] = [];
@@ -185,7 +191,7 @@ export async function fixes(c: Ctx, p: Pkg) {
 			if (!logged.includes(number) && !(await touches(c, p, pr))) continue;
 			read.push(number);
 			if (!pr.feat) {
-				for (const issue of pr.issues) keep(issue, number, 0);
+				for (const issue of pr.issues) keep(issue, pr, 0);
 				continue;
 			}
 			const base = String(raw['baseRefName']);
@@ -205,9 +211,9 @@ export async function fixes(c: Ctx, p: Pkg) {
 			}
 			const parents = merged.get(base) ?? [];
 			for (const issue of pr.issues)
-				keep(issue, parents[0]?.number ?? number, parents[0] ? 1 : 2);
+				keep(issue, parents[0] ?? pr, parents[0] ? 1 : 2);
 			for (const parent of parents) {
-				for (const issue of parent.issues) keep(issue, parent.number, 0);
+				for (const issue of parent.issues) keep(issue, parent, 0);
 			}
 		} catch (error) {
 			warn(c, `PR #${number}`, error);

@@ -499,17 +499,66 @@ describe('the notification list', () => {
 
 const versions = (...names: string[]) =>
 	`Summary.\n\n## Versions\n\n${names.map((n) => `- \`${n}\` 1.0.0`).join('\n')}\n\n## Expected\n\nx\n`;
-const SIBLINGS = [PKG, '@nxgt/other'];
+const SIBLINGS = [
+	{ name: PKG, dir: DIR },
+	{ name: '@nxgt/other', dir: 'packages/other' },
+];
+/** A fixing PR that touched the package and its sibling (a merge commit git can diff). */
+const both = {
+	mergeSha: 'm40',
+	closing: [12],
+	files: [`${DIR}/a.ts`, 'packages/other/b.ts'],
+};
+const alone = { mergeSha: 'm40', closing: [12], files: [`${DIR}/a.ts`] };
 
 describe('an issue that names another package of the repository', () => {
-	test('is left to that package: no comment, label or close, with a note', async () => {
+	test('is left to that package when the fixing PR also touched it: nothing written, a note, no notification', async () => {
 		const fake = fakeWorld(
-			simple({ issues: { 12: { body: versions('@nxgt/other') } } }),
+			simple({
+				prs: { 40: both },
+				issues: { 12: { body: versions('@nxgt/other') } },
+				tracking: [
+					{
+						repo: 'softistx/acme-store',
+						number: 21,
+						title: 'w',
+						body: '<!-- nxgt-issues:upstream=softistx/nxgt-widget#12 -->',
+					},
+				],
+			}),
 		);
 		const report = await run(fake, false, { siblings: SIBLINGS });
 		expect(fake.writes()).toEqual([]);
 		expect(report.issues[0]).toMatchObject({ skipped: true, commented: false });
 		expect(report.notes.join(' ')).toContain('@nxgt/other');
+		expect(report.notify).toEqual([]);
+		expect(fake.calls.some((c) => c[1] === 'search')).toBe(false);
+	});
+
+	test('is handled under this package when the fixing PR did not touch the named one', async () => {
+		const fake = fakeWorld(
+			simple({
+				prs: { 40: alone },
+				issues: { 12: { body: versions('@nxgt/other') } },
+			}),
+		);
+		const report = await run(fake, false, { siblings: SIBLINGS });
+		expect(report.issues[0]).toMatchObject({
+			skipped: false,
+			commented: true,
+			closed: true,
+		});
+	});
+
+	test('is handled when git cannot say whether the named package was touched', async () => {
+		const fake = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12] } },
+				issues: { 12: { body: versions('@nxgt/other') } },
+			}),
+		);
+		const report = await run(fake, false, { siblings: SIBLINGS });
+		expect(report.issues[0]?.skipped).toBe(false);
 	});
 
 	test('is released when the Versions section names this package, or only packages of other repositories', async () => {
@@ -518,10 +567,21 @@ describe('an issue that names another package of the repository', () => {
 			versions('@acme/elsewhere'),
 			'no versions section',
 		]) {
-			const fake = fakeWorld(simple({ issues: { 12: { body } } }));
+			const fake = fakeWorld(
+				simple({ prs: { 40: both }, issues: { 12: { body } } }),
+			);
 			const report = await run(fake, false, { siblings: SIBLINGS });
 			expect(report.issues[0]?.commented).toBe(true);
 		}
+	});
+
+	test('a Versions section inside a fenced block is not read', async () => {
+		const body = `Report.\n\n\`\`\`\n${versions('@nxgt/other')}\`\`\`\n`;
+		const fake = fakeWorld(
+			simple({ prs: { 40: both }, issues: { 12: { body } } }),
+		);
+		const report = await run(fake, false, { siblings: SIBLINGS });
+		expect(report.issues[0]?.skipped).toBe(false);
 	});
 });
 

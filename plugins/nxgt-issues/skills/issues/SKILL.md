@@ -66,7 +66,7 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released '<pkg@ver>' --dry-run
 ```
 
 It finds the issues that published version fixes and says what it would do:
-comment "Fixed in …", label `released`, close. Show it, then run the same
+label `released`, close, then comment "Fixed in …" (last: it is the marker). Show it, then run the same
 command without `--dry-run` to do it (idempotent). The output ends with the
 `notify` list of the applications' tracking issues; offer to message those
 sessions (`fix-a-reported-issue`, step 5). Exit 2 means the checkout is not an

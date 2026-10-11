@@ -30,6 +30,8 @@ import { formatRepo, type RepoId, sameRepo } from './repo-id';
 export interface Fix {
 	readonly issue: number;
 	readonly pr: number;
+	/** The merge commit of that PR, when GitHub gave one. */
+	readonly sha?: string | undefined;
 }
 
 export interface Discovery {
@@ -149,9 +151,11 @@ export async function discoverFixes(
 
 	// rank: 0 an integration PR's own issues, 1 a slice's, named after its integration PR, 2 a slice with none yet
 	const found = new Map<number, Fix & { rank: number }>();
-	const keep = (issue: number, pr: number, rank: number) => {
+	const keep = (issue: number, pr: PrInfo, rank: number, sha = pr.mergeSha) => {
 		const known = found.get(issue);
-		if (!known || rank < known.rank) found.set(issue, { issue, pr, rank });
+		if (!known || rank < known.rank) {
+			found.set(issue, { issue, pr: pr.number, sha, rank });
+		}
 	};
 	const branches = new Map<string, PrInfo[]>();
 	const touched: number[] = [];
@@ -167,7 +171,7 @@ export async function discoverFixes(
 				continue;
 			touched.push(number);
 			if (!info.base.startsWith('feat/')) {
-				for (const issue of info.issues) keep(issue, number, 0);
+				for (const issue of info.issues) keep(issue, info, 0);
 				continue;
 			}
 			if (!branches.has(info.base)) {
@@ -183,11 +187,11 @@ export async function discoverFixes(
 			}
 			const parents = branches.get(info.base) ?? [];
 			for (const issue of info.issues) {
-				if (parents[0]) keep(issue, parents[0].number, 1);
-				else keep(issue, number, 2);
+				if (parents[0]) keep(issue, parents[0], 1);
+				else keep(issue, info, 2);
 			}
 			for (const parent of parents) {
-				for (const issue of parent.issues) keep(issue, parent.number, 0);
+				for (const issue of parent.issues) keep(issue, parent, 0);
 			}
 		} catch (error) {
 			if (error instanceof RateLimitedError) throw error;
@@ -198,6 +202,6 @@ export async function discoverFixes(
 	}
 	const fixes = [...found.values()]
 		.sort((a, b) => a.rank - b.rank)
-		.map(({ issue, pr }) => ({ issue, pr }));
+		.map(({ issue, pr, sha }) => ({ issue, pr, sha }));
 	return { prs: touched, fixes, warnings, notes };
 }

@@ -88,6 +88,11 @@ export function fakeWorld(init: World = {}): Fake {
 	};
 }
 
+/**
+ * A context around the fake. It makes a `nxgt-issues-home-*` folder (the
+ * rate-limit pause is stored there): a spec that uses it registers
+ * `afterAll(removeTempDirs)`, as every spec of the plugin does.
+ */
 export function ghContext(fake: Fake): GhContext {
 	return {
 		runner: fake.runner,

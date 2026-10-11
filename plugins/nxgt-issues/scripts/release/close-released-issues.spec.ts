@@ -61,6 +61,8 @@ interface World {
 	logs?: Record<string, string[]>;
 	/** Tags like v1.4.0 (a single-package repository). */
 	plain?: boolean;
+	/** Overrides the tags `git tag` prints. */
+	tagList?: string[];
 	failing?: string[];
 	failOnce?: string[];
 	prs?: Record<number, Pr>;
@@ -104,6 +106,7 @@ function fakeWorld(init: World) {
 	const git = (argv: string[]) => {
 		if (argv[1] === 'tag') {
 			const name = String(argv[3]).replace(/@\*$/, '');
+			if (init.tagList) return ok(`${init.tagList.join('\n')}\n`);
 			if (init.plain) return ok('v1.4.0\nv1.3.0\n');
 			return ok(`${name}@1.4.0\n${name}@1.3.0\n`);
 		}
@@ -523,17 +526,71 @@ describe('several packages published together', () => {
 		);
 	});
 
-	test('an issue naming a sibling package that is not published now is left to its release', async () => {
+	const only = JSON.stringify([{ name: '@nxgt/a', version: '1.4.0' }]);
+
+	test('an issue naming an unpublished sibling that the fixing PR also touched is left to its release', async () => {
 		const world = fakeWorld(
 			simple({
 				prs: { 40: { closing: [12], sha: 'm40', files: everything } },
 				issues: { 12: { body: versions('@nxgt/c') } },
 			}),
 		);
-		const only = JSON.stringify([{ name: '@nxgt/a', version: '1.4.0' }]);
 		const { lines } = await run(world, [], checkout('a', 'b', 'c'), only);
 		expect(world.writes.filter((w) => w[1] === 'issue')).toEqual([]);
 		expect(lines).toContain('@nxgt/c');
+	});
+
+	test('one the fixing PR did not touch is handled under the published package', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12], sha: 'm40', files: [touching('a')] } },
+				issues: { 12: { body: versions('@nxgt/c') } },
+			}),
+		);
+		await run(world, [], checkout('a', 'b', 'c'), only);
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/a@1.4.0 (#40).',
+		);
+		expect(world.issues[12]?.state).toBe('CLOSED');
+	});
+
+	test('a Versions section in a fenced block is not read, and a private root is no sibling', async () => {
+		const fenced = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12], sha: 'm40', files: everything } },
+				issues: { 12: { body: `x\n\n\`\`\`\n${versions('@nxgt/c')}\`\`\`\n` } },
+			}),
+		);
+		await run(fenced, [], checkout('a', 'b', 'c'), only);
+		expect(fenced.issues[12]?.state).toBe('CLOSED');
+		const root = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12], sha: 'm40', files: everything } },
+				issues: { 12: { body: versions('acme-root') } },
+			}),
+		);
+		const dir = checkout('a', 'b', 'c');
+		writeFileSync(
+			join(dir, 'package.json'),
+			JSON.stringify({
+				name: 'acme-root',
+				private: true,
+				workspaces: ['packages/*'],
+			}),
+		);
+		await run(root, [], dir, only);
+		expect(root.issues[12]?.state).toBe('CLOSED');
+	});
+
+	test('a package name is matched literally against the tags', async () => {
+		const world = fakeWorld({
+			...simple({ prs: { 40: { closing: [12] } } }),
+			tagList: ['@nxgt/a.c@1.4.0', '@nxgt/abc@1.3.5', '@nxgt/a.c@1.3.0'],
+		});
+		const one = JSON.stringify([{ name: '@nxgt/a.c', version: '1.4.0' }]);
+		await run(world, [], checkout('a.c'), one);
+		const log = world.calls.find((c) => c[1] === 'log');
+		expect(log?.join(' ')).toContain('@nxgt/a.c@1.3.0..HEAD');
 	});
 
 	test('a PR that touched one package is not credited to the others', async () => {

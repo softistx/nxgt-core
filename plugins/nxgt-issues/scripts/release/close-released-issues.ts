@@ -31,8 +31,10 @@ import {
 	message,
 	obj,
 	type Pkg,
+	type Pr,
 	rows,
 	run,
+	touches,
 	versionNames,
 	warn,
 } from './close-released-issues-lib';
@@ -42,6 +44,7 @@ interface Candidate {
 	p: Pkg;
 	pr: number;
 	rank: number;
+	info: Pr;
 }
 
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
@@ -57,18 +60,27 @@ function chosen(named: string[], candidates: Candidate[]): Candidate {
 async function release(
 	c: Ctx,
 	candidates: Candidate[],
-	away: Set<string>,
+	away: Map<string, string>,
 	issue: number,
 ) {
 	const n = String(issue);
 	const fields = 'state,body,labels,comments';
 	const raw = obj(await gh(c, 'issue view', n, '--json', fields));
 	const named = versionNames(String(raw['body'] ?? ''));
-	const other = named.find((name) => away.has(name));
-	if (other && !candidates.some((k) => named.includes(k.p.name))) {
-		return c.log(`  #${issue}: left to ${other}, which is not published now`);
+	// Left to an unpublished sibling only when the fixing PR also touched it; else no run of it would find the issue.
+	const best = chosen(named, candidates);
+	for (const [name, dir] of away) {
+		if (
+			!named.includes(name) ||
+			candidates.some((k) => named.includes(k.p.name))
+		) {
+			continue;
+		}
+		if (await touches(c, { dir }, best.info)) {
+			return c.log(`  #${issue}: left to ${name}, which is not published now`);
+		}
 	}
-	const { p, pr } = chosen(named, candidates);
+	const { p, pr } = best;
 	const body = `Fixed in ${p.tag} (#${pr}).\n\n<!-- nxgt-issues:fixed=${p.tag} -->\n`;
 	const done = rows(raw['comments']).some((m) => {
 		const bot = obj(m['author'])['login'] === 'github-actions';
@@ -116,8 +128,11 @@ async function workspace(c: Ctx): Promise<{ name: string; dir: string }[]> {
 async function releaseAll(c: Ctx, published: Obj[]) {
 	const all = await workspace(c);
 	const names = published.map((p) => String(p['name']));
-	const away = new Set(
-		all.map((w) => w.name).filter((n) => !names.includes(n)),
+	// The root manifest is a sibling of nothing: only a single-package repository publishes it.
+	const away = new Map(
+		all
+			.filter((w) => w.dir !== '.' && !names.includes(w.name))
+			.map((w) => [w.name, w.dir] as const),
 	);
 	const issues = new Map<number, Candidate[]>();
 	for (const { name, version } of published) {
@@ -139,8 +154,9 @@ async function releaseAll(c: Ctx, published: Obj[]) {
 			c.log(
 				`${c.dry ? 'dry run: ' : ''}${p.tag}: ${read}, ${found.length} issue(s)`,
 			);
-			for (const [issue, { pr, rank }] of found) {
-				issues.set(issue, [...(issues.get(issue) ?? []), { p, pr, rank }]);
+			for (const [issue, { pr, rank, info }] of found) {
+				const known = issues.get(issue) ?? [];
+				issues.set(issue, [...known, { p, pr, rank, info }]);
 			}
 		} catch (error) {
 			warn(c, `${name}@${version}`, error);

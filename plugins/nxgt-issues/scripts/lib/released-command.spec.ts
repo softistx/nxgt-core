@@ -78,20 +78,42 @@ describe('issues.ts released', () => {
 		expect(fake.world.issues[12]?.state).toBe('CLOSED');
 	});
 
-	test('the other packages of the checkout are passed on, so an issue naming one is left to it', async () => {
-		const fake = fakeWorld({
-			prs: { 40: { closing: [12] } },
-			issues: { 12: { body: '## Versions\n\n- `@nxgt/other` 1.0.0\n' } },
-		});
+	const withOther = () => {
 		const dir = makeLibrary();
 		mkdirSync(join(dir, 'packages', 'other'), { recursive: true });
 		writeFileSync(
 			join(dir, 'packages', 'other', 'package.json'),
 			JSON.stringify({ name: '@nxgt/other', version: '1.0.0' }),
 		);
-		const { ctx } = cliContext(fake, dir);
+		return dir;
+	};
+	const fixing = (name: string) => ({
+		prs: {
+			40: {
+				closing: [12],
+				mergeSha: 'm40',
+				files: ['packages/widget/a.ts', 'packages/other/b.ts'],
+			},
+		},
+		issues: { 12: { body: `## Versions\n\n- \`${name}\` 1.0.0\n` } },
+	});
+
+	test('the other packages of the checkout are passed on, so an issue naming one the PR touched is left to it', async () => {
+		const fake = fakeWorld(fixing('@nxgt/other'));
+		const { ctx } = cliContext(fake, withOther());
 		await releasedCommand(ctx, '@nxgt/widget@1.4.0', false, false);
 		expect(fake.writes()).toEqual([]);
+	});
+
+	test("a monorepo's private root is neither a sibling nor a releasable package", async () => {
+		const fake = fakeWorld(fixing('nxgt-widget'));
+		const { ctx, err } = cliContext(fake, withOther());
+		await releasedCommand(ctx, '@nxgt/widget@1.4.0', false, false);
+		expect(fake.world.issues[12]?.state).toBe('CLOSED');
+		expect(await releasedCommand(ctx, 'nxgt-widget@1.0.0', false, false)).toBe(
+			EXIT.usage,
+		);
+		expect(err.join('\n')).toContain('nxgt-widget');
 	});
 
 	test('a package this checkout does not hold is a usage error', async () => {

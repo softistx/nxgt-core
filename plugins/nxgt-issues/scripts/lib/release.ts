@@ -10,6 +10,7 @@
 import { type GhContext, gh, RateLimitedError } from './github';
 import { commentIssue } from './github-issues';
 import { fixedComment, versionNames } from './issue-body';
+import { commitTouches } from './release-git';
 import {
 	FIXED_MARKER,
 	labelCreated,
@@ -24,7 +25,10 @@ export interface ReleaseOptions extends ReleaseInput {
 	readonly owners: readonly string[];
 	readonly dryRun: boolean;
 	/** The names of every package of this repository: an issue naming another one is left to its run. */
-	readonly siblings?: readonly string[];
+	readonly siblings?: readonly {
+		readonly name: string;
+		readonly dir: string;
+	}[];
 }
 
 export interface IssueOutcome {
@@ -58,20 +62,40 @@ export interface ReleaseReport {
 const message = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
+/**
+ * The other package of this repository an issue names, when the fixing PR also
+ * touched it: that package's run comments, so this one leaves the issue. A
+ * named package the PR did not touch (or that git cannot say) never gets a run
+ * that finds the issue, so it is handled here.
+ */
+async function leftTo(
+	ctx: GhContext,
+	options: ReleaseOptions,
+	named: readonly string[],
+	sha: string | undefined,
+): Promise<string | undefined> {
+	if (!sha || named.includes(options.pkg)) return undefined;
+	for (const sibling of options.siblings ?? []) {
+		if (sibling.name === options.pkg || !named.includes(sibling.name)) continue;
+		if ((await commitTouches(ctx, sha, sibling.dir)) === true)
+			return sibling.name;
+	}
+	return undefined;
+}
+
 /** Comment, label and close one issue, each only when it is not done yet. */
 async function releaseIssue(
 	ctx: GhContext,
 	options: ReleaseOptions,
 	issue: number,
 	pr: number,
+	sha: string | undefined,
 ): Promise<IssueOutcome> {
 	const repo = formatRepo(options.repo);
 	const state = await readIssue(ctx, repo, issue);
 	const named = versionNames(state.body);
-	const other = named.find(
-		(name) => name !== options.pkg && options.siblings?.includes(name),
-	);
-	if (other && !named.includes(options.pkg)) {
+	const other = await leftTo(ctx, options, named, sha);
+	if (other) {
 		return {
 			number: issue,
 			pr,
@@ -130,21 +154,22 @@ export async function releasePackage(
 		warnings.push(`label released: ${message(error)}`);
 		pending.length = 0;
 	}
-	for (const { issue, pr } of pending) {
+	for (const { issue, pr, sha } of pending) {
 		try {
-			issues.push(await releaseIssue(ctx, options, issue, pr));
+			issues.push(await releaseIssue(ctx, options, issue, pr, sha));
 		} catch (error) {
 			if (error instanceof RateLimitedError) throw error;
 			warnings.push(`issue #${issue}: ${message(error)}`);
 		}
 	}
 	let notify: Notify[] = [];
-	if (issues.length > 0) {
+	const released = issues.filter((i) => !i.skipped);
+	if (released.length > 0) {
 		try {
 			notify = await notifications(
 				ctx,
 				options,
-				issues.map((i) => i.number),
+				released.map((i) => i.number),
 			);
 		} catch (error) {
 			if (error instanceof RateLimitedError) throw error;
