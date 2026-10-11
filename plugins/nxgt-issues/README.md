@@ -8,31 +8,93 @@ package side sees its open issues when a session starts; once the fix is
 released, the application adopts it and removes the `// Temporary, until
 <package>#<n>` markers.
 
-> **Status: reporter, session start, app side, dashboard and release side.**
-> This version ships the `report-to-upstream`, `adopt-a-released-fix`, `issues`
-> (`/issues`) and `fix-a-reported-issue` skills, the `issues.ts` CLI behind them
-> (`resolve`, `file`, `track`, `deps`, `sessions`, `refresh`, `ready`, `markers`,
-> `dashboard`, `released`), the canonical `close-released-issues.ts` and the
-> `SessionStart` hook. The integrations with the other plugins follow in a later
-> version.
+> **Status: 1.0.0.** The plugin is complete: the reporter, the `SessionStart`
+> hook, the app side, the `/issues` dashboard and the release side (skills
+> `report-to-upstream`, `adopt-a-released-fix`, `issues`, `fix-a-reported-issue`;
+> the `issues.ts` CLI with `resolve`, `file`, `track`, `deps`, `sessions`,
+> `refresh`, `ready`, `markers`, `dashboard`, `released`; the canonical
+> `close-released-issues.ts`). It is wired into `nxgt-package`
+> (`release-a-package-change`), `nxgt-autonomy` (the auditor, the refiller and
+> `work-autonomously`) and `nxgt-base` (a dependency), and reviewed by
+> `nxgt-review`. Automatic filing runs only when the scrub passes (below).
 
 ## Install
+
+Through the bundle, which makes it active in every project:
+
+```bash
+claude plugin install nxgt-base@nxgt-core --scope user
+```
+
+or on its own:
 
 ```bash
 claude plugin install nxgt-issues@nxgt-core --scope user
 ```
 
-It is not part of `nxgt-base` yet. Installed, it adds the `report-to-upstream`
-skill, which fires when a session hits a bug, a missing feature, a wrong doc or
-an outdated dependency in one of the owner's packages, the `adopt-a-released-fix`
-skill, which fires when such a fix has been released (below), the `issues` skill
-(`/issues`, `/issues ready`, `/issues markers`: the dashboard of everything open
-across the owner's repositories, and the app-side commands; `/issues released
-<pkg@ver>`: close what a release fixed, from the package's checkout), the
-`fix-a-reported-issue` skill (the package side: queue, regression test, `Fixes
-#n`, release), and it registers
-the SessionStart hook (below). `NXGT_ISSUES_DISABLE=1` turns the hook, and the
-CLI, off.
+`NXGT_ISSUES_DISABLE=1` turns the hook, and the CLI, off. It needs `gh`,
+logged in with a token that sees the owners' repositories (`gh auth status`);
+without it everything stays silent and files nothing.
+
+## What is in it
+
+| part | kind | what it does |
+| --- | --- | --- |
+| `SessionStart` hook | hook | adds the repository's open issues and the released fixes it can adopt to the context; fails open and silent (below) |
+| `report-to-upstream` | skill | the reporter: a bug, a missing feature that would force a workaround, a wrong or missing doc, a dependency behind its latest release |
+| `adopt-a-released-fix` | skill | the app side: bump, remove the `Temporary, until` markers, green bar, PR, close the tracking issue |
+| `fix-a-reported-issue` | skill | the package side: queue placement, regression test, `Fixes #n`, release, notify the applications |
+| `issues` (`/issues`) | skill, slash command | the dashboard across the owner's repositories; `/issues ready`, `/issues markers`, `/issues released <pkg@ver>` |
+
+## The loop end to end
+
+1. **Application side, reporting.** A session hits a defect in an `@nxgt/*`
+   package: `report-to-upstream` resolves the package's repository, writes a
+   minimal reproduction from scratch, files the scrubbed issue (or comments on
+   a duplicate), opens a private tracking issue labelled `upstream`, marks the
+   workaround `// Temporary, until <pkg>#<n>` and tells the package's session
+   with one `SendMessage`.
+2. **Package side.** The package's session sees the issue in its SessionStart
+   context. `fix-a-reported-issue` queues it (`bug`, `documentation`,
+   `dependencies` In flight; `enhancement` Proposed), writes the regression
+   test, and fixes it in a PR whose description says `Fixes #<n>`; the
+   integration PR into `develop` carries the keyword for a sliced fix.
+   `nxgt-autonomy`'s auditor and refiller keep the queue and the issues in step.
+3. **Release side.** `release-a-package-change` publishes. The release workflow's
+   `close-released-issues` step labels each fixed issue `released`, closes it and
+   comments "Fixed in `<pkg>@<version>`"; the session then runs `issues.ts
+   released <pkg@ver>` (idempotent) and sends each listed application session
+   one `SendMessage`.
+4. **Application side, adopting.** The SessionStart context lists the tracking
+   issues whose upstream is closed **and** `released`; `adopt-a-released-fix`
+   bumps, removes the markers, goes green, opens the PR with `Closes #<tracking>`
+   and comments "Adopted in #PR" after the merge.
+
+## Security model
+
+- **Scrub before any public filing.** Nothing reaches a package's repository
+  unless `scrub()` passes on the **rendered** body, title and comments: the
+  deny-list (the application's names, every private repository of the owners,
+  git identity, hostname, home folder, domains) and the credential rules refuse
+  the whole filing on any hit and print the terms, never a value. A public
+  application files only with `--public-app`. Names appear only in the private
+  tracking issue.
+- **Untrusted text.** Everything read from GitHub (titles, labels, bodies,
+  comments, repository names) is data: cut to one line, stripped of control,
+  zero-width and bidirectional characters and angle brackets (`oneLine`), and
+  introduced as untrusted. The skills never interpolate it, nor `$ARGUMENTS`,
+  into a shell line, and only a release comment of the exact shape `Fixed in
+  <npm name>@<semver>` written by an owner, member, collaborator or
+  `github-actions` is read as a fact.
+- **No network outside `runner.ts`.** Only `lib/runner.ts` spawns a process or
+  fetches a URL, and only the entry files build the real one; the real runner
+  throws in a test run. `no-network.spec.ts` fails if another module spawns,
+  opens a socket or calls `fetch`.
+- **Owners.** The plugin touches only the repositories of `NXGT_ISSUES_OWNERS`
+  (a foreign `origin` makes zero gh calls); archived repositories and those with
+  issues off are refused.
+- **Fail open.** The hook prints nothing and exits 0 on any failure; a rate
+  limit pauses every call for 15 minutes.
 
 ## The reporter flow
 
@@ -498,8 +560,20 @@ is therefore not commented twice; a maintainer closes it by hand.
 | `NXGT_ISSUES_APP_DOMAINS` | the application's domains, comma-separated (see the deny-list) |
 | `NXGT_ISSUES_DENY_TERMS` | extra terms never to file, comma-separated |
 | `NXGT_ISSUES_ALLOW_NETWORK=1` | lets the real runner work under `NODE_ENV=test` |
+| `CLAUDE_CONFIG_DIR` | the Claude config folder the default home lives under (default `~/.claude`) |
 | `NXGT_CREW_HOME`, `NXGT_CREW_SESSION_ID` | where `sessions` reads the crew registry, and which session is this one |
+| `NXGT_CREW_STALE_MINUTES`, `NXGT_CREW_IDLE_HOURS` | the registry's liveness knobs `sessions` honours (defaults 30 and 12) |
 
 Cache files live in `<home>/cache/`: `<owner>__<repo>.json` (10 minutes),
 `gate/<owner>__<repo>.json`, `private-repos.json` and `repo-packages.json` (24 hours; a failed lookup 1 hour),
 `rate-limit.json`.
+
+## Integrations
+
+| plugin | what it does with this one |
+| --- | --- |
+| `nxgt-package` 1.2.0 | `release-a-package-change`: a PR that says `Fixes #n` triggers the close step in CI, then `issues.ts released` from the session and one `SendMessage` per listed application session |
+| `nxgt-autonomy` 1.6.0 | the work-queue-auditor and queue-refiller reconcile the owner's open upstream issues (`dashboard --json`, `ready --json`) with the queue; `work-autonomously` points at the SessionStart context and `/issues` |
+| `nxgt-base` 1.2.0 | depends on `nxgt-issues`, so one install activates it |
+| `nxgt-review` 1.5.10 | `references/nxgt-core.md` lists the release-side duplication as deliberate and what to check here |
+| `nxgt-crew` | optional: `sessions` reads its registry when present; it is not part of `nxgt-base` |
