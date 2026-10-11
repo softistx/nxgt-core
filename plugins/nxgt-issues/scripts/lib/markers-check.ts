@@ -30,6 +30,7 @@ import {
 import type { Snapshot } from './refresh';
 import { formatRepo, repoOfDirectory } from './repo-id';
 import { gate, gateFacts, type RefusalReason, resolvePackage } from './resolve';
+import { cleanJson } from './untrusted';
 
 const MAX_ISSUE_NUMBER = 2 ** 31 - 1;
 
@@ -191,7 +192,7 @@ export async function markersCommand(
 	const flagged = reports.filter(
 		(report) => report.status !== 'waiting',
 	).length;
-	if (json) ctx.out(JSON.stringify(reports, null, 2));
+	if (json) ctx.out(JSON.stringify(cleanJson(reports), null, 2));
 	else print(ctx, reports, flagged);
 	return flagged > 0 ? EXIT.flagged : EXIT.ok;
 }

@@ -9,10 +9,14 @@ description: >-
   stuck or stale, or what is merged but not yet released.
 argument-hint: "[ready | markers | released <pkg@ver>]"
 allowed-tools:
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard*)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready*)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers*)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released * --dry-run*)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard *)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready *)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers *)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan *)
 ---
 
 # /issues — what is open across the packages
@@ -66,14 +70,15 @@ it is a package name and a version, with no spaces or shell characters, and pass
 it as one quoted word)
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released '<pkg@ver>' --dry-run
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan '<pkg@ver>'
 ```
 
 It finds the issues that published version fixes and says what it would do:
-label `released`, close, then comment "Fixed in …" (last: it is the marker). Show it, then run the same
-command without `--dry-run` to do it (idempotent). Only the `--dry-run` form is
-pre-approved: the real run writes to GitHub, so Claude Code asks before it, and
-that prompt is the user's look at what is about to be written. The output ends with the
+label `released`, close, then comment "Fixed in …" (last: it is the marker). Show it, then run
+`bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released '<pkg@ver>'` to do it
+(idempotent). Only `release-plan` is pre-approved: it writes nothing. The real
+run writes to GitHub, so Claude Code asks before it, and that prompt is the
+user's look at what is about to be written. The output ends with the
 `notify` list of the applications' tracking issues; offer to message those
 sessions (`fix-a-reported-issue`, step 5). Exit 2 means the checkout is not an
 allowed owner's repository, 5 a rate limit, 6 a failure on one PR or issue.

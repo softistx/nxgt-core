@@ -82,7 +82,7 @@ export function decodesToUserPass(credential: string): boolean {
 
 /** `${A:-${B:-` at the start of a default: the expansions nested in it. */
 const NESTED_PREFIX = /^(?:\$\{[A-Za-z_]\w*:?[-=+])+/;
-const NESTED_SCHEME = /^(?:Basic|Digest|Token|Bearer)[ \t]+([^\s}$]{3,})/;
+const NESTED_SCHEME = /^(?:Basic|Digest|Token|Bearer)[ \t]+([^\s}$]{3,})/i;
 
 /**
  * A scheme word and any credential that is not filler inside a nested default

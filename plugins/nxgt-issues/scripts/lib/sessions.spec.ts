@@ -7,6 +7,7 @@ afterAll(removeTempDirs);
 
 import { EXIT } from './cli-context';
 import { sessionsCommand, usesOf } from './sessions';
+import { UNTRUSTED } from './untrusted';
 
 const NOW = Date.parse('2026-10-10T12:00:00Z');
 
@@ -50,8 +51,29 @@ describe('sessions', () => {
 		]);
 		expect(sessionsCommand(h.ctx, 'softistx/nxgt-widget', false)).toBe(EXIT.ok);
 		expect(h.out).toEqual([
+			`nxgt-issues: ${UNTRUSTED}`,
 			`app "acme" ${app} (develop) uses @nxgt/widget@^1.2.0`,
 		]);
+	});
+
+	test('titles are clean under the untrusted header, in text and json', () => {
+		const rlo = String.fromCodePoint(0x202e);
+		const h = withSessions([
+			{
+				sessionId: 'app',
+				cwd: '/elsewhere',
+				worktree: makeApp(),
+				title: `a${rlo}b <x>`,
+			},
+		]);
+		sessionsCommand(h.ctx, 'softistx/nxgt-widget', false);
+		expect(h.out[0]).toBe(`nxgt-issues: ${UNTRUSTED}`);
+		expect(h.out.join('\n')).not.toContain(rlo);
+		expect(h.out.join('\n')).toContain('a b ‹x›');
+		h.out.length = 0;
+		sessionsCommand(h.ctx, 'softistx/nxgt-widget', true);
+		expect(h.out.join('\n')).not.toContain(rlo);
+		expect(JSON.parse(h.out.join('\n'))[0].session.title).toBe('a b ‹x›');
 	});
 
 	test('this session is left out', () => {

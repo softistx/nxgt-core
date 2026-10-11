@@ -7,6 +7,11 @@ const list = buildDenyList({ privateRepos: ['acme/zorblax-vault'] });
 
 /** One representative of each class of character that renders as nothing. */
 const CLASSES: ReadonlyArray<[string, number]> = [
+	['bidi isolate', 0x2066],
+	['Arabic letter mark', 0x061c],
+	['interlinear annotation anchor', 0xfff9],
+	['private use', 0xe000],
+	['Braille blank', 0x2800],
 	['tag character', 0xe0041],
 	['variation selector', 0xfe0f],
 	['variation selector supplement', 0xe0100],

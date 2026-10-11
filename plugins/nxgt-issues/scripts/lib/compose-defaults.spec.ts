@@ -12,6 +12,7 @@ describe('a Basic scheme followed by a compose default', () => {
 		`curl -H "Authorization: Basic \${CREDS:-${USERPASS}}" https://x.example`,
 		`headers: { Authorization: \`Basic \${CREDS:-${USERPASS}}\` }`,
 		`Authorization: Basic \${CREDS:=${USERPASS}=}`,
+		`Authorization: Basic \${CREDS:-\${OTHER:-${USERPASS}}}`,
 	])('%p refuses', (text) => {
 		expect(findSecrets(text)).toContain('authorization');
 	});
@@ -32,6 +33,7 @@ describe('nested compose defaults', () => {
 		'x ${A:-${B:-Bearer hunter2}}',
 		'x ${A:-${B:-${C:-Basic hunter2}}}',
 		'x ${A:=${B:-Token abc123}}',
+		'x ${A:-${B:-bearer hunter2}}',
 	])('%p refuses a short password after a scheme word', (text) => {
 		expect(findSecrets(text)).toContain('authorization');
 	});

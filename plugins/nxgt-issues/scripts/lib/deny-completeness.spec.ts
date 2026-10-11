@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readEntry } from './cache';
 import {
@@ -84,6 +85,46 @@ describe('an empty private list is never accepted', () => {
 	});
 });
 
+describe('a cached answer must be whole too', () => {
+	const seed = (home: string, data: unknown, writtenAt: number) => {
+		mkdirSync(join(home, 'cache'), { recursive: true });
+		writeFileSync(
+			join(home, 'cache', 'private-repos.json'),
+			JSON.stringify({ writtenAt, data }),
+		);
+	};
+
+	test('an empty fresh cache is refetched, and refuses when gh is empty too', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [list('softistx', []), list('SteveGT96', [])],
+		});
+		seed(h.home, { softistx: [], SteveGT96: [] }, NOW);
+		await expect(filingDenyList(h.ctx)).rejects.toBeInstanceOf(
+			DenyListIncomplete,
+		);
+		expect(callsOf(h.runner, 'gh', 'repo', 'list')).not.toEqual([]);
+	});
+
+	test('an empty 3-day-old cache with gh down refuses', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [
+				{
+					argv: ['gh', 'repo', 'list'],
+					result: { code: 1, stderr: 'offline' },
+				},
+			],
+		});
+		seed(h.home, { softistx: [], SteveGT96: [] }, NOW - 3 * DAY);
+		await expect(filingDenyList(h.ctx)).rejects.toBeInstanceOf(
+			DenyListIncomplete,
+		);
+	});
+});
+
 describe('the stale private list', () => {
 	const failing = {
 		argv: ['gh', 'repo', 'list'],
@@ -161,6 +202,42 @@ describe("the token's organisations", () => {
 		await expect(filingDenyList(cold.ctx)).rejects.toBeInstanceOf(
 			DenyListIncomplete,
 		);
+	});
+});
+
+describe('an empty organisation answer', () => {
+	test('refuses when the cache had organisations', async () => {
+		const cwd = makeApp();
+		const first = harness({
+			cwd,
+			now: NOW,
+			run: [orgs('acme-guild'), list('acme-guild', ['quillon-vault'])],
+		});
+		await filingDenyList(first.ctx);
+		const later = harness({
+			cwd,
+			now: NOW + PRIVATE_REPOS_TTL_MS + 1,
+			run: [orgs()],
+		});
+		await expect(
+			filingDenyList({ ...later.ctx, home: first.home }),
+		).rejects.toBeInstanceOf(DenyListIncomplete);
+	});
+
+	test('NXGT_ISSUES_DENY_SKIP_ORGS leaves an organisation out', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			env: { NXGT_ISSUES_DENY_SKIP_ORGS: 'saml-org' },
+			run: [
+				orgs('acme-guild', 'saml-org'),
+				list('acme-guild', ['quillon-vault']),
+			],
+		});
+		await filingDenyList(h.ctx);
+		expect(
+			callsOf(h.runner, 'gh', 'repo', 'list').map((c) => c.argv[3]),
+		).not.toContain('saml-org');
 	});
 });
 

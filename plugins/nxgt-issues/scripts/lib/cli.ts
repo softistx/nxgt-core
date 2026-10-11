@@ -42,6 +42,7 @@ export const USAGE = `usage: issues.ts <command>
   refresh                               refresh this checkout's issue cache
   ready [--json]                        fixes released upstream, ready to adopt
   dashboard [--json]                    open issues across the owners' repositories, ranked
+  release-plan <pkg@ver> [--json]       what released would do, writing nothing (read-only)
   released <pkg@ver> [--json] [--dry-run]  comment, label and close the issues a published version fixed
   markers [--json] [--exclude <pathspec>]… workaround markers; exit 1 when any is flagged`;
 
@@ -125,11 +126,47 @@ export function fileFlags(args: readonly string[]): FileFlags | undefined {
 	return { duplicateOf, publicApp };
 }
 
+/** The flags each command knows, and how many positional words it takes. Anything else is a usage error. */
+const SHAPES: Readonly<
+	Record<string, { flags: readonly string[]; positional: number }>
+> = {
+	resolve: { flags: ['--json'], positional: 1 },
+	file: { flags: ['--duplicate-of', '--new', '--public-app'], positional: 0 },
+	track: { flags: [], positional: 0 },
+	deps: { flags: ['--file', '--public-app'], positional: 1 },
+	refresh: { flags: [], positional: 0 },
+	ready: { flags: ['--json'], positional: 0 },
+	dashboard: { flags: ['--json'], positional: 0 },
+	released: { flags: ['--json', '--dry-run'], positional: 1 },
+	'release-plan': { flags: ['--json'], positional: 1 },
+	markers: { flags: ['--json', '--exclude'], positional: 0 },
+	sessions: { flags: ['--json'], positional: 1 },
+};
+
+/** Whether every word is a known flag, a flag's value, or one of the positional words. */
+function knownArgs(command: string | undefined, args: readonly string[]) {
+	const shape = command ? SHAPES[command] : undefined;
+	if (!shape) return false;
+	let positional = 0;
+	for (const [i, arg] of args.entries()) {
+		const name = arg.startsWith('--exclude=') ? '--exclude' : arg;
+		if (name.startsWith('-')) {
+			if (!shape.flags.includes(name)) return false;
+		} else if (['--duplicate-of', '--exclude'].includes(args[i - 1] ?? '')) {
+		} else if (++positional > shape.positional) return false;
+	}
+	return true;
+}
+
 export async function main(
 	ctx: CliContext,
 	argv: readonly string[],
 ): Promise<ExitCode> {
 	const [command, ...args] = argv;
+	if (!knownArgs(command, args)) {
+		ctx.err(USAGE);
+		return EXIT.usage;
+	}
 	const positional = args.filter(
 		(arg, i) => !arg.startsWith('--') && args[i - 1] !== '--duplicate-of',
 	);
@@ -159,6 +196,8 @@ export async function main(
 			return readyCommand(ctx, has('--json'));
 		case 'dashboard':
 			return dashboardCommand(ctx, has('--json'));
+		case 'release-plan':
+			return releasedCommand(ctx, positional[0], has('--json'), true);
 		case 'released':
 			return releasedCommand(
 				ctx,

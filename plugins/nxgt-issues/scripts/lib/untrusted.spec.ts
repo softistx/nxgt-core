@@ -20,6 +20,10 @@ describe('oneLine', () => {
 		'halfwidth Hangul filler': String.fromCodePoint(0xffa0),
 		'bidi override': String.fromCodePoint(0x202e),
 		'line separator': String.fromCodePoint(0x2028),
+		'bidi isolate': String.fromCodePoint(0x2066),
+		'Arabic letter mark': String.fromCodePoint(0x061c),
+		'Braille blank': String.fromCodePoint(0x2800),
+		'lone surrogate': String.fromCharCode(0xd800),
 	};
 	for (const [name, char] of Object.entries(hidden)) {
 		test(`${name} is stripped`, () => {

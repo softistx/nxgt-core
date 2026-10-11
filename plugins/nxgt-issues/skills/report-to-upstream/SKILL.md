@@ -9,8 +9,10 @@ description: >-
   its latest release — ~/.claude/CLAUDE.md "In-house packages" says these are
   filed through nxgt-issues, never worked around silently.
 allowed-tools:
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve*)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions*)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve *)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions *)
 ---
 
 # Report to upstream
@@ -63,7 +65,7 @@ issue create`. Reasons: `no-repository-field` (ask the package's session to add
 `unknown-package`, `rate-limited`, `unreachable`.
 
 For an outdated dependency, `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package>` prints the rows behind
-their latest release; `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package> --file` puts them in the
+their latest release (read-only, but not pre-approved: it prompts); `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package> --file` puts them in the
 package's one rolling dependencies issue (a write: it prompts like `file`). Then skip to step 5.
 
 ## 2. Write a minimal reproduction from scratch

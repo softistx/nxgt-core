@@ -15,7 +15,7 @@ export interface Manifest {
 	readonly data: Readonly<Record<string, unknown>>;
 }
 
-function readManifest(dir: string): Manifest | undefined {
+function readManifest(dir: string, strict = false): Manifest | undefined {
 	try {
 		const data: unknown = JSON.parse(
 			readFileSync(join(dir, 'package.json'), 'utf8'),
@@ -26,6 +26,12 @@ function readManifest(dir: string): Manifest | undefined {
 			typeof record['name'] === 'string' ? record['name'] : undefined;
 		return { dir, name, data: record };
 	} catch {
+		// A package.json that is there but unreadable hides names from the deny-list.
+		if (strict && existsSync(join(dir, 'package.json'))) {
+			throw new UnexpandableWorkspace(
+				`${join(dir, 'package.json')} cannot be read or parsed`,
+			);
+		}
 		return undefined;
 	}
 }
@@ -94,14 +100,14 @@ export function manifestsOf(
 	options: { readonly strict?: boolean } = {},
 ): Manifest[] {
 	const strict = options.strict === true;
-	const top = readManifest(root);
+	const top = readManifest(root, strict);
 	if (!top) return [];
 	const patterns = [...patternsOf(top.data), ...pnpmPatterns(root, strict)];
 	const dirs = new Set(
 		patterns.flatMap((pattern) => expand(root, pattern, strict)),
 	);
 	const workspaces = [...dirs]
-		.map(readManifest)
+		.map((dir) => readManifest(dir, strict))
 		.filter((m): m is Manifest => !!m);
 	return [top, ...workspaces];
 }

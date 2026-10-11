@@ -7,7 +7,11 @@
  * 7 days, and past that, or without one, the filing is refused. A list that
  * comes back empty, or an owner that drops to nothing although the cache held
  * repositories, is a token without the `repo` scope or a lookup that went
- * wrong, never an answer: it refuses and is not cached.
+ * wrong, never an answer: it refuses and is not cached. A cached copy that
+ * is empty is no answer either: it is refetched, and refuses if gh cannot say.
+ * The token needs the `read:org` scope to list its organisations;
+ * `NXGT_ISSUES_DENY_SKIP_ORGS` leaves out one whose repositories cannot be
+ * listed (SAML single sign-on, say).
  */
 
 import { join } from 'node:path';
@@ -21,6 +25,8 @@ export class DenyListIncomplete extends Error {}
 export const PRIVATE_REPOS_TTL_MS = 24 * 60 * 60 * 1000;
 /** The oldest cached copy still used when gh fails. */
 export const STALE_LIMIT_MS = 7 * 24 * 60 * 60 * 1000;
+
+const lowered = (value: string): string => value.toLowerCase();
 
 const reason = (error: unknown): string =>
 	(error instanceof Error ? error.message : String(error)).slice(0, 200);
@@ -64,15 +70,24 @@ async function tokenOrgs(ctx: CliContext): Promise<string[]> {
 	const known = Array.isArray(cached?.data)
 		? (cached.data as string[])
 		: undefined;
-	if (cached?.fresh && known) return known;
+	const skip = csv(ctx.env['NXGT_ISSUES_DENY_SKIP_ORGS']).map(lowered);
+	const kept = (orgs: string[]) =>
+		orgs.filter((o) => !skip.includes(o.toLowerCase()));
+	if (cached?.fresh && known) return kept(known);
 	try {
 		const orgs = await userOrgs(ctx);
+		if (orgs.length === 0 && (known?.length ?? 0) > 0) {
+			throw new DenyListIncomplete(
+				`gh listed no organisation although ${known?.length} were cached; the token may lack the read:org scope`,
+			);
+		}
 		writeEntry(path, orgs, ctx.now());
-		return orgs;
+		return kept(orgs);
 	} catch (error) {
-		if (cached && known && usable(cached)) return known;
+		if (error instanceof DenyListIncomplete) throw error;
+		if (cached && known && usable(cached)) return kept(known);
 		throw new DenyListIncomplete(
-			`cannot list the token's organisations (${reason(error)}); a filing without their private repositories could leak a private name`,
+			`cannot list the token's organisations (${reason(error)}); a filing without their private repositories could leak a private name (the token needs the read:org scope)`,
 		);
 	}
 }
@@ -105,12 +120,14 @@ export async function privateRepoNames(ctx: CliContext): Promise<string[]> {
 		cached?.data && typeof cached.data === 'object' ? cached.data : {};
 	const covers = owners.every((o) => Array.isArray(table[o]));
 	const fromCache = () => owners.flatMap((o) => table[o] ?? []);
-	if (cached?.fresh && covers) return fromCache();
+	// An empty cached list is no answer: refetch it, or refuse.
+	const whole = covers && fromCache().length > 0;
+	if (cached?.fresh && whole) return fromCache();
 	const byOwner: ByOwner = {};
 	try {
 		for (const owner of owners) byOwner[owner] = await privateRepos(ctx, owner);
 	} catch (error) {
-		if (cached && covers && usable(cached)) return fromCache();
+		if (cached && whole && usable(cached)) return fromCache();
 		throw new DenyListIncomplete(
 			`cannot list the owners' private repositories (${reason(error)}); a filing without them could leak a private name`,
 		);

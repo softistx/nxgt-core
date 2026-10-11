@@ -72,6 +72,17 @@ describe('manifestsOf', () => {
 		);
 	});
 
+	test('a manifest that does not parse refuses in strict mode', () => {
+		const matched = repo({
+			'package.json': { name: 'r', workspaces: ['apps/*'] },
+			'apps/a/package.json': '{ not json',
+		});
+		expect(() => manifestsOf(matched, { strict: true })).toThrow('apps/a');
+		const root = repo({ 'package.json': '{ not json' });
+		expect(() => manifestsOf(root, { strict: true })).toThrow('package.json');
+		expect(manifestsOf(matched)).toHaveLength(1);
+	});
+
 	test('outside strict mode an unexpandable pattern is skipped as before', () => {
 		const root = repo({
 			'package.json': { name: 'r', workspaces: ['../x/*'] },

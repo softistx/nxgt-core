@@ -148,10 +148,11 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   `ctx.out` that interpolates GitHub or registry data without them is a
   finding. A skill never interpolates `$ARGUMENTS` or issue text into a shell
   line.
-- **A skill pre-approves only reads.** `allowed-tools` lists `dashboard*`,
-  `ready*`, `markers*`, `resolve*`, `sessions*` and `released * --dry-run*`
-  patterns, never `issues.ts *`; `file`, `track`, `deps --file` and a real
-  `released` keep their permission prompt.
+- **A skill pre-approves only reads.** `allowed-tools` lists the exact read
+  subcommand and `<command> *` (`ready`, `dashboard`, `markers`, `resolve`,
+  `sessions`, `release-plan`), never `issues.ts *` nor a `cmd*` prefix;
+  `file`, `track`, `deps` and `released` (alias `--dry-run` included) keep
+  their permission prompt, and every subcommand refuses an unknown flag.
 - **The deny-list refuses rather than shrinks.** An empty private list, an
   owner that drops to 0 against the cache, a stale copy older than 7 days, an
   unexpandable workspace pattern or a missing git root refuses with

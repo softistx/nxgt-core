@@ -55,7 +55,8 @@ function quoted(rest: string): { body: string; after: string } | undefined {
 const EXPANSION_HEAD = /^["']?\$\{[A-Za-z_]\w*:?[-=+]([^}\n]*)\}/;
 
 /** `Basic ${NAME:-<base64>}`: the default is a Basic credential when it decodes to `user:pass`. */
-const BASIC_DEFAULT = /^Basic[ \t]+["'`]?\$\{[A-Za-z_]\w*:?[-=+]([^}\n]*)\}/i;
+const BASIC_DEFAULT =
+	/^Basic[ \t]+["'`]?(?:\$\{[A-Za-z_]\w*:?[-=+])+([^}\n]*)\}/i;
 
 const basicDefaultHolds = (text: string): boolean =>
 	decodesToUserPass(BASIC_DEFAULT.exec(text)?.[1]?.trim() ?? '');
