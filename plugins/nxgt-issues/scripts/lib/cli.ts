@@ -10,8 +10,7 @@
  *   refresh                         the SessionStart cache of this checkout's repository
  *   ready [--json]                  tracking issues whose upstream fix is released
  *   dashboard [--json]              open issues of the owners' repositories, ranked, and the fixes awaiting release
- *   dashboard [--json]                    open issues across the owners' repositories
-  markers [--json] [--exclude <pathspec>]…                `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
+ *   markers [--json] [--exclude <pathspec>]…  `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
  */
 
 import { readyCommand } from './app-side';
@@ -39,6 +38,7 @@ export const USAGE = `usage: issues.ts <command>
   sessions <owner/repo> [--json]
   refresh                               refresh this checkout's issue cache
   ready [--json]                        fixes released upstream, ready to adopt
+  dashboard [--json]                    open issues across the owners' repositories, ranked
   markers [--json] [--exclude <pathspec>]… workaround markers; exit 1 when any is flagged`;
 
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {

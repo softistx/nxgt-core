@@ -161,3 +161,32 @@ describe('renderDashboard', () => {
 		);
 	});
 });
+
+describe('unknown counts and notes', () => {
+	test('without duplicate counts a consumer report shows affected as unknown', () => {
+		const board = rankDashboard(
+			input({
+				issues: [issue(1, { labels: ['consumer-report'] }), issue(2)],
+				duplicates: undefined,
+				notes: ['duplicate counts unavailable; shown without them.'],
+			}),
+		);
+		const text = renderDashboard(board, NOW).join('\n');
+		expect(text).toContain('affected ?');
+		expect(text).toContain('- #2 issue 2 (0 affected');
+		expect(text).toContain('duplicate counts unavailable');
+	});
+
+	test('an awaiting entry carries its repository packages', () => {
+		const board = rankDashboard(
+			input({
+				awaiting: [issue(9, { closedAt: day(2) })],
+				packages: new Map([['softistx/zorblax-core', ['@zorblax/core']]]),
+			}),
+		);
+		expect(board.awaiting[0]?.packages).toEqual(['@zorblax/core']);
+		expect(renderDashboard(board, NOW).join('\n')).toContain(
+			'; @zorblax/core)',
+		);
+	});
+});

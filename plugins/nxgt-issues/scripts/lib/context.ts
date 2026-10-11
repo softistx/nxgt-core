@@ -39,7 +39,7 @@ const RELEASE_COMMENT = new RegExp(
 	`^Fixed in (${NPM_NAME})@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)(?: \\((?:[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+)?#\\d+\\))?\\.?$`,
 );
 /** Who may speak for the release: the repository's own people. */
-const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+export const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 /** The CI release step posts as this bot (GraphQL names it `github-actions`, type `Bot`; REST adds `[bot]`), with association CONTRIBUTOR or NONE. */
 const RELEASE_BOT = 'github-actions';
 

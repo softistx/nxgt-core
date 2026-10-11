@@ -6,6 +6,7 @@
  * search API allows 30 calls a minute; a run makes three.
  */
 
+import { TRUSTED } from './context';
 import type { DashIssue } from './dashboard';
 import { type GhContext, gh } from './github';
 import { graphql } from './refresh';
@@ -14,6 +15,8 @@ import { formatRepo, isAllowedOwner } from './repo-id';
 
 const FIELDS = 'number,title,labels,createdAt,updatedAt,closedAt,repository';
 export const MAX_REPORTS = 30;
+/** Results asked of one search; a search that returns this many may have more. */
+export const SEARCH_LIMIT = 200;
 const DUPLICATE = /^Another consumer hit this/;
 
 type Obj = Record<string, unknown>;
@@ -23,7 +26,14 @@ const text = (value: unknown): string =>
 	typeof value === 'string' ? value : '';
 
 export interface Found extends DashIssue {
-	readonly body: string;
+	/** Only on a search that asked for it. */
+	readonly body?: string;
+}
+
+export interface Searched {
+	readonly found: Found[];
+	/** The search returned its whole limit: more may exist. */
+	readonly full: boolean;
 }
 
 /** One search call; entries of a foreign owner or an archived repository are dropped. */
@@ -33,7 +43,7 @@ export async function search(
 	flags: readonly string[],
 	fields: string = FIELDS,
 	rest: readonly string[] = [],
-): Promise<Found[]> {
+): Promise<Searched> {
 	const out = await gh(ctx, [
 		'search',
 		'issues',
@@ -41,7 +51,7 @@ export async function search(
 		...flags,
 		'--archived=false',
 		'--limit',
-		'200',
+		String(SEARCH_LIMIT),
 		'--json',
 		fields,
 		...rest,
@@ -52,18 +62,14 @@ export async function search(
 	} catch {
 		throw new Error(`unparseable JSON from gh search: ${out.slice(0, 100)}`);
 	}
-	if (!Array.isArray(parsed)) return [];
-	return parsed.flatMap((raw): Found[] => {
+	if (!Array.isArray(parsed)) return { found: [], full: false };
+	const found = parsed.flatMap((raw): Found[] => {
 		const item = obj(raw);
 		const repository = obj(item['repository']);
 		const repo = text(repository['nameWithOwner']);
 		const owner = repo.split('/')[0] ?? '';
 		const number = Number(item['number']);
-		if (
-			!(repo && Number.isInteger(number)) ||
-			!isAllowedOwner(owner, owners) ||
-			repository['isArchived'] === true
-		) {
+		if (!(repo && Number.isInteger(number)) || !isAllowedOwner(owner, owners)) {
 			return [];
 		}
 		const labels = Array.isArray(item['labels']) ? item['labels'] : [];
@@ -77,10 +83,11 @@ export async function search(
 				createdAt: text(item['createdAt']),
 				updatedAt: text(item['updatedAt']),
 				...(closedAt && !closedAt.startsWith('0001') ? { closedAt } : {}),
-				body: text(item['body']),
+				...(item['body'] === undefined ? {} : { body: text(item['body']) }),
 			},
 		];
 	});
+	return { found, full: parsed.length >= SEARCH_LIMIT };
 }
 
 /** The `owner/repo#n` each open tracking issue links, one entry per tracking issue. */
@@ -89,7 +96,7 @@ export function trackedUpstream(
 	owners: readonly string[],
 ): string[] {
 	return tracking.flatMap((issue) => {
-		const ref = upstreamRef(issue.body);
+		const ref = upstreamRef(issue.body ?? '');
 		return ref && isAllowedOwner(ref.repo.owner, owners)
 			? [`${formatRepo(ref.repo)}#${ref.number}`.toLowerCase()]
 			: [];
@@ -116,7 +123,7 @@ export async function duplicateCounts(
 	if (wanted.length === 0) return counts;
 	const fields = wanted.map(
 		({ issue, owner, name }, i) =>
-			`r${i}:repository(owner:"${owner}",name:"${name}"){issue(number:${issue.number}){comments(last:50){nodes{body}}}}`,
+			`r${i}:repository(owner:"${owner}",name:"${name}"){issue(number:${issue.number}){comments(last:50){nodes{body authorAssociation}}}}`,
 	);
 	const data = await graphql(ctx, ['-f', `query=query{${fields.join('\n')}}`]);
 	for (const [i, { issue }] of wanted.entries()) {
@@ -124,7 +131,11 @@ export async function duplicateCounts(
 		const list = Array.isArray(nodes) ? nodes : [];
 		counts.set(
 			`${issue.repo}#${issue.number}`.toLowerCase(),
-			list.filter((node) => DUPLICATE.test(text(obj(node)['body']))).length,
+			list.filter(
+				(node) =>
+					DUPLICATE.test(text(obj(node)['body'])) &&
+					TRUSTED.has(text(obj(node)['authorAssociation'])),
+			).length,
 		);
 	}
 	return counts;

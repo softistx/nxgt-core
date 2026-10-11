@@ -24,11 +24,13 @@ export interface DashInput {
 	readonly issues: readonly DashIssue[];
 	/** `owner/repo#n` of every issue an open tracking issue links (one entry per tracking issue). */
 	readonly trackedUpstream: readonly string[];
-	/** "Another consumer hit this" comments per `owner/repo#n`. */
-	readonly duplicates: ReadonlyMap<string, number>;
+	/** "Another consumer hit this" comments per `owner/repo#n`; undefined when they could not be counted. */
+	readonly duplicates?: ReadonlyMap<string, number> | undefined;
 	/** The package names each repository publishes. */
 	readonly packages: ReadonlyMap<string, readonly string[]>;
 	readonly awaiting: readonly DashIssue[];
+	/** Our own one-line remarks (a truncated search, a missing count). */
+	readonly notes?: readonly string[];
 	readonly now: number;
 }
 
@@ -37,6 +39,8 @@ export interface RankedIssue extends DashIssue {
 	readonly live: boolean;
 	/** Applications known to be hit: tracking links, or the reporter plus its duplicate comments. */
 	readonly affected: number;
+	/** A consumer report whose duplicate comments were not counted: `affected` is a lower bound. */
+	readonly approximate: boolean;
 	/** No activity for `INACTIVE_DAYS` days or more. */
 	readonly inactive: boolean;
 	readonly ageDays: number;
@@ -48,9 +52,14 @@ export interface Group {
 	readonly issues: readonly RankedIssue[];
 }
 
+export interface Awaiting extends DashIssue {
+	readonly packages: readonly string[];
+}
+
 export interface Dashboard {
 	readonly groups: readonly Group[];
-	readonly awaiting: readonly DashIssue[];
+	readonly awaiting: readonly Awaiting[];
+	readonly notes: readonly string[];
 }
 
 export const issueKey = (issue: Pick<DashIssue, 'repo' | 'number'>): string =>
@@ -60,13 +69,13 @@ const REPORT = 'consumer-report';
 
 function rank(issue: DashIssue, input: DashInput, links: number): RankedIssue {
 	const key = issueKey(issue);
-	const reporter = issue.labels.includes(REPORT)
-		? 1 + (input.duplicates.get(key) ?? 0)
-		: 0;
+	const report = issue.labels.includes(REPORT);
+	const reporter = report ? 1 + (input.duplicates?.get(key) ?? 0) : 0;
 	return {
 		...issue,
 		live: links > 0,
 		affected: Math.max(links, reporter),
+		approximate: report && !input.duplicates?.has(key),
 		inactive: days(issue.updatedAt, input.now) >= INACTIVE_DAYS,
 		ageDays: days(issue.createdAt, input.now),
 	};
@@ -102,12 +111,17 @@ export function rankDashboard(input: DashInput): Dashboard {
 			byRank(a.issues[0] as RankedIssue, b.issues[0] as RankedIssue) ||
 			a.repo.localeCompare(b.repo),
 	);
-	const awaiting = [...input.awaiting].sort(
-		(a, b) =>
-			Date.parse(a.closedAt ?? a.updatedAt) -
-				Date.parse(b.closedAt ?? b.updatedAt) || a.number - b.number,
-	);
-	return { groups, awaiting };
+	const awaiting = input.awaiting
+		.map((issue) => ({
+			...issue,
+			packages: input.packages.get(issue.repo) ?? [],
+		}))
+		.sort(
+			(a, b) =>
+				Date.parse(a.closedAt ?? a.updatedAt) -
+					Date.parse(b.closedAt ?? b.updatedAt) || a.number - b.number,
+		);
+	return { groups, awaiting, notes: input.notes ?? [] };
 }
 
 function issueLine(issue: RankedIssue): string {
@@ -115,7 +129,7 @@ function issueLine(issue: RankedIssue): string {
 		.filter(Boolean)
 		.join(' ');
 	const tags = issue.labels.map((label) => oneLine(label, 24)).join(', ');
-	return `- #${issue.number}${marks ? ` ${marks}` : ''}${tags ? ` [${tags}]` : ''} ${oneLine(issue.title, 80)} (${issue.affected} affected, ${issue.ageDays}d old)`;
+	return `- #${issue.number}${marks ? ` ${marks}` : ''}${tags ? ` [${tags}]` : ''} ${oneLine(issue.title, 80)} (${issue.approximate ? `affected ?` : `${issue.affected} affected`}, ${issue.ageDays}d old)`;
 }
 
 /** The dashboard as text, under the untrusted-data header. */
@@ -137,11 +151,13 @@ export function renderDashboard(board: Dashboard, now: number): string[] {
 		lines.push('', 'Merged, awaiting release:');
 		for (const issue of board.awaiting) {
 			const since = days(issue.closedAt ?? issue.updatedAt, now);
+			const names = issue.packages.map((name) => oneLine(name, 60)).join(', ');
 			lines.push(
-				`- ${oneLine(issue.repo, 80)}#${issue.number} ${oneLine(issue.title, 80)} (closed ${since}d ago)`,
+				`- ${oneLine(issue.repo, 80)}#${issue.number} ${oneLine(issue.title, 80)} (closed ${since}d ago${names ? `; ${names}` : ''})`,
 			);
 		}
 	}
+	if (board.notes.length > 0) lines.push('', ...board.notes);
 	if (total === 0 && board.awaiting.length === 0) {
 		lines.push('', 'no open issue and no fix awaiting release.');
 	}

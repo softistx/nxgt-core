@@ -8,7 +8,6 @@ afterAll(removeTempDirs);
 
 const NOW = Date.parse('2026-10-10T12:00:00Z');
 const day = (n: number) => new Date(NOW - n * 86_400_000).toISOString();
-const repo = (nameWithOwner: string) => ({ nameWithOwner });
 const row = (
 	name: string,
 	number: number,
@@ -19,7 +18,7 @@ const row = (
 	labels: [],
 	createdAt: day(10),
 	updatedAt: day(1),
-	repository: repo(name),
+	repository: { nameWithOwner: name },
 	...over,
 });
 const SEARCH = ['gh', 'search', 'issues'];
@@ -27,23 +26,20 @@ const has =
 	(...words: string[]) =>
 	(argv: readonly string[]) =>
 		words.every((word) => argv.includes(word));
+const isPackages = (argv: readonly string[]) =>
+	argv.join(' ').includes('HEAD:package.json');
 
+const report = [{ name: 'consumer-report' }];
 const OPEN: RunRule = {
 	argv: SEARCH,
 	when: (argv) => has('open')(argv) && !argv.includes('upstream'),
 	result: {
 		stdout: JSON.stringify([
 			row('softistx/zorblax-core', 1, { createdAt: day(40) }),
-			row('softistx/zorblax-core', 2, {
-				labels: [{ name: 'consumer-report' }],
-				updatedAt: day(30),
-			}),
+			row('softistx/zorblax-core', 2, { labels: report, updatedAt: day(30) }),
 			row('softistx/zorblax-core', 3, { labels: [{ name: 'upstream' }] }),
 			row('SteveGT96/vexora-ui', 4),
 			row('stranger/quillon', 5),
-			row('softistx/old-thing', 6, {
-				repository: { nameWithOwner: 'softistx/old-thing', isArchived: true },
-			}),
 		]),
 	},
 };
@@ -67,8 +63,9 @@ const AWAITING: RunRule = {
 		]),
 	},
 };
-const GRAPHQL: RunRule = {
+const DUPES: RunRule = {
 	argv: ['gh', 'api', 'graphql'],
+	when: (argv) => !isPackages(argv),
 	result: {
 		stdout: JSON.stringify({
 			data: {
@@ -76,8 +73,15 @@ const GRAPHQL: RunRule = {
 					issue: {
 						comments: {
 							nodes: [
-								{ body: 'Another consumer hit this.' },
-								{ body: 'thanks' },
+								{
+									body: 'Another consumer hit this.',
+									authorAssociation: 'OWNER',
+								},
+								{
+									body: 'Another consumer hit this.',
+									authorAssociation: 'NONE',
+								},
+								{ body: 'thanks', authorAssociation: 'OWNER' },
 							],
 						},
 					},
@@ -86,60 +90,67 @@ const GRAPHQL: RunRule = {
 		}),
 	},
 };
-const PACKAGES: RunRule[] = [
-	{
-		argv: ['gh', 'api'],
-		when: (argv) =>
-			argv.includes('repos/softistx/zorblax-core/contents/package.json'),
-		result: { stdout: JSON.stringify({ name: '@zorblax/core' }) },
+const PACKAGES: RunRule = {
+	argv: ['gh', 'api', 'graphql'],
+	when: isPackages,
+	result: {
+		stdout: JSON.stringify({
+			data: {
+				p0: { root: { text: '{"name":"@vexora/ui"}' }, dirs: null },
+				p1: { root: { text: '{"name":"@zorblax/core"}' }, dirs: null },
+			},
+		}),
 	},
-	{
-		argv: ['gh', 'api'],
-		when: (argv) => argv.some((a) => a.endsWith('/contents/packages')),
-		result: { code: 1, stderr: 'HTTP 404: Not Found' },
-	},
-	{
-		argv: ['gh', 'api'],
-		when: (argv) =>
-			argv.some((a) => a.endsWith('vexora-ui/contents/package.json')),
-		result: { stdout: JSON.stringify({ name: '@vexora/ui' }) },
-	},
-];
-const NOT_FOUND: RunRule = {
-	argv: ['gh', 'api'],
-	when: (argv) => argv.some((a) => a.includes('/contents/')),
-	result: { code: 1, stderr: 'HTTP 404: Not Found' },
 };
-const RULES = [OPEN, TRACKING, AWAITING, GRAPHQL, ...PACKAGES, NOT_FOUND];
+const RULES = [OPEN, TRACKING, AWAITING, PACKAGES, DUPES];
+const fail = (stderr: string, when?: RunRule['when']): RunRule => ({
+	argv: ['gh', 'api', 'graphql'],
+	...(when ? { when } : {}),
+	result: { code: 1, stderr },
+});
 
 describe('dashboard', () => {
-	test('ranks, hides archived and foreign repositories, lists the awaiting fixes', async () => {
+	test('ranks, hides foreign repositories, lists the awaiting fixes', async () => {
 		const h = harness({ cwd: makeApp(), now: NOW, run: RULES });
 		expect(await main(h.ctx, ['dashboard'])).toBe(EXIT.ok);
 		const text = h.out.join('\n');
 		expect(text).toContain('@zorblax/core (softistx/zorblax-core)');
 		expect(text).toContain('@vexora/ui (SteveGT96/vexora-ui)');
 		expect(text).not.toContain('quillon');
-		expect(text).not.toContain('old-thing');
-		// 1 waits on a tracking issue (live), 2 has two reporters; 3 is a tracking issue.
 		const lines = h.out.filter((l) => l.startsWith('- #'));
 		expect(lines[0]).toStartWith('- #1 ● t1');
+		// Only the trusted duplicate counts: the reporter plus one.
 		expect(lines[1]).toContain('#2 ⚑ [consumer-report]');
 		expect(lines[1]).toContain('2 affected');
-		expect(text).toContain('softistx/zorblax-core#8 t8 (closed 3d ago)');
+		expect(text).toContain('softistx/zorblax-core#8 t8');
+		expect(text).toContain('closed 3d ago');
 	});
 
-	test('stays within three searches and one GraphQL call; --json parses', async () => {
+	test('stays within three searches and two GraphQL calls; the third carries -- -label:released', async () => {
 		const h = harness({ cwd: makeApp(), now: NOW, run: RULES });
 		expect(await main(h.ctx, ['dashboard', '--json'])).toBe(EXIT.ok);
-		expect(callsOf(h.runner, 'gh', 'search')).toHaveLength(3);
-		expect(callsOf(h.runner, 'gh', 'api', 'graphql')).toHaveLength(1);
-		const search = callsOf(h.runner, 'gh', 'search')[0]?.argv ?? [];
-		expect(search).toContain('--archived=false');
-		expect(search.filter((a) => a === '--owner')).toHaveLength(2);
+		const searches = callsOf(h.runner, 'gh', 'search');
+		expect(searches).toHaveLength(3);
+		expect(callsOf(h.runner, 'gh', 'api', 'graphql')).toHaveLength(2);
+		expect(searches[0]?.argv).toContain('--archived=false');
+		expect(searches[0]?.argv.filter((a) => a === '--owner')).toHaveLength(2);
+		const third = searches[2]?.argv ?? [];
+		expect(third.slice(-2)).toEqual(['--', '-label:released']);
 		const board = JSON.parse(h.out.join('\n'));
-		expect(board.groups).toHaveLength(2);
-		expect(board.awaiting).toHaveLength(1);
+		expect(Object.keys(board).sort()).toEqual(['awaiting', 'groups', 'notes']);
+		expect(JSON.stringify(board)).not.toContain('"body"');
+	});
+
+	test('looks up only the repositories that render, tracking-issue repositories excluded', async () => {
+		const h = harness({ cwd: makeApp(), now: NOW, run: RULES });
+		await main(h.ctx, ['dashboard']);
+		const query =
+			callsOf(h.runner, 'gh', 'api', 'graphql')
+				.map((c) => c.argv.join(' '))
+				.find((q) => q.includes('HEAD:package.json')) ?? '';
+		expect(query).toContain('zorblax-core');
+		expect(query).toContain('vexora-ui');
+		expect(query).not.toContain('acme-store');
 	});
 
 	test('owners come from NXGT_ISSUES_OWNERS', async () => {
@@ -151,27 +162,45 @@ describe('dashboard', () => {
 		});
 		await main(h.ctx, ['dashboard']);
 		const argv = callsOf(h.runner, 'gh', 'search')[0]?.argv ?? [];
-		expect(
-			argv.slice(argv.indexOf('--owner'), argv.indexOf('--owner') + 2),
-		).toEqual(['--owner', 'stranger']);
+		const at = argv.indexOf('--owner');
+		expect(argv.slice(at, at + 2)).toEqual(['--owner', 'stranger']);
 		expect(h.out.join('\n')).toContain('stranger/quillon');
 	});
 
-	test('the package map is cached for 24 hours', async () => {
+	test('the package map is cached; a second run asks only for duplicate counts', async () => {
 		const h = harness({ cwd: makeApp(), now: NOW, run: RULES });
 		await main(h.ctx, ['dashboard']);
-		const first = callsOf(h.runner, 'gh', 'api').filter((c) =>
-			c.argv.some((a) => a.includes('/contents/')),
-		).length;
-		expect(first).toBeGreaterThan(0);
 		await main(h.ctx, ['dashboard']);
-		const second = callsOf(h.runner, 'gh', 'api').filter((c) =>
-			c.argv.some((a) => a.includes('/contents/')),
-		).length;
-		expect(second).toBe(first);
+		const packages = callsOf(h.runner, 'gh', 'api', 'graphql').filter((c) =>
+			isPackages(c.argv),
+		);
+		expect(packages).toHaveLength(1);
 	});
 
-	test('a rate limit exits 5 and pauses; the next run spawns nothing', async () => {
+	test('a search that returns its limit says the list is truncated', async () => {
+		const many = Array.from({ length: 200 }, (_, i) =>
+			row('softistx/zorblax-core', 100 + i),
+		);
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [
+				{
+					argv: SEARCH,
+					when: (a) => has('open')(a) && !a.includes('upstream'),
+					result: { stdout: JSON.stringify(many) },
+				},
+				TRACKING,
+				AWAITING,
+				PACKAGES,
+				DUPES,
+			],
+		});
+		expect(await main(h.ctx, ['dashboard'])).toBe(EXIT.ok);
+		expect(h.out.join('\n')).toContain('truncated');
+	});
+
+	test('a rate limit on a search exits 5 and pauses; the next run spawns nothing', async () => {
 		const h = harness({
 			cwd: makeApp(),
 			now: NOW,
@@ -188,7 +217,7 @@ describe('dashboard', () => {
 		expect(h.runner.calls.length).toBe(calls);
 	});
 
-	test('any other gh failure exits 6', async () => {
+	test('any other search failure exits 6', async () => {
 		const h = harness({
 			cwd: makeApp(),
 			now: NOW,
@@ -198,16 +227,41 @@ describe('dashboard', () => {
 		expect(h.err.join('\n')).toContain('boom');
 	});
 
-	test('a failed duplicate-count call degrades with a warning', async () => {
+	test('failed duplicate counts keep the board, show affected as unknown and warn', async () => {
 		const h = harness({
 			cwd: makeApp(),
 			now: NOW,
 			run: [
-				{ argv: ['gh', 'api', 'graphql'], result: { code: 1, stderr: 'oops' } },
-				...RULES,
+				fail('oops', (a) => !isPackages(a)),
+				OPEN,
+				TRACKING,
+				AWAITING,
+				PACKAGES,
 			],
 		});
 		expect(await main(h.ctx, ['dashboard'])).toBe(EXIT.ok);
 		expect(h.err.join('\n')).toContain('duplicate counts unavailable');
+		expect(h.out.join('\n')).toContain('affected ?');
+		expect(h.out.join('\n')).toContain('@zorblax/core');
 	});
+
+	test.each([
+		['a rate limit', 'HTTP 429: API rate limit exceeded'],
+		['a failure', 'HTTP 502: Bad Gateway'],
+	])(
+		'%s on the optional GraphQL calls keeps the board under repository names',
+		async (_, stderr) => {
+			const h = harness({
+				cwd: makeApp(),
+				now: NOW,
+				run: [fail(stderr), OPEN, TRACKING, AWAITING],
+			});
+			expect(await main(h.ctx, ['dashboard'])).toBe(EXIT.ok);
+			const text = h.out.join('\n');
+			expect(text).toContain('softistx/zorblax-core');
+			expect(text).not.toContain('@zorblax/core');
+			expect(text).toContain('affected ?');
+			expect(h.err.join('\n')).toContain('unavailable');
+		},
+	);
 });
