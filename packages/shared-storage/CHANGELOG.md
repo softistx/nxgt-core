@@ -1,5 +1,13 @@
 # @nxgt/shared-storage
 
+## 1.0.9
+
+### Patch Changes
+
+- [#235](https://github.com/softistx/nxgt-core/pull/235) [`542c4b2`](https://github.com/softistx/nxgt-core/commit/542c4b278d7c812aad05870053d798818dbec98f) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `StorageService` now throws the exceptions it documents. Each method awaits the SDK call inside its `try`, so a failed S3 call surfaces as a `CustomException` 500 carrying the method's message key instead of the raw SDK error. A missing key stays the 404 `storage.errors.file-not-found` rather than being rewrapped as a 500, and its message is the key with `{ key }` as options, so the handler that renders it no longer translates it twice. `fetch` now requests the object it names: the bucket goes in the S3 options, not in the `s3://` URL, which made every file a 404 when `S3_BUCKET` was set.
+- Updated dependencies [[`5e3fb97`](https://github.com/softistx/nxgt-core/commit/5e3fb97b41a79e9d64d5e4331d67c24790aa2659)]:
+  - @nxgt/shared-logging@1.0.5
+
 ## 1.0.8
 
 ### Patch Changes

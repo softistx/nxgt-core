@@ -1,5 +1,21 @@
 # @nxgt/shared-graphql
 
+## 3.2.0
+
+### Minor Changes
+
+- [#237](https://github.com/softistx/nxgt-core/pull/237) [`4381f5c`](https://github.com/softistx/nxgt-core/commit/4381f5c82512ebf6de83dd4e9857916cd21fd01c) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `createYogaHono` takes `sandbox?: boolean`: the Apollo Sandbox page is served by default only when `NODE_ENV` is explicitly `development` or `test` (read when `createYogaHono` is called); with `NODE_ENV` unset, `production` or anything else its route answers 404. A dev setup with `NODE_ENV` unset must set `NODE_ENV=development` or pass `sandbox: true`. `sandbox: true` serves it in every environment and `sandbox: false` in none. Page options (`{ endpoint, port, … }`) still configure it, and their new `enabled` decides whether it is served, with the same default. `HonoYogaOptions` and `YogaHonoSandboxOptions` are exported. Yoga's own GraphiQL at `/graphql` is not controlled by `createYogaHono`: pass `createYoga({ graphiql: false })` to turn it off.
+
+### Patch Changes
+
+- [#237](https://github.com/softistx/nxgt-core/pull/237) [`38699bd`](https://github.com/softistx/nxgt-core/commit/38699bdd0c78f2a07f4877c6e1cd26b668c35f6f) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `createFormatError(translate, true)` hides internal detail from the client in production: an unexpected error — a plain `Error` a resolver threw, or anything thrown that is not an `Error` — answers `Unexpected error.` with `INTERNAL_SERVER_ERROR`, keeping its `path` and `locations`, as `createMaskError` masks it under Yoga; and no error carries `extensions.debugMessage` or `extensions.stacktrace`. Outside production, what a client receives is unchanged. Security note: an Apollo server that passes `production` should be upgraded, so that no error message meant for the server reaches its clients.
+  
+  `createFormatError` is now typed as returning the function itself, never `undefined`, so `new ApolloServer({ formatError: createFormatError(...) })` compiles under `exactOptionalPropertyTypes`.
+
+- [#237](https://github.com/softistx/nxgt-core/pull/237) [`621331f`](https://github.com/softistx/nxgt-core/commit/621331fc7ff9fde2ab0fafb7b3bb8c1b9b008241) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `createMaskError` no longer sends a `CustomException`'s `debugMessage` to the client unless Yoga's `isDev` is on: in production (`isDev` false) the answer carries the code, the status and the translated message only, as `createFormatError` does. An outage's `debugMessage` follows the same rule, and `useOryAuth` throws it during context building as a finished `GraphQLError` with no `originalError`, which any `maskError` passes through unchanged, so it decides where it is thrown and adds it only when `NODE_ENV` is `development`. `serviceUnavailableError(error, debug = false)`, which is public, used to always add `debugMessage`; it now does so only when `debug` is true. Yoga does not derive `isDev` from `NODE_ENV` for a custom `maskError`: pass `maskedErrors: { maskError, isDev: process.env.NODE_ENV === 'development' }` to get `debugMessage` in development.
+- Updated dependencies [[`5e3fb97`](https://github.com/softistx/nxgt-core/commit/5e3fb97b41a79e9d64d5e4331d67c24790aa2659)]:
+  - @nxgt/shared-logging@1.0.5
+
 ## 3.1.2
 
 ### Patch Changes
