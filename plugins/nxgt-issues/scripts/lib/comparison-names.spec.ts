@@ -59,3 +59,37 @@ describe('a predicate named isSecret compares field types', () => {
 		expect(refused(text)).toBe(true);
 	});
 });
+
+describe('the all-caps exemption is for lexer tokens only', () => {
+	test.each(["if (lexer.token === 'EOF') {}", "if (tok.token === 'IDENT') {}"])(
+		'%p passes',
+		passes,
+	);
+
+	test.each([
+		"if (c.req.header('x-api-key') !== 'SUPERSECRETKEY') {}",
+		"if (apiKey === 'ABCDEFGHIJKLMNOP') {}",
+		"if (process.env.ADMIN_TOKEN !== 'LETMEIN') {}",
+		"if (password === 'SWORDFISH') {}",
+		"if (token === 'SWORDFISH') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});
+
+describe('bracket reads and method calls keep a credential operand', () => {
+	test.each([
+		"if (req.headers['x-api-key'] === 'liveKey123abc') {}",
+		'if (req.headers["authorization"] === "liveKey123abc") {}',
+		"if (password.trim() === 'hunter2xyz') {}",
+		"if (req.body.password?.trim() === 'hunter2xyz') {}",
+		"if (c.req.header('x-api-key')?.trim() === 'liveKey123abc') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		"if (req.headers['content-type'] === 'application/json') {}",
+		"if (name.trim() === 'admin') {}",
+	])('%p passes', passes);
+});

@@ -28,7 +28,7 @@ const FLAG = /^--?[A-Za-z][\w-]*$/;
 const ATTACHED_P = /^-p[A-Za-z\d]{2,}/;
 const NAME_VALUE = /^(--?[A-Za-z][\w-]*)=(.*)$/;
 const SECRET_FLAG =
-	/^--?(?:password|passwd|pwd|plaintext|token|secret|api-?key|pass)$/;
+	/^--?(?:password|passwd|pwd|plaintext|token|secret|api-?key|pass|requirepass|masterauth)$/;
 const PATH = /^[\w.~/<>…-]*[/~][\w.~/<>…-]*$/;
 const FILENAME = /^(?:\.[\w-]+|[\w-]+(?:\.[\w-]+)+)$/;
 const PLACEHOLDER_WORD = /^<[\w-]+>$/;

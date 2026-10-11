@@ -41,6 +41,10 @@ const VALUED = new Set([
 	'-rand',
 ]);
 
+/** `--requirepass x`, `--requirepass=x`, `requirepass x` (redis.conf), `"--requirepass", "x"`. */
+const REQUIREPASS =
+	/(?<![\w-])(?:--)?(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*["']?|=|[ \t]+)["']?(?!-)([^\s"',]+)/g;
+
 /** Whether `text` starts with a command that takes secrets as arguments. */
 export const isSecretCommand = (text: string): boolean =>
 	SECRET_COMMAND.test(text.trimStart());
@@ -92,6 +96,9 @@ function refusesInvocation(command: string, args: string[]): boolean {
 
 /** True when `text` runs a command with a literal secret as its password argument. */
 export function hasPositionalSecret(text: string): boolean {
+	for (const match of text.matchAll(REQUIREPASS)) {
+		if (!isSafeValue(match[1] ?? '')) return true;
+	}
 	for (const match of text.matchAll(INVOCATION)) {
 		const args = (match[2] ?? '').trim().split(/\s+/).filter(Boolean);
 		if (refusesInvocation(match[1] ?? '', args)) return true;

@@ -170,6 +170,8 @@ const KNOWN_TYPES = new Set(
 		'SharedArrayBuffer DataView Secret KeyLike Date'
 	).split(' '),
 );
+/** A name of two or more capitalised words: `AccessToken`, `ConfigService`; a lone `Swordfish` may be a value. */
+const COMPOUND_TYPE = /^(?:[A-Z][a-z]+){2,}$/;
 const TYPED_ARRAY = /^(?:Uint|Int|Float|BigInt|BigUint)\d*(?:Clamped)?Array$/;
 const TYPE_PART = '[A-Za-z_$][\\w$.]*(?:<[^<>]*>)?(?:\\[\\])*';
 /** A type followed by the `)` or `,` that ends a parameter: `string) {`, `Buffer, token?: string)`. */
@@ -178,14 +180,19 @@ const PARAMETER_TYPE = new RegExp(
 );
 
 /** `function f(token: string) {`: the value is the type of a parameter, not a secret. */
-function isTypedParameter(whole: string, name: string): boolean {
-	const type = PARAMETER_TYPE.exec(whole)?.[1];
+function isTypedParameter(whole: string, facts: AssignmentFacts): boolean {
+	const subject = facts.next === ';' ? `${whole})` : whole; // `{ token: SessionToken; }`
+	const type = PARAMETER_TYPE.exec(subject)?.[1];
 	if (type === undefined) return false;
 	const words = type.match(/[A-Za-z_$][\w$]*/g) ?? [];
 	const known = words.every(
-		(w) => PRIMITIVES.has(w) || KNOWN_TYPES.has(w) || TYPED_ARRAY.test(w),
+		(w) =>
+			PRIMITIVES.has(w) ||
+			KNOWN_TYPES.has(w) ||
+			TYPED_ARRAY.test(w) ||
+			COMPOUND_TYPE.test(w),
 	);
-	return known || isType(type, name);
+	return known || isType(type, facts.name);
 }
 
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z$]*$/;
@@ -204,6 +211,8 @@ export interface AssignmentFacts {
 	readonly name: string;
 	/** The first token of the value, which the small-number rule reads. */
 	readonly first: string;
+	/** The character after the assignment: `;` ends a member of a type literal. */
+	readonly next?: string | undefined;
 }
 
 /** The assignment-path test: true when `whole` is code, not a credential. */
@@ -214,7 +223,7 @@ export function isCodeValue(whole: string, facts: AssignmentFacts): boolean {
 	if (typed?.[1] && typed[2] && isType(typed[1], facts.name)) {
 		return isCodeValue(typed[2], facts);
 	}
-	if (isType(value, facts.name) || isTypedParameter(value, facts.name)) {
+	if (isType(value, facts.name) || isTypedParameter(value, facts)) {
 		return true;
 	}
 	if (isFallbackChain(value) || INDEXED.test(value)) return true;

@@ -42,6 +42,7 @@ import {
 import { hasPositionalSecret } from './positional-secrets';
 import { isGraphqlType } from './sdl-values';
 import { neutralizeSubstitutions } from './shell-values';
+import { isPlaceholderExpansionAt, isShellReference } from './shell-variables';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -128,18 +129,6 @@ function keywordOf(name: string): string | undefined {
 	return undefined;
 }
 
-/**
- * `GITHUB_TOKEN=$(gh auth token) bun run release` (a variable or a command
- * substitution as the first word, then the command it feeds) and the
- * pass-through `PGPASSWORD=$PGPASSWORD psql`.
- */
-function isShellReference(name: string, value: string): boolean {
-	const unquoted = value.replace(/^["'`]/, '');
-	if (!unquoted.startsWith('$')) return false;
-	const bare = unquoted.replace(/^\$\{?|\}?["'`]?$/g, '');
-	return isPlaceholder(value) || bare === name;
-}
-
 /** `const isSecret = (field) => field.type === 'password'`: a predicate, not a credential. */
 const isPredicate = (name: string, value: string): boolean =>
 	/^is[A-Z]/.test(name) &&
@@ -193,11 +182,12 @@ function collectSecrets(text: string, found: Set<string>): void {
 		const whole = `${value}${match[3] ?? ''}`.trim();
 		const keyword = keywordOf(name);
 		if (!keyword || value.endsWith(':')) continue;
-		if (text.startsWith('${', match.index - 2)) continue; // `${NAME:-default}`, judged whole
+		if (isPlaceholderExpansionAt(text, match.index)) continue; // `${NAME:-}`
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
 		// A credential header's value, like Authorization: `x-gateway-secret: $GATEWAY_SECRET`
 		if (CREDENTIAL_HEADER.test(name) && isPlaceholder(value)) continue;
-		if (isShellReference(name, value) || startsWithPlaceholder(value)) continue;
+		if (isShellReference(name, value, isPlaceholder)) continue;
+		if (startsWithPlaceholder(value)) continue;
 		if (isPredicate(name, whole)) continue; // function-values.ts judges it
 		if (encodesSecret(whole)) {
 			found.add(keyword);
@@ -212,7 +202,14 @@ function collectSecrets(text: string, found: Set<string>): void {
 			found.add(keyword);
 			continue;
 		}
-		if (isCodeValue(whole, { name, first: value })) continue;
+		const facts = {
+			name,
+			first: value,
+			next: text[
+				match.index + match[0].length + value.length + (match[3] ?? '').length
+			],
+		};
+		if (isCodeValue(whole, facts)) continue;
 		found.add(keyword);
 	}
 	if (hasAuthorizationSecret(text)) found.add('authorization');
