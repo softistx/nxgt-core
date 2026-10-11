@@ -21,9 +21,12 @@ description: >-
 **This is the default mode of every session in a git repository, not something
 a phrase switches on.** The owner's standing instruction, which does not need repeating: **carry on
 without me, merge as you go, finish everything queued.** "Merge as you go" is
-what the merge rules of step 6 allow — slices into their integration branch —
-never `develop`, `main` or a publish without the owner's yes. This skill is what that
-means in practice, so it stops being re-negotiated every session.
+what "Merges and releases" in `~/.claude/CLAUDE.md` allows — slices, `develop`
+and publishes included, once its conditions hold — and stops at the gates it
+keeps for the owner's explicit yes in every mode: moving `main`, a package's
+first publish, a breaking change (a major, or a change to a shipped contract
+such as an error code's meaning), deleting data, a force-push. This skill is
+what that means in practice, so it stops being re-negotiated every session.
 
 The plugin's `SessionStart` hook puts a short mandate in context at the start of
 every session in a git repository; this skill is its long form. The hook changes
@@ -105,11 +108,21 @@ Per item, in this order, and nothing skipped:
 6. **Open the PR**, wait for CI, **merge it when the rules below allow it**,
    delete the branch, refresh the main checkout and **remove the item's
    worktree** if it had one ("Git worktrees" in `~/.claude/CLAUDE.md`, else
-   `git worktree remove` and `git worktree prune`). **Merges and releases follow the repository's `AGENTS.md`**
-   (who may merge, merge commits or squash, when a Version PR lands); where it
-   is silent, "Merges and releases" in `~/.claude/CLAUDE.md` decides — a slice
-   into its `feat/*` once green, `develop`, `main` and every publish on the
-   owner's yes. With neither, open the PR and ask.
+   `git worktree remove` and `git worktree prune`). **Merges and releases
+   follow the repository's `AGENTS.md`** (who may merge, merge commits or
+   squash, when a Version PR lands); where it is silent, "Merges and releases"
+   in `~/.claude/CLAUDE.md` decides — in autonomous mode a merge and a publish
+   are done once its conditions hold, except the gates it keeps for the
+   owner's yes. After a publish, also tell every consumer session with
+   `SendMessage`, beside the `/crew announce` ("Merges and releases"): the
+   version, what changed, what the consumer must do. With neither, open the PR
+   and ask.
+   **Then the `main` step, after each merge into `develop`:** ask the owner
+   through `AskUserQuestion` (section 4, with the 5-minute timeout) whether to
+   move `main`. A yes moves it, fast-forward only (`git merge --ff-only` from
+   `develop`, then push). No answer leaves `main` where it is: do not move it,
+   do not wait, carry on with the queue, and ask again after the next merge
+   into `develop` or when the owner is back.
 7. **Cross the item off the queue with the PR number**, keeping its slice
    marker (`slice k of n`, `last slice`) when it has one. When the item comes
    from a roadmap entry, `roadmap-keeper` moves that entry to **Shipped**, with
@@ -132,8 +145,8 @@ looking like progress.
   line says so.
 - **Never take an irreversible or outward-facing step on anything but an
   explicit answer** — deleting data, force-pushing, the first publish of a
-  package, spending money, messaging anyone off this machine. Ask, and carry on
-  with other work until the owner answers; a recommendation is not an answer.
+  package, moving `main`, spending money, messaging anyone off this machine.
+  Ask, and carry on with other work until the owner answers; a recommendation is not an answer.
   The 5-minute rule of section 4 never reaches these: its resolver waits on
   every one of them.
 - **Never widen a destructive action.** A live machine, a running stack, a
@@ -182,9 +195,9 @@ the 5 minutes, and this skill claims no other:
   (`date -Iseconds`), then run **`unanswered-question-resolver`** with the
   question, its options in order, both times, the timeout, whether it was
   labelled `(Irreversible)`, and what the owner had ticked. It waits on
-  anything irreversible, outward-facing or breaking, on every merge, release
-  and npm-publish gate, and on an addition to a published package's public API
-  unless the `Mandate:` line covers features. Act on its `DECISION`; if
+  anything irreversible, outward-facing or breaking, on the gates "Merges and
+  releases" keeps for the owner's yes, and on an addition to a published
+  package's public API unless the `Mandate:` line covers features. Act on its `DECISION`; if
   it says wait, take its holding step and carry on with the rest of the
   queue.
 - **Without that setting, nothing fires.** `AskUserQuestion` holds the turn
@@ -246,7 +259,8 @@ When *In flight* is empty, or everything left in it is blocked:
 4. **`plan-the-roadmap`** — on whatever sits in *Proposed, not approved*: the
    queue running dry is not a reason to stop. It ends in interactive
    questions, and what the owner approves goes back into *In flight*.
-5. **Report**: what landed with PR numbers, what is blocked and on what
+5. **Report**: what landed with PR numbers (each publish too, with the consumer
+   sessions told per "Merges and releases"), what is blocked and on what
    exactly, what the refiller or the scout proposes, and the interactive
    questions.
 

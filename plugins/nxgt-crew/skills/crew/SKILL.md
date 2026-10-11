@@ -42,6 +42,10 @@ everywhere), `plan` (a roadmap entry this session is planning or working),
 should follow), `note`. Keep it to one line a peer can act on:
 "working on packages/janus-mail in /tmp/…/wt, branch feat/janus-mail",
 "published @nxgt/mail 0.5.0 — sendMail now takes a Transport".
+A `release` announce does not replace telling the consumers: after a publish,
+`SendMessage` each live session whose repository depends on the package (the
+version, what changed, what it must do), per "Merges and releases" in
+`~/.claude/CLAUDE.md`.
 
 A **`plan`** names its roadmap entry, so the alignment pass can match it.
 Record one **only after the owner accepted the entry** through
