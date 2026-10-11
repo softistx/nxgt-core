@@ -174,7 +174,7 @@ fields, `siblings.ts` its sibling ranges against the workspace's `workspace:` sp
 `browser.ts` (the `browser` condition, which only this repository has),
 `classes.ts`, `imports.ts` (served by `declarations.ts`), `types.ts` (served by `resolve-types.ts`) and `emit.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
-port to the others. One check is not yet in the others: `install.ts`'s `workspaceTypeScript` pin (the probe installs the root `typescript` range, so the lockfile job emits fixtures with tsc 6 and "Newest peers" with tsc 7) is only here; nxgt-janus, nxgt-http and nxgt-data have not got it, and it is to port. All four hold the same three checks, each described
+port to the others. One check is not yet in all the others: `install.ts`'s `workspaceTypeScript` pin (the probe installs the root `typescript` range, so the lockfile job emits fixtures with tsc 6 and "Newest peers" with tsc 7) is here, in nxgt-janus and in nxgt-http (its PR #138); nxgt-data has not got it yet, and it is to port. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
 spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
 is this copy's alone. `imports.ts`, `declarations.ts` and their specs are
