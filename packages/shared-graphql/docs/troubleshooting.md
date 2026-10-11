@@ -207,8 +207,12 @@ The same, from `can`.
 
 Keto (or Kratos, Hydra — the name varies) did not answer. This is on
 purpose: an outage is never turned into a denial or an anonymous caller. The
-client can retry; `extensions.debugMessage` carries what the SDK saw, only
-when `isDev` is on (outside production).
+client can retry; `extensions.debugMessage` carries what the SDK saw, in
+development only. What counts as development depends on the path: a Yoga
+resolver error follows the `isDev` the app passes to `maskedErrors`;
+`useOryAuth` follows `NODE_ENV === 'development'` (unset, `production` and
+`test` add nothing); Apollo follows `createFormatError`'s `production`
+argument (left out means debug).
 
 ### A denial's message reads `notes.errors.not-found`
 

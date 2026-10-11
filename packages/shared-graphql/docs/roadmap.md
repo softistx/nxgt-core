@@ -31,6 +31,11 @@ Nothing planned that changes what a consumer gets. See Later.
 
 ### 3.2
 
+- **`debugMessage` only in development**: `createMaskError` sends a
+  `CustomException`'s and an outage's `debugMessage` only when Yoga's `isDev`
+  is on, and `useOryAuth`'s outage only when `NODE_ENV` is `development`.
+  `serviceUnavailableError(error, debug = false)` takes the matching `debug`
+  parameter and adds `debugMessage` only when it is true.
 - **The Sandbox page off unless in development**: `createYogaHono` serves it
   only when `NODE_ENV` is explicitly `development` or `test` (unset or
   anything else answers 404), and `sandbox: true` (or `enabled: true` beside

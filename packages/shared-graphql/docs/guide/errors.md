@@ -63,9 +63,15 @@ new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 | `CustomException.notFound()` | `NOT_FOUND` | 404 | translated key |
 | any other `CustomException` | its `errorCode` | its status | translated key |
 | a Mongoose error | through `castError` | its status | translated key |
-| `OryUnavailable` | `SERVICE_UNAVAILABLE` | 503 | `ory: keto is unavailable` |
+| `OryUnavailable` | `SERVICE_UNAVAILABLE` | 503 | `ory: keto is unavailable` (`debugMessage` per the rule below) |
 | a `GraphQLError` thrown on purpose | its own | its own | its own |
 | a plain `Error` a resolver threw | `INTERNAL_SERVER_ERROR` | — | the mask message |
+
+`debugMessage` is a development aid and never reaches a client in production. Which switch decides depends on where the error comes from:
+
+- a resolver error, through `createMaskError`: the `isDev` the app passes to `maskedErrors`;
+- `useOryAuth`'s outage (thrown while the context is built): `NODE_ENV === 'development'` only. `test` does not count, because this is a leak to a client; the Sandbox page, a convenience, also accepts `test`;
+- Apollo, through `createFormatError`: its `production` argument (left out means debug).
 
 `debugMessage` (and an unexpected error's original) reach the client only when Yoga's `isDev` is true, and Yoga does not derive `isDev` from `NODE_ENV` for a custom `maskError`: pass `maskedErrors: { maskError, isDev: process.env.NODE_ENV === 'development' }`.
 
@@ -147,23 +153,24 @@ It is recognised by class, and also by its name and shape: an install that
 ends up with two copies of `@nxgt/ory-sdk` throws an `OryUnavailable` whose
 class is not the one this package imported, and that must still be a 503
 rather than a masked 500. `isOryUnavailable(error)` is the test, and
-`serviceUnavailableError(error)` builds the 503 `GraphQLError` both use —
-exported for a server that writes its own `maskError`:
+`serviceUnavailableError(error, debug = false)` builds the 503 `GraphQLError` both
+use (`debugMessage` only when `debug` is true) — exported for a server that writes its own `maskError`:
 
 ```ts
 import { isOryUnavailable, serviceUnavailableError } from '@nxgt/shared-graphql';
 import { GraphQLError } from 'graphql';
 import type { MaskError } from 'graphql-yoga';
 
-const maskError: MaskError = (error, message) => {
+const maskError: MaskError = (error, message, isDev) => {
 	const original = error instanceof GraphQLError ? error.originalError : error;
-	if (isOryUnavailable(original)) return serviceUnavailableError(original);
+	if (isOryUnavailable(original)) return serviceUnavailableError(original, isDev === true);
 	// …
 };
 ```
 
 `oryUnavailableError`, which `useOryAuth` throws when it cannot resolve the
-caller, is the same function under its older name.
+caller, wraps `serviceUnavailableError` and adds the rule that decides
+`debugMessage` there: `process.env.NODE_ENV === 'development'`.
 
 ## Internal messages stay internal
 
