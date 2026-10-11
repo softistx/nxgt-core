@@ -22,16 +22,8 @@
 			"source": "./plugins/nxgt-review"
 		},
 		{
-			"name": "nxgt-api",
-			"source": "./plugins/nxgt-api"
-		},
-		{
 			"name": "nxgt-compose",
 			"source": "./plugins/nxgt-compose"
-		},
-		{
-			"name": "nxgt-product",
-			"source": "./plugins/nxgt-product"
 		},
 		{
 			"name": "nxgt-autonomy",

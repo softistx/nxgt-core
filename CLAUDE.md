@@ -28,9 +28,9 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-docs` | `keep-docs-current`; agents `documentation-writer`, `troubleshooting-writer`, `roadmap-keeper`, `documentation-auditor` |
 | `nxgt-ui-docs` | `document-a-component-library`; agents `component-docs-writer`, `ui-docs-auditor` — the twelve-category taxonomy, WebP previews and forms guide shared by `@nxgt/material` and `@nxgt/material-vue` |
 | `nxgt-review` | `review-before-a-pr`; agent `code-reviewer`, with a `references/<repo>.md` per repository |
-| `nxgt-api` | `build-a-bun-hono-api`, `build-a-graphql-yoga-api`, `handle-a-file-upload`, with a `references/<repo>.md` where a repository differs |
+| `bun-api` (moved to `softistx/plugins`, marketplace `softistx-plugins`; formerly `nxgt-api` here) | `build-a-bun-hono-api`, `build-a-graphql-yoga-api`, `handle-a-file-upload` — enable `bun-api@softistx-plugins` |
 | `nxgt-compose` | `compose-a-stack`, with a `references/<repo>.md` per repository |
-| `nxgt-product` | `lay-out-a-product-repository`, `extract-a-product-from-a-monorepo`, with a `references/<product>.md` per product repository |
+| `product-repo` (moved to `softistx/plugins`, marketplace `softistx-plugins`; formerly `nxgt-product` here) | `lay-out-a-product-repository`, `extract-a-product-from-a-monorepo` — enable `product-repo@softistx-plugins` |
 | `nxgt-autonomy` | `work-autonomously`, `plan-the-roadmap`; agents `work-queue-auditor`, `improvement-scout`, `green-bar-verifier`; a `SessionStart` hook that makes autonomy the default mode of every session in a git repository (`NXGT_AUTONOMY_DISABLE=1` opts out) — see its README |
 | `nxgt-economy` | no skills; a `SessionStart` hook that puts the token-economy rule in context, and a `PreToolUse` hook on `Agent` that reminds the session to pass a `model` (`NXGT_ECONOMY_DISABLE=1` opts out) — see its README |
 | `nxgt-monorepo` | `lay-out-a-library-monorepo` — the skeleton nxgt-data, nxgt-http, nxgt-telemetry and nxgt-janus share |
