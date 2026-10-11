@@ -49,6 +49,8 @@ export interface GhContext {
 	readonly home: string;
 	readonly now: () => number;
 	readonly cwd?: string;
+	/** Caps each gh call (the SessionStart hook's inline refresh). */
+	readonly timeoutMs?: number;
 }
 
 const RATE_LIMITED = /rate limit|secondary rate|abuse|HTTP 429|status 429/i;
@@ -80,6 +82,7 @@ export async function gh(
 	if (paused !== undefined) throw new RateLimitedError(paused);
 	const result = await ctx.runner.run(['gh', ...args], {
 		...(stdin === undefined ? {} : { stdin }),
+		...(ctx.timeoutMs === undefined ? {} : { timeoutMs: ctx.timeoutMs }),
 		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
 	});
 	if (result.code === 0) return result.stdout;

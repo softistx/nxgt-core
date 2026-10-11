@@ -18,6 +18,8 @@ export interface FakeRunner extends Runner {
 export interface RunRule {
 	/** The call matches when its argv starts with these words. */
 	readonly argv: readonly string[];
+	/** Narrows the rule further: it matches only when this holds for the argv. */
+	readonly when?: (argv: readonly string[]) => boolean;
 	readonly result?: Partial<RunResult>;
 	/** Instead of a result: make the call throw (a timeout, a missing binary). */
 	readonly throws?: string;
@@ -40,8 +42,10 @@ export function fakeRunner(
 		fetches,
 		async run(argv, options = {}) {
 			calls.push({ argv, options });
-			const rule = rules.run?.find((candidate) =>
-				candidate.argv.every((word, index) => argv[index] === word),
+			const rule = rules.run?.find(
+				(candidate) =>
+					candidate.argv.every((word, index) => argv[index] === word) &&
+					(candidate.when?.(argv) ?? true),
 			);
 			if (!rule) throw new Error(`fake runner: no rule for ${argv.join(' ')}`);
 			if (rule.throws) throw new Error(rule.throws);
