@@ -7,21 +7,25 @@
  * `{ name, version }`; `GH_TOKEN` is the workflow's token, with `issues: write`.)
  *
  * Per published package the issues come from `close-released-issues-lib.ts`;
- * they are collected across all packages first. An issue gets one comment,
- * "Fixed in <pkg>@<version> (#PR)", naming the package its `## Versions`
- * section lists, else the one that found it with the lowest rank, else the
- * first; then the `released` label and the close. An issue whose Versions name
- * a package of this repository that is not published now is left to that
- * release only when its run will surely handle it: the fix is rank 0 (the PR's
- * own closing references name the issue), that PR touched the package and adds
- * a changeset naming it, and the other package has an earlier tag in this
- * clone (its run reads the log since it); if git cannot say, it is handled now. The comment is written last and its hidden marker is the
- * idempotency key: an issue gets at most one such comment ever (any trusted
- * comment with a fixed marker means done), and one reopened after the release
- * is reported, never closed again. Needs only `gh`; imports nothing from the
- * plugin. This is the canonical copy: byte-copy it, the lib and git files and
- * the spec into each library's `scripts/`. It never fails the release: problems print
- * as warnings and the exit code is 0.
+ * they are collected across all packages first. A `feat/*` branch that was
+ * merged before is listed with every merge it ever had: an integration PR
+ * already shipped (its merge an ancestor of the previous tag, else older than
+ * the slice that led to it) is dropped. An issue gets one comment, "Fixed in
+ * <pkg>@<version> (#PR)", naming the package its `## Versions` section lists,
+ * else the one that found it with the lowest rank, else the first; then the
+ * `released` label and the close. An issue whose Versions name a package of
+ * this repository that is not published now is left to that release only when
+ * its run will surely handle it: the fix is rank 0 (the PR's own closing
+ * references name the issue), that PR touched the package and adds a changeset
+ * naming it, and the other package has an earlier tag in this clone (its run
+ * reads the log since it); if git cannot say, it is handled now. The comment
+ * is written last and its hidden marker is the idempotency key: an issue gets
+ * at most one such comment ever (any trusted comment with a fixed marker means
+ * done), and one reopened after the release is reported, never closed again.
+ * Needs only `gh`; imports nothing from the plugin. This is the canonical
+ * copy: byte-copy it, the lib and git files and the spec into each library's
+ * `scripts/`. It never fails the release: problems print as warnings and the
+ * exit code is 0.
  */
 
 import { dirname, join } from 'node:path';

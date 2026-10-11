@@ -19,7 +19,6 @@ import {
 	changelogPrs,
 	git,
 	loggedPrs,
-	previousTag,
 	type ReleaseInput,
 } from './release-git';
 
@@ -62,9 +61,8 @@ export async function discoverFixes(
 		(await git(ctx, ['show', `HEAD:${changelogPath(input.dir)}`])) ??
 		'';
 	const listed = changelogPrs(changelog, input.version);
-	const logged = await loggedPrs(ctx, input, notes);
+	const { prs: logged, previous } = await loggedPrs(ctx, input, notes);
 	const prs = [...new Set([...listed, ...logged])];
-	const { previous } = await previousTag(ctx, input);
 
 	// rank: 0 an integration PR's own issues, 1 a slice's, named after its integration PR, 2 a slice with none yet
 	const found = new Map<number, Fix & { rank: number }>();

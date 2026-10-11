@@ -121,18 +121,16 @@ async function releasedBefore(
 	);
 }
 
-/** The PRs that merged `base` on, that touched the package and were not released before. */
+/** The PRs that merged `base` on and touched the package, released before or not. */
 export async function touchingIntegrationPrs(
 	ctx: GhContext,
 	repo: RepoId,
 	base: string,
 	dir: string,
-	since: { previous?: string | undefined; mergedAt?: string | undefined },
 ): Promise<PrInfo[]> {
 	const touching: PrInfo[] = [];
 	for (const parent of await integrationPrs(ctx, repo, base)) {
-		if (!(await touchesPackage(ctx, parent, dir))) continue;
-		if (!(await releasedBefore(ctx, parent, since))) touching.push(parent);
+		if (await touchesPackage(ctx, parent, dir)) touching.push(parent);
 	}
 	return touching;
 }
@@ -141,8 +139,10 @@ const message = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
 /**
- * The integration PRs of a slice's branch, looked up once per branch; none when
- * the lookup fails (a warning, and the issues then name the slice PR).
+ * The integration PRs of a slice's branch that were not released before. The
+ * PRs of a branch are looked up once per branch, but "released before" is
+ * judged per slice, against that slice's own merge date; none when the lookup
+ * fails (a warning, and the issues then name the slice PR).
  */
 export function parentLookup(
 	ctx: GhContext,
@@ -152,22 +152,26 @@ export function parentLookup(
 ): (slice: PrInfo) => Promise<PrInfo[]> {
 	const branches = new Map<string, PrInfo[]>();
 	return async (slice) => {
-		const known = branches.get(slice.base);
-		if (known) return known;
+		let candidates = branches.get(slice.base);
+		if (!candidates) {
+			const { repo, dir } = input;
+			candidates = await touchingIntegrationPrs(
+				ctx,
+				repo,
+				slice.base,
+				dir,
+			).catch((error) => {
+				if (error instanceof RateLimitedError) throw error;
+				warnings.push(`integration PR of ${slice.base}: ${message(error)}`);
+				return [];
+			});
+			branches.set(slice.base, candidates);
+		}
 		const since = { previous, mergedAt: slice.mergedAt };
-		const { repo, dir } = input;
-		const parents = await touchingIntegrationPrs(
-			ctx,
-			repo,
-			slice.base,
-			dir,
-			since,
-		).catch((error) => {
-			if (error instanceof RateLimitedError) throw error;
-			warnings.push(`integration PR of ${slice.base}: ${message(error)}`);
-			return [];
-		});
-		branches.set(slice.base, parents);
+		const parents: PrInfo[] = [];
+		for (const parent of candidates) {
+			if (!(await releasedBefore(ctx, parent, since))) parents.push(parent);
+		}
 		return parents;
 	};
 }

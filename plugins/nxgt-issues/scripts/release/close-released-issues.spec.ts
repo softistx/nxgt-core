@@ -904,7 +904,10 @@ describe('an integration PR credited to a slice that did not touch the package',
 		...over,
 	});
 	/** Slice 42 only adds a changeset; integration PR 40 holds the fix, touching a and c. */
-	const world = (over: Partial<World> = {}) =>
+	const world = (
+		over: Partial<World> = {},
+		merged = [touching('a'), touching('c')],
+	) =>
 		fakeWorld({
 			...simple({
 				prs: {
@@ -914,7 +917,7 @@ describe('an integration PR credited to a slice that did not touch the package',
 						head: 'feat/x',
 						sha: 'm40',
 						closing: [12],
-						files: [touching('a'), touching('c')],
+						files: merged,
 						changesets: names,
 					},
 				},
@@ -928,6 +931,14 @@ describe('an integration PR credited to a slice that did not touch the package',
 			listed: [42],
 			...over,
 		});
+
+	test('an integration PR whose merge did not touch the package is left out', async () => {
+		const w = world({ untagged: ['@nxgt/a', '@nxgt/c'], log: [] }, [
+			touching('c'),
+		]);
+		await run(w, [], checkout('a', 'c'), published);
+		expect(w.issues[12]?.comments).toEqual([]);
+	});
 
 	test('a first release finds the integration PR own issue through the listed slice', async () => {
 		const w = world({ untagged: ['@nxgt/a', '@nxgt/c'], log: [] });
@@ -1077,5 +1088,51 @@ describe('a feat/* branch that was merged before', () => {
 		const w = world({ shipped: false, mergedAt: '2026-10-07T00:00:00Z' });
 		await run(w, [], checkout('a'), published);
 		expect(commented(w)).toEqual([9, 12]);
+	});
+
+	test('"not an ancestor" beats the date: an old merge git says is unreleased is kept', async () => {
+		const w = world({ shipped: false });
+		await run(w, [], checkout('a'), published);
+		expect(commented(w)).toEqual([9, 12]);
+	});
+
+	describe('with no previous tag, the date is each slice own', () => {
+		const slice = (n: number, mergedAt: string) => ({
+			base: 'feat/x',
+			head: `fix/s${n}`,
+			sha: `m${n}`,
+			mergedAt,
+			files,
+		});
+		const merge = (sha: string, mergedAt: string, closing: number[]) => ({
+			head: 'feat/x',
+			sha,
+			mergedAt,
+			closing,
+			files,
+		});
+		/** Slices 41 (09-20) and 42 (10-05) are listed in the given order; #30 (09-25) merged feat/x before #42 but after #41. */
+		const ordered = (listed: number[]) =>
+			fakeWorld({
+				prs: {
+					41: slice(41, '2026-09-20T00:00:00Z'),
+					42: slice(42, '2026-10-05T00:00:00Z'),
+					30: merge('m30', '2026-09-25T00:00:00Z', [9]),
+					50: merge('m50', '2026-10-06T00:00:00Z', [12]),
+				},
+				issues: { 12: { body: 'x' }, 9: { body: 'x' } },
+				tagList: ['@nxgt/a@1.4.0'],
+				listed,
+				log: [],
+			});
+
+		test.each([[[41, 42]], [[42, 41]]])(
+			'slices listed as %p give the same result',
+			async (listed) => {
+				const w = ordered(listed);
+				await run(w, [], checkout('a'), published);
+				expect(commented(w)).toEqual([9, 12]);
+			},
+		);
 	});
 });
