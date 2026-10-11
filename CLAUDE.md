@@ -36,7 +36,7 @@ included — consumes them by enabling the plugin in its own committed
 | `nxgt-monorepo` | `lay-out-a-library-monorepo` — the skeleton nxgt-data, nxgt-http, nxgt-telemetry and nxgt-janus share |
 | `nxgt-base` | none — a bundle whose `dependencies` are `nxgt-monorepo`, `nxgt-review`, `nxgt-docs`, `nxgt-autonomy` and `nxgt-economy`; `claude plugin install nxgt-base@nxgt-core --scope user` makes all five active in every project |
 | `nxgt-crew` | `crew`; agent `session-coordinator`; hooks that keep a registry of live sessions and block an edit to a file another session holds, or a checkout, reset or worktree removal where it works — see its README |
-| `nxgt-issues` | `report-to-upstream`, `adopt-a-released-fix`; a `SessionStart` hook — closes the loop between an application and the packages it consumes: anonymous deduplicated issues filed upstream and a private tracking issue per report; a session-start digest of open issues and of released fixes ready to adopt, and the adoption flow (`issues.ts ready`, `markers`) — see its README |
+| `nxgt-issues` | `report-to-upstream`, `adopt-a-released-fix`, `issues` (`/issues`); a `SessionStart` hook — closes the loop between an application and the packages it consumes: anonymous deduplicated issues filed upstream and a private tracking issue per report; a session-start digest of open issues and of released fixes ready to adopt, and the adoption flow (`issues.ts ready`, `markers`) and the `/issues` dashboard across the owner's repositories — see its README |
 
 Do not list them here by hand. Each `SKILL.md` carries its own `description` in
 frontmatter, which is what decides when it fires, and `claude plugin details

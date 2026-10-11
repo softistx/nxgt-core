@@ -8,11 +8,12 @@ package side sees its open issues when a session starts; once the fix is
 released, the application adopts it and removes the `// Temporary, until
 <package>#<n>` markers.
 
-> **Status: reporter, session start and app side.** This version ships the
-> `report-to-upstream` and `adopt-a-released-fix` skills, the `issues.ts` CLI
-> behind them (`resolve`, `file`, `track`, `deps`, `sessions`, `refresh`,
-> `ready`, `markers`) and the `SessionStart` hook. The package-side skill and
-> the `/issues` dashboard follow in later versions.
+> **Status: reporter, session start, app side and dashboard.** This version
+> ships the `report-to-upstream`, `adopt-a-released-fix` and `issues` (`/issues`)
+> skills, the `issues.ts` CLI behind them (`resolve`, `file`, `track`, `deps`,
+> `sessions`, `refresh`, `ready`, `markers`, `dashboard`) and the `SessionStart`
+> hook. The package-side skill and `/issues released <pkg@ver>` follow in later
+> versions.
 
 ## Install
 
@@ -23,7 +24,10 @@ claude plugin install nxgt-issues@nxgt-core --scope user
 It is not part of `nxgt-base` yet. Installed, it adds the `report-to-upstream`
 skill, which fires when a session hits a bug, a missing feature, a wrong doc or
 an outdated dependency in one of the owner's packages, the `adopt-a-released-fix`
-skill, which fires when such a fix has been released (below), and it registers
+skill, which fires when such a fix has been released (below), the `issues` skill
+(`/issues`, `/issues ready`, `/issues markers`: the dashboard of everything open
+across the owner's repositories, and the app-side commands; `/issues released
+<pkg@ver>` arrives with the release step), and it registers
 the SessionStart hook (below). `NXGT_ISSUES_DISABLE=1` turns the hook, and the
 CLI, off.
 
@@ -113,6 +117,7 @@ stdin.
 | `deps <pkg> [--file [--public-app]]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue, gated like `file` (a public application refuses with exit 2 unless `--public-app`) |
 | `refresh` | rewrites the SessionStart cache of the directory's repository (two GraphQL calls); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
 | `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and an owner, member, collaborator or the release bot (GraphQL author type `Bot`, login `github-actions`) wrote it, from a PR of this or another repository; from the cache when fresh, else a refresh (two GraphQL calls; a failed refresh falls back to a stale cache, with a warning on stderr); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
+| `dashboard [--json]` | the `/issues` dashboard: open issues of the allowed owners' non-archived repositories (`NXGT_ISSUES_OWNERS`), grouped by repository and headed by the packages it publishes, each group ranked live marker first (an open tracking issue of some application still links the issue, `●`), then applications affected (tracking links, or the reporter plus its "Another consumer hit this" comments), then oldest; `⚑` after 14 days without activity; tracking issues themselves are not listed; then a "Merged, awaiting release" section (`is:closed label:consumer-report -label:released`, oldest merge first). Three `gh search issues` calls (open issues, open `upstream` tracking issues, closed unreleased reports; the search API allows 30 a minute) and one GraphQL call (duplicate comments of up to 30 open reports; if it fails the counts are left out with a warning), plus the package lookups: the root and `packages/*` `package.json` names, at most 30 `gh api` reads a run, cached 24 hours per repository in `cache/repo-packages.json`; a repository not read shows under its own name. Third-party text goes through the same one-line cleaning and untrusted-data header as the hook's context. `--json` prints the ranked groups. Exit 5 rate-limited (the shared pause applies), 6 when gh fails |
 | `markers [--json] [--exclude <pathspec>]…` | every `Temporary, until <upstream>#<n>` marker (`git grep`; each `--exclude <pathspec>` or `--exclude=<pathspec>` becomes an `:(exclude)<pathspec>` so a repository can skip its fixtures and docs examples), judged against this repository's open tracking issues: `ready` (upstream closed and released: remove it), `unresolvable` (bad reference, repository not found, not an allowed owner, archived or issues off), `untracked` (no open tracking issue here links that upstream issue; flagged in a private application), or `waiting` (not flagged). A **public** application has no tracking issues, so its markers read the upstream issue directly (`ready` or `waiting`, with `untracked` only as a note, not a flag). **Exit 1 when any marker is flagged**, 0 when none is, 2 for a foreign origin, 5 rate-limited, 6 when `git grep` or gh fails; a rate limit or a gh failure is never reported as `unresolvable`. Exit 1 is shared with usage: a CI step runs `markers --json` and treats stdout that is not JSON as a failure. The marker names its upstream as `<npm-name>#n` or `owner/repo#n`; an npm name resolves like `resolve` |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent) |
 
@@ -173,7 +178,7 @@ with only the new rows when the package side closed it.
 | 2 | refused by the gate (the reasons below), `ready` or `markers` in a checkout whose origin is not an allowed owner's, `file` or `deps --file` from a public application without `--public-app`, or `track` on a public or foreign application |
 | 3 | refused by the scrub, or the deny-list could not be built whole |
 | 4 | keyword candidates printed; nothing filed |
-| 5 | rate-limited; nothing filed |
+| 5 | rate-limited; nothing filed (`dashboard`: nothing shown) |
 | 6 | another failure (gh, git), printed on stderr; a 403 that is not a rate limit says `permission` |
 
 ### Refusals
@@ -313,6 +318,9 @@ a name followed by a call or a member access, anything inside a path.
 | `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/` |
 | `refresh.ts` | the two GraphQL calls that fill a repository's cache entry, and the `refresh` command |
 | `context.ts` | pure rendering of a cache entry for the hook: ranking, the caps, the 14-day flag, the token cap; `adoptReady` (closed + `released`) and `releaseFix` (the trusted `Fixed in <pkg>@<version>` comment) are shared with `ready` and `markers` |
+| `dashboard.ts` | pure: ranks and renders the `/issues` dashboard (live marker, affected, age, `⚑`, the awaiting-release section) with `context.ts`'s `oneLine` and untrusted-data header |
+| `dashboard-data.ts`, `dashboard-command.ts` | the three searches and the one GraphQL call behind it; the `dashboard` command |
+| `repo-packages.ts` | the repository to package names map (root and `packages/*`), bounded and cached 24 hours |
 | `app-side.ts` | `loadSnapshot` (cache when fresh, else `refreshRepo`, stale cache on a failed refresh) and the `ready` command |
 | `markers-check.ts` | the `markers` command: resolves each marker's upstream (`resolvePackage` or `gate`) and flags ready, unresolvable and untracked ones |
 | `markers-public.ts`, `markers-types.ts` | a public application's markers read the upstream issue directly (`fetchUpstream`, shared with the refresh); the report types and `MarkerLookupError` (a rate limit or gh failure: exit 5/6, never `unresolvable`) |

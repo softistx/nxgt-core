@@ -9,12 +9,15 @@
  *   sessions <owner/repo> [--json]  live crew sessions that depend on the repository's packages
  *   refresh                         the SessionStart cache of this checkout's repository
  *   ready [--json]                  tracking issues whose upstream fix is released
- *   markers [--json] [--exclude <pathspec>]…                `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
+ *   dashboard [--json]              open issues of the owners' repositories, ranked, and the fixes awaiting release
+ *   dashboard [--json]                    open issues across the owners' repositories
+  markers [--json] [--exclude <pathspec>]…                `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
  */
 
 import { readyCommand } from './app-side';
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
+import { dashboardCommand } from './dashboard-command';
 import { filingDenyList } from './deny-sources';
 import { upsertRollingIssue } from './deps';
 import { behindDependencies } from './deps-behind';
@@ -150,6 +153,8 @@ export async function main(
 			return refreshCommand(ctx);
 		case 'ready':
 			return readyCommand(ctx, has('--json'));
+		case 'dashboard':
+			return dashboardCommand(ctx, has('--json'));
 		case 'markers': {
 			const excludes = optionValues(args, '--exclude');
 			if (!excludes) break;
