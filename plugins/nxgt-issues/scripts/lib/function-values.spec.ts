@@ -53,14 +53,14 @@ describe('parenthesised scheme operands', () => {
 
 	test.each([
 		"'Bearer ' + String('k3J9xQ2mZp7vR4tL')",
-		"`Bearer ${get('k3J9xQ2mZp7vR4tL')}`",
+		`\`Bearer \${get('k3J9xQ2mZp7vR4tL')}\``,
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});
 
 	test.each([
 		"'Bearer ' + localStorage.getItem('token')",
-		"`Bearer ${localStorage.getItem('token')}`",
+		`\`Bearer \${localStorage.getItem('token')}\``,
 		"'Bearer ' + (process.env.TOKEN ?? token)",
 		"'Bearer ' + (a || b)",
 	])('%p passes', passes);

@@ -45,7 +45,7 @@ describe('shell variables are placeholders', () => {
 	test.each([
 		'curl -u "$ADMIN_USER:$ADMIN_PASSWORD" https://api.example.com/x',
 		'curl -u "$USER:$PASS" https://api.example.com/x',
-		'curl -u ${USER}:${PASS} https://api.example.com/x',
+		`curl -u \${USER}:\${PASS} https://api.example.com/x`,
 		'curl -H "Authorization: Basic $(echo -n "$U:$P" | base64)" https://api.example.com/x',
 		'curl -H "Authorization: Bearer $TOKEN" https://api.example.com/x',
 	])('%p passes', passes);

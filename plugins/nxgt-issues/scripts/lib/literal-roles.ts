@@ -73,8 +73,8 @@ interface Literal {
 	readonly start: number;
 	readonly end: number;
 	/** The innermost and the next enclosing opener at the literal's start. */
-	readonly top?: number;
-	readonly second?: number;
+	readonly top?: number | undefined;
+	readonly second?: number | undefined;
 }
 
 /** The literals of `code` and the matching closer of every opener. */
