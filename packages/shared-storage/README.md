@@ -41,10 +41,47 @@ new `StorageService` every time the field initializer ran.
 | `S3_CREDENTIALS` | `{ endpoint, bucket, accessKeyId, secretAccessKey }` from env |
 
 `StorageService` talks to Bun's `S3Client`: `write`, `list`, `file`, `exists`,
-`presing` (presign), `delete`, `size`, `stat`, `unlink`, `fetch`. MinIO
+`presing` (presign; the name is spelled that way, and its error key is
+`presign-failed`), `delete`, `size`, `stat`, `unlink`, `fetch`. `fetch` takes a
+`bucket` option to read from another bucket; it defaults to the constructor's
+bucket, itself `S3_BUCKET` by default. MinIO
 methods whose result types would otherwise leak minio's internal module are
 annotated through the public `Client`
 (`Awaited<ReturnType<Client['putObject']>>`) so a consumer's `.d.ts` resolves.
+
+## Errors
+
+Every `StorageService` method rejects (or, for the synchronous `file` and
+`presing`, throws) a `CustomException` with code 500 when the S3 call fails.
+Its `message` is that method's key, and `debugMessage` holds the SDK's text:
+
+| Method | Message key |
+| --- | --- |
+| `write` | `storage.errors.write-failed` |
+| `list` | `storage.errors.list-failed` |
+| `file` | `storage.errors.file-failed` |
+| `exists` | `storage.errors.exists-failed` |
+| `presing` | `storage.errors.presign-failed` |
+| `delete` | `storage.errors.delete-failed` |
+| `size` | `storage.errors.size-failed` |
+| `stat` | `storage.errors.stat-failed` |
+| `unlink` | `storage.errors.unlink-failed` |
+| `fetch` | `storage.errors.fetch-failed` |
+
+`delete`, `size`, `stat`, `unlink` and `fetch` first check the key exists. A
+missing key is a 404 `storage.errors.file-not-found` with options `{ key }`,
+not a 500.
+
+The message is a key, not text: whoever renders the exception translates it
+with its `options`. Merge the package's exported `resources` (`en` and `fr`)
+into your translator, or the key is shown as is.
+
+```ts
+import { resources } from '@nxgt/shared-storage';
+
+// e.g. with i18next: addResourceBundle(lng, ns, ...) for each entry, or
+// spread `resources.en` / `resources.fr` into your own resources.
+```
 
 ## Things that bite
 
@@ -57,4 +94,4 @@ annotated through the public `Client`
   `minio123` / `uploads`). A process that forgets to set them does not fail
   closed — it talks to that.
 - **Specs skip themselves** unless all four variables are set. Infrastructure
-  that is absent is not a failing test, and CI has no S3.
+  that is absent is not a failing test, and CI runs them against SeaweedFS.
