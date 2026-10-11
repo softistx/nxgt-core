@@ -12,8 +12,8 @@
  * or `btoa`, `encode`, `Buffer.from`. A header setter (`.set`, `.append`,
  * `header`, `setHeader`) whose first argument names a credential header
  * (`authorization`, `cookie`, `x-api-key`, `*-secret`, `*-token`, `*-key`,
- * `*-password`), or that is called on a cookie jar (`cookies.set('sid', …)`),
- * is one too, for its value.
+ * `*-password`), `res.cookie(name, value)`, and a setter called on a cookie
+ * jar (`cookies.set('sid', …)`) is one too, for its value.
  *
  * Every quoted literal inside it refuses unless `literals.ts` says it is
  * plainly not a secret, or it is the value of a naming option (`audience`,
@@ -32,8 +32,8 @@ const KEYWORDS = (
 ).split(' ');
 const SUFFIX = /^(?:\d+|iv|sync|ed|er|ing|s)?$/;
 const USER_FIRST = new Set(['login', 'signIn', 'authenticate']);
-const SETTERS = new Set(['set', 'append', 'header', 'setHeader']);
-const CREDENTIAL_HEADER =
+const SETTERS = new Set(['set', 'append', 'header', 'setHeader', 'cookie']);
+export const CREDENTIAL_HEADER =
 	/^(?:authorization|proxy-authorization|cookie|set-cookie|x-api-key|.*-(?:secret|token|key|password))$/i;
 
 const parts = (name: string): string[] =>
@@ -115,17 +115,57 @@ const NAMING_KEYS = new Set(
 	).split(' '),
 );
 const KEY_BEFORE = /([A-Za-z_$][\w$]*)["']?\s*:\s*\[?\s*$/;
+const MESSAGE_KEYS = new Set(['message', 'error', 'description']);
 
-/** A quoted literal in `arg` that is a secret; `strict` for a header's own value. */
-function hasSecretIn(arg: string, strict: boolean): boolean {
+/** Where an argument sits in its call, which decides what its literals may be. */
+interface Position {
+	/** A credential header's own value. */
+	readonly strict: boolean;
+	/** A verify, validate or compare call's later argument after code: prose may sit there. */
+	readonly prose: boolean;
+	/** A key, secret or password position. */
+	readonly key: boolean;
+}
+
+/** A quoted literal in `arg` that is a secret. */
+function hasSecretIn(arg: string, position: Position): boolean {
 	for (const match of arg.matchAll(QUOTED)) {
 		const key = KEY_BEFORE.exec(arg.slice(0, match.index))?.[1];
 		if (key && NAMING_KEYS.has(key)) continue;
-		const template = match[1] === '`';
-		const inHeader = strict && match[0] === arg;
-		if (!isHarmlessLiteral(match[2] ?? '', { template, inHeader })) return true;
+		const whole = match[0] === arg;
+		const context = {
+			template: match[1] === '`',
+			inHeader: position.strict && whole,
+			message:
+				(key !== undefined && MESSAGE_KEYS.has(key)) ||
+				(position.prose && whole),
+			keyPosition: position.key,
+		};
+		if (!isHarmlessLiteral(match[2] ?? '', context)) return true;
 	}
 	return false;
+}
+
+const hasPart = (callee: string[], words: readonly string[]): boolean =>
+	callee.some((part) =>
+		words.some((w) => part.startsWith(w) && SUFFIX.test(part.slice(w.length))),
+	);
+const SECRET_PARTS =
+	'secret key sign hash cipher password encrypt token salt api'.split(' ');
+const PROSE_PARTS = ['verify', 'validate', 'compare'];
+const KEY_PARTS = ['sign', 'hash', 'hmac', 'cipher', 'password', 'verify'];
+
+/** The position of each argument of a credential call. */
+function positionsOf(name: string, args: string[]): Position[] {
+	const callee = parts(name);
+	const firstIsCode = literalOf(args[0] ?? '') === undefined;
+	const prose = hasPart(callee, PROSE_PARTS) && !hasPart(callee, SECRET_PARTS);
+	const keyCall = hasPart(callee, KEY_PARTS);
+	return args.map((_, index) => ({
+		strict: false,
+		prose: prose && index > 0 && firstIsCode,
+		key: keyCall || (USER_FIRST.has(name) && index > 0 && !firstIsCode),
+	}));
 }
 
 /** True when a credential call in `text` is handed a literal secret. */
@@ -135,19 +175,23 @@ export function hasSecretArgument(text: string): boolean {
 		const name = path.split('.').pop() ?? '';
 		const args = callArguments(text, match.index + match[0].length);
 		const header = literalOf(args[0] ?? '');
-		const cookieJar = /cookie/i.test(path.slice(0, -name.length));
+		const cookieJar =
+			name === 'cookie' || /cookie/i.test(path.slice(0, -name.length));
 		if (
 			SETTERS.has(name) &&
 			header &&
 			(cookieJar || CREDENTIAL_HEADER.test(header))
 		) {
-			if (hasSecretIn(args[1] ?? '', true)) return true;
+			const value = { strict: true, prose: false, key: false };
+			if (hasSecretIn(args[1] ?? '', value)) return true;
 			continue;
 		}
 		if (!isCredentialCallee(path)) continue;
+		const positions = positionsOf(name, args);
 		for (const [index, arg] of args.entries()) {
 			if (index === 0 && USER_FIRST.has(name)) continue;
-			if (hasSecretIn(arg, false)) return true;
+			const position = positions[index];
+			if (position && hasSecretIn(arg, position)) return true;
 		}
 	}
 	return false;

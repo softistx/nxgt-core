@@ -101,9 +101,14 @@ export function declaresNoDomains(root: string | undefined): boolean {
 	}
 }
 
-/** No configured domain and no explicit `appDomains: []`: the filing cannot be checked whole. */
+/**
+ * No configured domain and no explicit `appDomains: []` in the repository's
+ * file: the filing cannot be checked whole. Only an entry that looks like a
+ * host (it holds a dot) counts, so `none` or a bare word is no domain.
+ */
 function requireDomains(config: DenyConfig, root: string | undefined): void {
-	if (config.appDomains.length > 0 || declaresNoDomains(root)) return;
+	const hosts = config.appDomains.filter((domain) => /\w\.\w/.test(domain));
+	if (hosts.length > 0 || declaresNoDomains(root)) return;
 	throw new DenyListIncomplete(
 		'no application domain is configured; list them in .nxgt-issues.json at the repository root ({ "appDomains": ["example-app.com"] }), or write "appDomains": [] when the application has none',
 	);

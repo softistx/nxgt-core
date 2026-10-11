@@ -77,7 +77,8 @@ What `file` does, in order:
    repository gh cannot see (404) is not public;
 2. resolves and gates the package (as `resolve`);
 3. builds the deny-list once (below); it refuses (exit 3) while no application
-   domain is configured, unless the repository's `.nxgt-issues.json` says
+   domain is configured (only an entry with a dot counts: `none` is no
+   domain), unless the repository's `.nxgt-issues.json` says
    `"appDomains": []`;
 4. renders the issue body, the title, the "another consumer" comment and the
    search words, and scrubs each **rendered** text; any denied term or
@@ -150,7 +151,9 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
   folder name and the name of the folder holding the git common dir (the main
   checkout of a worktree);
 - the working directory's name;
-- every private repository of the default owners (`softistx`, `SteveGT96`)
+- every private repository of the default owners (`softistx`, `SteveGT96`),
+  by full name and by each non-generic stem as a whole word (`sellix` from
+  `sellix-monorepo`; `api`, `demo`, `notes`, `test`… are not denied alone),
   and of any other owner in `NXGT_ISSUES_OWNERS` (`gh repo list --visibility
   private`, cached 24 hours in `<home>/cache/private-repos.json`; when gh fails
   the stale copy is used, and with no copy at all nothing is filed).
@@ -181,14 +184,18 @@ The skill creates `.nxgt-issues.json` on first use in an application, asking
 the user for the domains. **While no domain is configured, `file` and `deps
 --file` refuse (exit 3)**, unless the repository's `.nxgt-issues.json` says
 `"appDomains": []` (the application has none); the user-wide file and the
-environment variable can supply domains but cannot declare "none".
+environment variable can supply domains but cannot declare "none" (their `[]`
+or `["none"]` still refuses: an entry counts only when it holds a dot).
 
 Independently of the configuration, the scrub rewrites any dotted name ending
 in a common TLD to `<host>` (`domains.ts`): `com`, `net`, `org`, `io`, `dev`,
 `app`, `fr`, `ca`, `co`, `uk`, `de`, `eu`, `us`, `me`, `ai`, `cloud`, `tech`,
 `xyz`, the francophone ccTLDs (`ma`, `be`, `tn`, `sn`, `ci`, `lu`, `ch`, `dz`,
 `cm`, `ht`), `it`, `sh`, and `school`, `academy`, `online`, `store`, `site`,
-`page`, among others. A path, query or fragment after it is kept
+`page`, `education`, `africa`, `ng`, `ke`, `za`, `in`, `sa`, `ae`, `qa`,
+`studio`, `agency`, `digital`, `space`, `live`, `so`, `to`, among others; and
+a private name under `.internal`, `.lan` or `.local`, port or not
+(`billing.acme.internal`). Browser API paths stay (`chrome.storage.local`). A path, query or fragment after it is kept
 (`<host>/graphql`); a leading `.`, `*.` or `@` goes with it (`'.myeduapp.com'`,
 `*.myeduapp.com`, `@myeduapp.com`); a Unicode label is rewritten whole
 (`école.fr`). Kept as written: `github.com` and its subdomains, `npmjs.com`,
@@ -212,8 +219,9 @@ a name followed by a call or a member access, anything inside a path.
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
-| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing |
-| `auth-calls.ts`, `literals.ts` | literal secrets handed to a credential call — a callee whose name has a part like `password`, `secret`, `key`, `token`, `hash`, `hmac`, `cipher`, `sign`, `verify`, `compare`, `encrypt`, `scrypt`, `pbkdf2`, `argon`, `bcrypt`, `login`, `auth`, or `btoa`, `encode`, `Buffer.from`, or a credential header's setter — at any depth, wherever the call sits; and the literals that are plainly not secrets (algorithm names, locale tags, role words, durations, messages with a space, env names, naming options) |
+| `secrets.ts` | known token shapes, and the credential assignments (`key` names included: `MASTER_KEY`, `signingKey`, and a plain `key` whose value looks like key material), headers, flags and key blocks that refuse a filing |
+| `credential-pairs.ts` | credential headers set by index or as a tuple (`headers['authorization'] = …`, `new Headers([['authorization', …]])`) and `--password`-style flags beside their value in an argument array |
+| `auth-calls.ts`, `literals.ts` | literal secrets handed to a credential call — a callee whose name has a part like `password`, `secret`, `key`, `token`, `hash`, `hmac`, `cipher`, `sign`, `verify`, `compare`, `encrypt`, `scrypt`, `pbkdf2`, `argon`, `bcrypt`, `login`, `auth`, or `btoa`, `encode`, `Buffer.from`, or a credential header's setter or `res.cookie` — at any depth, wherever the call sits; and the literals that are plainly not secrets (algorithm names, locale tags, role words, durations, env names, naming options; a message with a space only under a `message`, `error` or `description` key or after code in a verify, validate or compare call that names no secret; no role word, locale or env name in the key position of a sign, hash, hmac, cipher, password or verify call, or the password of `login`) |
 | `code-values.ts` | when the value of a credential-named assignment is code (a call whose literals are names, a type, an env read, a fallback chain) rather than a secret |
 | `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |

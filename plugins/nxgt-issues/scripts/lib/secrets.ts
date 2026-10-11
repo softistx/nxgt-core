@@ -24,6 +24,7 @@
 
 import { hasSecretArgument } from './auth-calls';
 import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
+import { hasCredentialPair } from './credential-pairs';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -86,7 +87,9 @@ export function scrubKnownTokens(text: string, note: (kind: string) => void) {
  * `pass` and `sid` over-match as substrings (`bypass`, `compass`, `inside`), so
  * they count only as a whole word of the name (`DB_PASS`, `sid`) or, for
  * `pass`, as the end of an all-capitals name (`REDISPASS`); `auth` does not
- * count in `author` or `authority`.
+ * count in `author` or `authority`. `key` counts as a whole word of the name
+ * (`MASTER_KEY`, `signingKey`, `key`), and so do `signing` and `hmac`
+ * (`JWT_SIGNING`).
  */
 function keywordOf(name: string): string | undefined {
 	const lower = name.toLowerCase();
@@ -104,7 +107,29 @@ function keywordOf(name: string): string | undefined {
 		if (words.includes(word)) return word;
 	}
 	if (name === name.toUpperCase() && /(?:pass|pw)$/.test(lower)) return 'pass';
+	if (words.some((word) => KEY_WORDS.has(word))) return 'key';
 	return undefined;
+}
+
+const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
+/** Words that make any literal under a `key` name a secret: `signingKey = 'users'`. */
+const STRONG_KEY = new Set(
+	'signing hmac master encryption encrypt cipher crypto aes jwt secret'.split(
+		' ',
+	),
+);
+
+/**
+ * A plain `key` name (`key`, `sortKey`, `i18nKey`) names many things that are
+ * not secrets, so its value refuses only when it looks like key material:
+ * eight or more letters and digits, switching between the two at least twice
+ * (`Zq8wLmP3vTnR`, never `tenant1234` or `theme-v2`).
+ */
+function isNamingKey(name: string, value: string): boolean {
+	if (wordsOf(name).some((word) => STRONG_KEY.has(word))) return false;
+	const bare = value.replace(/^["'`]|["'`,]+$/g, '');
+	const switches = bare.match(/[A-Za-z](?=\d)|\d(?=[A-Za-z])/g)?.length ?? 0;
+	return !(/^[A-Za-z\d+/=_]{8,}$/.test(bare) && switches >= 2);
 }
 
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
@@ -142,6 +167,7 @@ export function findSecrets(text: string): string[] {
 		const keyword = keywordOf(name);
 		if (!keyword || value.endsWith(':')) continue;
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
+		if (keyword === 'key' && isNamingKey(name, whole)) continue;
 		if (isCodeValue(whole, { name, first: value })) continue;
 		found.add(keyword);
 	}
@@ -177,5 +203,6 @@ export function findSecrets(text: string): string[] {
 	}
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
 	if (hasSecretArgument(text)) found.add('secret-argument');
+	if (hasCredentialPair(text)) found.add('credential-pair');
 	return [...found];
 }

@@ -5,11 +5,15 @@
  * `'raw'`, `'HMAC'`), a locale tag or collation word (`'en'`, `'fr-CA'`,
  * `'base'`), a short role word (`'admin'`, `'magic-link'`,
  * `'session-cookie'`), a duration (`'1h'`), an environment variable name
- * (`'JWT_SECRET'`), the empty string, a message with
- * a space (`'Signature is invalid'`), and a template whose fixed text holds no
+ * (`'JWT_SECRET'`), the empty string, a message with a space
+ * (`'Signature is invalid'`), and a template whose fixed text holds no
  * letters-and-digits run (`` `${user}:${pass}` ``, `` `Bearer ${token}` ``).
  * In a credential header's value only the placeholder and the template rules
- * apply: `'Basic x'` and `'abc'` are credentials there.
+ * apply: `'Basic x'` and `'abc'` are credentials there. The caller says where
+ * the literal sits: a space excuses it only in a message position, and in a
+ * key position (the secret of `sign`, `hash`, `hmac`, a cipher, a password
+ * call, the password of `login`) a role word, a locale or an env name is a
+ * secret too (`jwt.sign(p, 'admin')`).
  */
 
 import { isPlaceholder, KNOWN_LITERALS } from './code-values';
@@ -43,6 +47,10 @@ export interface LiteralContext {
 	readonly template: boolean;
 	/** The value of a credential header: a space is no excuse. */
 	readonly inHeader: boolean;
+	/** A message position, where a space shows prose: `verify(sig, 'Signature is invalid')`. */
+	readonly message: boolean;
+	/** A key or password position, where short words are secrets: `jwt.sign(p, 'admin')`. */
+	readonly keyPosition: boolean;
 }
 
 export function isHarmlessLiteral(
@@ -58,15 +66,16 @@ export function isHarmlessLiteral(
 	if (text === '' || isPlaceholder(`'${text}'`)) return true;
 	if (context.inHeader) return false;
 	const lower = text.toLowerCase();
+	const word =
+		!context.keyPosition &&
+		(LOCALE.test(text) || ROLE_WORDS.has(lower) || ENV_NAME.test(text));
 	return (
 		KNOWN_LITERALS.has(lower) ||
 		CRYPTO_WORDS.has(lower) ||
 		ALGORITHM.test(text) ||
 		COLLATION.has(text) ||
-		LOCALE.test(text) ||
-		ROLE_WORDS.has(lower) ||
 		DURATION.test(text) ||
-		ENV_NAME.test(text) ||
-		/\s/.test(text.trim())
+		word ||
+		(context.message && /\s/.test(text.trim()))
 	);
 }

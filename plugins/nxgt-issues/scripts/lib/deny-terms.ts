@@ -11,7 +11,10 @@ const GENERIC = new Set(
 	(
 		'api core web ui server client app apps service services backend frontend ' +
 		'admin shared common utils lib libs sdk docs monorepo mobile worker gateway ' +
-		'secret federation token session auth security nxgt alxia'
+		'secret federation token session auth security nxgt alxia ' +
+		'demo test tests project notes dotfiles config configs infra scripts tools ' +
+		'playground sandbox example examples template starter site website data ' +
+		'deploy plugins'
 	).split(' '),
 );
 

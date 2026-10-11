@@ -25,7 +25,7 @@ describe('the deny-list sees every default owner', () => {
 			],
 		});
 		const list = await filingDenyList(h.ctx);
-		expect(findDenied('the quiet-ledger app', list)).toEqual(['quiet-ledger']);
+		expect(findDenied('the quiet-ledger app', list)).toContain('quiet-ledger');
 		expect(callsOf(h.runner, 'gh', 'repo', 'list', 'SteveGT96')).toHaveLength(
 			1,
 		);

@@ -94,15 +94,17 @@ const MIN_SUBSTRING_LENGTH = 5;
  * The application's own distinctive terms (stems of its repository and
  * packages, its scope, the main label of its domains), 5+ characters, are
  * matched without a word boundary by `findDenied`; they are listed in the
- * `distinctive` list of the result. Private repositories are
- * denied by full name only, not by stem.
+ * `distinctive` list of the result. Private repositories are denied by
+ * full name and by their non-generic stems (`sellix` from `sellix-monorepo`),
+ * the stems as whole words only.
  */
 export function buildDenyList(inputs: DenyInputs): DenyList {
 	const repoName = inputs.appRepo?.split('/')[1];
 	const packages = inputs.appPackages ?? [];
-	const privates = (inputs.privateRepos ?? []).flatMap((entry) =>
-		entry.includes('/') ? [entry, entry.split('/')[1]] : [entry],
-	);
+	const privates = (inputs.privateRepos ?? []).flatMap((entry) => {
+		const name = entry.includes('/') ? entry.split('/')[1] : entry;
+		return [entry, name, ...stems(name)];
+	});
 	const own = [
 		...stems(repoName),
 		...packages.flatMap((pkg) => stems(pkg)),

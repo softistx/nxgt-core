@@ -213,7 +213,9 @@ describe('scrub', () => {
 			denyList,
 		});
 		expect(result.refused).toBe(true);
-		expect(result.denied).toEqual(['secret-app', 'hidden-two']);
+		expect(result.denied).toEqual(
+			expect.arrayContaining(['secret-app', 'hidden-two']),
+		);
 	});
 
 	test('a name that only appeared inside a path is gone by verification', () => {
@@ -898,13 +900,8 @@ describe('findDenied: the application stem glued to a suffix', () => {
 		expect(result.refused).toBe(false);
 	});
 
-	test('private repositories and short or generic terms stay whole-word', () => {
-		for (const text of [
-			'hiddenstuff',
-			'a hidden-services page',
-			'webapp',
-			'alxi',
-		]) {
+	test('private repositories, their stems and short or generic terms stay whole-word', () => {
+		for (const text of ['hiddenstuff', 'webapp', 'alxi']) {
 			expect(scrub(text, { denyList: list }).refused).toBe(false);
 		}
 		expect(scrub('hidden-service', { denyList: list }).refused).toBe(true);
@@ -933,11 +930,11 @@ describe('scrub: ordinary filings with a realistic deny-list', () => {
 		privateRepos: ['jane/secret-app', 'nxgt-federation', 'quiet-gateway'],
 	});
 
-	test('private repositories are denied by name, not by stem', () => {
+	test('private repositories are denied by name and by non-generic stem', () => {
 		expect(list.terms).toEqual(
-			expect.arrayContaining(['secret-app', 'nxgt-federation']),
+			expect.arrayContaining(['secret-app', 'nxgt-federation', 'quiet']),
 		);
-		for (const stem of ['secret', 'nxgt', 'federation', 'quiet', 'gateway']) {
+		for (const stem of ['secret', 'nxgt', 'federation', 'gateway']) {
 			expect(list.terms).not.toContain(stem);
 		}
 		expect(list.terms).toEqual(

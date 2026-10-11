@@ -34,7 +34,8 @@ it:
 When the user says the application has no domain of its own, write
 `{ "appDomains": [] }` — explicitly empty. Every listed domain, its registrable
 domain and its main label are denied in filings. **`file` refuses (exit 3)
-until the file exists with an `appDomains` list**, empty or not: a product name
+until the file exists with an `appDomains` list**, empty or not (an entry
+counts only when it is a host with a dot; never write `"none"`): a product name
 derived from a domain is only caught once the domain is listed. Bare domain
 names are rewritten to `<host>` either way.
 
