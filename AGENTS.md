@@ -376,9 +376,12 @@ range, else the range itself. The job then deletes `bun.lock`, installs,
 builds, typechecks, tests (the MongoDB replica set included) and verifies the
 artifacts. One range is written everywhere, so there is one version in the
 tree. Today that is `stx-sdk` `>=1.1.0` (locked at 1.2.0, npm latest 3.0.0),
-`nuxt` `^4.0.0`, `vue`, `graphql` `^17.0.0` and `typescript` `^6.0.3`. The
+`nuxt` `^4.0.0`, `vue`, `graphql` `^17.0.0` and `typescript` `^7.0.0`. The
 job runs green against all of them: 3.0.0 dropped `./ory`, `./kratos`,
-`./keto` and `./hydra`, and nothing here imports them.
+`./keto` and `./hydra`, and nothing here imports them. Under TypeScript 7
+`@nxgt/i18n-vue`'s template checks fall back to `tsc`, and shared-openapi's
+codegen suite runs its TS 7 branch, where the helpers refuse with the fix;
+see "`typescript` is a peer, 6 or 7, widened together".
 
 Run the script on a throwaway checkout, never commit what it writes.
 
@@ -665,15 +668,57 @@ fails any tarball whose sibling range is not exactly the one its `workspace:`
 spec produces beside the sibling's version in the workspace (`siblings.ts`), which
 is the check that would have caught it, and a stale lock within one minor too.
 
-### `typescript` is a peer, pinned to 6, and it is load-bearing
+### `typescript` is a peer, 6 or 7, widened together
 
-Every package declares `typescript: ^6.0.3`. Two arrived from `nxgt-federation` on
-`~7.0.2`, which is not a preference difference — the ranges are mutually
-unsatisfiable, so a consumer installing the set gets a peer conflict, and if
-TypeScript 7 wins, `@nxgt/shared-openapi` **throws at import**: it evaluates
-`ts.factory.createTypeReferenceNode(...)` at module scope, and TS 7's default
-export has no `.factory`. Every app in both monorepos builds on 6.0.3. Do not
-raise this range in one package alone.
+Every package declares `typescript: ^6.0.3 || ^7.0.0`, and the thirteen
+ranges move together. Two packages arrived from `nxgt-federation` on
+`~7.0.2` while the others said `^6.0.3`: two ranges with no version in common,
+so a consumer installing the set got a peer conflict. `scripts/newest-peers.ts`
+fails when the packages disagree on a peer's newest end (`The packages
+disagree on the newest typescript`), so a range widened in one package alone
+turns the "Newest peers" job red before it reaches a consumer.
+
+**TypeScript 7's npm package ships no compiler API.** Its `.` export is
+`lib/version.cjs` — `version`, `versionMajorMinor` and nothing else
+(measured on 7.0.2); `tsc` is a native binary behind `bin/tsc`. Anything that
+calls `ts.factory`, `ts.SyntaxKind` or `ts.createProgram` needs 6.
+`openapi-typescript` 7.13 and `@hey-api/openapi-ts` 0.99 read that API at
+module scope, so under 7 merely importing either throws; up to 2.0.x
+`@nxgt/shared-openapi` did the same itself, with a module-scope
+`ts.factory.createTypeReferenceNode(...)`. Since 2.1.0 it loads `typescript`
+and both tools only when a codegen helper runs (`src/compiler-api.ts`): the
+package imports under 6 and 7 alike, and a helper that cannot run under 7
+throws with the fix (run the codegen where `typescript` resolves to 6). No
+other package touches `typescript` at runtime: `grep -rlE "['\"]typescript['\"]"
+packages/*/src` finds only shared-openapi's files. Two rules keep it that way:
+
+- **Never touch `ts.*` at module scope in a shipped file.** Load the compiler
+  API when the code that needs it runs, and say what is missing when it is.
+- **Type compiler-API use structurally**, as `CompilerApi` in
+  `compiler-api.ts` does, not as `typeof import('typescript')`, whose types
+  under 7 declare no compiler API — so the source typechecks under both.
+
+Measured under 7.0.2 when the ranges widened (2026-10-10), by the "Newest
+peers" flow run locally: `build.ts`'s `tsc --emitDeclarationOnly` emits all
+thirteen packages, the same files as 6 (members and unions reordered, a type
+named through its source import, never a TS2883); `typecheck`, the package
+suites and `verify:artifacts` pass; every subpath imports under Bun, and under
+Node the same 28 of 37 as with 6 (the other nine reach `'bun'`); a consumer's
+tsc 7 resolves every subpath's declarations. Left to Bun, `verify:artifacts`'
+probe would take the newest `typescript` the peers allow, 7 in both CI jobs;
+it installs the root `devDependencies` range instead (`workspaceTypeScript`
+in `scripts/artifacts/install.ts`), so the fixture emit runs tsc 6 in the main
+job and tsc 7 in "Newest peers", which rewrites that range.
+
+**The repository itself builds on 6**: the root `devDependencies` and
+`overrides` stay `~6.0.3`, so the lockfile job runs 6, where `vue-tsc` checks
+`@nxgt/i18n-vue`'s templates and shared-openapi's codegen suite generates for
+real. `vue-tsc` 3 needs the compiler API and dies under 7, so
+`packages/i18n-vue/test/vue-tsc.ts` runs `tsc` with the same arguments where
+`typescript` is 7 and says the `.vue` files went unchecked. The "Newest
+peers" job rewrites both root fields to `^7.0.0` and runs everything else on
+7, codegen's TS 7 branch included. Raising the root to 7 waits for `vue-tsc`
+to run on it.
 
 ## Releasing, and what it means for a consumer
 

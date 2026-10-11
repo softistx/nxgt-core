@@ -10,10 +10,12 @@ clients.
 bun add @nxgt/shared-openapi
 ```
 
-Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
-`^6.0.3` across every `@nxgt/*` package — the set is unsatisfiable if one of
-them widens it. `@hey-api/openapi-ts` and `openapi-typescript` are peers —
-only a consumer that actually generates clients needs them.
+Public on npmjs; no token needed to install. TypeScript is a peer:
+`^6.0.3 || ^7.0.0`, the same range in every `@nxgt/*` package, so the set
+installs with either. The codegen helpers need TypeScript 6 to run
+([below](#typescript-6-and-7)). `@hey-api/openapi-ts` and
+`openapi-typescript` are peers — only a consumer that actually generates
+clients needs them.
 
 ## The YAML ships in `openapi/`
 

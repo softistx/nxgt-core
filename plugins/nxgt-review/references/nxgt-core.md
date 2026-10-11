@@ -63,8 +63,13 @@ can discard, and check `git status` after. **Never** run `changeset:publish`, `s
 - **No required peer that is on no registry.** `@nxgt/material` and
   `@nxgt/map` may only ever be optional peers, or absent. A peer with no
   `peerDependenciesMeta` entry is required.
-- **`typescript` is `^6.0.3` in every package.** Raising it in one makes the
-  set unsatisfiable, and `@nxgt/shared-openapi` throws at import under 7.
+- **`typescript` is `^6.0.3 || ^7.0.0` in every package, moved together.**
+  A range changed in one package alone is a finding (`newest-peers.ts`
+  fails on it). TypeScript 7 ships no compiler API, so a shipped file that
+  touches `ts.*` at module scope, or types it as `typeof
+  import('typescript')`, is a finding: load it when the code that needs it
+  runs, as `@nxgt/shared-openapi`'s `compiler-api.ts` does. The root
+  `devDependencies` and `overrides` stay `~6.0.3` until `vue-tsc` runs on 7.
 - **An asset ships only from its own directory named in `files`.** A
   `.graphqls`, YAML or font read at runtime from `src/` is absent from the
   tarball. A path to it resolves against the package root

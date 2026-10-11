@@ -46,8 +46,10 @@ bun add @nxgt/i18n-vue vue
 Peers:
 
 - `vue` (`^3.5`), required.
-- `typescript` (6), required — `^6.0.3`, as every `@nxgt/*` package. Bundler
-  resolution (`"moduleResolution": "bundler"`) is what is supported and tested.
+- `typescript` (6 or 7), required — `^6.0.3 || ^7.0.0`, as every `@nxgt/*`
+  package. Bundler resolution (`"moduleResolution": "bundler"`) is what is
+  supported and tested. Checking `t()` in `.vue` templates takes `vue-tsc`,
+  which needs TypeScript 6: under 7 `tsc` checks your `.ts` files only.
 - `vite` (`>=5`), optional — for `@nxgt/i18n-vue/vite`.
 - `nuxt` and `@nuxt/kit` (`^4`), optional — for `@nxgt/i18n-vue/nuxt`. The
   main entry never imports them.

@@ -13,9 +13,9 @@ name nobody.
 bun add @nxgt/shared-hono
 ```
 
-Public on npmjs; no token needed to install. TypeScript is a peer, pinned to
-`^6.0.3` across every `@nxgt/*` package — the set is unsatisfiable if one of
-them widens it. **`stx-sdk` is a required peer** (`>=1.1.0`): an install that
+Public on npmjs; no token needed to install. TypeScript is a peer:
+`^6.0.3 || ^7.0.0`, the same range in every `@nxgt/*` package, so the set
+installs with either. **`stx-sdk` is a required peer** (`>=1.1.0`): an install that
 cannot resolve it fails. It is public on npmjs.
 
 There is no `createApp`. This package is middleware, an error handler, and two
