@@ -17,8 +17,8 @@ Arguments given: `$ARGUMENTS`
 
 ## What to do
 
-**No arguments** — run (three searches and two GraphQL calls; package names are
-cached 24 hours)
+**No arguments** — run (three searches and up to three GraphQL calls; with the package names
+cached 24 hours, one)
 
 ```bash
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard
@@ -31,7 +31,8 @@ issue some application's tracking issue still waits on, `⚑` one nobody touched
 for 14 days or more. Say which are worth acting on first: a `●` issue that is
 also `⚑` is stuck on someone. The "Merged, awaiting release" section lists
 consumer reports whose fix is merged but not released: the package side's next
-release closes them. A `?` for affected, or a note at the end, means an optional lookup failed or a
+release closes them. A `?` for affected, or a note at the end, means an optional lookup failed, more
+than 30 consumer reports were open (only the first 30 get duplicate counts) or a
 search hit its limit; say so. Exit 5 means GitHub's rate limit is in force (try
 again later), exit 6 that `gh` failed (`gh auth status`); report the message
 and stop.

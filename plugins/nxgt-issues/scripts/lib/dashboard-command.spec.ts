@@ -246,11 +246,11 @@ describe('dashboard', () => {
 	});
 
 	test.each([
-		['a rate limit', 'HTTP 429: API rate limit exceeded'],
-		['a failure', 'HTTP 502: Bad Gateway'],
+		['a rate limit', 'HTTP 429: API rate limit exceeded', 1],
+		['a failure', 'HTTP 502: Bad Gateway', 2],
 	])(
 		'%s on the optional GraphQL calls keeps the board under repository names',
-		async (_, stderr) => {
+		async (_, stderr, graphqlCalls) => {
 			const h = harness({
 				cwd: makeApp(),
 				now: NOW,
@@ -262,6 +262,38 @@ describe('dashboard', () => {
 			expect(text).not.toContain('@zorblax/core');
 			expect(text).toContain('affected ?');
 			expect(h.err.join('\n')).toContain('unavailable');
+			// After a rate limit the shared pause stops the second optional call before it spawns gh.
+			expect(callsOf(h.runner, 'gh', 'api', 'graphql')).toHaveLength(
+				graphqlCalls,
+			);
 		},
 	);
+
+	test('more reports than the cap are explained by a note', async () => {
+		const reports = Array.from({ length: 31 }, (_, i) =>
+			row('softistx/zorblax-core', 200 + i, { labels: report }),
+		);
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [
+				{
+					argv: SEARCH,
+					when: (a) => has('open')(a) && !a.includes('upstream'),
+					result: { stdout: JSON.stringify(reports) },
+				},
+				TRACKING,
+				AWAITING,
+				PACKAGES,
+				{
+					argv: ['gh', 'api', 'graphql'],
+					result: { stdout: JSON.stringify({ data: {} }) },
+				},
+			],
+		});
+		expect(await main(h.ctx, ['dashboard'])).toBe(EXIT.ok);
+		expect(h.out.join('\n')).toContain(
+			'duplicate counts cover the first 30 reports',
+		);
+	});
 });

@@ -14,6 +14,7 @@ import { rankDashboard, renderDashboard } from './dashboard';
 import {
 	duplicateCounts,
 	type Found,
+	MAX_REPORTS,
 	SEARCH_LIMIT,
 	search,
 	trackedUpstream,
@@ -79,6 +80,7 @@ export async function dashboardCommand(
 		const repos = [
 			...new Set([...shown, ...awaiting].map((i) => i.repo)),
 		].sort();
+		const reports = shown.filter((i) => i.labels.includes('consumer-report'));
 		const duplicates = await optional(
 			ctx,
 			notes,
@@ -86,6 +88,11 @@ export async function dashboardCommand(
 			undefined,
 			() => duplicateCounts(ctx, shown),
 		);
+		if (duplicates && reports.length > MAX_REPORTS) {
+			notes.push(
+				`duplicate counts cover the first ${MAX_REPORTS} reports; the others show affected ?.`,
+			);
+		}
 		const packages = await optional(
 			ctx,
 			notes,
@@ -93,6 +100,15 @@ export async function dashboardCommand(
 			new Map<string, readonly string[]>(),
 			() => repoPackages(ctx, repos),
 		);
+		const missing = repos.filter((repo) => !packages.has(repo));
+		if (missing.length > 0) {
+			ctx.err(`package names unavailable for ${missing.length} repositories.`);
+			if (!notes.some((n) => n.startsWith('package names'))) {
+				notes.push(
+					`package names unavailable for ${missing.length} repositories; shown by repository name.`,
+				);
+			}
+		}
 		const board = rankDashboard({
 			issues: open,
 			trackedUpstream: trackedUpstream(tracking, owners),
