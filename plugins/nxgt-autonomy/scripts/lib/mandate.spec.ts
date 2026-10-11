@@ -56,8 +56,8 @@ describe('buildMandate', () => {
 	const mandate = buildMandate();
 	const lines = mandate.split('\n');
 
-	test('stays short: a header and five rules', () => {
-		expect(lines).toHaveLength(6);
+	test('stays short: a header and six rules', () => {
+		expect(lines).toHaveLength(7);
 		expect(lines.slice(1).every((line) => line.startsWith('- '))).toBe(true);
 	});
 
@@ -75,7 +75,15 @@ describe('buildMandate', () => {
 		],
 		[
 			'the 5-minute rule, through the Claude Code setting',
-			/unanswered after 5 minutes \(askUserQuestionTimeout "5m"\) goes to the unanswered-question-resolver/,
+			/unanswered after 5 minutes \(askUserQuestionTimeout "5m"\) goes to the unanswered-question-resolver, which applies "Autonomous mode" in ~\/\.claude\/CLAUDE\.md/,
+		],
+		[
+			'the go-ahead, cited from the global rules',
+			/go-ahead as "Autonomous mode" in ~\/\.claude\/CLAUDE\.md gives it/,
+		],
+		[
+			'progress reporting to the owner',
+			/Keep the owner informed of progress: what landed, what is under way, what is blocked and on whom/,
 		],
 		['no unapproved work', /Never start work the queue does not approve/],
 		[

@@ -64,6 +64,11 @@ you must ask the caller for in your report rather than guess.
    - asking before touching a file, branch or worktree it holds — and, if it
      agrees, that it release its files with `/crew yield` (only it can);
    - relaying a decision that changes its work.
+   "Sessions working together" in `~/.claude/CLAUDE.md` governs these: a
+   message only when the recipient has to act, and no acknowledgements —
+   silence means received; reply to a peer only with an objection, a question
+   or the work itself. Status ("working on X", "released Y") goes through
+   `/crew announce`, not a message.
    Make the first line a self-contained sentence (it is all the peer's user
    sees in the preview). One message per peer, batched; never a loop of
    "are you done?" — a peer's announcements reach this session through the
@@ -105,7 +110,9 @@ the queue step.
    session already has the context, the branch, and the dependency in hand.
    For a dependency, the waiting session sequences behind the release; it
    does not take the producer's entry.
-3. **Agree over SendMessage.** One message per peer concerned: the entry, the
+3. **Agree over SendMessage.** (A message only where the peer has to act and
+   no acknowledgements, as "Sessions working together" in
+   `~/.claude/CLAUDE.md` says.) One message per peer concerned: the entry, the
    proposal, what this session will do meanwhile. Tell the peer the same rule
    holds on its side: it puts the proposal to its own owner through
    AskUserQuestion, and records a `plan` only once its owner accepted. Then

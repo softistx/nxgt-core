@@ -196,7 +196,8 @@ The agent reads the registry, calls `ListAgents`, and compares each peer's
 place and announcements with this session's plan. It reports collisions,
 dependencies and shared ground. It sends at most one batched `SendMessage`
 per peer that needs to know: a release, a question before touching something
-the peer holds, or a decision. It then records the plan as this session's
+the peer holds, or a decision — only where the peer has to act, and never an
+acknowledgement ("Sessions working together" in `~/.claude/CLAUDE.md`). It then records the plan as this session's
 announcement.
 
 It never edits files, and it never grants or requests permissions for another

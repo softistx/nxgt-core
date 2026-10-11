@@ -278,7 +278,7 @@ Sibling sessions
 For the main session
   - announce each In flight line with a roadmap entry (/crew announce --kind plan), then
     launch LAUNCH NEXT through work-autonomously, one branch per item
-  - for each idle sibling above: one SendMessage naming its candidates, the first line self-contained
+  - for each idle sibling above: one SendMessage naming its candidates, the first line self-contained — only a request to act on approved work ("Sessions working together" in ~/.claude/CLAUDE.md); status goes through /crew announce; no acknowledgements
   - run plan-the-roadmap on the Proposed items: they are owner questions
 ```
 
