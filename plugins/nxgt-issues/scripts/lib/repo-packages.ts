@@ -93,8 +93,8 @@ async function names(ctx: GhContext, chunk: readonly Target[]) {
 		const { data, errored } = await graphqlPartial(ctx, `query{${query}}`);
 		for (const [i, t] of chunk.entries()) {
 			const alias = obj(data[`p${i}`]);
-			if (!data[`p${i}`]) continue;
 			if (errored.has(`p${i}`)) failed.add(t.repo);
+			else if (!data[`p${i}`]) continue;
 			else
 				found.set(t.repo, {
 					root: nameOf(alias['root']),

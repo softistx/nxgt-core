@@ -134,11 +134,27 @@ describe('repoPackages', () => {
 		expect(runner.calls).toHaveLength(1);
 	});
 
-	test('a null repository is not cached and is asked again', async () => {
-		const { runner, ctx } = setup(
+	test('a null repository with an error under it is cached as failed for an hour', async () => {
+		const { runner, ctx, at } = setup(
 			reply(isA, { p0: { root: blob('acme'), dirs: null }, p1: null }, [
 				{ path: ['p1'], message: 'Could not resolve to a Repository' },
 			]),
+		);
+		const repos = ['softistx/acme-a', 'softistx/acme-b'];
+		expect([...(await repoPackages(ctx, repos)).keys()]).toEqual([
+			'softistx/acme-a',
+		]);
+		await repoPackages(ctx, repos);
+		expect(runner.calls).toHaveLength(1);
+		at(NOW + FAILED_TTL_MS);
+		await repoPackages(ctx, repos);
+		expect(runner.calls).toHaveLength(2);
+		expect(queries(runner)[1]).not.toContain('acme-a');
+	});
+
+	test('a null repository with no error is not cached and is asked again', async () => {
+		const { runner, ctx } = setup(
+			reply(isA, { p0: { root: blob('acme'), dirs: null }, p1: null }),
 		);
 		const repos = ['softistx/acme-a', 'softistx/acme-b'];
 		expect([...(await repoPackages(ctx, repos)).keys()]).toEqual([
