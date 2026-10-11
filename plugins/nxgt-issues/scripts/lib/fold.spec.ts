@@ -3,6 +3,8 @@ import { buildDenyList } from './deny';
 import { fold, normalize } from './fold';
 import { scrub } from './scrub';
 
+const list0 = buildDenyList({ privateRepos: [] });
+
 describe('normalize', () => {
 	test.each([
 		['\uFF53\uFF45\uFF43', 'sec'],
@@ -42,6 +44,33 @@ describe('normalize', () => {
 				'zorblax-vault',
 			);
 		}
+	});
+
+	test('an entity hidden in percent-encoding, and the reverse, is decoded', () => {
+		expect(normalize('quin%26%23116%3Bor')).toBe('quintor');
+		expect(normalize('quin&#37;74or')).toBe('quintor');
+		expect(normalize('quin%26amp%3B%2374%3Bor')).toBe('quinJor');
+	});
+
+	test('prose with an entity or a lone percent is unchanged', () => {
+		expect(normalize('a &amp; b')).toBe('a & b');
+		expect(normalize('100% and %s and 50%')).toBe('100% and %s and 50%');
+		expect(normalize('&lt;b&gt; %d')).toBe('<b> %d');
+	});
+
+	test('an entity-encoded name in percent-encoding is denied', () => {
+		const list = buildDenyList({ privateRepos: ['acme/quintor'] });
+		for (const text of ['quin%26%23116%3Bor', 'quin&#37;74or']) {
+			expect(scrub(`see ${text}`, { denyList: list }).denied).toContain(
+				'quintor',
+			);
+		}
+	});
+
+	test('a double-encoded credential assignment is refused', () => {
+		expect(scrub('password%253Dx1y2z3', { denyList: list0 }).secrets).toContain(
+			'password',
+		);
 	});
 
 	test('an unknown named entity is left as written', () => {

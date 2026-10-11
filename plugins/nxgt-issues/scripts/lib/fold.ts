@@ -63,13 +63,20 @@ const decodePercent = (run: string): string => {
 	}
 };
 
-/** Rounds of percent-decoding: `%252D` and `%25252D` are one separator hidden twice and thrice. */
-const PERCENT_ROUNDS = 3;
+/**
+ * Rounds of percent-decoding, each followed by one entity pass: `%252D` and
+ * `%25252D` are one separator hidden twice and thrice, `%26%23116%3B` is an
+ * entity hidden in percent-encoding and `&#37;74` a percent sign hidden in an
+ * entity. The loop stops as soon as the text is stable.
+ */
+const DECODE_ROUNDS = 3;
 
-const decodePercentRuns = (text: string): string => {
+const decodeLayers = (text: string): string => {
 	let current = text;
-	for (let round = 0; round < PERCENT_ROUNDS; round++) {
-		const next = current.replace(/(?:%[0-9a-f]{2})+/gi, decodePercent);
+	for (let round = 0; round < DECODE_ROUNDS; round++) {
+		const next = decodeEntities(
+			current.replace(/(?:%[0-9a-f]{2})+/gi, decodePercent),
+		);
 		if (next === current) break;
 		current = next;
 	}
@@ -84,7 +91,7 @@ export function normalize(text: string): string {
 	const unescaped = decodeEntities(
 		decodeEntities(text.normalize('NFKC').replace(/<!--[\s\S]*?-->/g, '')),
 	).replace(/\\([!-/:-@[-`{-~])/g, '$1');
-	return decodePercentRuns(unescaped).normalize('NFKC').replace(INVISIBLE, '');
+	return decodeLayers(unescaped).normalize('NFKC').replace(INVISIBLE, '');
 }
 
 /** The characters `fold` removes: whitespace, underscore, dot, slash, every dash. */
