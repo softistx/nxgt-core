@@ -27,6 +27,7 @@ import { hasAuthorizationSecret } from './authorization';
 import {
 	isCodeValue,
 	isPlaceholder,
+	isPredicate,
 	startsWithPlaceholder,
 	wordsOf,
 } from './code-values';
@@ -42,7 +43,11 @@ import {
 import { hasPositionalSecret } from './positional-secrets';
 import { isGraphqlType } from './sdl-values';
 import { neutralizeSubstitutions } from './shell-values';
-import { isPlaceholderExpansionAt, isShellReference } from './shell-variables';
+import {
+	expansionDefaults,
+	isPlaceholderExpansionAt,
+	isShellReference,
+} from './shell-variables';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,
@@ -129,13 +134,6 @@ function keywordOf(name: string): string | undefined {
 	return undefined;
 }
 
-/** `const isSecret = (field) => field.type === 'password'`: a predicate, not a credential. */
-const isPredicate = (name: string, value: string): boolean =>
-	/^is[A-Z]/.test(name) &&
-	/^(?:async\s+)?(?:function\b|\([^)]*\)\s*(?::[^=]+)?=>|[A-Za-z_$][\w$]*\s*=>)/.test(
-		value,
-	);
-
 const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
@@ -202,12 +200,12 @@ function collectSecrets(text: string, found: Set<string>): void {
 			found.add(keyword);
 			continue;
 		}
+		const end =
+			match.index + match[0].length + value.length + (match[3] ?? '').length;
 		const facts = {
 			name,
 			first: value,
-			next: text[
-				match.index + match[0].length + value.length + (match[3] ?? '').length
-			],
+			site: { text, start: match.index, end },
 		};
 		if (isCodeValue(whole, facts)) continue;
 		found.add(keyword);
@@ -244,4 +242,9 @@ function collectSecrets(text: string, found: Set<string>): void {
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
 	if (hasSecretArgument(text)) found.add('secret-argument');
 	if (hasCredentialPair(text)) found.add('credential-pair');
+	for (const { name, value } of expansionDefaults(text)) {
+		const keyword = keywordOf(name);
+		const facts = { name, first: value.split(/\s/)[0] ?? '' };
+		if (keyword && !isCodeValue(value, facts)) found.add(keyword);
+	}
 }

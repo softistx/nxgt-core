@@ -11,8 +11,8 @@
  * (so the well-known `${POSTGRES_PASSWORD:-postgres}` refuses too).
  */
 const COMPOSE_DEFAULT =
-	/^["'`]?\$\{[A-Z_][A-Z0-9_]*(?::?[-=+]?|:?\?[A-Za-z ]*)\}?["'`]?$/;
-const SHELL_VARIABLE = /^["'`]?\$(\{)?([A-Z_][A-Z0-9_]*)\}?["'`]?$/;
+	/^["'`]?\$\{[A-Z_][A-Z0-9_]*(?::?[-=+]?|:?\?[^}]*)\}?["'`]?$/;
+const SHELL_VARIABLE = /^["'`]?\$\$?(\{)?([A-Z_][A-Z0-9_]*)\}?["'`]?$/;
 /** Names that read as a credential or an environment setting even without an underscore. */
 const ENV_WORDS = new Set(
 	'USER PASS PASSWORD PASSWD PWD TOKEN SECRET KEY APIKEY HOME HOST PORT URL'.split(
@@ -65,4 +65,15 @@ export function isShellReference(
 	if (!unquoted.startsWith('$')) return false;
 	const bare = unquoted.replace(/^\$\{?|\}?["'`]?$/g, '');
 	return isPlaceholder(value) || bare === name;
+}
+
+/** `${NAME:-default}`, `${NAME:=default}`, `${NAME:+default}`: the default is a literal value. */
+const EXPANSION = /\$\{([A-Za-z_]\w*):?[-=+]([^}\n]+)\}/g;
+
+/** The non-empty defaults of every `${NAME-default}` expansion in `text`. */
+export function expansionDefaults(text: string) {
+	return [...text.matchAll(EXPANSION)].map((match) => ({
+		name: match[1] ?? '',
+		value: match[2] ?? '',
+	}));
 }

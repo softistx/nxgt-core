@@ -126,3 +126,61 @@ describe('compound PascalCase types', () => {
 		expect(refused(text)).toBe(true);
 	});
 });
+
+describe('a compound type needs a signature, not an assignment', () => {
+	test.each([
+		'helm install x --set auth.rootPassword=ChangeMe,auth.username=admin',
+		'DbConfig(user=admin, password=ChangeMe, port=5432)',
+		'Config(host=db, password=CorrectHorseBatteryStaple)',
+		'export DB_PASSWORD=ChangeMe;',
+		'DB_PASSWORD=CorrectHorse; psql',
+		'environment: { POSTGRES_PASSWORD: ChangeMe, POSTGRES_DB: app }',
+		'{ password: CorrectHorse, user: admin }',
+		'password: MySecret, user: admin',
+		'login(password: CorrectHorse)',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		'(token: AccessToken)',
+		'constructor(private readonly secret: ConfigService)',
+		'type Session = { token: SessionToken; }',
+		'interface Opts { password: PasswordInput; }',
+		`constructor(\n  private readonly token: AccessToken,\n  private readonly other: UserService,\n) {}`,
+		'const f = async (password: PasswordInput, user: User) => {}',
+	])('%p passes', passes);
+});
+
+describe('name:=default and name:?message expansions', () => {
+	test.each([
+		`: "\${DB_PASSWORD:=swordfish}"`,
+		`: \${DB_PASSWORD:=swordfish}`,
+		`echo \${DB_PASSWORD:=swordfish}`,
+		`echo \${API_TOKEN:+swordfish1}`,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		`JWT_SECRET: \${JWT_SECRET:?Set JWT_SECRET in .env}`,
+		`\${JWT_SECRET:?must be set, see README.md}`,
+		`\${JWT_SECRET:?JWT_SECRET is required}`,
+		`echo \${DB_HOST:=localhost}`,
+	])('%p passes', passes);
+});
+
+describe('requirepass in prose and in compose', () => {
+	test.each([
+		'set requirepass in redis.conf',
+		'the requirepass directive sets the password',
+		'redis-server --requirepass $$REDIS_PASSWORD',
+	])('%p passes', passes);
+
+	test.each([
+		'redis-server --requirepass hunter2 --port 6379',
+		'requirepass "Hunter2024!" # comment',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});

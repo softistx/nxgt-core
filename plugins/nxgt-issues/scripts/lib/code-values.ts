@@ -23,6 +23,7 @@
  */
 
 import { isShellValue } from './shell-variables';
+import { isType, isTypedParameter, type Site } from './ts-types';
 
 const WORDS = new Set(
 	(
@@ -30,12 +31,6 @@ const WORDS = new Set(
 		'undefined null unknown any true false required optional missing invalid ' +
 		'empty expired incorrect wrong none yes no await new async typeof'
 	).split(' '),
-);
-
-const PRIMITIVES = new Set(
-	'string number boolean bigint symbol object unknown any never void null undefined'.split(
-		' ',
-	),
 );
 
 /** Whole words of a name that mark it as a count, size or duration. */
@@ -151,50 +146,6 @@ export function isSafeCall(raw: string): boolean {
 const isCode = (value: string): boolean =>
 	isPlaceholder(value) || isSafeCall(value);
 
-/** A TypeScript type: primitives and PascalCase names joined by `|`, `&`, `<>`, `,`, `[]`. */
-function isType(value: string, name: string): boolean {
-	if (!/^[A-Za-z<>[\]|&, ]+$/.test(value)) return false;
-	const words = value.match(/[A-Za-z]+/g) ?? [];
-	const typed = words.every(
-		(w) => PRIMITIVES.has(w) || /^[A-Z][A-Za-z]*$/.test(w),
-	);
-	if (!typed) return false;
-	if (/[|&<[]/.test(value) || PRIMITIVES.has(value)) return true;
-	return value.toLowerCase() === name.toLowerCase();
-}
-
-/** Types a parameter named like a credential may have besides the primitives. */
-const KNOWN_TYPES = new Set(
-	(
-		'Buffer KeyObject CryptoKey CryptoKeyPair JsonWebKey ArrayBuffer ' +
-		'SharedArrayBuffer DataView Secret KeyLike Date'
-	).split(' '),
-);
-/** A name of two or more capitalised words: `AccessToken`, `ConfigService`; a lone `Swordfish` may be a value. */
-const COMPOUND_TYPE = /^(?:[A-Z][a-z]+){2,}$/;
-const TYPED_ARRAY = /^(?:Uint|Int|Float|BigInt|BigUint)\d*(?:Clamped)?Array$/;
-const TYPE_PART = '[A-Za-z_$][\\w$.]*(?:<[^<>]*>)?(?:\\[\\])*';
-/** A type followed by the `)` or `,` that ends a parameter: `string) {`, `Buffer, token?: string)`. */
-const PARAMETER_TYPE = new RegExp(
-	`^(${TYPE_PART}(?:\\s*[|&]\\s*${TYPE_PART})*)\\s*[),]`,
-);
-
-/** `function f(token: string) {`: the value is the type of a parameter, not a secret. */
-function isTypedParameter(whole: string, facts: AssignmentFacts): boolean {
-	const subject = facts.next === ';' ? `${whole})` : whole; // `{ token: SessionToken; }`
-	const type = PARAMETER_TYPE.exec(subject)?.[1];
-	if (type === undefined) return false;
-	const words = type.match(/[A-Za-z_$][\w$]*/g) ?? [];
-	const known = words.every(
-		(w) =>
-			PRIMITIVES.has(w) ||
-			KNOWN_TYPES.has(w) ||
-			TYPED_ARRAY.test(w) ||
-			COMPOUND_TYPE.test(w),
-	);
-	return known || isType(type, facts.name);
-}
-
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z$]*$/;
 const INDEXED =
 	/^[A-Za-z_$][A-Za-z$]*(?:\.[A-Za-z_$][A-Za-z$]*)*\[(?:\d{1,3}|[A-Za-z_$][A-Za-z$]*)\]$/;
@@ -211,8 +162,8 @@ export interface AssignmentFacts {
 	readonly name: string;
 	/** The first token of the value, which the small-number rule reads. */
 	readonly first: string;
-	/** The character after the assignment: `;` ends a member of a type literal. */
-	readonly next?: string | undefined;
+	/** Where the assignment sits in its text, which a typed parameter reads. */
+	readonly site?: Site | undefined;
 }
 
 /** The assignment-path test: true when `whole` is code, not a credential. */
@@ -223,7 +174,10 @@ export function isCodeValue(whole: string, facts: AssignmentFacts): boolean {
 	if (typed?.[1] && typed[2] && isType(typed[1], facts.name)) {
 		return isCodeValue(typed[2], facts);
 	}
-	if (isType(value, facts.name) || isTypedParameter(value, facts)) {
+	if (
+		isType(value, facts.name) ||
+		isTypedParameter(whole.trim(), facts.name, facts.site)
+	) {
 		return true;
 	}
 	if (isFallbackChain(value) || INDEXED.test(value)) return true;
@@ -246,3 +200,10 @@ export function startsWithPlaceholder(value: string): boolean {
 	const first = /^(["'`])((?:\\.|(?!\1).)*)\1(?=,|$)/.exec(value);
 	return first !== null && isPlaceholder(first[0]);
 }
+
+/** `const isSecret = (field) => field.type === 'password'`: a predicate, not a credential. */
+export const isPredicate = (name: string, value: string): boolean =>
+	/^is[A-Z]/.test(name) &&
+	/^(?:async\s+)?(?:function\b|\([^)]*\)\s*(?::[^=]+)?=>|[A-Za-z_$][\w$]*\s*=>)/.test(
+		value,
+	);

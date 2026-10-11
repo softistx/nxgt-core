@@ -93,3 +93,23 @@ describe('bracket reads and method calls keep a credential operand', () => {
 		"if (name.trim() === 'admin') {}",
 	])('%p passes', passes);
 });
+
+describe('method calls with arguments and the token exemption', () => {
+	test.each([
+		"if (req.headers.authorization.split(' ')[1] === 'devtoken') {}",
+		"if (password.slice(0) === 'swordfish') {}",
+		"if (body.password.slice(0, 64) === 'swordfish') {}",
+		"if (config.apiToken === 'SWORDFISHSWORDFISH') {}",
+		"if (req.query.token === 'LETMEIN') {}",
+		"if (this.token === 'SWORDFISH') {}",
+		"if (ctx.params.token === 'LETMEIN') {}",
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		"if (lexer.token === 'EOF') {}",
+		"if (req.headers.authorization.split(' ')[0] !== 'Bearer') {}",
+		"if (name.slice(0, 3) === 'adm') {}",
+	])('%p passes', passes);
+});

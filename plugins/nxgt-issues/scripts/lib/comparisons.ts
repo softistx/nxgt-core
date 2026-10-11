@@ -6,8 +6,9 @@
  * header or a value named like one, by its last word: `userPassword` and
  * `x-gateway-secret` are, `tokenType`, `passwordStrength` and `sortKey` are not,
  * and a `key` counts only after a qualifier (`apiKey`, `signingKey`). An
- * all-caps literal is a constant only for a member ending in `token` that is
- * neither a header read nor an env read (`lexer.token === 'EOF'`).
+ * all-caps literal is a constant only for a member named exactly `token`
+ * (not under `req`, `query`, `body`, `params`,
+ * `this` or `env`) and not a header read (`lexer.token === 'EOF'`).
  * `method === 'GET'` and `role === 'admin'` compare ordinary values and pass.
  */
 
@@ -23,9 +24,17 @@ const RIGHT = new RegExp(`${OPERATOR}[ \\t]*${LITERAL}`, 'g');
 const LEFT = new RegExp(`${LITERAL}[ \\t]*${OPERATOR}`, 'g');
 /** A read at the end of an operand: `c.req.header('x-api-key')`, `req.headers['x-api-key']`. */
 const READ = /(?:\w\(\s*(["'])([^"'\n]*)\1\s*\)|\[\s*(["'])([^"'\n]*)\3\s*\])$/;
-/** No-argument method calls on an operand: `password.trim()`, `x?.toLowerCase()`. */
-const METHOD_CALLS = /(?:\??\.\w+\(\s*\))+$/;
-const ENV_PATH = /(?:^|\.)env(?:\.|$)/;
+/** A method call on an operand: `password.trim()`, `authorization.split(' ')[1]`. */
+const METHOD_CALL = /\??\.\w+\([^()\n]*\)(?:\[\d{1,3}\])?$/;
+const SCHEME = /^(?:Bearer|Basic|Digest|Negotiate)\s*$/i;
+const TOKEN_OWNERS = new Set([
+	'req',
+	'request',
+	'query',
+	'body',
+	'params',
+	'this',
+]);
 const VALUE = {
 	template: false,
 	inHeader: false,
@@ -35,7 +44,7 @@ const VALUE = {
 
 /** The last words that make a name a credential: `userPassword`, `apiKey`, `x-gateway-secret`. */
 const LAST_WORDS = new Set(
-	'password pass passwd pwd secret token apikey'.split(' '),
+	'password pass passwd pwd secret token apikey authorization'.split(' '),
 );
 /** A `key` is a credential only after one of these, as in key-names.ts (`sortKey` is not). */
 const KEY_QUALIFIERS = new Set(
@@ -62,29 +71,35 @@ interface Operand {
 }
 const NOT_CREDENTIAL: Operand = { credential: false, lexer: false };
 
-/** Judges the operand `before` an operator (a read or a path) or `path` after one. */
+/** Strips method calls until a read (`header('x')`, `['x']`) or a path is left. */
 function judge(before: string | undefined, path: string | undefined): Operand {
-	const base = before?.replace(METHOD_CALLS, '');
-	const read = base === undefined ? undefined : READ.exec(base);
-	if (read) {
-		const header = read[2] ?? read[4] ?? '';
-		const credential =
-			CREDENTIAL_HEADER.test(header) || namesCredential(header);
-		return { credential, lexer: false };
+	let base = before;
+	for (let i = 0; base !== undefined && i < 4; i++) {
+		const read = READ.exec(base);
+		if (read) {
+			const header = read[2] ?? read[4] ?? '';
+			const credential =
+				CREDENTIAL_HEADER.test(header) || namesCredential(header);
+			return { credential, lexer: false };
+		}
+		const stripped = base.replace(METHOD_CALL, '');
+		if (stripped === base) break;
+		base = stripped;
 	}
 	const found = base === undefined ? path : pathAtEnd(base);
 	if (found === undefined || !namesCredential(lastName(found))) {
 		return NOT_CREDENTIAL;
 	}
-	const token = wordsOf(lastName(found)).at(-1) === 'token';
+	const owned = found.split(/\??\./).some((part) => TOKEN_OWNERS.has(part));
 	return {
 		credential: true,
-		lexer: token && found.includes('.') && !ENV_PATH.test(found),
+		lexer: found.includes('.') && lastName(found) === 'token' && !owned,
 	};
 }
 
 const refuses = (match: RegExpMatchArray, operand: Operand): boolean =>
 	!(operand.lexer && CONSTANT.test(match[2] ?? '')) &&
+	!SCHEME.test(match[2] ?? '') &&
 	!isHarmlessLiteral(match[2] ?? '', { ...VALUE, template: match[1] === '`' });
 
 /** True when a credential is compared with a literal that is not plainly harmless. */

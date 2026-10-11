@@ -43,7 +43,9 @@ const VALUED = new Set([
 
 /** `--requirepass x`, `--requirepass=x`, `requirepass x` (redis.conf), `"--requirepass", "x"`. */
 const REQUIREPASS =
-	/(?<![\w-])(?:--)?(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*["']?|=|[ \t]+)["']?(?!-)([^\s"',]+)/g;
+	/(?<![\w-])(?:--)?(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*|=|[ \t]+)(["']?)(?!-)([^\s"',]+)([^\n]*)/g;
+/** What may follow an unquoted value: flags, their numbers, closing punctuation; not prose. */
+const ONLY_FLAGS = /^(?:\s+(?:-\S*|\d+))*\s*[,\])]*$/;
 
 /** Whether `text` starts with a command that takes secrets as arguments. */
 export const isSecretCommand = (text: string): boolean =>
@@ -97,7 +99,8 @@ function refusesInvocation(command: string, args: string[]): boolean {
 /** True when `text` runs a command with a literal secret as its password argument. */
 export function hasPositionalSecret(text: string): boolean {
 	for (const match of text.matchAll(REQUIREPASS)) {
-		if (!isSafeValue(match[1] ?? '')) return true;
+		const literal = match[1] !== '' || ONLY_FLAGS.test(match[3] ?? '');
+		if (literal && !isSafeValue(match[2] ?? '')) return true;
 	}
 	for (const match of text.matchAll(INVOCATION)) {
 		const args = (match[2] ?? '').trim().split(/\s+/).filter(Boolean);
