@@ -704,9 +704,11 @@ thirteen packages, the same files as 6 (members and unions reordered, a type
 named through its source import, never a TS2883); `typecheck`, the package
 suites and `verify:artifacts` pass; every subpath imports under Bun, and under
 Node the same 28 of 37 as with 6 (the other nine reach `'bun'`); a consumer's
-tsc 7 resolves every subpath's declarations. `verify:artifacts` installs the
-newest `typescript` the peers allow, so its fixture emit runs tsc 7 in both CI
-jobs.
+tsc 7 resolves every subpath's declarations. Left to Bun, `verify:artifacts`'
+probe would take the newest `typescript` the peers allow, 7 in both CI jobs;
+it installs the root `devDependencies` range instead (`workspaceTypeScript`
+in `scripts/artifacts/install.ts`), so the fixture emit runs tsc 6 in the main
+job and tsc 7 in "Newest peers", which rewrites that range.
 
 **The repository itself builds on 6**: the root `devDependencies` and
 `overrides` stay `~6.0.3`, so the lockfile job runs 6, where `vue-tsc` checks
