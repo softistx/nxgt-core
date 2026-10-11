@@ -47,7 +47,61 @@ const PIN = /(?:^|_)PIN$/;
 const EXPANSION_VALUE = /^["'`]?\$\{([A-Za-z_]\w*):?[-=+](.*?)\}?["'`]?$/s;
 
 /** A default shaped like an authorization header value, whatever the name: `Basic YWRtaW46…`. */
-const SCHEME_DEFAULT = /^(?:Basic|Digest|Token|Bearer)\s+[\w+/=.~-]{8,}/;
+const SCHEME_DEFAULT =
+	/^(?:Basic|Digest|Token|Bearer)[ \t]+([\w.~+/=-]{8,})(?![\w.~+/=-])/;
+const SCHEME_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
+const SCREAMING = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
+
+/** `Basic admin:hunter2`: a plain `user:pass` after the scheme. */
+const BASIC_USERPASS = /^Basic[ \t]+[^\s$<]\S*:[^\s$<]\S*/;
+/** A credential that only fills a slot: `xxxxxxxx`, `********`, `<token>`, `YOUR_TOKEN`. */
+const FILLER =
+	/^(?:x+|\*+|\.+|<[^<>]*>|your[-_ ]?\w*|placeholder|redacted|anonymous|undefined)$/i;
+/** A digit that is not part of `BASE64`/`BASE32`: filler never holds one. */
+const hasDigit = (credential: string): boolean =>
+	/\d/.test(credential.replace(/base(?:64|32)/gi, ''));
+/** Words of a header name: the value of such a variable is a credential. */
+const HEADER_WORD = /^(?:authori[sz]ation|authz|headers?)$/;
+
+/** Whether the variable's name makes a scheme default a credential. */
+const headerish = (name: string): boolean =>
+	keywordOf(name) !== undefined ||
+	wordsIn(name).some((word) => HEADER_WORD.test(word));
+
+/** Base64 or base64url, padded or not, that decodes to printable ASCII holding a `user:pass` colon. */
+function decodesToUserPass(credential: string): boolean {
+	const bare = credential
+		.replace(/=+$/, '')
+		.replace(/-/g, '+')
+		.replace(/_/g, '/');
+	if (bare.length % 4 === 1 || !/^[A-Za-z0-9+/]+$/.test(bare)) return false;
+	return /^[\x20-\x7e]*:[\x20-\x7e]*$/.test(
+		Buffer.from(bare, 'base64').toString('latin1'),
+	);
+}
+
+/**
+ * Whether `value` is a scheme and a credential, as a `Bearer` token is in
+ * secrets.ts. Under a credential-keyword name (`credentialName`) any
+ * credential that is not filler counts; otherwise it must look like a token
+ * (a word or `YOUR_TOKEN` is not one).
+ */
+export function isSchemeSecret(value: string, credentialName = false): boolean {
+	const text = value.trim();
+	if (BASIC_USERPASS.test(text)) return true;
+	const credential = SCHEME_DEFAULT.exec(text)?.[1];
+	if (credential === undefined) return false;
+	const tokenLike =
+		credentialName ||
+		/[\d._~+/=]/.test(credential) ||
+		credential.length >= 16 ||
+		(/^Basic/i.test(text) && decodesToUserPass(credential));
+	const filler =
+		SCHEME_WORDS.test(credential) ||
+		((SCREAMING.test(credential) || FILLER.test(credential)) &&
+			!hasDigit(credential));
+	return tokenLike && !filler;
+}
 
 /** Last words that make a name a setting, not a credential, whatever words come before. */
 const SETTING_WORDS = new Set(
@@ -58,10 +112,15 @@ const SETTING_WORDS = new Set(
 	driver secure samesite strategy db`.split(/\s+/),
 );
 
+/** Whether the name ends on a setting word (not a vault `secret_id`). */
+const isSetting = (words: string[]): boolean =>
+	SETTING_WORDS.has(words.at(-1) ?? '') &&
+	!(words.at(-1) === 'id' && words.at(-2) === 'secret');
+
 /** Whether the name is a credential: it carries a credential keyword and does not end on a setting word. */
 export const namesSecret = (name: string): boolean =>
 	(keywordOf(name) !== undefined || PIN.test(name)) &&
-	!SETTING_WORDS.has(wordsIn(name).at(-1) ?? '');
+	!isSetting(wordsIn(name));
 
 /**
  * Whether an expansion's default is harmless: the name is no credential
@@ -69,7 +128,7 @@ export const namesSecret = (name: string): boolean =>
  * benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
  */
 const isBenignExpansion = (name: string, value: string): boolean =>
-	!SCHEME_DEFAULT.test(value.trim()) &&
+	!isSchemeSecret(value, headerish(name)) &&
 	(!namesSecret(name) || BENIGN_DEFAULT.test(value.trim()));
 
 /**
@@ -131,7 +190,7 @@ export function secretDefaults(
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
 		if (isBenignExpansion(name, value)) continue;
-		if (SCHEME_DEFAULT.test(value.trim())) {
+		if (isSchemeSecret(value, headerish(name))) {
 			found.push('authorization');
 			continue;
 		}

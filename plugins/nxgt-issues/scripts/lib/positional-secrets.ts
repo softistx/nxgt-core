@@ -43,7 +43,7 @@ const VALUED = new Set([
 
 /** `--requirepass x`, `--requirepass=x`, `requirepass x` (redis.conf), `"--requirepass", "x"`. */
 const FLAG_REQUIREPASS =
-	/(?<![\w-])--(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*["']?|=|[ \t]+)["']?(?!-)([^\s"',]+)/g;
+	/(?<![\w-])--(?:requirepass|masterauth|authkey)(?:["']?[ \t]*,[ \t]*["']?|=|[ \t]+)["']?(?!-)([^\s"',]+)/g;
 /** The bare redis.conf directive: a literal at the start of a line or quoted, prose elsewhere. */
 const DIRECTIVE =
 	/(?:(?<![\w-])|(?<=\\n))(?:requirepass|masterauth):?[ \t]+(["']?)(?!-)(?=([^\s"'`,]+))/g;

@@ -120,6 +120,9 @@ const MYSQL_P =
 const BEARER = /\bBearer[ \t]+([\w.~+/=-]{8,})/gi;
 /** Words that follow `Bearer` or `token` in prose. */
 const TOKEN_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
+/** `Bearer YOUR_TOKEN`: a slot to fill, with no digit. */
+const isBearerPlaceholder = (value: string): boolean =>
+	/^YOUR[-_][A-Z_]+$/.test(value);
 /** `curl -u user:pass`. */
 const CURL_USER = /\bcurl\b[^\n]*?[ \t](?:-u|--user)[ \t]+(\S+:\S+)/g;
 /** `redis-cli -a pass`. */
@@ -142,6 +145,22 @@ export function findSecrets(source: string): string[] {
 	if (hasPositionalSecret(source)) found.add('password');
 	if (hasCredentialComparison(source)) found.add('credential-comparison');
 	return [...found];
+}
+
+/** A `Bearer` credential that looks like a token, not a word or a slot to fill. */
+function collectBearer(text: string, found: Set<string>): void {
+	for (const match of text.matchAll(BEARER)) {
+		const value = match[1] ?? '';
+		const tokenLike = /[\d._~+/=]/.test(value) || value.length >= 16;
+		if (
+			tokenLike &&
+			!isPlaceholder(value) &&
+			!TOKEN_WORDS.test(value) &&
+			!isBearerPlaceholder(value)
+		) {
+			found.add('bearer');
+		}
+	}
 }
 
 function collectSecrets(text: string, found: Set<string>): void {
@@ -207,13 +226,7 @@ function collectSecrets(text: string, found: Set<string>): void {
 			found.add(keywordOf(match[1] ?? '') ?? 'password');
 	}
 	if (MYSQL_P.test(text)) found.add('password');
-	for (const match of text.matchAll(BEARER)) {
-		const value = match[1] ?? '';
-		const tokenLike = /[\d._~+/=]/.test(value) || value.length >= 16;
-		if (tokenLike && !isPlaceholder(value) && !TOKEN_WORDS.test(value)) {
-			found.add('bearer');
-		}
-	}
+	collectBearer(text, found);
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
 	if (hasSecretArgument(text)) found.add('secret-argument');
 	if (hasCredentialPair(text)) found.add('credential-pair');

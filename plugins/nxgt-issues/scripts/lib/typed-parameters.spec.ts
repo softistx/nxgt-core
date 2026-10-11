@@ -279,12 +279,6 @@ describe('compose names are judged by the credential keyword, not by their last 
 		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
 		`\${SASLAUTHD_MECHANISMS:-ldap}`,
 		`\${AUTHENTICATED_USERS:-admin}`,
-		`\${OAUTH_API_HOSTNAME:-oauth-api.example.com}`,
-		`\${OAUTH_CLIENT_ID:-my-app}`,
-		`\${TOKEN_EXPIRES_IN:-1h}`,
-		`\${SESSION_DRIVER:-redis}`,
-		`\${SESSION_LIFETIME:-120}`,
-		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
 		`\${SESSION_STORE:-redis}`,
 		`password: \${DB_PASSWORD:-$POSTGRES_PASSWORD}`,
 		`password: \${DB_PASSWORD:-\${POSTGRES_PASSWORD}}`,
@@ -318,5 +312,124 @@ describe('redis directives after config set, in prose and in quotes', () => {
 		'requirepass should be long',
 		'`requirepass` is set in redis.conf',
 		'AUTHENTICATED: false',
+	])('%p passes', passes);
+});
+
+describe('round 9: fused auth names, authkey flag, scheme defaults, vault ids', () => {
+	test.each([
+		'      - TS_AUTHKEY=Hunter2024',
+		'export TAILSCALE_AUTHKEY="k3J9xQ2mPz7vL8wq"',
+		'REDIS_MASTERAUTH=Hunter2024',
+		'BASICAUTH=admin:Hunter2024',
+		'const authkey = "k3J9xQ2mPz7vL8wq";',
+		`\${REDIS_MASTERAUTH:-Hunter2024}`,
+		`\${AUTHKEY:-k3J9xQ2mPz7vL}`,
+		'tailscale up --authkey=Hunter2024',
+		'tailscale up --login-server https://hs.example.com --authkey 8f3a1c9e2b7d4f6a0e5c3b1d',
+		`X: \${AUTH_HEADER:-Basic YWRtaW46aHVudGVyMg==}`,
+		`curl -H "Authorization: \${AUTH_HEADER:-Basic YWRtaW46aHVudGVyMg==}" https://x.example.com`,
+		`\${SECRET_ID:-6a1f9c2e}`,
+		`secret_id: \${VAULT_SECRET_ID:-6a1f9c2e-77b1-4c0e}`,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		'SASLAUTHD_MECHANISMS=ldap',
+		'AUTHENTICATED_USERS=admin',
+		`\${TITLE:-Bearer authentication guide}`,
+		`\${HINT:-Digest authentication required}`,
+		`\${AUTH_HEADER:-Bearer xxxxxxxxxxxx}`,
+		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
+		`\${OAUTH_CLIENT_ID:-my-app}`,
+		`\${SESSION_ID:-x}`,
+		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
+	])('%p passes', passes);
+});
+
+describe('round 10: short Basic credentials, header defaults, goauth', () => {
+	test.each([
+		`\${AUTH_HEADER:-Basic dXNlcjpwYXNz}`,
+		`\${AUTH_HEADER:-Basic ZGVtbzpkZW1v}`,
+		`\${AUTH_HEADER:-Basic YXBwOmhlbGxv}`,
+		`Authorization: \${AUTH_HEADER:-Bearer swordfish}`,
+		`curl -H "Authorization: \${AUTH_HEADER:-Bearer devtoken}" https://x.example.com`,
+		'command: ["tailscale", "up", "--authkey", "Hunter2024"]',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		`\${PLAN:-Basic subscription}`,
+		`\${TIER:-Basic membership}`,
+		`\${MSG:-Basic authentication}`,
+		`\${X:-Basic YOUR_BASE64_HERE}`,
+		`\${MSG:-Bearer credentials required}`,
+		`Authorization: \${AUTH_HEADER}`,
+		"GOAUTH='netrc'",
+		'set GOAUTH=netrc',
+		`\${GOAUTH:-netrc}`,
+	])('%p passes', passes);
+});
+
+describe('round 11: scheme words under credential names, quoted header defaults', () => {
+	test.each([
+		`\${AUTH_HEADER:-Bearer swordfish}`,
+		`AUTH_HEADER: \${AUTH_HEADER:-Bearer changeme}`,
+		`- AUTH_HEADER=\${AUTH_HEADER:-Bearer devtoken}`,
+		`API_AUTH_HEADER: "\${API_AUTH_HEADER:-Token supersecret}"`,
+		`\${AUTH_HEADER:-Digest secretvalue}`,
+		`Authorization: "\${AUTH_HEADER:-Bearer swordfish}"`,
+		`Authorization: '\${AUTH_HEADER:-Bearer swordfish}'`,
+		`headers: { Authorization: "\${AUTH_HEADER:-Bearer swordfish}" }`,
+		`\${X:-Basic dXNlcjpwYXNzMQ}`,
+		`\${AUTH_HEADER:-Basic admin:hunter2}`,
+		`\${X:-Basic admin:hunter2}`,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		`\${AUTH_HEADER:-Bearer xxxxxxxxxxxx}`,
+		`\${AUTH_HEADER:-Bearer token}`,
+		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
+		`\${TITLE:-Bearer authentication guide}`,
+		`\${HINT:-Digest authentication required}`,
+		`\${PLAN:-Basic subscription}`,
+		`\${TIER:-Basic membership}`,
+		`\${MSG:-Basic authentication}`,
+		`\${MSG:-Bearer swordfish}`,
+	])('%p passes', passes);
+});
+
+describe('round 12: header names without auth, filler with digits, placeholder words', () => {
+	test.each([
+		`\${AUTHORIZATION_HEADER:-Bearer swordfish}`,
+		`API_AUTHORIZATION: \${API_AUTHORIZATION:-Bearer devtoken}`,
+		`- PROXY_AUTHORIZATION=\${PROXY_AUTHORIZATION:-Basic supersecret}`,
+		`HTTP_AUTHORIZATION: "\${HTTP_AUTHORIZATION:-Token changeme}"`,
+		`\${AUTHZ_HEADER:-Bearer swordfish}`,
+		`\${UPSTREAM_HEADER:-Bearer swordfish}`,
+		`\${AUTHORIZATION:=Bearer swordfish}`,
+		`\${AUTHORIZATION-Bearer swordfish}`,
+		`\${AUTH_HEADER:-Token SK_LIVE_ABC123XYZ}`,
+		`\${AUTH_HEADER:-Digest YourSecretKey2024}`,
+		`\${AUTH_HEADER:-Bearer changeme}`,
+		'Bearer YOUR_TOKEN_2',
+		'Bearer YOUR_K3J9XQ2MP7VL',
+		`\${MSG:-Token your_k3J9xQ2mP7vL}`,
+		`\${MSG:-Token ABC123_DEF456}`,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		`\${AUTH_HEADER:-Bearer YOUR_TOKEN}`,
+		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
+		`\${AUTH_HEADER:-Bearer redacted}`,
+		`\${AUTH_HEADER:-Bearer placeholder}`,
+		`\${AUTH_HEADER:-Bearer REDACTED}`,
+		'Set the header to Bearer YOUR_TOKEN',
+		`\${MSG:-Basic YOUR_BASE64_HERE}`,
 	])('%p passes', passes);
 });

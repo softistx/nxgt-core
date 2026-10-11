@@ -12,7 +12,12 @@ import { wordsIn } from './credential-names';
  */
 export function keywordOf(name: string): string | undefined {
 	const lower = name.toLowerCase();
-	if (wordsIn(name).some((word) => /^o?auth\d?$/.test(word))) return 'auth';
+	if (
+		wordsIn(name).some(
+			(word) => word !== 'goauth' && /^\w*auth(?:key)?\d?$/.test(word),
+		)
+	)
+		return 'auth';
 	const found =
 		/password|passwd|passphrase|pwd|secret|token|cookie|session/.exec(lower);
 	if (found) return found[0];
