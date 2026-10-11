@@ -98,22 +98,23 @@ export async function isAncestor(
  * The PRs merged into the branch that touched `packages/<dir>` between the
  * package's previous tag and this release (`--first-parent`: the merge
  * commits of the branch, the integration PR included). Nothing when the tag is
- * not in this clone: a range to `HEAD` would pull in later releases.
+ * not in this clone: a range to `HEAD` would pull in later releases. The
+ * previous tag comes back with them, so callers read it once.
  */
 export async function loggedPrs(
 	ctx: GhContext,
 	input: ReleaseInput,
 	notes: string[],
-): Promise<number[]> {
+): Promise<{ prs: number[]; previous: string | undefined }> {
 	const named = `${input.pkg}@${input.version}`;
 	const { tag, previous } = await previousTag(ctx, input);
 	if (!tag) {
 		notes.push(`tag ${named} not found locally: the CHANGELOG alone was read`);
-		return [];
+		return { prs: [], previous };
 	}
 	if (!previous) {
 		notes.push(`no earlier tag for ${input.pkg}: the CHANGELOG alone was read`);
-		return [];
+		return { prs: [], previous };
 	}
 	const log = await git(ctx, [
 		'log',
@@ -123,9 +124,10 @@ export async function loggedPrs(
 		'--',
 		input.dir,
 	]);
-	return (log ?? '')
+	const prs = (log ?? '')
 		.split('\n')
 		.flatMap((subject) => subjectPr(subject.trim()) ?? []);
+	return { prs, previous };
 }
 
 /**

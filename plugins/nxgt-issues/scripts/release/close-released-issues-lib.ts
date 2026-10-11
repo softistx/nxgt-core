@@ -16,7 +16,7 @@
  * merge touched the package, its own issues read at rank 0.
  */
 
-import { releasedBefore, touches } from './close-released-issues-git';
+import { touches, unreleased } from './close-released-issues-git';
 
 export type Exec = (
 	argv: string[],
@@ -158,14 +158,8 @@ async function loggedPrs(c: Ctx, p: Pkg, previous: string | undefined) {
 	});
 }
 
-/** The PRs that merged the `feat/*` branch on, touching the package and not released before; none when the lookup fails (the issues then name the slice). */
-async function integrationOf(
-	c: Ctx,
-	p: Pkg,
-	base: string,
-	previous: string | undefined,
-	since: string,
-) {
+/** The PRs that merged the `feat/*` branch on and touched the package, released before or not; none when the lookup fails (the issues then name the slice). */
+async function integrationOf(c: Ctx, p: Pkg, base: string) {
 	const args = ['--state', 'merged', '--head', base, '--json', FIELDS];
 	const list = await gh(c, 'pr list', ...args).catch((e) => {
 		warn(c, `integration PR of ${base}`, e);
@@ -173,8 +167,7 @@ async function integrationOf(
 	});
 	const touching: Pr[] = [];
 	for (const r of rows(list).map((x) => toPr(x, c.repo))) {
-		if (r.feat || !(await touches(c, p, r))) continue;
-		if (!(await releasedBefore(c, r, previous, since))) touching.push(r);
+		if (!r.feat && (await touches(c, p, r))) touching.push(r);
 	}
 	return touching;
 }
@@ -217,12 +210,16 @@ export async function fixes(c: Ctx, p: Pkg) {
 			// A slice that did not touch the package still leads to its integration PR: the CHANGELOG credits the slice.
 			const base = String(raw['baseRefName']);
 			if (!merged.has(base)) {
-				merged.set(
-					base,
-					await integrationOf(c, p, base, previous, pr.mergedAt),
-				);
+				merged.set(base, await integrationOf(c, p, base));
 			}
-			const parents = merged.get(base) ?? [];
+			// "Released before" is judged per slice, against its own merge date.
+			const since = pr.mergedAt ?? '';
+			const parents = await unreleased(
+				c,
+				merged.get(base) ?? [],
+				previous,
+				since,
+			);
 			if (mine) {
 				count(number);
 				for (const issue of pr.issues)

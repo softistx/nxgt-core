@@ -1,7 +1,9 @@
 /**
  * The git reads of `close-released-issues.ts`, copied with it: whether a PR's
- * merge touched a package, the packages its added changesets name, and whether
- * a package has a tag in this clone. Imports only types from the lib file.
+ * merge touched a package, the packages its added changesets name, whether a
+ * package has a tag in this clone, and whether a reused branch's earlier merge
+ * is an ancestor of the previous tag (already shipped). Imports only types from
+ * the lib file.
  */
 
 import type { Ctx, Pkg, Pr } from './close-released-issues-lib';
@@ -83,4 +85,18 @@ export async function releasedBefore(
 		if (r.code === 1 && r.stderr.trim() === '') return false;
 	}
 	return Boolean(pr.mergedAt && since && pr.mergedAt < since);
+}
+
+/** Those of `prs` that did not ship in an earlier release, judged against the slice's own merge date. */
+export async function unreleased(
+	c: Ctx,
+	prs: Pr[],
+	previous: string | undefined,
+	since: string,
+) {
+	const kept: Pr[] = [];
+	for (const pr of prs) {
+		if (!(await releasedBefore(c, pr, previous, since))) kept.push(pr);
+	}
+	return kept;
 }

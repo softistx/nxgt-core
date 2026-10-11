@@ -772,6 +772,16 @@ describe('an integration PR credited to a slice that did not touch the package',
 	const otherTags = ['@nxgt/other@1.4.0', '@nxgt/other@1.3.0'];
 	const widgetTags = ['@nxgt/widget@1.4.0', '@nxgt/widget@1.3.0'];
 
+	test('an integration PR whose merge did not touch the package is left out', async () => {
+		const w = world({ tags: widgetTags, log: [] });
+		w.prs = {
+			...w.prs,
+			40: { ...w.prs?.[40], files: ['packages/other/b.ts'] },
+		};
+		const report = await run(fakeWorld(w));
+		expect(report.issues.map((i) => i.number)).not.toContain(12);
+	});
+
 	test('a first release finds the integration PR own issue through the listed slice', async () => {
 		const fake = fakeWorld(world({ tags: ['@nxgt/widget@1.4.0'] }));
 		const report = await run(fake);
@@ -871,5 +881,56 @@ describe('a feat/* branch that was merged before', () => {
 	test('a merge not yet released is kept', async () => {
 		const w = world({ shipped: false, mergedAt: '2026-10-07T00:00:00Z' });
 		expect((await numbers(w)).sort()).toEqual([12, 9]);
+	});
+
+	test('"not an ancestor" beats the date: an old merge git says is unreleased is kept', async () => {
+		const w = world({ shipped: false });
+		expect((await numbers(w)).sort()).toEqual([12, 9]);
+	});
+
+	describe('with no previous tag, the date is each slice own', () => {
+		const slice = (n: number, mergedAt: string) => ({
+			base: 'feat/x',
+			head: `fix/s${n}`,
+			mergeSha: `m${n}`,
+			mergedAt,
+			files: [`${DIR}/a.ts`],
+		});
+		const merge = (sha: string, mergedAt: string, closing: number[]) => ({
+			head: 'feat/x',
+			mergeSha: sha,
+			mergedAt,
+			closing,
+			files: [`${DIR}/a.ts`],
+		});
+		/** Slices 41 (09-20) and 42 (10-05) are listed in the given order; #30 (09-25) merged feat/x before #42 but after #41. */
+		const ordered = (listed: number[]): World => ({
+			...simple({
+				prs: {
+					41: slice(41, '2026-09-20T00:00:00Z'),
+					42: slice(42, '2026-10-05T00:00:00Z'),
+					30: merge('m30', '2026-09-25T00:00:00Z', [9]),
+					50: merge('m50', '2026-10-06T00:00:00Z', [12]),
+				},
+				issues: { 12: {}, 9: {} },
+			}),
+			tags: ['@nxgt/widget@1.4.0'],
+			changelog: CHANGELOG.replace(
+				/- \[#40\].*/,
+				listed
+					.map(
+						(n) =>
+							`- [#${n}](https://github.com/softistx/nxgt-widget/pull/${n}) Thing.`,
+					)
+					.join('\n'),
+			),
+		});
+
+		test.each([[[41, 42]], [[42, 41]]])(
+			'slices listed as %p give the same result',
+			async (listed) => {
+				expect((await numbers(ordered(listed))).sort()).toEqual([12, 9]);
+			},
+		);
 	});
 });

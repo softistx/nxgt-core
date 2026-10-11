@@ -465,16 +465,17 @@ previous tag (the integration PR included). A PR merged into a `feat/*` branch
 closes nothing, so the PR merged from that branch into `develop` is found by its
 head branch and read too (a branch that was merged before lists every merge it
 ever had: one whose merge commit is an ancestor of the previous tag is dropped,
-and without a previous tag, or when git cannot say, one older than the slice).
-A CHANGELOG-listed slice that did not touch the package still leads to its
+and without a previous tag, or when git cannot say, one older than the slice). A
+CHANGELOG-listed slice that did not touch the package still leads to its
 integration PR, whose own issues count at rank 0 when that merge touched the
 package. A slice's own `Fixes #n` counts only when that slice carries the
 changeset (the CHANGELOG lists it); otherwise put the keyword on the integration
 PR. PRs are merged with a merge commit or squashed; a rebase merge is not
-supported (its merge commit is only the last rebased commit). Keywords inside code spans, fenced blocks and `>`
-quote lines are ignored. The integration PR closes the issue at its merge,
-before the publish; the release step adds the comment and the `released` label
-the application side keys on, together with the closed state.
+supported (its merge commit is only the last rebased commit). Keywords inside
+code spans, fenced blocks and `>` quote lines are ignored. The integration PR
+closes the issue at its merge, before the publish; the release step adds the
+comment and the `released` label the application side keys on, together with the
+closed state.
 
 The comment's second line is the hidden marker
 `<!-- nxgt-issues:fixed=<pkg>@<version> -->`, and it is the idempotency key: an
