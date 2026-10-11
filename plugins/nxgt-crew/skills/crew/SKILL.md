@@ -87,8 +87,9 @@ the session that owns the work. Never edit another session's roadmap or queue.
 
 When a peer is **directly affected** — it depends on the release, it works in
 the same repository — also tell it with `SendMessage` (its name comes from
-`ListAgents`); the registry is read at the next prompt, a message arrives
-between tool calls.
+`ListAgents`) when it has to act, and never acknowledge a message in return
+("Sessions working together" in `~/.claude/CLAUDE.md`); the registry is
+read at the next prompt, a message arrives between tool calls.
 
 **`claim <path> [note]`** / **`unclaim <path>`** — mark a folder (a scratch
 directory, a worktree this session created) as this session's, so the guard

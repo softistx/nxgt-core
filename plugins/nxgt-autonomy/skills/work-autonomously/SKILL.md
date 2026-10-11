@@ -168,9 +168,11 @@ otherwise ask in the owner's language, and:
 
 ### A question left unanswered for 5 minutes
 
-The owner's standing rule: **5 minutes without an answer, take the
-recommendation — when it can be undone.** Claude Code gives that one
-mechanism, and this skill claims no other:
+The rule is "Autonomous mode" in `~/.claude/CLAUDE.md`: the recommendation is
+taken only when it is reversible and inside the run's mandate, otherwise the
+session waits with a reversible holding step, and the merge, release and
+npm-publish gates are never taken this way. Claude Code gives one mechanism for
+the 5 minutes, and this skill claims no other:
 
 - **`askUserQuestionTimeout: "5m"`** — a Claude Code setting (`/config` →
   *Question auto-continue timeout*; `"60s"`, `"5m"`, `"10m"` or `"never"`,
@@ -180,9 +182,9 @@ mechanism, and this skill claims no other:
   (`date -Iseconds`), then run **`unanswered-question-resolver`** with the
   question, its options in order, both times, the timeout, whether it was
   labelled `(Irreversible)`, and what the owner had ticked. It waits on
-  anything irreversible, outward-facing or breaking, and on an addition to a
-  published package's public API unless the `Mandate:` line covers
-  features. Act on its `DECISION`; if
+  anything irreversible, outward-facing or breaking, on every merge, release
+  and npm-publish gate, and on an addition to a published package's public API
+  unless the `Mandate:` line covers features. Act on its `DECISION`; if
   it says wait, take its holding step and carry on with the rest of the
   queue.
 - **Without that setting, nothing fires.** `AskUserQuestion` holds the turn
@@ -230,9 +232,13 @@ When *In flight* is empty, or everything left in it is blocked:
    flight* line that has a roadmap entry with `/crew announce --kind plan`
    (`plan-the-roadmap` step 5) — the refiller cannot — then launch those
    items through section 2, in order. It also names the **sibling sessions that
-   look idle**; it cannot message them. For each, send one `SendMessage`
-   naming the candidates it found for that session's repository — first line
-   self-contained, one message per session, no follow-ups; in the main
+   look idle**; it cannot message them. "Sessions working together" in
+   `~/.claude/CLAUDE.md` allows a `SendMessage` only when the recipient has to
+   act, and this is that case: a request to act on approved work. For each,
+   send one `SendMessage` naming the candidates it found for that session's
+   repository — first line self-contained, one message per session, no
+   follow-ups, no acknowledgement of a reply; "working on X" or "released Y"
+   goes through `/crew announce` instead; in the main
    conversation `ListAgents` (and `notify_when_idle`) are yours to check
    first when it could not. Without the owner's go-ahead, run
    **`improvement-scout`** instead — it writes into *Proposed, not
