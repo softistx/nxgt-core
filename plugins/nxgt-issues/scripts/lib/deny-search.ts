@@ -57,19 +57,23 @@ const splitWords = (text: string): string =>
 /** A path under `node_modules/`, up to the next space, quote or bracket. */
 const PACKAGE_PATH = /node_modules[\\/][^\s'"()<>]*/g;
 
-/** A term, its stems and, for `@scope/name`, its scope with and without `@`. */
-const allowForms = (term: string): string[] => {
+/**
+ * A term, its stems and, for `@scope/name`, its scope with and without `@`;
+ * a stem or scope that the deny-list holds as the application's own
+ * distinctive term or a private stem is not allowed through.
+ */
+const allowForms = (term: string, held: ReadonlySet<string>): string[] => {
 	const scope = /^@([^/\s]+)\//.exec(term.trim())?.[1];
-	return [term, ...stems(term), ...(scope ? [`@${scope}`, scope] : [])];
+	const parts = [...stems(term), ...(scope ? [`@${scope}`, scope] : [])];
+	return [term, ...parts.filter((part) => !held.has(lower(part)))];
 };
 
 /**
  * The text with every occurrence of an allowed term blanked, as written in
  * any case (`@acme/zorb-sdk`, `node_modules/@acme/zorb-sdk/`), so a private
- * name that folds onto it (`acme/zorb-sdk`) cannot match inside it. Prose that
- * names the private repository otherwise (`the zorb sdk repo`) still refuses,
- * and so does an `owner/name` form (`acme/zorblax-sdk` for an allowed
- * `zorblax-sdk`), outside `node_modules/`.
+ * name that folds onto it (`acme/zorb-sdk`) cannot match inside it. An
+ * occurrence joined to a word (`nxgt-hono` for an allowed `hono`) or in an
+ * `owner/name` form outside `node_modules/` stays.
  */
 function blankAllowed(text: string, allow: readonly string[]): string {
 	let out = text;
@@ -78,47 +82,75 @@ function blankAllowed(text: string, allow: readonly string[]): string {
 		const pattern = new RegExp(wholeWord(term).source, 'giu');
 		out = out.replace(pattern, (match, offset: number, whole: string) => {
 			const before = whole.slice(Math.max(0, offset - 40), offset);
-			const owned = /[\w.-]\/$/.test(before) && !/node_modules\/$/.test(before);
+			const end = offset + match.length;
+			const after = whole.slice(end, end + 2);
+			const joined =
+				/[\p{L}\p{N}][-_.]$/u.test(before) || /^[-_.][\p{L}\p{N}]/u.test(after);
+			const owned =
+				joined || (/[\w.-]\/$/.test(before) && !/node_modules\/$/.test(before));
 			return owned ? match : ' '.repeat(match.length);
 		});
 	}
 	return out;
 }
 
-const searchable = (raw: string) => {
+interface Views {
+	readonly raw: string;
+	readonly decoded: string;
+	readonly spaced: string;
+}
+
+const searchable = (raw: string): Views => {
 	const decoded = normalize(raw);
 	return { raw, decoded, spaced: splitWords(decoded) };
 };
 
-/** Deny-list terms present, as written or in a variant (see the module comment). */
+function matches(term: string, views: Views, distinctive: boolean): boolean {
+	const { raw, decoded, spaced } = views;
+	const folded = fold(term);
+	const bounded = !(distinctive && folded.length >= MIN_SUBSTRING_LENGTH);
+	return folded.length >= MIN_FOLDED_LENGTH
+		? wholeWord(term, bounded).test(raw) ||
+				looseWord(folded, bounded).test(decoded) ||
+				looseWord(folded, bounded).test(spaced)
+		: wholeWord(term).test(raw) || wholeWord(term).test(decoded);
+}
+
+/** The views of `text`, with private stems kept out of `node_modules/` paths. */
+const viewsOf = (text: string) => ({
+	all: searchable(text),
+	outsidePackages: searchable(text.replace(PACKAGE_PATH, ' ')),
+});
+
+/**
+ * Deny-list terms present, as written or in a variant (see the module comment).
+ * A term found only once the allowed terms are put back counts unless it
+ * matches inside an allowed term itself (the folding case): `the nxgt hono
+ * app` refuses for a private `nxgt-hono` although `hono` is allowed.
+ */
 export function findDenied(
 	text: string,
 	denyList: DenyList,
 	allow: readonly string[] = [],
 ): string[] {
-	// Allowing a package also allows its scope and stems, which a deny-list may hold.
-	const allowed = new Set(allow.flatMap(allowForms).map(lower));
 	const distinctive = new Set(denyList.distinctive.map(lower));
 	const stemSet = new Set((denyList.stems ?? []).map(lower));
-	const visible = blankAllowed(text, allow);
-	const full = searchable(visible);
-	const outsidePackages = searchable(visible.replace(PACKAGE_PATH, ' '));
+	const held = new Set([...distinctive, ...stemSet]);
+	// Allowing a package also allows its scope and stems, unless the deny-list holds them.
+	const allowed = new Set(allow.flatMap((a) => allowForms(a, held)).map(lower));
+	const visible = viewsOf(blankAllowed(text, allow));
+	const original = viewsOf(text);
+	const allowedViews = allow.map(searchable);
 	const hits: string[] = [];
 	for (const term of unique(denyList.terms)) {
-		if (allowed.has(term.toLowerCase())) continue;
-		const { raw, decoded, spaced } = stemSet.has(lower(term))
-			? outsidePackages
-			: full;
-		const folded = fold(term);
-		const bounded = !(
-			distinctive.has(lower(term)) && folded.length >= MIN_SUBSTRING_LENGTH
-		);
+		if (allowed.has(lower(term))) continue;
+		const own = distinctive.has(lower(term));
+		const pick = (views: ReturnType<typeof viewsOf>) =>
+			stemSet.has(lower(term)) ? views.outsidePackages : views.all;
 		const found =
-			folded.length >= MIN_FOLDED_LENGTH
-				? wholeWord(term, bounded).test(raw) ||
-					looseWord(folded, bounded).test(decoded) ||
-					looseWord(folded, bounded).test(spaced)
-				: wholeWord(term).test(raw) || wholeWord(term).test(decoded);
+			matches(term, pick(visible), own) ||
+			(matches(term, pick(original), own) &&
+				!allowedViews.some((views) => matches(term, views, own)));
 		if (found) hits.push(term);
 	}
 	return hits;

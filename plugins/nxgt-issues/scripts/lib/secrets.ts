@@ -31,9 +31,9 @@ import {
 	arrayHoldsSecret,
 	encodesSecret,
 	isEnvNameValue,
-	isGraphqlType,
 	isLabelMessage,
 } from './label-values';
+import { isGraphqlType } from './sdl-values';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
 	/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g,

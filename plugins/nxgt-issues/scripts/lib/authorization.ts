@@ -4,7 +4,9 @@
  * `Authorization header`). Quoted or in a template, the header rule applies:
  * a template whose fixed text is only the scheme (`` `Bearer ${token}` ``), or
  * a scheme concatenated with code (`'Bearer ' + token`), passes; a literal
- * credential refuses (`'Basic YWRt…'`, `` `Bearer abc123…` ``).
+ * credential refuses (`'Basic YWRt…'`, `` `Bearer abc123…` ``), and so does a
+ * literal glued to a scheme anywhere, by `+` or inside `${…}`
+ * (`'Bearer ' + 'k3J9…'`, `` `Basic ${'YWRt…'}` ``).
  */
 
 import { isPlaceholder } from './code-values';
@@ -63,8 +65,39 @@ function refusesValue(rest: string): boolean {
 	return !isHarmlessLiteral(credential, { ...HEADER_VALUE, template });
 }
 
+/** A scheme-only literal and the `+` chain after it: `'Bearer ' + token + 'x'`. */
+const CONCAT =
+	/(["'])(?:Basic|Bearer|Digest|Token)[ \t]+\1((?:[ \t]*\+[ \t]*(?:(["'])(?:\\.|(?!\3).)*\3|[\w$.]+(?:\([^)\n]*\))?))+)/gi;
+/** A template that opens with a scheme and code: `` `Bearer ${…}` ``. */
+const SCHEME_TEMPLATE = /`(?:Basic|Bearer|Digest|Token)[ \t]+\$\{/gi;
+const STRING = /(["'])((?:\\.|(?!\1).)*)\1/g;
+const INNER = {
+	template: false,
+	inHeader: false,
+	message: false,
+	keyPosition: false,
+};
+
+/** A string literal in `code` that is not plainly harmless. */
+const holdsLiteral = (code: string): boolean =>
+	[...code.matchAll(STRING)].some((m) => !isHarmlessLiteral(m[2] ?? '', INNER));
+
+/** Literals glued to a scheme, by `+` or inside `${…}`, wherever they sit. */
+function schemeHoldsLiteral(text: string): boolean {
+	for (const match of text.matchAll(CONCAT)) {
+		if (holdsLiteral(match[2] ?? '')) return true;
+	}
+	for (const match of text.matchAll(SCHEME_TEMPLATE)) {
+		const end = templateEnd(text, match.index);
+		const body = text.slice(match.index + 1, end < 0 ? undefined : end);
+		if (holdsLiteral(body)) return true;
+	}
+	return false;
+}
+
 /** True when an `Authorization` header in `text` carries a literal credential. */
 export function hasAuthorizationSecret(text: string): boolean {
+	if (schemeHoldsLiteral(text)) return true;
 	for (const match of text.matchAll(HEAD)) {
 		const rest = text.slice(match.index + match[0].length).split('\n')[0] ?? '';
 		if (refusesValue(rest)) return true;

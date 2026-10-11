@@ -178,9 +178,15 @@ private. Only the bare package name is allowed, never `owner/name`. An
 allowed name is blanked from the text before any search, so a private
 repository whose name folds onto it (`acme/zorb-sdk` against
 `@acme/zorb-sdk`) cannot match inside it; prose naming the private repository
-("the zorb sdk repo") still refuses. The application's own stems and package
-name parts go through the same common-word filter as private stems; its full
-names and scope are always denied.
+("the zorb sdk repo") still refuses, and so does a private name built from an
+allowed one (`nxgt-hono`, "the nxgt hono app" for an allowed `hono`): an
+occurrence joined to a word is never blanked, and a term found only once the
+allowed names are put back counts unless it matches inside an allowed name
+itself. Allowing a package never lets through a stem or scope the deny-list
+holds as the application's own distinctive term or a private stem. The
+application's own stems and package name parts go through the same
+common-word filter as private stems; its full names and scope stay on the
+deny-list, and only the exact allowed names above pass.
 
 ### Application domains and extra terms
 
@@ -239,8 +245,9 @@ a name followed by a call or a member access, anything inside a path.
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
-| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a PascalCase `…Error:` or `…Exception:` class followed by a message (`JsonWebTokenError: invalid signature`) and a status message after a label (one that opens with a status word, `invalid signature`, or is a status phrase, `too short`, `is required`, `must be at least 8 characters`) pass; `password: open sesame`, `password: must change me` and `PasswordError: hunter2` refuse; an encoder assigned to a credential name (`const secret = new TextEncoder().encode('x')`) and an array of literals under one (`secret: ['x']`) refuse; a GraphQL field type passes when it is a known scalar (`password: String!`) or sits in a `type`, `input` or `interface` block; an env-variable name under a `*Name` key passes (`secretName: 'GATEWAY_SECRET'`); `??=`, `\|\|=` and `&&=` count as assignments (`label-values.ts`) |
-| `authorization.ts` | the `Authorization` header: unquoted, a placeholder or prose word only; quoted or templated, the header rule, so `` `Bearer ${token}` `` and `'Bearer ' + token` pass and `'Basic YWRt…'` refuses |
+| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a PascalCase `…Error:` or `…Exception:` class followed by a message (`JsonWebTokenError: invalid signature`) and a status message after a label (one that opens with a status word, `invalid signature`, or is a status phrase, `too short`, `is required`, `must be at least 8 characters`) pass; `password: open sesame`, `password: must change me` and `PasswordError: hunter2` refuse; an encoder assigned to a credential name (`const secret = new TextEncoder().encode('x')`) and an array of literals or a YAML flow sequence of bare words under one (`secret: ['x']`, `passwords: [hunter2, swordfish]`) refuse; a status phrase may be followed by another label or a short clause (`password: not set, token: (empty)`); an env-variable name under a `*Name` key passes (`secretName: 'GATEWAY_SECRET'`); `??=`, `\|\|=` and `&&=` count as assignments (`label-values.ts`) |
+| `authorization.ts` | the `Authorization` header: unquoted, a placeholder or prose word only; quoted or templated, the header rule, so `` `Bearer ${token}` `` and `'Bearer ' + token` pass and `'Basic YWRt…'` refuses; a literal glued to a scheme anywhere refuses (`'Bearer ' + 'k3J9…'`, `` `Basic ${'YWRt…'}` ``) |
+| `sdl-values.ts` | GraphQL field types: a known scalar anywhere, or a type inside a `type`, `input` or `interface` block unless it looks like a value (`K3J9x…`, `ABCDEFGH`) |
 | `key-names.ts` | `key` names: a plain one (`key`, `sortKey`) refuses only key material (`Zq8w-LmP3`, `AbCdEfGh…`, `ABCD-EFGH-IJKL`); a purposeful one (`signingKey`, `accessKeyId`, `licenseKey`) or an env-style `*_KEY` refuses any literal |
 | `common-words.ts` | the English and tech words a private repository stem is never denied as |
 | `credential-pairs.ts` | credential headers set by index, as a tuple or as a computed key (`headers['authorization'] = …`, `new Headers([['authorization', …]])`, `{ [GATEWAY_SECRET_HEADER]: … }`) and `--password`, `-W`, `-p`, `-a` flags beside their value in an argument array, plus `'-pvalue'` after a database client (a port after `-p` passes unless `mysql`, `mariadb`, `psql` or `redis-cli` comes earlier on the line) |

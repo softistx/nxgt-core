@@ -37,3 +37,36 @@ describe("the app's own common-word stems", () => {
 		},
 	);
 });
+
+describe('an allowed term never hides a private name built from it', () => {
+	const list = buildDenyList({
+		privateRepos: ['acme/nxgt-hono', 'acme/zorb-sdk'],
+	});
+	const allow = ['@nxgt/shared-hono', 'hono', '@acme/zorb-sdk'];
+
+	test.each([
+		'acme/nxgt-hono',
+		'nxgt-hono',
+		'NXGT-HONO',
+		"import x from 'nxgt-hono'",
+		'the nxgt hono app',
+	])('%p refuses', (text) => {
+		expect(findDenied(text, list, allow)).not.toEqual([]);
+	});
+
+	test.each([
+		'@nxgt/shared-hono',
+		'node_modules/hono/dist/router.js',
+		'hono 4.6',
+		'Versions: @acme/zorb-sdk 0.3.1',
+	])('%p passes', (text) => {
+		expect(findDenied(text, list, allow)).toEqual([]);
+	});
+
+	test("an allowed package's stem that is a private stem stays denied", () => {
+		const own = buildDenyList({ privateRepos: ['acme/zorblax-core'] });
+		expect(findDenied('the zorblax build', own, ['@acme/zorblax-ui'])).toEqual([
+			'zorblax',
+		]);
+	});
+});

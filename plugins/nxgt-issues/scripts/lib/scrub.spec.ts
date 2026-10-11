@@ -782,12 +782,15 @@ describe('buildDenyList: product stem and sibling domains', () => {
 		expect(result.refused || !/schoolz/i.test(result.text)).toBe(true);
 	});
 
-	test('allowing a package allows its stems', () => {
-		const result = scrub('the hidden thing', {
-			denyList: list,
-			allow: ['hidden-service'],
-		});
-		expect(result.refused).toBe(false);
+	test('allowing a package allows its name, not a stem the deny-list holds', () => {
+		const allow = ['hidden-service'];
+		expect(
+			scrub('uses hidden-service', { denyList: list, allow }).refused,
+		).toBe(false);
+		// `hidden` is a private stem: allowing the package does not let it through (round 6 of #246).
+		expect(scrub('the hidden thing', { denyList: list, allow }).refused).toBe(
+			true,
+		);
 	});
 
 	test('a short name half is not denied, the scope is', () => {

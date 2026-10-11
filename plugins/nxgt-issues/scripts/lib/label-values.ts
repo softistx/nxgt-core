@@ -8,7 +8,7 @@
  * key-position rule.
  */
 
-import { wordsOf } from './code-values';
+import { isPlaceholder, wordsOf } from './code-values';
 import { isKeyMaterial } from './key-names';
 import { isHarmlessLiteral } from './literals';
 
@@ -21,7 +21,7 @@ const STATUS_START =
 	/^(?:too short|too long|required|invalid|missing|expired|not found|unauthorized|forbidden|incorrect|mismatch|malformed|cannot|failed|denied|rejected)\b/;
 /** A whole status phrase: `is required`, `must be at least 8 characters`. */
 const STATUS_PHRASE =
-	/^(?:too short|too long|(?:is|was|are) (?:required|invalid|missing|expired|incorrect)|has expired|not found|must be set|must be at least \d+ characters|must contain(?: [a-z\d-]+)+|cannot be empty|does not match|an opaque string|it fails|(?:is )?not (?:set|provided)|\(empty\)|undefined)[.!]?$/;
+	/^(?:too short|too long|(?:is|was|are) (?:required|invalid|missing|expired|incorrect)|has expired|not found|must be set|must be at least \d+ characters|must contain(?: [a-z\d-]+)+|cannot be empty|does not match|an opaque string|it fails|(?:is )?not (?:set|provided)|\(empty\)|undefined)(?:[.!]|\s*[,;]\s*[\w-]+\s*:.*|(?:\s+[a-z]+){1,6}[.!]?)?$/;
 const LOWER_PROSE = /^[a-z\d]+(?:[ \t]+[a-z\d]+)+[.!]?$/;
 
 /** True when the value after `name` and `operator` is a message, not a secret. */
@@ -52,6 +52,7 @@ const QUOTED = /(["'`])((?:\\.|(?!\1).)*)\1/g;
 /** `secret: ['s3cr3t']`: an array of string literals under a credential name. */
 export function arrayHoldsSecret(value: string): boolean {
 	if (!value.startsWith('[')) return false;
+	if (!/["'`]/.test(value)) return flowSequenceHoldsSecret(value);
 	for (const match of value.matchAll(QUOTED)) {
 		const context = {
 			template: match[1] === '`',
@@ -64,34 +65,32 @@ export function arrayHoldsSecret(value: string): boolean {
 	return false;
 }
 
-/** A GraphQL type: `String`, `ID!`, `[String!]!`. */
-const SDL_TYPE = /^\[?[A-Z]\w*!?\]?!?$/;
-const SCALARS = new Set(
-	(
-		'String ID Int Float Boolean DateTime Date Time JSON JSONObject Email ' +
-		'EmailAddress URL UUID ObjectID BigInt Upload Void'
-	).split(' '),
-);
-/** What may follow a field's type: nothing, a directive, or the next field. */
-const SDL_AFTER = /^(?:\s*$|\s*@|\s+\w+\s*[:(])/;
-const SDL_BLOCK =
-	/\b(?:type|input|interface)\s+[A-Z]\w*(?:\s+implements[^{}]*)?\s*$/;
-
 /**
- * A GraphQL field type (`password: String!`): a known scalar anywhere, or any
- * type inside a `type`, `input` or `interface` block. `password: Hunter2!`
- * outside a block refuses.
+ * `passwords: [hunter2, swordfish]`: a YAML flow sequence of bare items. An
+ * item passes when it reads as code (a member expression or call, a camelCase
+ * name that is not key material) or as a harmless word (`admin`).
  */
-export function isGraphqlType(
-	first: string,
-	rest: string,
-	before: string,
-): boolean {
-	if (!SDL_TYPE.test(first) || !SDL_AFTER.test(rest)) return false;
-	if (SCALARS.has(first.replace(/[[\]!]/g, ''))) return true;
-	const open = before.lastIndexOf('{');
-	if (open < 0 || before.lastIndexOf('}') > open) return false;
-	return SDL_BLOCK.test(before.slice(0, open));
+function flowSequenceHoldsSecret(value: string): boolean {
+	const body = value.slice(
+		1,
+		value.includes(']') ? value.indexOf(']') : undefined,
+	);
+	const context = {
+		template: false,
+		inHeader: false,
+		message: false,
+		keyPosition: false,
+	};
+	return body
+		.split(',')
+		.map((item) => item.trim())
+		.filter(Boolean)
+		.some((item) => {
+			if (/[.(]/.test(item) || isPlaceholder(item)) return false;
+			if (/^[a-z]+(?:[A-Z][a-z\d]*)+$/.test(item) && !isKeyMaterial(item))
+				return false;
+			return !isHarmlessLiteral(item, context);
+		});
 }
 
 const ENCODER =

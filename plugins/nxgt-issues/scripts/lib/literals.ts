@@ -65,7 +65,7 @@ export function isHarmlessLiteral(
 			.replace(/\b(?:Bearer|Basic|Token)\b/g, '');
 		return /^[^A-Za-z\d]*$/.test(fixed);
 	}
-	if (text === '' || isPlaceholder(`'${text}'`)) return true;
+	if (/^[^A-Za-z\d]*$/.test(text) || isPlaceholder(`'${text}'`)) return true;
 	if (context.inHeader) return false;
 	const lower = text.toLowerCase();
 	const word =
