@@ -172,7 +172,7 @@ describe('a detached run', () => {
 	});
 });
 
-/** Kills a pid a spec started, whatever state it is in. */
+/** Whether a pid is still running. */
 const alive = (pid: number): boolean => {
 	try {
 		process.kill(pid, 0);
@@ -182,6 +182,7 @@ const alive = (pid: number): boolean => {
 	}
 };
 
+/** Kills the pid a spec wrote to `pidFile`, whatever state it is in. */
 const reap = (pidFile: string): void => {
 	try {
 		process.kill(Number(readFileSync(pidFile, 'utf8').trim()), 'SIGKILL');
@@ -266,4 +267,43 @@ describe('the real runner: a timeout is bounded', () => {
 		});
 		expect(result.code).not.toBe(0);
 	});
+});
+
+describe('the real runner: a signal to the parent reaches the children', () => {
+	for (const [signal, code] of [
+		['SIGINT', 130],
+		['SIGTERM', 143],
+		['SIGHUP', 129],
+	] as const) {
+		test(`${signal} kills the sleeper and ends the parent with ${code}`, async () => {
+			const dir = tempDir('forward');
+			const pidFile = join(dir, 'pid');
+			const script = join(dir, 'gh');
+			writeFileSync(script, `sleep 30 &\necho $! > '${pidFile}'\nwait\n`);
+			const parent = join(dir, 'parent.ts');
+			writeFileSync(
+				parent,
+				`import { createRunner } from '${join(import.meta.dir, 'runner')}';\n` +
+					`await createRunner({ NXGT_ISSUES_ALLOW_NETWORK: '1' }).run(['sh', '${script}'], { timeoutMs: 60000 });\n`,
+			);
+			const proc = Bun.spawn(['bun', parent], {
+				stdout: 'ignore',
+				stderr: 'ignore',
+			});
+			try {
+				for (let i = 0; i < 100 && !existsSync(pidFile); i++)
+					await Bun.sleep(50);
+				await Bun.sleep(100);
+				const sleeper = Number(readFileSync(pidFile, 'utf8').trim());
+				expect(alive(sleeper)).toBe(true);
+				proc.kill(signal);
+				expect(await proc.exited).toBe(code);
+				await Bun.sleep(100);
+				expect(alive(sleeper)).toBe(false);
+			} finally {
+				proc.kill('SIGKILL');
+				reap(pidFile);
+			}
+		});
+	}
 });
