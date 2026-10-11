@@ -76,8 +76,10 @@ export function toPrincipal(ory: OryPrincipal): TokenPrincipal {
  * Hydra or Keto could not answer, and that must not read as "not signed in".
  */
 export function oryUnavailableError(error: OryUnavailable): GraphQLError {
-	// Thrown during context building, which Yoga does not route through
-	// `maskError`: the SDK's message is added in development only.
+	// Yoga does call `maskError` for a context-building error, but this is a
+	// finished `GraphQLError` with no `originalError`, which any `maskError`
+	// passes through unchanged: the debug decision is made here, so the SDK's
+	// message is added in development only.
 	return serviceUnavailableError(
 		error,
 		process.env['NODE_ENV'] === 'development',

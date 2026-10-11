@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import type { Ory, OryPrincipal } from '@nxgt/ory-sdk';
 import { OryUnavailable } from '@nxgt/ory-sdk';
 import { createSchema, createYoga } from 'graphql-yoga';
@@ -154,5 +154,39 @@ describe('useOryAuth — an outage during context building, behind createMaskErr
 		expect(text).toContain('SERVICE_UNAVAILABLE');
 		expect(text).not.toContain('keto answered 500');
 		expect(text).not.toContain('debugMessage');
+	});
+
+	describe('debugMessage follows NODE_ENV, and only `development` counts', () => {
+		const original = process.env['NODE_ENV'];
+		afterEach(() => {
+			if (original === undefined) delete process.env['NODE_ENV'];
+			else process.env['NODE_ENV'] = original;
+		});
+
+		test('development: debugMessage is present', async () => {
+			process.env['NODE_ENV'] = 'development';
+			const { status, text } = await outage();
+			expect(status).toBe(503);
+			expect(text).toContain('keto answered 500');
+			expect(text).toContain('debugMessage');
+		});
+
+		test('production: debugMessage is absent', async () => {
+			process.env['NODE_ENV'] = 'production';
+			const { text } = await outage();
+			expect(text).not.toContain('debugMessage');
+		});
+
+		test('unset: debugMessage is absent', async () => {
+			delete process.env['NODE_ENV'];
+			const { text } = await outage();
+			expect(text).not.toContain('debugMessage');
+		});
+
+		test('test: debugMessage is absent (a leak, unlike the Sandbox)', async () => {
+			process.env['NODE_ENV'] = 'test';
+			const { text } = await outage();
+			expect(text).not.toContain('debugMessage');
+		});
 	});
 });

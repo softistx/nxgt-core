@@ -24,9 +24,11 @@ export function isOryUnavailable(error: unknown): error is OryUnavailable {
  *
  * `extensions.debugMessage` (what the SDK saw) is added only when `debug` is
  * true. `createMaskError` passes Yoga's `isDev`; `useOryAuth` throws this
- * error during context building, which Yoga does not route through
- * `maskError`, so it passes `NODE_ENV === 'development'` and nothing reaches
- * a client in production.
+ * error during context building as a finished `GraphQLError` with no
+ * `originalError`, which Yoga's `maskError` (it does run there) passes through
+ * unchanged. The decision is therefore made where it is thrown: `useOryAuth`
+ * passes `NODE_ENV === 'development'`, and nothing reaches a client in
+ * production.
  */
 export function serviceUnavailableError(
 	error: OryUnavailable,
