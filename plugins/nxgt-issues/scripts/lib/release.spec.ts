@@ -738,3 +738,81 @@ describe('a package at the repository root', () => {
 		);
 	});
 });
+
+describe('an integration PR credited to a slice that did not touch the package', () => {
+	const slice = (n: number, over: object = {}) => ({
+		base: 'feat/x',
+		head: `fix/s${n}`,
+		mergeSha: `m${n}`,
+		...over,
+	});
+	/** Slice 42 only adds a changeset; integration PR 40 holds the fix, touching both packages. */
+	const world = (over: World = {}): World => ({
+		...simple({
+			prs: {
+				41: slice(41, { files: [`${DIR}/a.ts`] }),
+				42: slice(42, {
+					files: ['.changeset/c.md'],
+					changesets: [PKG, '@nxgt/other'],
+				}),
+				40: {
+					head: 'feat/x',
+					mergeSha: 'm40',
+					closing: [12],
+					files: [`${DIR}/a.ts`, 'packages/other/b.ts'],
+					changesets: [PKG, '@nxgt/other'],
+				},
+			},
+			issues: { 12: { body: versions('@nxgt/other') } },
+			log: ['Merge pull request #40 from softistx/feat/x'],
+		}),
+		changelog: CHANGELOG.replace('[#40]', '[#42]'),
+		...over,
+	});
+	const otherTags = ['@nxgt/other@1.4.0', '@nxgt/other@1.3.0'];
+	const widgetTags = ['@nxgt/widget@1.4.0', '@nxgt/widget@1.3.0'];
+
+	test('a first release finds the integration PR own issue through the listed slice', async () => {
+		const fake = fakeWorld(world({ tags: ['@nxgt/widget@1.4.0'] }));
+		const report = await run(fake);
+		expect(report.issues.map((i) => [i.number, i.pr])).toEqual([[12, 40]]);
+		expect(report.issues[0]?.commented).toBe(true);
+	});
+
+	test('the sibling has no earlier tag: the issue is handled on run 1', async () => {
+		const fake = fakeWorld(world({ tags: widgetTags }));
+		const report = await run(fake, false, { siblings: SIBLINGS });
+		expect(report.issues[0]).toMatchObject({ skipped: false, commented: true });
+	});
+
+	test('the sibling has an earlier tag: skipped, then the sibling run comments', async () => {
+		const fake = fakeWorld(world({ tags: [...widgetTags, ...otherTags] }));
+		const first = await run(fake, false, { siblings: SIBLINGS });
+		expect(first.issues[0]?.skipped).toBe(true);
+		expect(fake.writes()).toEqual([]);
+		const later = await run(fake, false, {
+			siblings: SIBLINGS,
+			pkg: '@nxgt/other',
+			dir: 'packages/other',
+		});
+		expect(later.issues[0]).toMatchObject({
+			number: 12,
+			pr: 40,
+			commented: true,
+		});
+	});
+
+	test.each(['--diff-filter=A', 'm40:.changeset', 'm40^1'])(
+		'when git cannot say (%s fails), the issue is handled under the released package',
+		async (needle) => {
+			const fake = fakeWorld(
+				world({ tags: [...widgetTags, ...otherTags], failing: [needle] }),
+			);
+			const report = await run(fake, false, { siblings: SIBLINGS });
+			expect(report.issues[0]).toMatchObject({
+				skipped: false,
+				commented: true,
+			});
+		},
+	);
+});

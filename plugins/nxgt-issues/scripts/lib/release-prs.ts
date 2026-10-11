@@ -161,25 +161,32 @@ export async function discoverFixes(
 	};
 	const branches = new Map<string, PrInfo[]>();
 	const touched: number[] = [];
+	const count = (number: number) => {
+		if (!touched.includes(number)) touched.push(number);
+	};
 	for (const number of prs) {
 		try {
 			const info = await readInfo(ctx, input.repo, number);
 			if (info.head.startsWith('changeset-release/')) continue;
-			// The path-limited log proves a logged PR touched the package; a listed one may belong to another package.
-			if (
-				!logged.includes(number) &&
-				!(await touchesPackage(ctx, info, input.dir))
-			)
-				continue;
-			touched.push(number);
+			// The path-limited log proves a logged PR touched the package; a listed one may belong to another.
+			const mine =
+				logged.includes(number) || (await touchesPackage(ctx, info, input.dir));
+			if (!(mine || info.base.startsWith('feat/'))) continue;
 			if (!info.base.startsWith('feat/')) {
+				count(number);
 				for (const issue of info.issues) keep(issue, info, 0);
 				continue;
 			}
+			// A slice that did not touch the package still leads to its integration PR: changelog-github credits the slice, and the integration PR's own `Fixes` would be missed.
 			if (!branches.has(info.base)) {
 				try {
-					const parents = await integrationPrs(ctx, input.repo, info.base);
-					branches.set(info.base, parents);
+					const found = await integrationPrs(ctx, input.repo, info.base);
+					const touching: PrInfo[] = [];
+					for (const parent of found) {
+						if (await touchesPackage(ctx, parent, input.dir))
+							touching.push(parent);
+					}
+					branches.set(info.base, touching);
 				} catch (error) {
 					if (error instanceof RateLimitedError) throw error;
 					// No parents: the issues fall back to naming the slice PR.
@@ -188,11 +195,15 @@ export async function discoverFixes(
 				}
 			}
 			const parents = branches.get(info.base) ?? [];
-			for (const issue of info.issues) {
-				if (parents[0]) keep(issue, parents[0], 1);
-				else keep(issue, info, 2);
+			if (mine) {
+				count(number);
+				for (const issue of info.issues) {
+					if (parents[0]) keep(issue, parents[0], 1);
+					else keep(issue, info, 2);
+				}
 			}
 			for (const parent of parents) {
+				count(parent.number);
 				for (const issue of parent.issues) keep(issue, parent, 0);
 			}
 		} catch (error) {

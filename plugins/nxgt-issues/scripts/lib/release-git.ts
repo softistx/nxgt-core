@@ -126,7 +126,7 @@ export async function commitTouches(
 
 /** The package names in a changeset file's frontmatter (`"@nxgt/x": minor`). */
 export function changesetNames(text: string): string[] {
-	const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? '';
+	const front = /^\uFEFF?---\r?\n([\s\S]*?)^---\s*$/m.exec(text)?.[1] ?? '';
 	return [...front.matchAll(/^["']?([^"':\n]+?)["']?\s*:/gm)].map(
 		(m) => m[1] as string,
 	);
@@ -154,4 +154,10 @@ export async function addedChangesetPackages(
 		names.push(...changesetNames(text));
 	}
 	return names;
+}
+
+/** Whether the package has a tag in this clone: its next release then has an earlier tag to log from. */
+export async function hasTags(ctx: GhContext, pkg: string): Promise<boolean> {
+	const out = await git(ctx, ['tag', '--list', `${pkg}@*`]);
+	return (out ?? '').split('\n').some((t) => t.startsWith(`${pkg}@`));
 }

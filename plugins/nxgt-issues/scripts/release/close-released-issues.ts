@@ -14,7 +14,8 @@
  * a package of this repository that is not published now is left to that
  * release only when its run will surely handle it: the fix is rank 0 (the PR's
  * own closing references name the issue), that PR touched the package and adds
- * a changeset naming it; if git cannot say, it is handled now. The comment is written last and its hidden marker is the
+ * a changeset naming it, and the other package has an earlier tag in this
+ * clone (its run reads the log since it); if git cannot say, it is handled now. The comment is written last and its hidden marker is the
  * idempotency key: an issue gets at most one such comment ever (any trusted
  * comment with a fixed marker means done), and one reopened after the release
  * is reported, never closed again. Needs only `gh`; imports nothing from the
@@ -24,8 +25,8 @@
  */
 
 import { dirname, join } from 'node:path';
+import { addedChangesets, hasTags, touches } from './close-released-issues-git';
 import {
-	addedChangesets,
 	type Ctx,
 	type Exec,
 	fixes,
@@ -37,7 +38,6 @@ import {
 	type Pr,
 	rows,
 	run,
-	touches,
 	versionNames,
 	warn,
 } from './close-released-issues-lib';
@@ -82,7 +82,11 @@ async function release(
 		const sha = best.info.sha;
 		const added =
 			best.rank === 0 && sha ? await addedChangesets(c, sha) : undefined;
-		if (added?.includes(name) && (await touches(c, { dir }, best.info))) {
+		const left =
+			added?.includes(name) &&
+			(await touches(c, { dir }, best.info)) &&
+			(await hasTags(c, name));
+		if (left) {
 			return c.log(`  #${issue}: left to ${name}, which is not published now`);
 		}
 	}

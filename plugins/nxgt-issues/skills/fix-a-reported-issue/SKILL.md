@@ -75,8 +75,9 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version>
 The first lists what it would do; the second does it. It works for a package in
 `packages/*` and for the single package of a repository's root. An issue whose
 `## Versions` section names another package of the repository that the fixing
-PR (rank 0: its own `Fixes #n`) touched and gave a changeset is left to that
-package's run (a note says so): run `released`
+PR (rank 0: its own `Fixes #n`) touched and gave a changeset, and which has an
+earlier tag, is left to that package's run (a note says so; if git cannot say,
+the issue is handled under the released package): run `released`
 for each published version. Exit 1 is a malformed
 `<package>@<version>` or a package this checkout does not hold, 2 a checkout
 that is not an allowed owner's, 5 a GitHub rate limit (try later), 6 a failure

@@ -9,6 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { closeReleasedIssues } from './close-released-issues';
+import { changesetNames } from './close-released-issues-git';
 import type { Exec } from './close-released-issues-lib';
 
 // Self-contained on purpose: this file is copied with the script into each
@@ -71,6 +72,8 @@ interface World {
 	listed?: number[];
 	/** Overrides the tags `git tag` prints. */
 	tagList?: string[];
+	/** Package names with no tag at all. */
+	untagged?: string[];
 	failing?: string[];
 	failOnce?: string[];
 	prs?: Record<number, Pr>;
@@ -114,6 +117,7 @@ function fakeWorld(init: World) {
 	const git = (argv: string[]) => {
 		if (argv[1] === 'tag') {
 			const name = String(argv[3]).replace(/@\*$/, '');
+			if (init.untagged?.includes(name)) return ok('');
 			if (init.tagList) return ok(`${init.tagList.join('\n')}\n`);
 			if (init.plain) return ok('v1.4.0\nv1.3.0\n');
 			return ok(`${name}@1.4.0\n${name}@1.3.0\n`);
@@ -870,5 +874,106 @@ describe('it never fails the release', () => {
 		);
 		expect(await child.exited).toBe(0);
 		expect(await new Response(child.stdout).text()).toContain('warning');
+	});
+});
+
+describe('an integration PR credited to a slice that did not touch the package', () => {
+	const published = JSON.stringify([{ name: '@nxgt/a', version: '1.4.0' }]);
+	const touching = (n: string) => `packages/${n}/src/x.ts`;
+	const names = ['@nxgt/a', '@nxgt/c'];
+	const slice = (n: number, over: object = {}) => ({
+		base: 'feat/x',
+		head: `fix/s${n}`,
+		sha: `m${n}`,
+		...over,
+	});
+	/** Slice 42 only adds a changeset; integration PR 40 holds the fix, touching a and c. */
+	const world = (over: Partial<World> = {}) =>
+		fakeWorld({
+			...simple({
+				prs: {
+					41: slice(41, { files: [touching('a')] }),
+					42: slice(42, { files: ['.changeset/c.md'], changesets: names }),
+					40: {
+						head: 'feat/x',
+						sha: 'm40',
+						closing: [12],
+						files: [touching('a'), touching('c')],
+						changesets: names,
+					},
+				},
+				issues: {
+					12: {
+						body: 'x\n\n## Versions\n\n- `@nxgt/c` 1.0.0\n\n## Expected\n\ny\n',
+					},
+				},
+				log: ['Merge pull request #40 from softistx/feat/x'],
+			}),
+			listed: [42],
+			...over,
+		});
+
+	test('a first release finds the integration PR own issue through the listed slice', async () => {
+		const w = world({ untagged: ['@nxgt/a', '@nxgt/c'], log: [] });
+		await run(w, [], checkout('a', 'c'), published);
+		expect(w.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/a@1.4.0 (#40).',
+		);
+	});
+
+	test('the sibling has no earlier tag: handled on run 1', async () => {
+		const w = world({ untagged: ['@nxgt/c'] });
+		await run(w, [], checkout('a', 'c'), published);
+		expect(w.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/a@1.4.0',
+		);
+	});
+
+	test('the sibling has an earlier tag: skipped, then its run comments', async () => {
+		const w = world();
+		await run(w, [], checkout('a', 'c'), published);
+		expect(w.writes.filter((x) => x[1] === 'issue')).toEqual([]);
+		const later = JSON.stringify([{ name: '@nxgt/c', version: '1.4.0' }]);
+		await run(w, [], checkout('a', 'c'), later);
+		expect(w.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/c@1.4.0 (#40).',
+		);
+	});
+
+	test.each(['--diff-filter=A', 'm40:.changeset', 'm40^1'])(
+		'when git cannot say (%s fails), handled under the released package',
+		async (needle) => {
+			const w = world({ failing: [needle] });
+			await run(w, [], checkout('a', 'c'), published);
+			expect(w.issues[12]?.comments[0]?.body).toStartWith(
+				'Fixed in @nxgt/a@1.4.0',
+			);
+		},
+	);
+
+	test('a changeset README is not a changeset', async () => {
+		expect(changesetNames('Not a changeset: really\n')).toEqual([]);
+	});
+});
+
+describe('changesetNames', () => {
+	test.each([
+		[
+			'quoted',
+			'---\n"@nxgt/a": minor\n"@nxgt/b": patch\n---\n\nText.\n',
+			['@nxgt/a', '@nxgt/b'],
+		],
+		['unquoted', '---\nnxgt-a: minor\n---\n', ['nxgt-a']],
+		['spaced colon', '---\n"@nxgt/a" : minor\n---\n', ['@nxgt/a']],
+		['CRLF', '---\r\n"@nxgt/a": minor\r\n---\r\n\r\nText\r\n', ['@nxgt/a']],
+		['BOM', '\uFEFF---\n"@nxgt/a": minor\n---\n', ['@nxgt/a']],
+		['empty frontmatter', '---\n---\n', []],
+		[
+			'empty frontmatter, then a body with a rule and a colon',
+			'---\n---\n\nBody.\n\n---\nNote: x\n',
+			[],
+		],
+	])('%s', (_name, text, expected) => {
+		expect(changesetNames(text)).toEqual(expected);
 	});
 });

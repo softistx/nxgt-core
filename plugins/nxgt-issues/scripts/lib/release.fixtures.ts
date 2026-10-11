@@ -45,7 +45,7 @@ const WRITES = [
 
 export function fakeWorld(init: World = {}): Fake {
 	const world: W = {
-		tags: ['@nxgt/widget@1.4.0', '@nxgt/widget@1.3.0'],
+		tags: ['@nxgt/widget@1.4.0', '@nxgt/widget@1.3.0', '@nxgt/other@1.3.0'],
 		log: [],
 		changelog: CHANGELOG,
 		prs: {},

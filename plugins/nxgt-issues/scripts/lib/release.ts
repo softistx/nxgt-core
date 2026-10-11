@@ -10,7 +10,7 @@
 import { type GhContext, gh, RateLimitedError } from './github';
 import { commentIssue } from './github-issues';
 import { fixedComment, versionNames } from './issue-body';
-import { addedChangesetPackages, commitTouches } from './release-git';
+import { addedChangesetPackages, commitTouches, hasTags } from './release-git';
 import {
 	FIXED_MARKER,
 	labelCreated,
@@ -67,8 +67,10 @@ const message = (error: unknown): string =>
  * guaranteed to handle the issue. That holds only when ALL of these do: the fix
  * is rank 0 (the PR's own closing references name the issue, so the other run,
  * which reads that PR, finds it too); the PR touched the other package's
- * folder; and the PR adds a changeset naming it, so it really is published with
- * this PR in its log or CHANGELOG. If git cannot say, the issue is handled here.
+ * folder; the PR adds a changeset naming it, so it really is published with
+ * this PR in its log or CHANGELOG; and the other package has an earlier tag in
+ * this clone, so its run can read the first-parent log that finds the PR. If git
+ * cannot say, the issue is handled here.
  */
 async function leftTo(
 	ctx: GhContext,
@@ -82,7 +84,9 @@ async function leftTo(
 		if (sibling.name === options.pkg || !named.includes(sibling.name)) continue;
 		if ((await commitTouches(ctx, sha, sibling.dir)) !== true) continue;
 		const added = await addedChangesetPackages(ctx, sha);
-		if (added?.includes(sibling.name)) return sibling.name;
+		if (added?.includes(sibling.name) && (await hasTags(ctx, sibling.name))) {
+			return sibling.name;
+		}
 	}
 	return undefined;
 }

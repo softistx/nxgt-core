@@ -3,15 +3,19 @@
  * spec) into each library repository's `scripts/`: which issues a published
  * `<package>@<version>` fixes. It imports nothing from the plugin; it
  * duplicates `lib/release-prs.ts` and `lib/release-git.ts` on purpose
- * (AGENTS.md lists the pair).
+ * (AGENTS.md lists the trio); the git reads are in `close-released-issues-git.ts`.
  *
  * The PRs are the CHANGELOG section's `[#N]` links that touched the package
  * (`git diff` of the merge commit), plus the PRs the first-parent log of
  * `packages/<dir>` names since the previous tag. Each PR gives its closing
  * issues (`closingIssuesReferences`, then body keywords outside code and
  * quotes); a PR merged into `feat/*` leads to the PR merged from that branch
- * (`gh pr list --head`), which the comment names.
+ * (`gh pr list --head`), which the comment names. A listed slice that did not
+ * touch the package still leads to its integration PR, counted when that
+ * merge touched the package, its own issues read at rank 0.
  */
+
+import { touches } from './close-released-issues-git';
 
 export type Exec = (
 	argv: string[],
@@ -147,41 +151,6 @@ async function loggedPrs(c: Ctx, p: Pkg) {
 	});
 }
 
-/** Whether the PR's merge (or squash) commit changed the package; its files when git cannot say. */
-export async function touches(c: Ctx, p: Pick<Pkg, 'dir'>, pr: Pr) {
-	const diff =
-		pr.sha &&
-		(await c.exec([
-			'git',
-			'diff',
-			'--name-only',
-			`${pr.sha}^1`,
-			pr.sha,
-			'--',
-			p.dir,
-		]));
-	if (diff && diff.code === 0) return diff.stdout.trim() !== '';
-	return pr.files.some((f) => inDir(p.dir, f));
-}
-
-/** The packages a merge commit's added changesets name (what is really published with it); undefined when git cannot say. */
-export async function addedChangesets(c: Ctx, sha: string) {
-	const diff = `git diff --name-only --diff-filter=A ${sha}^1 ${sha} -- .changeset/`;
-	const listing = await c.exec(diff.split(' '));
-	if (listing.code !== 0) return undefined;
-	const names: string[] = [];
-	const files = listing.stdout.split('\n').filter((f) => f.endsWith('.md'));
-	for (const file of files) {
-		const shown = await c.exec(['git', 'show', `${sha}:${file}`]);
-		if (shown.code !== 0) return undefined;
-		const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(shown.stdout)?.[1] ?? '';
-		for (const m of front.matchAll(/^["']?([^"':\n]+?)["']?\s*:/gm)) {
-			names.push(m[1] ?? '');
-		}
-	}
-	return names;
-}
-
 /** The PRs read and the issues the release fixes, each with the PR its comment names and its rank (0 best). */
 export async function fixes(c: Ctx, p: Pkg) {
 	const path = p.dir === '.' ? 'CHANGELOG.md' : `${p.dir}/CHANGELOG.md`;
@@ -200,18 +169,23 @@ export async function fixes(c: Ctx, p: Pkg) {
 	};
 	const merged = new Map<string, Pr[]>();
 	const read: number[] = [];
+	const count = (n: number) => {
+		if (!read.includes(n)) read.push(n);
+	};
 	for (const number of new Set([...listed, ...logged])) {
 		try {
 			const raw = obj(await gh(c, 'pr view', String(number), '--json', FIELDS));
 			const pr = toPr(raw, c.repo);
 			if (pr.head.startsWith('changeset-release/')) continue;
 			// The path-limited log proves a logged PR touched the package; a listed one may belong to another.
-			if (!logged.includes(number) && !(await touches(c, p, pr))) continue;
-			read.push(number);
+			const mine = logged.includes(number) || (await touches(c, p, pr));
+			if (!(mine || pr.feat)) continue;
 			if (!pr.feat) {
+				count(number);
 				for (const issue of pr.issues) keep(issue, pr, 0);
 				continue;
 			}
+			// A slice that did not touch the package still leads to its integration PR: the CHANGELOG credits the slice.
 			const base = String(raw['baseRefName']);
 			if (!merged.has(base)) {
 				// A failed lookup means no parents: the issues name the slice PR.
@@ -220,17 +194,21 @@ export async function fixes(c: Ctx, p: Pkg) {
 					warn(c, `integration PR of ${base}`, e);
 					return [];
 				});
-				merged.set(
-					base,
-					rows(list)
-						.map((r) => toPr(r, c.repo))
-						.filter((r) => !r.feat),
-				);
+				const found = rows(list)
+					.map((r) => toPr(r, c.repo))
+					.filter((r) => !r.feat);
+				const touching: Pr[] = [];
+				for (const r of found) if (await touches(c, p, r)) touching.push(r);
+				merged.set(base, touching);
 			}
 			const parents = merged.get(base) ?? [];
-			for (const issue of pr.issues)
-				keep(issue, parents[0] ?? pr, parents[0] ? 1 : 2);
+			if (mine) {
+				count(number);
+				for (const issue of pr.issues)
+					keep(issue, parents[0] ?? pr, parents[0] ? 1 : 2);
+			}
 			for (const parent of parents) {
+				count(parent.number);
 				for (const issue of parent.issues) keep(issue, parent, 0);
 			}
 		} catch (error) {
