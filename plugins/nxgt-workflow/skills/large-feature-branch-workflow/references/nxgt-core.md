@@ -41,4 +41,5 @@ leaks an internal, a `files` entry that ships more than intended, or a
 dependency moved from `peerDependencies` into `dependencies` — which quietly
 makes this repository responsible for a version the consumer used to choose.
 
-Types in use here: `feat`, `fix`, `update`, `chore`, `docs`, `typo`.
+Types in use here: `feat`, `fix`, `update`, `chore`, `docs`, `typo`, and `ci`
+for the workflows and the setup action.
