@@ -36,10 +36,12 @@ const oneLine = (value: string, max: number): string => {
 /** The only comment shown is the release step's own: `Fixed in <pkg>@<version>` and an optional `(#PR)`. */
 const NPM_NAME = '(?:@[a-z0-9~-][a-z0-9._~-]*\\/)?[a-z0-9~-][a-z0-9._~-]*';
 const RELEASE_COMMENT = new RegExp(
-	`^Fixed in (${NPM_NAME})@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)(?: \\(#\\d+\\))?\\.?$`,
+	`^Fixed in (${NPM_NAME})@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)(?: \\((?:[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+)?#\\d+\\))?\\.?$`,
 );
 /** Who may speak for the release: the repository's own people. */
 const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+/** The CI release step posts as this bot, with association CONTRIBUTOR or NONE. */
+const RELEASE_BOT = 'github-actions[bot]';
 
 const days = (from: string, now: number): number => {
 	const time = Date.parse(from);
@@ -84,13 +86,19 @@ function issueLine(issue: PackageIssue, now: number): string {
 	return `- #${issue.number}${flag}${tagged} ${oneLine(issue.title, 80)} (${days(issue.createdAt, now)}d old)`;
 }
 
-/** The release step's `Fixed in <pkg>@<version>` comment, when the last one is that and an owner, member or collaborator wrote it. */
+/** The release step's `Fixed in <pkg>@<version>` comment, when the last one is that and an owner, member, collaborator or the release bot wrote it. */
 export function releaseFix(
-	issue: TrackingIssue,
+	issue: Pick<
+		TrackingIssue,
+		'lastComment' | 'lastCommentBy' | 'lastCommentLogin'
+	>,
 ): { package: string; version: string; comment: string } | undefined {
 	// The release step writes the sentence, a blank line and a hidden marker: only the first line counts.
 	const comment = issue.lastComment?.split('\n', 1)[0]?.trim();
-	if (!comment || !TRUSTED.has(issue.lastCommentBy ?? '')) return undefined;
+	const trusted =
+		TRUSTED.has(issue.lastCommentBy ?? '') ||
+		issue.lastCommentLogin === RELEASE_BOT;
+	if (!comment || !trusted) return undefined;
 	const match = RELEASE_COMMENT.exec(comment);
 	if (!match?.[1] || !match[2]) return undefined;
 	return {

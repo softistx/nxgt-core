@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { tracking } from './app-side.fixtures';
 import { releaseFix } from './context';
+import { fixedComment } from './issue-body';
 
 const comment = (lastComment: string, lastCommentBy = 'OWNER') =>
 	tracking(1, 'softistx/nxgt-vexora#1', { lastComment, lastCommentBy });
@@ -23,5 +24,27 @@ describe('releaseFix', () => {
 		expect(
 			releaseFix(comment('Fixed in widget@1.0.0 (#1).', 'NONE')),
 		).toBeUndefined();
+	});
+});
+
+describe('releaseFix: forms and authors', () => {
+	test('a pull request of another repository', () => {
+		const body = fixedComment('p', '1.0.0', {
+			repo: { owner: 'a', repo: 'b' },
+			number: 2,
+		});
+		expect(releaseFix(comment(body))?.version).toBe('1.0.0');
+	});
+
+	test('the release bot is trusted, look-alikes are not', () => {
+		const by = (login: string, association = 'NONE') =>
+			tracking(1, 'softistx/nxgt-vexora#1', {
+				lastComment: 'Fixed in p@1.0.0 (#1).',
+				lastCommentBy: association,
+				lastCommentLogin: login,
+			});
+		expect(releaseFix(by('github-actions[bot]'))?.version).toBe('1.0.0');
+		expect(releaseFix(by('github-actions-fake'))).toBeUndefined();
+		expect(releaseFix(by('other[bot]'))).toBeUndefined();
 	});
 });

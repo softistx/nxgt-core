@@ -89,11 +89,14 @@ issue), so a 10-minute cache stays far below the 5000 points an hour.
 The `adopt-a-released-fix` skill fires when the SessionStart context lists a
 released fix, when a `Temporary, until` marker waits for a closed issue, or when
 asked what workarounds can go. It runs `ready --json`, bumps the package to the
-released version, removes each `ready` marker and the workaround it marks (`markers --json`),
-runs the repository's green bar, opens the PR and closes the tracking issue
-with "Adopted in #PR". An `untracked` or `unresolvable` marker is raised with
-the user, never removed. `markers` can also run as an informational CI step:
-its exit 1 only says some marker is flagged.
+released version (never a downgrade), removes each `ready` marker and the
+workaround it marks (`markers --json`), runs the repository's green bar and opens
+the PR with `Closes #<tracking>`; after the merge it comments "Adopted in #PR".
+A public application has no tracking issues, so it adopts from the markers
+alone. An `untracked` or `unresolvable` marker is raised with the user, never
+removed. `markers` can also run as an informational CI step: run
+`markers --json` and treat stdout that is not JSON as a failure, because exit 1
+is shared with usage.
 
 ## The CLI
 
@@ -109,8 +112,8 @@ stdin.
 | `track` | opens or refreshes the private tracking issue (stdin below) |
 | `deps <pkg> [--file [--public-app]]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue, gated like `file` (a public application refuses with exit 2 unless `--public-app`) |
 | `refresh` | rewrites the SessionStart cache of the directory's repository (two GraphQL calls); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
-| `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and an owner, member or collaborator wrote it; from the cache when fresh, else a refresh (two GraphQL calls; a failed refresh falls back to a stale cache, with a warning on stderr); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
-| `markers [--json]` | every `Temporary, until <upstream>#<n>` marker (`git grep`), judged against this repository's tracking issues: `ready` (upstream closed and released: remove it), `unresolvable` (bad reference, repository not found, not an allowed owner, archived or issues off), `untracked` (no tracking issue here links that upstream issue), or `waiting` (tracked, not released; not flagged). **Exit 1 when any marker is flagged**, 0 when none is (informational: a CI step or a session decides what to do), 5 rate-limited, 6 when `git grep` fails or gh does. The marker names its upstream as `<npm-name>#n` or `owner/repo#n`; an npm name resolves like `resolve` |
+| `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and an owner, member, collaborator or the release bot (`github-actions[bot]`) wrote it, from a PR of this or another repository; from the cache when fresh, else a refresh (two GraphQL calls; a failed refresh falls back to a stale cache, with a warning on stderr); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
+| `markers [--json] [--exclude <pathspec>]…` | every `Temporary, until <upstream>#<n>` marker (`git grep`; each `--exclude` becomes an `:(exclude)<pathspec>` so a repository can skip its fixtures and docs examples), judged against this repository's open tracking issues: `ready` (upstream closed and released: remove it), `unresolvable` (bad reference, repository not found, not an allowed owner, archived or issues off), `untracked` (no open tracking issue here links that upstream issue; flagged in a private application), or `waiting` (not flagged). A **public** application has no tracking issues, so its markers read the upstream issue directly (`ready` or `waiting`, with `untracked` only as a note, not a flag). **Exit 1 when any marker is flagged**, 0 when none is, 2 for a foreign origin, 5 rate-limited, 6 when `git grep` or gh fails; a rate limit or a gh failure is never reported as `unresolvable`. Exit 1 is shared with usage: a CI step runs `markers --json` and treats stdout that is not JSON as a failure. The marker names its upstream as `<npm-name>#n` or `owner/repo#n`; an npm name resolves like `resolve` |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent) |
 
 `file` reads one report:
@@ -167,7 +170,7 @@ with only the new rows when the package side closed it.
 | --- | --- |
 | 0 | done: filed, commented, updated, tracked, or nothing to do |
 | 1 | usage: unknown command, invalid flags or input; for `markers`, at least one marker is flagged |
-| 2 | refused by the gate (the reasons below), `file` or `deps --file` from a public application without `--public-app`, or `track` on a public or foreign application |
+| 2 | refused by the gate (the reasons below), `ready` or `markers` in a checkout whose origin is not an allowed owner's, `file` or `deps --file` from a public application without `--public-app`, or `track` on a public or foreign application |
 | 3 | refused by the scrub, or the deny-list could not be built whole |
 | 4 | keyword candidates printed; nothing filed |
 | 5 | rate-limited; nothing filed |
@@ -312,6 +315,7 @@ a name followed by a call or a member access, anything inside a path.
 | `context.ts` | pure rendering of a cache entry for the hook: ranking, the caps, the 14-day flag, the token cap; `adoptReady` (closed + `released`) and `releaseFix` (the trusted `Fixed in <pkg>@<version>` comment) are shared with `ready` and `markers` |
 | `app-side.ts` | `loadSnapshot` (cache when fresh, else `refreshRepo`, stale cache on a failed refresh) and the `ready` command |
 | `markers-check.ts` | the `markers` command: resolves each marker's upstream (`resolvePackage` or `gate`) and flags ready, unresolvable and untracked ones |
+| `markers-public.ts`, `markers-types.ts` | a public application's markers read the upstream issue directly (`fetchUpstream`, shared with the refresh); the report types and `MarkerLookupError` (a rate limit or gh failure: exit 5/6, never `unresolvable`) |
 | `session-start.ts` | the hook's decision (allowlist, fresh/stale/cold, fail-open), with the runner injected; `scripts/hooks/session-start.ts` is the entry that builds the real one |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |

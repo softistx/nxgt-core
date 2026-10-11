@@ -106,4 +106,39 @@ describe('ready', () => {
 		expect(await main(h.ctx, ['ready'])).toBe(EXIT.refusedGate);
 		expect(h.runner.calls).toEqual([]);
 	});
+
+	test('a failed refresh falls back to the stale cache and warns', async () => {
+		const h = seeded({
+			run: [{ argv: GRAPHQL, result: { code: 1, stderr: 'HTTP 502' } }],
+			now: NOW + 3_600_000,
+		});
+		expect(await main(h.ctx, ['ready'])).toBe(EXIT.ok);
+		expect(h.out[0]).toContain('tracking #21');
+		expect(h.err.join('\n')).toContain('using the cache');
+	});
+
+	test('no cache and a rate limit exits 5', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [
+				{
+					argv: GRAPHQL,
+					result: { code: 1, stderr: 'HTTP 429 rate limit exceeded' },
+				},
+			],
+		});
+		expect(await main(h.ctx, ['ready'])).toBe(EXIT.rateLimited);
+	});
+
+	test('no cache and a gh failure exits 6', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [
+				{ argv: GRAPHQL, result: { code: 1, stderr: 'HTTP 502 bad gateway' } },
+			],
+		});
+		expect(await main(h.ctx, ['ready'])).toBe(EXIT.failed);
+	});
 });

@@ -55,12 +55,19 @@ describe('markers', () => {
 		});
 		expect(await run(h)).toBe(EXIT.flagged);
 		expect(h.out[0]).toContain('untracked @nxgt/widget#99');
+		expect(h.out[0]).toContain(
+			'no open tracking issue of this repository links',
+		);
 		expect(h.out[0]).toContain('softistx/nxgt-widget#99');
 	});
 
 	test('unresolvable: an unknown package and a repository gh cannot see', async () => {
 		const h = seeded({
 			run: [
+				{
+					argv: ['gh', 'api', 'repos/softistx/gone'],
+					result: { code: 1, stderr: 'gh: Not Found (HTTP 404)' },
+				},
 				grep(
 					[
 						'src/e.ts:2:// Temporary, until @nxgt/ghost#3',
@@ -71,7 +78,7 @@ describe('markers', () => {
 		});
 		expect(await run(h)).toBe(EXIT.flagged);
 		expect(h.out[0]).toContain('unresolvable @nxgt/ghost#3: unknown-package');
-		expect(h.out[1]).toContain('unresolvable softistx/gone#4');
+		expect(h.out[1]).toContain('unresolvable softistx/gone#4: not-found');
 		expect(h.out[2]).toBe('2 of 2 marker(s) flagged.');
 	});
 

@@ -9,7 +9,7 @@
  *   sessions <owner/repo> [--json]  live crew sessions that depend on the repository's packages
  *   refresh                         the SessionStart cache of this checkout's repository
  *   ready [--json]                  tracking issues whose upstream fix is released
- *   markers [--json]                `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
+ *   markers [--json] [--exclude <pathspec>]…                `Temporary, until` markers: ready to remove, unresolvable, untracked (exit 1)
  */
 
 import { readyCommand } from './app-side';
@@ -36,7 +36,7 @@ export const USAGE = `usage: issues.ts <command>
   sessions <owner/repo> [--json]
   refresh                               refresh this checkout's issue cache
   ready [--json]                        fixes released upstream, ready to adopt
-  markers [--json]                      workaround markers; exit 1 when any is flagged`;
+  markers [--json] [--exclude <pathspec>]… workaround markers; exit 1 when any is flagged`;
 
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
 	const result = await resolvePackage(ctx, pkg);
@@ -90,6 +90,21 @@ async function depsCommand(
 	}
 }
 
+/** Every value of a repeatable `--flag <value>`; undefined when one has none. */
+export function optionValues(
+	args: readonly string[],
+	flag: string,
+): string[] | undefined {
+	const values: string[] = [];
+	for (const [i, arg] of args.entries()) {
+		if (arg !== flag) continue;
+		const value = args[i + 1];
+		if (!value || value.startsWith('--')) return undefined;
+		values.push(value);
+	}
+	return values;
+}
+
 /** `--duplicate-of <n>` (a positive integer), `--new`, `--public-app`; undefined when invalid. */
 export function fileFlags(args: readonly string[]): FileFlags | undefined {
 	const index = args.indexOf('--duplicate-of');
@@ -133,8 +148,11 @@ export async function main(
 			return refreshCommand(ctx);
 		case 'ready':
 			return readyCommand(ctx, has('--json'));
-		case 'markers':
-			return markersCommand(ctx, has('--json'));
+		case 'markers': {
+			const excludes = optionValues(args, '--exclude');
+			if (!excludes) break;
+			return markersCommand(ctx, has('--json'), excludes);
+		}
 		case 'sessions':
 			return sessionsCommand(ctx, positional[0], has('--json'));
 	}

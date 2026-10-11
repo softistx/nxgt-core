@@ -40,6 +40,17 @@ export interface TrackingIssue {
 	readonly lastComment?: string;
 	/** The comment author's `authorAssociation` (OWNER, MEMBER, NONE…). */
 	readonly lastCommentBy?: string;
+	/** The comment author's login (the release bot is trusted by it). */
+	readonly lastCommentLogin?: string;
+}
+
+/** What one upstream issue says now. */
+export interface UpstreamIssue {
+	readonly state?: 'OPEN' | 'CLOSED';
+	readonly labels: readonly string[];
+	readonly lastComment?: string;
+	readonly lastCommentBy?: string;
+	readonly lastCommentLogin?: string;
 }
 
 export interface Snapshot {
@@ -53,7 +64,7 @@ export interface Snapshot {
 const LISTING = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){
 issues(states:OPEN,first:50,orderBy:{field:CREATED_AT,direction:ASC}){totalCount nodes{number title createdAt updatedAt labels(first:10){nodes{name}}}}
 reports:issues(states:OPEN,labels:["consumer-report"],first:10,orderBy:{field:CREATED_AT,direction:ASC}){nodes{number title createdAt updatedAt labels(first:10){nodes{name}}}}
-tracking:issues(states:OPEN,labels:["upstream"],first:30){totalCount nodes{number title body}}}}`;
+tracking:issues(states:OPEN,labels:["upstream"],first:100){totalCount nodes{number title body}}}}`;
 
 type Obj = Record<string, unknown>;
 const obj = (value: unknown): Obj =>
@@ -91,9 +102,38 @@ export function upstreamQuery(
 ): string {
 	const fields = refs.map(
 		(ref, i) =>
-			`u${i}:repository(owner:"${ref.repo.owner}",name:"${ref.repo.repo}"){issue(number:${ref.number}){state labels(first:10){nodes{name}} comments(last:1){nodes{body authorAssociation}}}}`,
+			`u${i}:repository(owner:"${ref.repo.owner}",name:"${ref.repo.repo}"){issue(number:${ref.number}){state labels(first:10){nodes{name}} comments(last:1){nodes{body authorAssociation author{login}}}}}`,
 	);
 	return `query{${fields.join('\n')}}`;
+}
+
+/**
+ * State, labels and last comment of each upstream issue, one aliased GraphQL
+ * call (none for no ref). The caller has checked the owner allowlist and the
+ * 32-bit number cap (`upstreamRef` does both); an issue gh cannot see comes
+ * back without a state.
+ */
+export async function fetchUpstream(
+	ctx: GhContext,
+	refs: readonly { repo: RepoId; number: number }[],
+): Promise<UpstreamIssue[]> {
+	if (refs.length === 0) return [];
+	const data = await graphql(ctx, ['-f', `query=${upstreamQuery(refs)}`]);
+	return refs.map((_, i): UpstreamIssue => {
+		const issue = obj(obj(data[`u${i}`])['issue']);
+		const state = text(issue['state']);
+		const last = nodes(issue['comments'])[0];
+		const comment = text(last?.['body']).slice(0, 300);
+		const by = text(last?.['authorAssociation']);
+		const login = text(obj(last?.['author'])['login']);
+		return {
+			...(state === 'OPEN' || state === 'CLOSED' ? { state } : {}),
+			labels: labelNames(issue),
+			...(comment ? { lastComment: comment } : {}),
+			...(comment && by ? { lastCommentBy: by } : {}),
+			...(comment && login ? { lastCommentLogin: login } : {}),
+		};
+	});
 }
 
 /** Two GraphQL calls; the snapshot is also written to the cache. */
@@ -136,29 +176,25 @@ export async function refreshRepo(
 		// Only repositories the plugin may touch are queried.
 		return ref && isAllowedOwner(ref.repo.owner, owners) ? [{ node, ref }] : [];
 	});
-	const upstream =
-		wanted.length === 0
-			? {}
-			: await graphql(ctx, [
-					'-f',
-					`query=${upstreamQuery(wanted.map((entry) => entry.ref))}`,
-				]);
+	const upstream = await fetchUpstream(
+		ctx,
+		wanted.map((entry) => entry.ref),
+	);
 	const tracking = wanted.map(({ node, ref }, i): TrackingIssue => {
-		const issue = obj(obj(upstream[`u${i}`])['issue']);
-		const state = text(issue['state']);
-		const last = nodes(issue['comments'])[0];
-		const comment = text(last?.['body']);
-		const by = text(last?.['authorAssociation']);
+		const issue = upstream[i];
 		return {
 			number: Number(node['number']),
 			title: text(node['title']),
 			upstream: `${formatRepo(ref.repo)}#${ref.number}`,
-			...(state === 'OPEN' || state === 'CLOSED'
-				? { upstreamState: state }
+			...(issue?.state ? { upstreamState: issue.state } : {}),
+			upstreamLabels: issue?.labels ?? [],
+			...(issue?.lastComment ? { lastComment: issue.lastComment } : {}),
+			...(issue?.lastComment && issue.lastCommentBy
+				? { lastCommentBy: issue.lastCommentBy }
 				: {}),
-			upstreamLabels: labelNames(issue),
-			...(comment ? { lastComment: comment.slice(0, 300) } : {}),
-			...(comment && by ? { lastCommentBy: by } : {}),
+			...(issue?.lastComment && issue.lastCommentLogin
+				? { lastCommentLogin: issue.lastCommentLogin }
+				: {}),
 		};
 	});
 	const total =

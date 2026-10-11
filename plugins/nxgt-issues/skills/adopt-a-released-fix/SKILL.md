@@ -3,10 +3,10 @@ name: adopt-a-released-fix
 description: >-
   Adopt a fix an in-house package has released for a problem this application
   reported: bump the package, remove the `Temporary, until <pkg>#<n>`
-  workarounds, run the repository's green bar, open the PR and close the
+  workarounds, run the repository's green bar, open the PR and close its
   tracking issue. Use when the SessionStart context lists "fixes released
   upstream, ready to adopt", when a `Temporary, until` marker is found whose
-  upstream issue is closed, when `file` answers "released: #n reported this",
+  upstream issue is closed **and** released, when `file` answers "released: #n reported this",
   or when asked what workarounds can go.
 allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts *)
 ---
@@ -43,17 +43,28 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers --json
 ```
 
 The entries with `"status": "ready"` are the markers (`file`, `line`) that
-waited for a released fix. Exit 1 only says some marker is flagged. Also handle
-the others the report shows:
+waited for a released fix. Exit 1 only says some marker is flagged (stdout that
+is not JSON is a failure: exit 2 is a foreign origin, 5 a rate limit, 6 a gh or
+git failure; tell the user, do not retry in a loop). `--exclude <pathspec>`
+(repeatable) skips fixtures and docs examples. Also handle the others the
+report shows:
 
-- `untracked`: no tracking issue links that upstream issue; ask the user, do not remove it;
+- `untracked`: no open tracking issue links that upstream issue (it may have been
+  closed early); ask the user, do not remove the marker;
 - `unresolvable`: the reference is wrong or the repository is gone; fix the marker or ask.
+
+**A public application has no tracking issues** (they would tie it to the
+anonymous report): `ready --json` is `[]` there, and `markers` reads the
+upstream issue directly. It adopts from the markers alone: `ready` markers
+carry `package` and `version` when the release comment is there, otherwise read
+the upstream issue or the registry.
 
 ## 3. Bump, remove, verify
 
-1. Bump the package to `version` in every `package.json` that declares it and
-   refresh the lockfile with the repository's package manager (`bun add
-   <package>@<version>` in a Bun workspace).
+1. Bump the package only when the installed or declared version is older than
+   `version` (never downgrade). Edit the range in each `package.json` that
+   declares it, then run `bun install` to refresh the lockfile (not `bun add`
+   at a workspace root).
 2. For each `ready` marker, open the file at `line`: delete the marker comment
    **and** the workaround it marks (the code that exists only because of the
    defect), restoring the direct use of the package. Never remove a marker
@@ -66,18 +77,19 @@ the others the report shows:
 
 ## 4. PR and close
 
-Open the PR (title `fix: Adopt <package>@<version>`; body: what was removed,
-the green bar, and the tracking issue number). Once it exists, close the
-tracking issue with the PR number:
+Open the PR, titled and committed by the repository's own convention (say what
+was adopted: `<package>@<version>`). The body lists what was removed, the green
+bar, and `Closes #<tracking>` for each tracking issue: the application's
+default branch is `develop`, so the merge closes them. After the merge, comment
+on each:
 
 ```bash
 gh issue comment <tracking> --body "Adopted in #<PR>."
-gh issue close <tracking>
 ```
 
-The tracking issue lives in this repository, which is private; nothing here
-goes on the upstream issue. A public repository never has a tracking issue
-(see `report-to-upstream`): there, only the markers and the bump apply.
+Closing at the merge, not before, keeps the tracking issue open until the
+workaround is really gone. The tracking issue lives in this repository, which is
+private; nothing here goes on the upstream issue.
 
 ## 5. Report
 
