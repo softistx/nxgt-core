@@ -54,7 +54,12 @@ release nothing, and `changeset status` will not ask for anything.
    /repos/softistx/nxgt-core/actions/permissions/workflow` should answer
    `write` and `true`. Open the PR by hand meanwhile; nothing else about the
    release changes.
-7. **Only then**, bump the dependency in the consumer and open its PR.
+7. **Tell the consumer sessions.** After the publish, `SendMessage` each live
+   session whose repository depends on the package (`ListAgents` plus their
+   `package.json`): the version, what changed, what it must do (bump, adapt,
+   nothing) — beside the `/crew announce`, per "Merges and releases" in
+   `~/.claude/CLAUDE.md`.
+8. **Only then**, bump the dependency in the consumer and open its PR.
 
 ## What a changeset has to say
 

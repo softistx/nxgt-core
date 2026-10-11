@@ -135,7 +135,7 @@ From the table in `AGENTS.md`:
   `ci.yml` — nxgt-data's copy plus `UNINSTALLED`, not shared.
 - `scripts/seaweedfs.ts` and its spec, with the "Start SeaweedFS" steps in
   `ci.yml` — nxgt-data's copy, not shared.
-- `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs}/scripts/lib/hook.ts`
+- `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs,nxgt-issues}/scripts/lib/hook.ts`
   — the hook shell copied in each plugin, since each installs on its own.
 - `LICENSE` at the root and in every `packages/*/`.
 - `stx-sdk` as a peer of `shared-hono` and `shared-graphql`, and a root

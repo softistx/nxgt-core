@@ -77,6 +77,13 @@ describe('entries on disk', () => {
 		expect(readEntry(file, 1_000 + 5_000, 1_000)?.fresh).toBe(false);
 	});
 
+	test('a write dated in the future is stale, not fresh', () => {
+		writeEntry(file, { n: 1 }, 5_000_000);
+		const entry = readEntry(file, 1_000);
+		expect(entry?.fresh).toBe(false);
+		expect(entry?.ageMs).toBe(0);
+	});
+
 	test('a clock behind the write gives age zero', () => {
 		expect(readEntry(file, 0)?.ageMs).toBe(0);
 	});
