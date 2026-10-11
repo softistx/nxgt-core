@@ -41,10 +41,10 @@ new `StorageService` every time the field initializer ran.
 | `S3_CREDENTIALS` | `{ endpoint, bucket, accessKeyId, secretAccessKey }` from env |
 
 `StorageService` talks to Bun's `S3Client`: `write`, `list`, `file`, `exists`,
-`presing` (presign; the name is spelled that way, and its error key is
-`presign-failed`), `delete`, `size`, `stat`, `unlink`, `fetch`. `fetch` takes a
+`presign` (its error key is `presign-failed`), `delete`, `size`, `stat`, `unlink`, `fetch`. `fetch` takes a
 `bucket` option to read from another bucket; it defaults to the constructor's
-bucket, itself `S3_BUCKET` by default. MinIO
+bucket, itself `S3_BUCKET` by default. `presing()` is a deprecated alias of
+`presign()`, kept for existing callers and removed in the next major. MinIO
 methods whose result types would otherwise leak minio's internal module are
 annotated through the public `Client`
 (`Awaited<ReturnType<Client['putObject']>>`) so a consumer's `.d.ts` resolves.
@@ -52,7 +52,7 @@ annotated through the public `Client`
 ## Errors
 
 Every `StorageService` method rejects (or, for the synchronous `file` and
-`presing`, throws) a `CustomException` with code 500 when the S3 call fails.
+`presign`, throws) a `CustomException` with code 500 when the S3 call fails.
 Its `message` is that method's key, and `debugMessage` holds the SDK's text:
 
 | Method | Message key |
@@ -61,7 +61,7 @@ Its `message` is that method's key, and `debugMessage` holds the SDK's text:
 | `list` | `storage.errors.list-failed` |
 | `file` | `storage.errors.file-failed` |
 | `exists` | `storage.errors.exists-failed` |
-| `presing` | `storage.errors.presign-failed` |
+| `presign` (and the deprecated `presing`) | `storage.errors.presign-failed` |
 | `delete` | `storage.errors.delete-failed` |
 | `size` | `storage.errors.size-failed` |
 | `stat` | `storage.errors.stat-failed` |

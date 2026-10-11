@@ -184,23 +184,31 @@ describe.skipIf(!hasS3)('StorageService', () => {
 		});
 	});
 
-	describe('presing', () => {
+	describe('presign', () => {
 		test('signs a URL that serves the stored content', async () => {
 			const key = keyFor('presign.txt');
 			await service.write(key, 'signed');
-			const response = await fetch(service.presing(key));
+			const response = await fetch(service.presign(key));
 			expect(response.status).toBe(200);
 			expect(await response.text()).toBe('signed');
 		});
 
 		test('signs a URL for a missing key, which the S3 answers with 404', async () => {
-			const response = await fetch(service.presing(missing));
+			const response = await fetch(service.presign(missing));
 			expect(response.status).toBe(404);
+		});
+
+		test('presing, the deprecated alias, still returns a working URL', async () => {
+			const key = keyFor('presing.txt');
+			await service.write(key, 'aliased');
+			const response = await fetch(service.presing(key));
+			expect(response.status).toBe(200);
+			expect(await response.text()).toBe('aliased');
 		});
 
 		test('turns an SDK error into storage.errors.presign-failed', () => {
 			expectInternal(
-				thrown(() => service.presing('')),
+				thrown(() => service.presign('')),
 				'storage.errors.presign-failed',
 			);
 		});

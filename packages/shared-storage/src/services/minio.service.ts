@@ -176,7 +176,7 @@ export class MinioService {
 	/**
 	 * Presigned GET URL supporting response-header overrides (e.g.
 	 * `response-content-disposition`) — Bun's native `S3Client.presign()`
-	 * (used by `StorageService.presing()`) has no equivalent, so callers that
+	 * (used by `StorageService.presign()`) has no equivalent, so callers that
 	 * need per-request Content-Disposition/Content-Type overrides (attachment
 	 * vs inline downloads) must go through this instead.
 	 */
