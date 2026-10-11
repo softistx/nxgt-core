@@ -207,7 +207,8 @@ The same, from `can`.
 
 Keto (or Kratos, Hydra — the name varies) did not answer. This is on
 purpose: an outage is never turned into a denial or an anonymous caller. The
-client can retry; `extensions.debugMessage` carries what the SDK saw.
+client can retry; `extensions.debugMessage` carries what the SDK saw, only
+when `isDev` is on (outside production).
 
 ### A denial's message reads `notes.errors.not-found`
 
@@ -247,13 +248,14 @@ the caller. Outside production, pass `false` or leave the argument out.
 
 ## Traps that throw nothing
 
-### The Sandbox page is gone in production
+### The Sandbox page answers 404
 
 `GET /sandbox` answers `404 Not Found` from an app mounted with
-`createYogaHono`, while `/graphql` answers. Since 3.2 the Sandbox page is
-served outside production only: with `NODE_ENV=production` it is not mounted,
-page options such as `sandbox: { port }` included. To serve it in production,
-say so:
+`createYogaHono`, while `/graphql` answers. The Sandbox page is served by
+default only when `NODE_ENV` is explicitly `development` or `test`, read when
+`createYogaHono` is called: with `NODE_ENV` unset, or `production`, or any
+other value, it is not mounted, page options such as `sandbox: { port }`
+included. In a dev setup, set `NODE_ENV=development`, or say so:
 
 ```ts
 createYogaHono(yoga, { sandbox: true });
@@ -261,9 +263,12 @@ createYogaHono(yoga, { sandbox: true });
 createYogaHono(yoga, { sandbox: { endpoint: 'explore', enabled: true } });
 ```
 
-Outside production, check that `NODE_ENV` is not `production` where the
-server runs — a container image often sets it — and that `sandbox` is not
-`false`.
+Also check that `sandbox` is not `false`.
+
+Yoga's own GraphiQL at `/graphql` is on in every environment unless
+`createYoga({ graphiql: false })` (or
+`graphiql: process.env.NODE_ENV === 'development'`); `createYogaHono` does not
+control it.
 
 ### Every caller is anonymous behind the gateway
 

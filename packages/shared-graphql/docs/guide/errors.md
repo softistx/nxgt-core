@@ -67,6 +67,8 @@ new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 | a `GraphQLError` thrown on purpose | its own | its own | its own |
 | a plain `Error` a resolver threw | `INTERNAL_SERVER_ERROR` | — | the mask message |
 
+`debugMessage` (and an unexpected error's original) reach the client only when Yoga's `isDev` is true, and Yoga does not derive `isDev` from `NODE_ENV` for a custom `maskError`: pass `maskedErrors: { maskError, isDev: process.env.NODE_ENV === 'development' }`.
+
 ```json
 {
 	"errors": [
@@ -168,6 +170,8 @@ caller, is the same function under its older name.
 graphql-js wraps every error a resolver throws in a `GraphQLError`. A wrapper
 around a plain `Error` — a driver's `connect ECONNREFUSED 10.0.0.5:27017` — is
 replaced by the mask message, as Yoga's default mask does; its `path` is kept.
-In development (`isDev`) the original is in `extensions.debugMessage`.
+In development (`isDev`) the original is in `extensions.debugMessage`; Yoga does not
+derive `isDev` from `NODE_ENV` for a custom `maskError`, so pass
+`maskedErrors: { maskError, isDev: process.env.NODE_ENV === 'development' }`.
 
 A `GraphQLError` you throw yourself, and every validation error, passes as is.

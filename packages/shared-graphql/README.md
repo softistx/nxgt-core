@@ -271,15 +271,20 @@ of the server that served the page — the request's own origin, behind a proxy
 and over HTTPS alike — unless `port`, `hostname`, `protocol` or a whole
 `initialEndpoint` pins it; `createYogaHono` points it at `yoga.graphqlEndpoint`.
 
-`createYogaHono` serves that page at `/sandbox` outside production only: with
-`NODE_ENV=production` the route answers 404. `sandbox: true` serves it in
-every environment, `sandbox: false` in none; page options configure it, and
-their `enabled` decides the same way.
+`createYogaHono` serves that page at `/sandbox` only when `NODE_ENV` is
+explicitly `development` or `test`, read when it is called: unset, or any other
+value, the route answers 404. A dev setup with `NODE_ENV` unset sets
+`NODE_ENV=development` or passes `sandbox: true`, which serves it in every
+environment (`sandbox: false` in none); page options configure it, and their
+`enabled` decides the same way. Yoga's own GraphiQL at `/graphql` is on in
+every environment unless `createYoga({ graphiql: false })` (or
+`graphiql: process.env.NODE_ENV === 'development'`); `createYogaHono` does not
+control it.
 
 ```ts
-createYogaHono(yoga); // the Sandbox outside production
-createYogaHono(yoga, { sandbox: { port: env.PORT } }); // configured, still outside production only
-createYogaHono(yoga, { sandbox: true }); // in production too
+createYogaHono(yoga); // the Sandbox when NODE_ENV is development or test
+createYogaHono(yoga, { sandbox: { port: env.PORT } }); // configured, same default
+createYogaHono(yoga, { sandbox: true }); // whatever NODE_ENV is
 createYogaHono(yoga, { sandbox: { endpoint: 'explore', enabled: true } });
 ```
 

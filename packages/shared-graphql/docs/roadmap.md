@@ -31,9 +31,10 @@ Nothing planned that changes what a consumer gets. See Later.
 
 ### 3.2
 
-- **The Sandbox page off in production**: `createYogaHono` serves it
-  outside production only, and `sandbox: true` (or `enabled: true` beside
-  its options) serves it in production too.
+- **The Sandbox page off unless in development**: `createYogaHono` serves it
+  only when `NODE_ENV` is explicitly `development` or `test` (unset or
+  anything else answers 404), and `sandbox: true` (or `enabled: true` beside
+  its options) serves it in every environment.
 - **`createFormatError`'s production mode hides internal detail**: an
   unexpected error answers `Unexpected error.`, and no error carries
   `debugMessage` or a stack trace.
