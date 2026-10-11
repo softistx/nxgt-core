@@ -180,6 +180,12 @@ describe('requirepass flags are literals, the bare directive is read as prose or
 		'docker run -d redis redis-server --requirepass Hunter2024 --appendonly yes',
 		'command: redis-server --requirepass Hunter2024 # dev only',
 		'requirepass Hunter2024 # change me',
+		'Set `requirepass Hunter2024` in redis.conf',
+		'- requirepass Hunter2024',
+		'1. requirepass Hunter2024',
+		"sed 's|^# requirepass .*|requirepass Hunter2024|' redis.conf",
+		"echo -e 'port 6379\\nrequirepass Hunter2024' > redis.conf",
+		'requirepass: Hunter2024',
 		'masterauth Hunter2024',
 		'# requirepass Hunter2024',
 	])('%p refuses', (text) => {
@@ -239,33 +245,50 @@ describe("compose defaults are judged by the name's last word", () => {
 
 describe('compose names are judged by the credential keyword, not by their last word alone', () => {
 	test.each([
-		'PGPASSWORD=${PGPASSWORD:-swordfish} psql -h db -U app',
-		'POSTGRES_PASSWORD: ${DB_PASSWORD_DEV:-swordfish}',
-		'password: ${DB_PASSWORD_VALUE:-swordfish}',
-		'password: ${APP_NAME:-swordfish}',
-		'${ADMIN_PASSWORD_DEV:-swordfish}',
-		'${OAUTH_CLIENT_SECRET_DEV:-swordfish}',
-		'${JWT_SECRET_LOCAL:-swordfish}',
-		'${PASSWORD_PROD:-swordfish}',
-		'${ADMIN_PASSWORD2:-swordfish}',
-		'${API_KEY_DEV:-abc123}',
-		'APP_KEY: ${APP_KEY:-base64:Zq8wLmP3vTnR}',
-		'${SECRET_KEY_BASE:-swordfish}',
+		`PGPASSWORD=\${PGPASSWORD:-swordfish} psql -h db -U app`,
+		`POSTGRES_PASSWORD: \${DB_PASSWORD_DEV:-swordfish}`,
+		`password: \${DB_PASSWORD_VALUE:-swordfish}`,
+		`password: \${APP_NAME:-swordfish}`,
+		`\${ADMIN_PASSWORD_DEV:-swordfish}`,
+		`\${OAUTH_CLIENT_SECRET_DEV:-swordfish}`,
+		`\${JWT_SECRET_LOCAL:-swordfish}`,
+		`\${PASSWORD_PROD:-swordfish}`,
+		`\${ADMIN_PASSWORD2:-swordfish}`,
+		`\${API_KEY_DEV:-abc123}`,
+		`APP_KEY: \${APP_KEY:-base64:Zq8wLmP3vTnR}`,
+		`\${SECRET_KEY_BASE:-swordfish}`,
+		`X: \${AUTH_HEADER:-Basic YWRtaW46aHVudGVyMg==}`,
+		`\${AWS_SECRET_ACCESS_KEY:-wJalrXUtnFEMI}`,
+		`\${SASLAUTHD_PASSWORD:-swordfish}`,
 	])('%p refuses', (text) => {
-		expect(refused(text.replaceAll('${', '$' + '{'))).toBe(true);
+		expect(refused(text)).toBe(true);
 	});
 
 	test.each([
-		'${TOKEN_TTL:-3600}',
-		'${PASSWORD_MIN_LENGTH:-12}',
-		'${JWT_SECRET_FILE:-/run/secrets/jwt}',
-		'${SECRET_NAME:-app-secrets}',
-		'${TOKEN_AUDIENCE:-my-app}',
-		'${PIN_LENGTH:-4}',
-		'${SESSION_STORE:-redis}',
-		'password: ${DB_PASSWORD:-$POSTGRES_PASSWORD}',
-		'password: ${DB_PASSWORD:-${POSTGRES_PASSWORD}}',
-		'PGPASSWORD=${PGPASSWORD:-$OTHER_PASSWORD} psql -h db',
+		`\${TOKEN_TTL:-3600}`,
+		`\${PASSWORD_MIN_LENGTH:-12}`,
+		`\${JWT_SECRET_FILE:-/run/secrets/jwt}`,
+		`\${SECRET_NAME:-app-secrets}`,
+		`\${TOKEN_AUDIENCE:-my-app}`,
+		`\${PIN_LENGTH:-4}`,
+		`\${OAUTH_API_HOSTNAME:-oauth-api.example.com}`,
+		`\${OAUTH_CLIENT_ID:-my-app}`,
+		`\${TOKEN_EXPIRES_IN:-1h}`,
+		`\${SESSION_DRIVER:-redis}`,
+		`\${SESSION_LIFETIME:-120}`,
+		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
+		`\${SASLAUTHD_MECHANISMS:-ldap}`,
+		`\${AUTHENTICATED_USERS:-admin}`,
+		`\${OAUTH_API_HOSTNAME:-oauth-api.example.com}`,
+		`\${OAUTH_CLIENT_ID:-my-app}`,
+		`\${TOKEN_EXPIRES_IN:-1h}`,
+		`\${SESSION_DRIVER:-redis}`,
+		`\${SESSION_LIFETIME:-120}`,
+		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
+		`\${SESSION_STORE:-redis}`,
+		`password: \${DB_PASSWORD:-$POSTGRES_PASSWORD}`,
+		`password: \${DB_PASSWORD:-\${POSTGRES_PASSWORD}}`,
+		`PGPASSWORD=\${PGPASSWORD:-$OTHER_PASSWORD} psql -h db`,
 	])('%p passes', (text) => {
 		passes(text);
 	});
@@ -279,6 +302,12 @@ describe('redis directives after config set, in prose and in quotes', () => {
 		"printf 'requirepass Hunter2024\\n' > redis.conf",
 		"sed -i 's/^# requirepass .*/requirepass Hunter2024/' redis.conf",
 		'requirepass Hunter2024 # change me',
+		'Set `requirepass Hunter2024` in redis.conf',
+		'- requirepass Hunter2024',
+		'1. requirepass Hunter2024',
+		"sed 's|^# requirepass .*|requirepass Hunter2024|' redis.conf",
+		"echo -e 'port 6379\\nrequirepass Hunter2024' > redis.conf",
+		'requirepass: Hunter2024',
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});
@@ -287,5 +316,7 @@ describe('redis directives after config set, in prose and in quotes', () => {
 		'requirepass is not set',
 		'requirepass and masterauth must match',
 		'requirepass should be long',
+		'`requirepass` is set in redis.conf',
+		'AUTHENTICATED: false',
 	])('%p passes', passes);
 });

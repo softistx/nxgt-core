@@ -46,12 +46,16 @@ const PIN = /(?:^|_)PIN$/;
 /** `${NAME:-default}` as a whole value, quoted or not, closing brace optional. */
 const EXPANSION_VALUE = /^["'`]?\$\{([A-Za-z_]\w*):?[-=+](.*?)\}?["'`]?$/s;
 
+/** A default shaped like an authorization header value, whatever the name: `Basic YWRtaW46…`. */
+const SCHEME_DEFAULT = /^(?:Basic|Digest|Token|Bearer)\s+[\w+/=.~-]{8,}/;
+
 /** Last words that make a name a setting, not a credential, whatever words come before. */
 const SETTING_WORDS = new Set(
 	`file path dir directory name ttl length min max expiry expires issuer audience
 	url uri host port user username prefix header type mode enabled algorithm store
 	timeout seconds minutes hours days count size limit format label scheme provider
-	domain endpoint rounds cost claim field`.split(/\s+/),
+	domain endpoint rounds cost claim field hostname id scopes scope realm in lifetime
+	driver secure samesite strategy db`.split(/\s+/),
 );
 
 /** Whether the name is a credential: it carries a credential keyword and does not end on a setting word. */
@@ -65,7 +69,8 @@ export const namesSecret = (name: string): boolean =>
  * benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
  */
 const isBenignExpansion = (name: string, value: string): boolean =>
-	!namesSecret(name) || BENIGN_DEFAULT.test(value.trim());
+	!SCHEME_DEFAULT.test(value.trim()) &&
+	(!namesSecret(name) || BENIGN_DEFAULT.test(value.trim()));
 
 /**
  * The literal default of a whole-value `${NAME:-default}` that is neither
@@ -126,6 +131,10 @@ export function secretDefaults(
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
 		if (isBenignExpansion(name, value)) continue;
+		if (SCHEME_DEFAULT.test(value.trim())) {
+			found.push('authorization');
+			continue;
+		}
 		const keyword = keywordOf(name) ?? (PIN.test(name) ? 'pin' : undefined);
 		const facts = { name, first: value.split(/\s/)[0] ?? '' };
 		if (keyword && !isCode(value, facts)) found.push(keyword);

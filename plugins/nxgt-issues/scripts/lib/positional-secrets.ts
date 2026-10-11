@@ -46,12 +46,13 @@ const FLAG_REQUIREPASS =
 	/(?<![\w-])--(?:requirepass|masterauth)(?:["']?[ \t]*,[ \t]*["']?|=|[ \t]+)["']?(?!-)([^\s"',]+)/g;
 /** The bare redis.conf directive: a literal at the start of a line or quoted, prose elsewhere. */
 const DIRECTIVE =
-	/(?<![\w-])(?:requirepass|masterauth)[ \t]+(["']?)(?!-)(?=([^\s"',]+))/g;
-const LINE_START = /^[ \t]*#?[ \t]*$/;
+	/(?:(?<![\w-])|(?<=\\n))(?:requirepass|masterauth):?[ \t]+(["']?)(?!-)(?=([^\s"'`,]+))/g;
+/** A line start: bare, after `#`, a markdown bullet or a number, or after a literal `\\n`. */
+const LINE_START = /(?:^|\\n)[ \t]*(?:(?:[-*>]|\d+\.)[ \t]*)?#?[ \t]*$/;
 const CONFIG_SET = /\bconfig[ \t]+set[ \t]*$/i;
 /** Right after an opening quote, or inside a sed `s/old/new/` replacement. */
 const QUOTE_BEFORE = /["'`][ \t]*$/;
-const SED_BEFORE = /\bs\/[^\n/]*\/$/;
+const SED_BEFORE = /\bs([^\w\s\\])[^\n]*\1$/;
 /** What may follow a directive at a line start: nothing, or a comment. */
 const COMMENT_ONLY = /^[ \t]*(?:#.*)?$/;
 const QUOTE_AFTER = /^(?:["'`]|\\n|[ \t]*$)/;
@@ -69,8 +70,11 @@ function directiveValue(
 	const value = match[2] ?? '';
 	if (match[1] !== '' || CONFIG_SET.test(before)) return value;
 	if (LINE_START.test(before))
-		return COMMENT_ONLY.test(rest) ? value : undefined;
-	if (SED_BEFORE.test(before)) return value.replace(/\/.*$/, '');
+		return COMMENT_ONLY.test(rest) || QUOTE_AFTER.test(rest)
+			? value
+			: undefined;
+	const sed = SED_BEFORE.exec(before);
+	if (sed) return value.split(sed[1] ?? '/')[0];
 	if (QUOTE_BEFORE.test(before) && QUOTE_AFTER.test(rest)) return value;
 	return undefined;
 }

@@ -12,10 +12,9 @@ import { wordsIn } from './credential-names';
  */
 export function keywordOf(name: string): string | undefined {
 	const lower = name.toLowerCase();
+	if (wordsIn(name).some((word) => /^o?auth\d?$/.test(word))) return 'auth';
 	const found =
-		/password|passwd|passphrase|pwd|secret|token|cookie|session|auth(?!or)/.exec(
-			lower,
-		);
+		/password|passwd|passphrase|pwd|secret|token|cookie|session/.exec(lower);
 	if (found) return found[0];
 	if (/api[_-]?key/.test(lower)) return 'api-key';
 	if (/private[_-]?key/.test(lower)) return 'private-key';
