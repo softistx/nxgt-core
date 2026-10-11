@@ -3,7 +3,7 @@ import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { type Env, env } from '../env';
+import { type Env, env, rawEnv } from '../env';
 import { createErrorHandler, type ErrorHandlerOptions } from './error-handler';
 
 /**
@@ -47,6 +47,7 @@ const plainError = () => {
 let logged: unknown[][];
 let errorSpy: ReturnType<typeof spyOn>;
 const originalNodeEnv = env.NODE_ENV;
+const originalRawNodeEnv = rawEnv.NODE_ENV;
 
 beforeEach(() => {
 	logged = [];
@@ -61,6 +62,7 @@ beforeEach(() => {
 afterEach(() => {
 	errorSpy.mockRestore();
 	env.NODE_ENV = originalNodeEnv;
+	rawEnv.NODE_ENV = originalRawNodeEnv;
 });
 
 const loggedText = () =>
@@ -69,9 +71,15 @@ const loggedText = () =>
 		.map((part) => (part instanceof Error ? part.message : String(part)))
 		.join('\n');
 
-const useNodeEnv = (nodeEnv: Env['NODE_ENV']) =>
+/** `undefined` is an unset `NODE_ENV`: the parsed `env` defaults it to development, the raw value stays unset. */
+const setNodeEnv = (nodeEnv: Env['NODE_ENV'] | undefined) => {
+	rawEnv.NODE_ENV = nodeEnv;
+	env.NODE_ENV = nodeEnv ?? 'development';
+};
+
+const useNodeEnv = (nodeEnv: Env['NODE_ENV'] | undefined) =>
 	beforeEach(() => {
-		env.NODE_ENV = nodeEnv;
+		setNodeEnv(nodeEnv);
 	});
 
 describe.each(['development', 'test'] as const)(
@@ -112,64 +120,70 @@ describe.each(['development', 'test'] as const)(
 	},
 );
 
-describe('createErrorHandler — NODE_ENV=production answers without the detail', () => {
-	useNodeEnv('production');
+describe.each([
+	['production', 'production'],
+	['unset', undefined],
+] as const)(
+	'createErrorHandler — NODE_ENV %s answers without the detail',
+	(_label, nodeEnv) => {
+		useNodeEnv(nodeEnv);
 
-	test('a CustomException answers its code and the translated message with its options, and no debugMessage', async () => {
-		const { response, body, text } = await call(customException);
-		expect(response.status).toBe(404);
-		expect(body).toEqual({
-			status: 404,
-			message: 't(errors.not-found, {"id":"abc"})',
-			timestamp: expect.any(String),
+		test('a CustomException answers its code and the translated message with its options, and no debugMessage', async () => {
+			const { response, body, text } = await call(customException);
+			expect(response.status).toBe(404);
+			expect(body).toEqual({
+				status: 404,
+				message: 't(errors.not-found, {"id":"abc"})',
+				timestamp: expect.any(String),
+			});
+			expect(text).not.toContain('internal detail');
 		});
-		expect(text).not.toContain('internal detail');
-	});
 
-	test('an HTTPException answers its status and message, and no stack', async () => {
-		const { response, body, text } = await call(httpException);
-		expect(response.status).toBe(418);
-		expect(body).toEqual({
-			status: 418,
-			message: 'short and stout',
-			timestamp: expect.any(String),
+		test('an HTTPException answers its status and message, and no stack', async () => {
+			const { response, body, text } = await call(httpException);
+			expect(response.status).toBe(418);
+			expect(body).toEqual({
+				status: 418,
+				message: 'short and stout',
+				timestamp: expect.any(String),
+			});
+			expect(text).not.toContain('error-handler.spec.ts');
 		});
-		expect(text).not.toContain('error-handler.spec.ts');
-	});
 
-	test('any other Error answers 500 and the translated generic message only', async () => {
-		const { response, body, text } = await call(plainError);
-		expect(response.status).toBe(500);
-		expect(body).toEqual({
-			status: 500,
-			message: 't(errors.internal-server-error)',
-			timestamp: expect.any(String),
+		test('any other Error answers 500 and the translated generic message only', async () => {
+			const { response, body, text } = await call(plainError);
+			expect(response.status).toBe(500);
+			expect(body).toEqual({
+				status: 500,
+				message: 't(errors.internal-server-error)',
+				timestamp: expect.any(String),
+			});
+			expect(text).not.toContain('internal detail');
 		});
-		expect(text).not.toContain('internal detail');
-	});
 
-	test.each([
-		['a CustomException', customException],
-		['an HTTPException', httpException],
-		['any other Error', plainError],
-	])('%s still reaches the logger with its stack', async (_, throws) => {
-		await call(throws);
-		const stack = logged.find(
-			([first]) => typeof first === 'string' && first.includes('    at '),
-		);
-		expect(stack).toBeDefined();
-	});
+		test.each([
+			['a CustomException', customException],
+			['an HTTPException', httpException],
+			['any other Error', plainError],
+		])('%s still reaches the logger with its stack', async (_, throws) => {
+			await call(throws);
+			const stack = logged.find(
+				([first]) => typeof first === 'string' && first.includes('    at '),
+			);
+			expect(stack).toBeDefined();
+		});
 
-	test('the debugMessage of a CustomException reaches the logger', async () => {
-		await call(customException);
-		expect(loggedText()).toContain('internal detail');
-	});
+		test('the debugMessage of a CustomException reaches the logger', async () => {
+			await call(customException);
+			expect(loggedText()).toContain('internal detail');
+		});
 
-	test('the message of any other Error reaches the logger', async () => {
-		await call(plainError);
-		expect(loggedText()).toContain('internal detail');
-	});
-});
+		test('the message of any other Error reaches the logger', async () => {
+			await call(plainError);
+			expect(loggedText()).toContain('internal detail');
+		});
+	},
+);
 
 describe.each(['development', 'test', 'production'] as const)(
 	'createErrorHandler — NODE_ENV=%s, whatever the environment',
@@ -209,15 +223,17 @@ describe('createErrorHandler — the stack in the log', () => {
 			([first]) => typeof first === 'string' && first.includes('    at '),
 		);
 
-	test.each<[Env['NODE_ENV'], ErrorHandlerOptions, boolean]>([
+	test.each<[Env['NODE_ENV'] | undefined, ErrorHandlerOptions, boolean]>([
 		['development', {}, true],
 		['development', { showStackInDev: false }, false],
 		['test', {}, false],
 		['test', { showStackInTest: true }, true],
 		['production', {}, true],
 		['production', { showStackInDev: false, showStackInTest: false }, true],
+		[undefined, {}, true],
+		[undefined, { showStackInDev: false, showStackInTest: false }, true],
 	])('NODE_ENV=%s with %o logs it: %p', async (nodeEnv, options, expected) => {
-		env.NODE_ENV = nodeEnv;
+		setNodeEnv(nodeEnv);
 		await call(plainError, options);
 		expect(stackLogged()).toBe(expected);
 	});

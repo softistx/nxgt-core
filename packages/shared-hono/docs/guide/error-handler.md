@@ -12,7 +12,7 @@ app.onError(createErrorHandler(translate));
 
 ## What a client receives
 
-| thrown | status | `message` | `debugMessage`, outside production |
+| thrown | status | `message` | `debugMessage`, only in development and test |
 | --- | --- | --- | --- |
 | `CustomException` | its `code` | `translate(message, options)` | its `debugMessage` |
 | `HTTPException` | its `status` | its `message`, as is | its stack |
@@ -28,12 +28,17 @@ another error's `message`; put that in `debugMessage`.
 
 ## Each environment
 
-The handler reads the package's own `env` on every request — parsed from
-`NODE_ENV` once, when the package is first imported, and the same one that
-gates `oryAuth`'s mock headers. Changing `process.env.NODE_ENV` afterwards has
-no effect. It accepts
-`development`, `test` and `production`, and **an unset `NODE_ENV` is
-`development`**.
+The handler reads the raw `NODE_ENV`, once, when the package is first
+imported. Changing `process.env.NODE_ENV` afterwards has no effect. The package
+accepts `development`, `test` and `production` and throws at import for any
+other value (see [troubleshooting](../troubleshooting.md)).
+
+**The detail is opt-in: the handler is secure by default.** It answers with
+`debugMessage` only when `NODE_ENV` is explicitly `development` or `test`. An
+**unset `NODE_ENV` answers as `production` does**, with no detail. This is
+deliberately not the package's `env.NODE_ENV`, which defaults an unset value to
+`development` (that default still gates `oryAuth`'s mock headers). Set
+`NODE_ENV=development` locally to see the detail.
 
 **`development` and `test`** answer with the detail, for the developer
 reading the response:
@@ -47,7 +52,7 @@ reading the response:
 }
 ```
 
-**`production`** answers with no `debugMessage` key at all — not the
+**`production`, or an unset `NODE_ENV`,** answers with no `debugMessage` key at all — not the
 exception's, not a stack, not an error's message. Only the status and the
 translated message reach the client:
 
@@ -68,15 +73,15 @@ meant to see belongs in the `CustomException`'s message key and its
 
 With `logToConsole` (the default), every error is logged through
 `@nxgt/shared-logging`'s `logger.error`, between two rules: the error itself,
-then its stack where the table below says so. Under `production` the log is
-where the detail now lives, so it also carries a `CustomException`'s
+then its stack where the table below says so. Whenever the response carries no
+detail (`production`, or an unset `NODE_ENV`) the log is where the detail lives, so it also carries a `CustomException`'s
 `debugMessage`, and the stack whatever the options say.
 
 | `NODE_ENV` | stack logged | `debugMessage` of a `CustomException` logged |
 | --- | --- | --- |
 | `development` | with `showStackInDev` (default `true`) | no — it is in the response |
 | `test` | with `showStackInTest` (default `false`) | no — it is in the response |
-| `production` | always | always |
+| `production`, or unset | always | always |
 
 `logToConsole: false` logs nothing at all, in any environment — so under
 `production` the detail then goes nowhere. Keep it for specs.

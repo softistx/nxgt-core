@@ -127,9 +127,29 @@ error handler guide](./guide/error-handler.md).
 
 ### A deployed service still answers a `debugMessage`
 
-`NODE_ENV` is not `production` where it runs. An unset `NODE_ENV` is
-`development`, which answers the detail. Set `NODE_ENV=production` in the
-service's environment.
+`NODE_ENV` is `development` or `test` where the service runs: those two are the
+only values that answer the detail. Set `NODE_ENV=production` in the service's
+environment. An unset `NODE_ENV` no longer answers it (since the change that
+made the handler secure by default), so a service still answering one has it
+set explicitly.
+
+### A local service no longer answers a `debugMessage`
+
+`createErrorHandler()` sends `debugMessage` only when `NODE_ENV` is explicitly
+`development` or `test`; an unset `NODE_ENV` answers as production does. Set it
+for the local run, for instance `NODE_ENV=development bun run dev`, or in the
+`.env` the dev server loads. The detail is also in the log.
+
+### `Invalid environment variables`
+
+Thrown when `@nxgt/shared-hono` is first imported, after logging the failing
+issue, when `NODE_ENV` is set to something other than `development`, `test` or
+`production` — `staging`, say. The package validates `NODE_ENV` strictly. Set it
+to one of the three and keep the environment's name in another variable:
+
+```sh
+NODE_ENV=production APP_ENV=staging bun run start
+```
 
 ### `principalFromMockHeaders` always names a caller
 

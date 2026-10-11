@@ -64,11 +64,11 @@ app.onError(createErrorHandler(translate));
 `message` translated. `HTTPException` keeps its status and message. Anything
 else is a 500 with the translated `errors.internal-server-error`.
 
-**Under `NODE_ENV=production` the body has no `debugMessage`** — no
-exception detail, no stack, no error message: only `status`, the translated
-`message` and `timestamp`. That detail goes to the logger instead.
-`development` and `test` (and an unset `NODE_ENV`, which is `development`)
-still answer it. See [the error handler guide](./docs/guide/error-handler.md).
+**`debugMessage` is only sent when `NODE_ENV` is `development` or `test`.**
+Under `production`, any other value, or an **unset** `NODE_ENV`, the body has
+no `debugMessage` — no exception detail, no stack, no error message: only
+`status`, the translated `message` and `timestamp`. That detail goes to the
+logger instead. Set `NODE_ENV=development` locally to see it. See [the error handler guide](./docs/guide/error-handler.md).
 
 ## Auth
 
