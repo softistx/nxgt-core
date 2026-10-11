@@ -39,7 +39,11 @@ const ACCESSOR = /^(?:[A-Za-z-]+=)?["']?\{?\.[\w.[\]*-]*\}?["']?$/;
 const FORMAT = /^(["'])(?:%\{\w+\}|(?:\\[nrt]|[^A-Za-z\d\\])*)\1$/;
 const WORD = /^[A-Za-z][A-Za-z_-]*$/;
 const VARIABLE_PARTS = /["']?(?:\$\{\w+\}|\$\w+)["']?/g;
-const PRINTERS = new Set(['echo', 'printf']);
+const PRINTERS = new Set(['echo', 'printf', 'expr', 'basename', 'yes']);
+/** Commands that run the command that follows them. */
+const WRAPPERS = new Set(
+	'env command xargs busybox sudo exec time nice nohup'.split(' '),
+);
 
 /** An argument made only of `$VARIABLES` and separators: `"$U:$P"`. */
 const isVariables = (arg: string): boolean =>
@@ -75,8 +79,13 @@ function isSafeArgument(arg: string, command: string): boolean {
 
 /** One pipeline segment: a lower-case command and arguments that carry no value. */
 function isReadOnlySegment(segment: string): boolean {
-	if (isSecretCommand(segment)) return false;
-	const [command = '', ...args] = segment.trim().split(/\s+/);
+	const words = segment.trim().split(/\s+/);
+	while (WRAPPERS.has(words[0] ?? '')) {
+		words.shift();
+		while (words[0]?.startsWith('-')) words.shift();
+	}
+	if (isSecretCommand(words.join(' '))) return false;
+	const [command = '', ...args] = words;
 	if (!COMMAND.test(command)) return false;
 	let secretNext = false;
 	for (const arg of args) {

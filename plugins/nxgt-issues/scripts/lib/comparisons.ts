@@ -3,14 +3,17 @@
  * inside a credential-named function: `if (req.body.password === 'swordfish')`,
  * `if (c.req.header('x-api-key') !== 'acoolproject')`. The other operand is
  * a credential when its last word is one (`operands.ts`) or when it reads a
- * header or a value named like one. A bare `key` is not (`e.key === 'Escape'`).
+ * header or a value named like one, by its last word: `userPassword` and
+ * `x-gateway-secret` are, `tokenType`, `passwordStrength` and `sortKey` are not,
+ * and a `key` counts only after a qualifier (`apiKey`, `signingKey`). An
+ * all-caps literal is a constant (`lexer.token === 'EOF'`).
  * `method === 'GET'` and `role === 'admin'` compare ordinary values and pass.
  */
 
 import { CREDENTIAL_HEADER } from './auth-calls';
 import { wordsOf } from './code-values';
 import { isHarmlessLiteral } from './literals';
-import { CREDENTIAL_WORDS, lastName, pathAtEnd, pathAtStart } from './operands';
+import { lastName, pathAtEnd, pathAtStart } from './operands';
 
 const WINDOW = 120;
 const OPERATOR = '(?:===|!==|==|!=)';
@@ -26,11 +29,26 @@ const VALUE = {
 	keyPosition: true,
 };
 
-/** Whether an identifier or header name reads as a credential. */
+/** The last words that make a name a credential: `userPassword`, `apiKey`, `x-gateway-secret`. */
+const LAST_WORDS = new Set(
+	'password pass passwd pwd secret token apikey'.split(' '),
+);
+/** A `key` is a credential only after one of these, as in key-names.ts (`sortKey` is not). */
+const KEY_QUALIFIERS = new Set(
+	'api secret private signing access encryption hmac master'.split(' '),
+);
+/** A token kind or constant: `EOF`, `NUMBER`. */
+const CONSTANT = /^[A-Z][A-Z_]+$/;
+
+/**
+ * Whether an identifier or header name reads as a credential: by its last
+ * word only (`tokenType`, `passwordStrength` and `secretManager` are not).
+ */
 function namesCredential(name: string): boolean {
 	const words = wordsOf(name);
-	if (words.length === 1 && words[0] === 'key') return false;
-	return words.some((word) => CREDENTIAL_WORDS.has(word));
+	const last = words.at(-1) ?? '';
+	if (last === 'key') return KEY_QUALIFIERS.has(words.at(-2) ?? '');
+	return LAST_WORDS.has(last);
 }
 
 /** Whether the operand ending (or starting) a comparison is a credential. */
@@ -46,6 +64,7 @@ function isCredentialOperand(
 }
 
 const refuses = (match: RegExpMatchArray): boolean =>
+	!CONSTANT.test(match[2] ?? '') &&
 	!isHarmlessLiteral(match[2] ?? '', { ...VALUE, template: match[1] === '`' });
 
 /** True when a credential is compared with a literal that is not plainly harmless. */

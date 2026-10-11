@@ -33,6 +33,8 @@ export const CREDENTIAL_WORDS = new Set(
 const SCOPE_WORDS = new Set(
 	'scope scopes permission permissions role roles'.split(' '),
 );
+const CREDENTIAL_LITERAL =
+	/^(?:password|passwd|pwd|pass|secret|token|api_?key|key|credentials?|auth|authorization|cookie)$/i;
 const SECRET_WORD = /secret|passw|pwd|key|token/;
 const SNAKE = /^[a-z]+(?:_[a-z]+)+$/;
 const SCOPE = /^[a-z*_-]+(?::[a-z*_-]+)+$/;
@@ -78,6 +80,8 @@ export function classify(
  */
 export function comparesSecret(text: string, role: Role): boolean {
 	if (!looksLikeCredential(text)) return false;
+	// `field.type === 'password'`: a credential word compared with a member is a name.
+	if (role === 'compare-member' && CREDENTIAL_LITERAL.test(text)) return false;
 	if (SNAKE.test(text)) {
 		return (
 			SECRET_WORD.test(text) &&

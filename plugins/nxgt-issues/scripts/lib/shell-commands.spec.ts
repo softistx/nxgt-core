@@ -52,6 +52,15 @@ describe('read-only commands are placeholders', () => {
 
 describe('commands that take a secret positionally', () => {
 	test.each([
+		'PASSWORD=$(xargs echo swordfish)',
+		'PASSWORD=$(env echo swordfish)',
+		'PASSWORD=$(expr swordfish)',
+		'PASSWORD=$(sudo echo swordfish)',
+		'mongosh -u admin -p swordfish',
+		'mongo --password swordfish',
+		'ldapsearch -x -D cn=admin -w swordfish',
+		'smbclient //host/share -U user%swordfish',
+		'x=$(mongosh -p swordfish)',
 		'HASH=$(htpasswd -nbB admin swordfish)',
 		'echo $(caddy hash-password --plaintext swordfish)',
 		'echo $(sshpass -p hunter2 ssh host)',
@@ -67,6 +76,10 @@ describe('commands that take a secret positionally', () => {
 		'HASH=$(htpasswd -nbB "$U" "$P")',
 		'sshpass -p "$PASS" ssh host',
 		'sshpass -f /run/secrets/ssh ssh host',
+		'mongosh -u admin -p "$MONGO_PASSWORD"',
+		'ldapsearch -x -W -D cn=admin',
+		'smbclient //host/share -U "$SMB_USER%$SMB_PASS"',
+		'T=$(sudo cat /run/secrets/token)',
 		'mkpasswd -m sha-512 "$PASS"',
 		'docker login -u me --password-stdin ghcr.io',
 	])('%p passes', passes);

@@ -24,7 +24,12 @@
 
 import { CREDENTIAL_HEADER, hasSecretArgument } from './auth-calls';
 import { hasAuthorizationSecret } from './authorization';
-import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
+import {
+	isCodeValue,
+	isPlaceholder,
+	startsWithPlaceholder,
+	wordsOf,
+} from './code-values';
 import { hasCredentialComparison } from './comparisons';
 import { hasCredentialPair } from './credential-pairs';
 import { isNamingKey } from './key-names';
@@ -129,10 +134,18 @@ function keywordOf(name: string): string | undefined {
  * pass-through `PGPASSWORD=$PGPASSWORD psql`.
  */
 function isShellReference(name: string, value: string): boolean {
-	if (!value.startsWith('$')) return false;
-	const bare = value.replace(/^\$\{?|\}?$/g, '');
+	const unquoted = value.replace(/^["'`]/, '');
+	if (!unquoted.startsWith('$')) return false;
+	const bare = unquoted.replace(/^\$\{?|\}?["'`]?$/g, '');
 	return isPlaceholder(value) || bare === name;
 }
+
+/** `const isSecret = (field) => field.type === 'password'`: a predicate, not a credential. */
+const isPredicate = (name: string, value: string): boolean =>
+	/^is[A-Z]/.test(name) &&
+	/^(?:async\s+)?(?:function\b|\([^)]*\)\s*(?::[^=]+)?=>|[A-Za-z_$][\w$]*\s*=>)/.test(
+		value,
+	);
 
 const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
@@ -152,7 +165,7 @@ const TOKEN_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
 /** `curl -u user:pass`. */
 const CURL_USER = /\bcurl\b[^\n]*?[ \t](?:-u|--user)[ \t]+(\S+:\S+)/g;
 /** `redis-cli -a pass`. */
-const REDIS_A = /\bredis-cli\b[^\n]*?[ \t]-a[ \t]+(?!-)\S+/;
+const REDIS_A = /\bredis-cli\b[^\n]*?[ \t]-a[ \t]+(?!-)(\S+)/g;
 const PRIVATE_KEY_BLOCK = /-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----/;
 
 /**
@@ -180,10 +193,12 @@ function collectSecrets(text: string, found: Set<string>): void {
 		const whole = `${value}${match[3] ?? ''}`.trim();
 		const keyword = keywordOf(name);
 		if (!keyword || value.endsWith(':')) continue;
+		if (text.startsWith('${', match.index - 2)) continue; // `${NAME:-default}`, judged whole
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
 		// A credential header's value, like Authorization: `x-gateway-secret: $GATEWAY_SECRET`
 		if (CREDENTIAL_HEADER.test(name) && isPlaceholder(value)) continue;
-		if (isShellReference(name, value)) continue;
+		if (isShellReference(name, value) || startsWithPlaceholder(value)) continue;
+		if (isPredicate(name, whole)) continue; // function-values.ts judges it
 		if (encodesSecret(whole)) {
 			found.add(keyword);
 			continue;
@@ -214,7 +229,9 @@ function collectSecrets(text: string, found: Set<string>): void {
 	for (const match of text.matchAll(CURL_USER)) {
 		if (!isPlaceholder(match[1]?.split(':')[1] ?? '')) found.add('basic-auth');
 	}
-	if (REDIS_A.test(text)) found.add('password');
+	for (const match of text.matchAll(REDIS_A)) {
+		if (!isPlaceholder(match[1] ?? '')) found.add('password');
+	}
 	for (const match of text.matchAll(FLAG)) {
 		if (!isPlaceholder(match[2] ?? ''))
 			found.add(keywordOf(match[1] ?? '') ?? 'password');

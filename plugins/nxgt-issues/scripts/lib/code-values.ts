@@ -22,6 +22,8 @@
  *   a quoted cookie name for a key whose name ends in `cookie` (`cookie: 'sid'`).
  */
 
+import { isShellValue } from './shell-variables';
+
 const WORDS = new Set(
 	(
 		'string number boolean bigint symbol object array function void never ' +
@@ -73,30 +75,6 @@ export const wordsOf = (name: string): string[] =>
 /** A member expression of letters only: `ctx.token`, `config.secret`. */
 const MEMBER = /^[A-Za-z_$]+(?:\??\.[A-Za-z_$]+){1,3}$/;
 const ENV = /^(?:[\w$]+\.)*env\.[\w$]+$/i;
-const SHELL_VARIABLE = /^["'`]?\$(\{)?([A-Z_][A-Z0-9_]*)\}?["'`]?$/;
-/** Names that read as a credential or an environment setting even without an underscore. */
-const ENV_WORDS = new Set(
-	'USER PASS PASSWORD PASSWD PWD TOKEN SECRET KEY APIKEY HOME HOST PORT URL'.split(
-		' ',
-	),
-);
-
-/**
- * A shell variable: `$ADMIN_PASSWORD`, `${NAME}`, `$USER`, `$P`. Unbraced, the
- * name needs an underscore, a known environment word or at most two letters,
- * so a password that starts with `$` (`$UPERSECRET`) is not taken for one.
- */
-function isShellVariable(value: string): boolean {
-	const match = SHELL_VARIABLE.exec(value);
-	if (!match) return false;
-	const name = match[2] ?? '';
-	return (
-		match[1] !== undefined ||
-		name.includes('_') ||
-		name.length <= 2 ||
-		ENV_WORDS.has(name)
-	);
-}
 const ENV_BRACKET = /^(?:[\w$]+\.)*env\[\s*(["'])\w+\1\s*\]$/;
 
 /** True when `value` cannot be a secret: a type, a word, an env reference, a mask. */
@@ -105,7 +83,7 @@ export function isPlaceholder(raw: string): boolean {
 		.replace(/^(?:await|new|typeof)\s+/i, '')
 		.replace(/[\s,;]+$/, '');
 	const asserted = unwrapped.replace(/!$/, '');
-	if (ENV_BRACKET.test(asserted) || isShellVariable(asserted)) return true;
+	if (ENV_BRACKET.test(asserted) || isShellValue(asserted)) return true;
 	const value = unwrapped
 		.replace(/(?:\[\])+(?=[;,)}\]"'`]*$)/, '')
 		.replace(/^["'`]+|["'`;,)}\]]+$/g, '')
@@ -185,6 +163,31 @@ function isType(value: string, name: string): boolean {
 	return value.toLowerCase() === name.toLowerCase();
 }
 
+/** Types a parameter named like a credential may have besides the primitives. */
+const KNOWN_TYPES = new Set(
+	(
+		'Buffer KeyObject CryptoKey CryptoKeyPair JsonWebKey ArrayBuffer ' +
+		'SharedArrayBuffer DataView Secret KeyLike Date'
+	).split(' '),
+);
+const TYPED_ARRAY = /^(?:Uint|Int|Float|BigInt|BigUint)\d*(?:Clamped)?Array$/;
+const TYPE_PART = '[A-Za-z_$][\\w$.]*(?:<[^<>]*>)?(?:\\[\\])*';
+/** A type followed by the `)` or `,` that ends a parameter: `string) {`, `Buffer, token?: string)`. */
+const PARAMETER_TYPE = new RegExp(
+	`^(${TYPE_PART}(?:\\s*[|&]\\s*${TYPE_PART})*)\\s*[),]`,
+);
+
+/** `function f(token: string) {`: the value is the type of a parameter, not a secret. */
+function isTypedParameter(whole: string, name: string): boolean {
+	const type = PARAMETER_TYPE.exec(whole)?.[1];
+	if (type === undefined) return false;
+	const words = type.match(/[A-Za-z_$][\w$]*/g) ?? [];
+	const known = words.every(
+		(w) => PRIMITIVES.has(w) || KNOWN_TYPES.has(w) || TYPED_ARRAY.test(w),
+	);
+	return known || isType(type, name);
+}
+
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z$]*$/;
 const INDEXED =
 	/^[A-Za-z_$][A-Za-z$]*(?:\.[A-Za-z_$][A-Za-z$]*)*\[(?:\d{1,3}|[A-Za-z_$][A-Za-z$]*)\]$/;
@@ -211,7 +214,9 @@ export function isCodeValue(whole: string, facts: AssignmentFacts): boolean {
 	if (typed?.[1] && typed[2] && isType(typed[1], facts.name)) {
 		return isCodeValue(typed[2], facts);
 	}
-	if (isType(value, facts.name)) return true;
+	if (isType(value, facts.name) || isTypedParameter(value, facts.name)) {
+		return true;
+	}
 	if (isFallbackChain(value) || INDEXED.test(value)) return true;
 	if (
 		IDENTIFIER.test(value) &&
@@ -225,4 +230,10 @@ export function isCodeValue(whole: string, facts: AssignmentFacts): boolean {
 		/cookie$/i.test(facts.name) &&
 		/^(["'])[A-Za-z][A-Za-z_.-]{0,39}\1$/.test(value)
 	);
+}
+
+/** The first quoted string of a JSON-like value when it is a placeholder and more JSON follows: `"<redacted>","path":…`. */
+export function startsWithPlaceholder(value: string): boolean {
+	const first = /^(["'`])((?:\\.|(?!\1).)*)\1(?=,|$)/.exec(value);
+	return first !== null && isPlaceholder(first[0]);
 }

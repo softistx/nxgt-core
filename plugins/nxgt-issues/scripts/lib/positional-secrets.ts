@@ -11,12 +11,21 @@ import { isPlaceholder } from './code-values';
 
 /** A command word (and subcommand) whose arguments may carry a secret. */
 const SECRET_COMMAND =
-	/^(?:mysql\w*|mariadb\w*|redis-cli|sshpass|htpasswd|mkpasswd|(?:docker|podman)\s+login|openssl\s+passwd|caddy\s+hash-password)\b/;
+	/^(?:mysql\w*|mariadb\w*|redis-cli|sshpass|mongosh?|ldap\w+|smbclient|htpasswd|mkpasswd|(?:docker|podman)\s+login|openssl\s+passwd|caddy\s+hash-password)\b/;
 const INVOCATION =
-	/\b(htpasswd|mkpasswd|sshpass|openssl\s+passwd|caddy\s+hash-password|docker\s+login|podman\s+login)\b([^\n|;&)`]*)/g;
+	/\b(htpasswd|mkpasswd|sshpass|mongosh?|ldapsearch|ldapmodify|ldapadd|ldapdelete|ldappasswd|smbclient|openssl\s+passwd|caddy\s+hash-password|docker\s+login|podman\s+login)\b([^\n|;&)`]*)/g;
 /** Flags that take the secret as the next word, or attached with `=`. */
+const MONGO = /^(?:-p|--password)(?![\w-])/;
+const LDAP = /^(?:-w|--password)(?![\w-])/;
 const SECRET_FLAGS: Readonly<Record<string, RegExp>> = {
 	sshpass: /^-p/,
+	mongo: MONGO,
+	mongosh: MONGO,
+	ldapsearch: LDAP,
+	ldapmodify: LDAP,
+	ldapadd: LDAP,
+	ldapdelete: LDAP,
+	ldappasswd: LDAP,
 	login: /^(?:-p|--password)(?![\w-])/,
 	'hash-password': /^(?:-p|--plaintext)(?![\w-])/,
 };
@@ -49,8 +58,18 @@ function flagValue(word: string, next: string | undefined, flag: RegExp) {
 	return rest === '' ? (next ?? '') : rest;
 }
 
+/** `smbclient -U user%pass`: the part after `%` is the password. */
+function refusesSmb(args: string[]): boolean {
+	return args.some((word, i) => {
+		const value = flagValue(word, args[i + 1], /^(?:-U|--user=?)/);
+		const password = value?.split('%')[1];
+		return password !== undefined && !isSafeValue(password);
+	});
+}
+
 function refusesInvocation(command: string, args: string[]): boolean {
 	const key = command.split(/\s+/).pop() ?? command;
+	if (key === 'smbclient') return refusesSmb(args);
 	const flag = SECRET_FLAGS[key];
 	if (flag) {
 		return args.some((word, i) => {
