@@ -36,7 +36,7 @@ const oneLine = (value: string, max: number): string => {
 /** The only comment shown is the release step's own: `Fixed in <pkg>@<version>` and an optional `(#PR)`. */
 const NPM_NAME = '(?:@[a-z0-9~-][a-z0-9._~-]*\\/)?[a-z0-9~-][a-z0-9._~-]*';
 const RELEASE_COMMENT = new RegExp(
-	`^Fixed in ${NPM_NAME}@\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?: \\(#\\d+\\))?$`,
+	`^Fixed in (${NPM_NAME})@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)(?: \\(#\\d+\\))?\\.?$`,
 );
 /** Who may speak for the release: the repository's own people. */
 const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
@@ -84,14 +84,25 @@ function issueLine(issue: PackageIssue, now: number): string {
 	return `- #${issue.number}${flag}${tagged} ${oneLine(issue.title, 80)} (${days(issue.createdAt, now)}d old)`;
 }
 
+/** The release step's `Fixed in <pkg>@<version>` comment, when the last one is that and an owner, member or collaborator wrote it. */
+export function releaseFix(
+	issue: TrackingIssue,
+): { package: string; version: string; comment: string } | undefined {
+	// The release step writes the sentence, a blank line and a hidden marker: only the first line counts.
+	const comment = issue.lastComment?.split('\n', 1)[0]?.trim();
+	if (!comment || !TRUSTED.has(issue.lastCommentBy ?? '')) return undefined;
+	const match = RELEASE_COMMENT.exec(comment);
+	if (!match?.[1] || !match[2]) return undefined;
+	return {
+		package: match[1],
+		version: match[2].replace(/\.$/, ''),
+		comment,
+	};
+}
+
 function adoptLine(issue: TrackingIssue): string {
-	const comment = issue.lastComment?.trim();
-	const note =
-		comment &&
-		TRUSTED.has(issue.lastCommentBy ?? '') &&
-		RELEASE_COMMENT.test(comment)
-			? ` — ${oneLine(comment, 80)}`
-			: '';
+	const fix = releaseFix(issue);
+	const note = fix ? ` — ${oneLine(fix.comment, 80)}` : '';
 	return `- tracking #${issue.number} ${oneLine(issue.title, 70)} → ${issue.upstream} is fixed and released${note}`;
 }
 
@@ -148,7 +159,7 @@ export function renderContext(
 	const total = Math.max(snapshot.total ?? 0, ranked.length);
 	const sections: Section[] = [
 		{
-			header: `${HEADER} fixes released upstream, ready to adopt${asOf}:`,
+			header: `${HEADER} fixes released upstream, ready to adopt (skill adopt-a-released-fix)${asOf}:`,
 			lines: adopt.map(adoptLine),
 			beyond: ready.length - adopt.length,
 		},

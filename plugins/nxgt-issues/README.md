@@ -8,10 +8,11 @@ package side sees its open issues when a session starts; once the fix is
 released, the application adopts it and removes the `// Temporary, until
 <package>#<n>` markers.
 
-> **Status: reporter and session start.** This version ships the
-> `report-to-upstream` skill, the `issues.ts` CLI behind it (`resolve`, `file`,
-> `track`, `deps`, `sessions`, `refresh`) and the `SessionStart` hook. The
-> app-side adoption flow (the `adopt-a-released-fix` skill, a later version) and the `/issues` dashboard follow in later versions.
+> **Status: reporter, session start and app side.** This version ships the
+> `report-to-upstream` and `adopt-a-released-fix` skills, the `issues.ts` CLI
+> behind them (`resolve`, `file`, `track`, `deps`, `sessions`, `refresh`,
+> `ready`, `markers`) and the `SessionStart` hook. The package-side skill and
+> the `/issues` dashboard follow in later versions.
 
 ## Install
 
@@ -21,8 +22,9 @@ claude plugin install nxgt-issues@nxgt-core --scope user
 
 It is not part of `nxgt-base` yet. Installed, it adds the `report-to-upstream`
 skill, which fires when a session hits a bug, a missing feature, a wrong doc or
-an outdated dependency in one of the owner's packages, and it registers the
-SessionStart hook (below). `NXGT_ISSUES_DISABLE=1` turns the hook, and the
+an outdated dependency in one of the owner's packages, the `adopt-a-released-fix`
+skill, which fires when such a fix has been released (below), and it registers
+the SessionStart hook (below). `NXGT_ISSUES_DISABLE=1` turns the hook, and the
 CLI, off.
 
 ## The reporter flow
@@ -46,7 +48,8 @@ owner, the hook adds to Claude's context:
   oldest; a flag marks one with no activity for 14 days;
 - at most five tracking issues of the application whose upstream issue is
   closed **and** labelled `released` (the fix is on npm); shown first, with the
-  release step's `Fixed in <pkg>@<version>` comment when that is the last one.
+  release step's `Fixed in <pkg>@<version>` comment when that is the last one,
+  under a header that points to the `adopt-a-released-fix` skill (below).
 
 It prints nothing when there is nothing to show, and stays under about 600
 tokens (titles are cut to one line and introduced as data, not instructions).
@@ -81,6 +84,17 @@ GraphQL calls (the open and `upstream`-labelled issues, then the state, labels
 and last comment of each upstream issue; one call when there is no tracking
 issue), so a 10-minute cache stays far below the 5000 points an hour.
 
+## The adoption flow
+
+The `adopt-a-released-fix` skill fires when the SessionStart context lists a
+released fix, when a `Temporary, until` marker waits for a closed issue, or when
+asked what workarounds can go. It runs `ready --json`, bumps the package to the
+released version, removes each `ready` marker and the workaround it marks (`markers --json`),
+runs the repository's green bar, opens the PR and closes the tracking issue
+with "Adopted in #PR". An `untracked` or `unresolvable` marker is raised with
+the user, never removed. `markers` can also run as an informational CI step:
+its exit 1 only says some marker is flagged.
+
 ## The CLI
 
 `bun plugins/nxgt-issues/scripts/issues.ts <command>` (from a skill:
@@ -95,6 +109,8 @@ stdin.
 | `track` | opens or refreshes the private tracking issue (stdin below) |
 | `deps <pkg> [--file [--public-app]]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue, gated like `file` (a public application refuses with exit 2 unless `--public-app`) |
 | `refresh` | rewrites the SessionStart cache of the directory's repository (two GraphQL calls); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
+| `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and an owner, member or collaborator wrote it; from the cache when fresh, else a refresh (two GraphQL calls; a failed refresh falls back to a stale cache, with a warning on stderr); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
+| `markers [--json]` | every `Temporary, until <upstream>#<n>` marker (`git grep`), judged against this repository's tracking issues: `ready` (upstream closed and released: remove it), `unresolvable` (bad reference, repository not found, not an allowed owner, archived or issues off), `untracked` (no tracking issue here links that upstream issue), or `waiting` (tracked, not released; not flagged). **Exit 1 when any marker is flagged**, 0 when none is (informational: a CI step or a session decides what to do), 5 rate-limited, 6 when `git grep` fails or gh does. The marker names its upstream as `<npm-name>#n` or `owner/repo#n`; an npm name resolves like `resolve` |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent) |
 
 `file` reads one report:
@@ -150,7 +166,7 @@ with only the new rows when the package side closed it.
 | code | meaning |
 | --- | --- |
 | 0 | done: filed, commented, updated, tracked, or nothing to do |
-| 1 | usage: unknown command, invalid flags or input |
+| 1 | usage: unknown command, invalid flags or input; for `markers`, at least one marker is flagged |
 | 2 | refused by the gate (the reasons below), `file` or `deps --file` from a public application without `--public-app`, or `track` on a public or foreign application |
 | 3 | refused by the scrub, or the deny-list could not be built whole |
 | 4 | keyword candidates printed; nothing filed |
@@ -293,7 +309,9 @@ a name followed by a call or a member access, anything inside a path.
 | `cache.ts` | the 10-minute cache, written atomically |
 | `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/` |
 | `refresh.ts` | the two GraphQL calls that fill a repository's cache entry, and the `refresh` command |
-| `context.ts` | pure rendering of a cache entry for the hook: ranking, the caps, the 14-day flag, the token cap |
+| `context.ts` | pure rendering of a cache entry for the hook: ranking, the caps, the 14-day flag, the token cap; `adoptReady` (closed + `released`) and `releaseFix` (the trusted `Fixed in <pkg>@<version>` comment) are shared with `ready` and `markers` |
+| `app-side.ts` | `loadSnapshot` (cache when fresh, else `refreshRepo`, stale cache on a failed refresh) and the `ready` command |
+| `markers-check.ts` | the `markers` command: resolves each marker's upstream (`resolvePackage` or `gate`) and flags ready, unresolvable and untracked ones |
 | `session-start.ts` | the hook's decision (allowlist, fresh/stale/cold, fail-open), with the runner injected; `scripts/hooks/session-start.ts` is the entry that builds the real one |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
@@ -332,7 +350,7 @@ a name followed by a call or a member access, anything inside a path.
 | `workspaces.ts` | a repository's manifests, their dependencies, and an installed dependency's manifest |
 | `deny-sources.ts` | where a filing's deny-list comes from, and the configuration |
 | `report.ts` | the stdin JSON of `file` |
-| `cli.ts`, `cli-context.ts`, `filing.ts`, `file.ts`, `file-checks.ts`, `deps.ts`, `deps-behind.ts`, `track.ts`, `sessions.ts` | the commands |
+| `cli.ts`, `cli-context.ts`, `filing.ts`, `file.ts`, `file-checks.ts`, `deps.ts`, `deps-behind.ts`, `track.ts`, `sessions.ts` | the commands (`app-side.ts` and `markers-check.ts` above) |
 
 The `issue-body.ts` templates do not scrub. `file` renders the whole body (and
 the duplicate comment) and runs `scrub()` on the rendered text, refusing on
