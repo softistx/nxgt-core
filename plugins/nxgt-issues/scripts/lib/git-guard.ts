@@ -11,7 +11,11 @@
  * `protocol.<name>.allow=always` is more specific and beats it, so the
  * per-protocol keys are named too. A partial clone's lazy fetch (a promisor
  * remote, `remote.<name>.uploadpack`) is the way a read such as `git show`
- * reaches a transport, hence `GIT_NO_LAZY_FETCH` in the environment.
+ * reaches a transport. Two more layers close it in the environment:
+ * `GIT_NO_LAZY_FETCH` (git 2.44+) stops the fetch, and an empty
+ * `GIT_ALLOW_PROTOCOL` (git 2.12+) allows no protocol at all whatever the
+ * repository's config says, http, https, git and `<helper>::` included, which
+ * covers a git older than 2.44.
  */
 
 type Env = Record<string, string | undefined>;
@@ -39,11 +43,11 @@ export function hardenGit(argv: readonly string[]): string[] {
 
 /** Variables that point git at another repository, other objects, other config or another program. */
 const DROPPED =
-	/^(?:GIT_DIR|GIT_WORK_TREE|GIT_INDEX_FILE|GIT_COMMON_DIR|GIT_OBJECT_DIRECTORY|GIT_ALTERNATE_OBJECT_DIRECTORIES|GIT_EXTERNAL_DIFF|GIT_EXEC_PATH|GIT_ALLOW_PROTOCOL|GIT_CONFIG_SYSTEM|GIT_CONFIG_PARAMETERS|GIT_CONFIG_COUNT|GIT_CONFIG_KEY_\d+|GIT_CONFIG_VALUE_\d+|GIT_TRACE\w*|BUN_OPTIONS)$/;
+	/^(?:GIT_DIR|GIT_WORK_TREE|GIT_INDEX_FILE|GIT_COMMON_DIR|GIT_OBJECT_DIRECTORY|GIT_ALTERNATE_OBJECT_DIRECTORIES|GIT_EXTERNAL_DIFF|GIT_EXEC_PATH|GIT_CONFIG_SYSTEM|GIT_CONFIG_PARAMETERS|GIT_CONFIG_COUNT|GIT_CONFIG_KEY_\d+|GIT_CONFIG_VALUE_\d+|GIT_TRACE\w*|BUN_OPTIONS)$/;
 
 /**
  * The environment of every child: the parent's, minus the variables above, plus
- * no pager, no prompt, no optional locks and no lazy fetch.
+ * no pager, no prompt, no optional locks, no lazy fetch and no protocol.
  * `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` stay: the user's own
  * `user.name` is read from them.
  */
@@ -58,6 +62,7 @@ export function childEnv(base: Env): Record<string, string> {
 		GIT_TERMINAL_PROMPT: '0',
 		GIT_OPTIONAL_LOCKS: '0',
 		GIT_NO_LAZY_FETCH: '1',
+		GIT_ALLOW_PROTOCOL: '',
 		GH_PROMPT_DISABLED: '1',
 	};
 }

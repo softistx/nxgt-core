@@ -11,6 +11,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import {
 	chmodSync,
+	copyFileSync,
 	existsSync,
 	mkdirSync,
 	readdirSync,
@@ -26,6 +27,8 @@ import { MARKER_GREP_ARGV, markerGrepArgv, parseMarkers } from './markers';
 import {
 	addedChangesetPackages,
 	commitTouches,
+	hasTags,
+	isAncestor,
 	loggedPrs,
 	previousTag,
 } from './release-git';
@@ -361,6 +364,37 @@ describe('a partial clone lazily fetching a missing blob', () => {
 		expect(existsSync(marker)).toBe(false);
 	});
 
+	test('an empty GIT_ALLOW_PROTOCOL alone stops a remote helper, as on a git older than 2.44', async () => {
+		// The per-protocol keys do not name a helper, and GIT_NO_LAZY_FETCH does
+		// nothing before git 2.44: this is the gap the empty variable closes.
+		const dir = await makeRepo();
+		const { script, marker } = plant('helper');
+		const bin = tempDir('guard-helper-bin');
+		copyFileSync(script, join(bin, 'git-remote-zorblaxhelper'));
+		chmodSync(join(bin, 'git-remote-zorblaxhelper'), 0o755);
+		await plantConfig(dir, 'core.repositoryformatversion', '1');
+		await plantConfig(dir, 'extensions.partialClone', 'origin');
+		await plantConfig(dir, 'remote.origin.promisor', 'true');
+		await plantConfig(dir, 'remote.origin.url', 'zorblaxhelper::x');
+		await plantConfig(dir, 'protocol.zorblaxhelper.allow', 'always');
+		const blob = await git(dir, 'rev-parse', 'HEAD:.changeset/c.md');
+		rmSync(join(dir, '.git/objects', blob.slice(0, 2), blob.slice(2)));
+		const path = `${bin}:${process.env['PATH'] ?? ''}`;
+		const show = ['show', '--no-textconv', 'HEAD:.changeset/c.md'];
+
+		const { GIT_NO_LAZY_FETCH: _, ...oldGit } = childEnv({
+			...process.env,
+			PATH: path,
+		});
+		const raw = { ...oldGit, GIT_ALLOW_PROTOCOL: 'zorblaxhelper' };
+		await spawn(hardenGit(['git', ...show]), dir, raw);
+		if (!existsSync(marker)) return; // this git never calls the helper: nothing to prove
+		rmSync(marker);
+
+		await spawn(hardenGit(['git', ...show]), dir, oldGit);
+		expect(existsSync(marker)).toBe(false);
+	});
+
 	guarded(lazy)(
 		'the real runner: addedChangesetPackages and discoverFixes write no marker',
 		async () => {
@@ -432,7 +466,6 @@ describe('the environment', () => {
 			'GIT_ALTERNATE_OBJECT_DIRECTORIES',
 			'GIT_EXTERNAL_DIFF',
 			'GIT_EXEC_PATH',
-			'GIT_ALLOW_PROTOCOL',
 			'GIT_CONFIG_SYSTEM',
 			'GIT_CONFIG_PARAMETERS',
 			'GIT_CONFIG_COUNT',
@@ -448,6 +481,7 @@ describe('the environment', () => {
 			PATH: '/bin',
 			HOME: '/h',
 			GIT_PAGER: 'less',
+			GIT_ALLOW_PROTOCOL: 'file:https',
 			UNSET: undefined,
 		};
 		for (const key of dropped) base[key] = '/x';
@@ -456,6 +490,7 @@ describe('the environment', () => {
 		expect(Object.keys(out).sort()).toEqual(
 			[
 				'GH_PROMPT_DISABLED',
+				'GIT_ALLOW_PROTOCOL',
 				'GIT_CONFIG_GLOBAL',
 				'GIT_CONFIG_NOSYSTEM',
 				'GIT_NO_LAZY_FETCH',
@@ -470,6 +505,7 @@ describe('the environment', () => {
 		expect(out['GIT_TERMINAL_PROMPT']).toBe('0');
 		expect(out['GIT_OPTIONAL_LOCKS']).toBe('0');
 		expect(out['GIT_NO_LAZY_FETCH']).toBe('1');
+		expect(out['GIT_ALLOW_PROTOCOL']).toBe('');
 		expect(out['GH_PROMPT_DISABLED']).toBe('1');
 	});
 });
@@ -584,9 +620,20 @@ describe('the release call sites carry the second layer of flags', () => {
 	test('tag and merge-base: names and revisions come after --end-of-options', async () => {
 		const s = spy();
 		await previousTag(ghCtx('/h', s.runner), INPUT);
-		const tag = callsOf(s.calls, 'tag')[0];
-		expect(tag?.indexOf('--end-of-options')).toBeLessThan(
-			tag?.indexOf('@nxgt/zorblax@*') ?? -1,
+		await hasTags(ghCtx('/h', s.runner), '@nxgt/zorblax');
+		await isAncestor(ghCtx('/h', s.runner), 'abc123', '@nxgt/zorblax@1.0.1');
+		const tags = callsOf(s.calls, 'tag');
+		expect(tags).toHaveLength(2);
+		for (const tag of tags) {
+			expect(tag.indexOf('--end-of-options')).toBeGreaterThan(-1);
+			expect(tag.indexOf('--end-of-options')).toBeLessThan(
+				tag.indexOf('@nxgt/zorblax@*'),
+			);
+		}
+		const merge = callsOf(s.calls, 'merge-base')[0];
+		expect(merge?.indexOf('--end-of-options')).toBeGreaterThan(-1);
+		expect(merge?.indexOf('--end-of-options')).toBeLessThan(
+			merge?.indexOf('abc123') ?? -1,
 		);
 	});
 });
@@ -633,12 +680,5 @@ describe('every git goes through the runner as a bare git', () => {
 		expect(offenders).toEqual([]);
 	});
 
-	test('only the runner spawns a process', () => {
-		for (const file of sources) {
-			if (file === 'runner.ts') continue;
-			const text = readFileSync(join(lib, file), 'utf8');
-			expect(text.includes('Bun.spawn')).toBe(false);
-			expect(text.includes('child_process')).toBe(false);
-		}
-	});
+	// That only the runner spawns a process is no-network.spec.ts's job.
 });

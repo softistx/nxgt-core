@@ -40,10 +40,10 @@ export function subjectPr(subject: string): number | undefined {
 	return match?.[1] ? Number(match[1]) : undefined;
 }
 
-/** A second layer under the runner's guard: no external diff driver, no textconv. */
 /** Ends git's options, so a revision or a name read from elsewhere is never taken for one. */
 export const END_OF_OPTIONS = '--end-of-options';
 
+/** A second layer under the runner's guard: no external diff driver, no textconv. */
 const NO_EXTERNAL = ['--no-ext-diff', '--no-textconv'] as const;
 
 export async function git(

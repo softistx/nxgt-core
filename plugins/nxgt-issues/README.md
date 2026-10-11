@@ -452,20 +452,25 @@ application's `appDomains` and `denyTerms`, see below).
   protocol.ssh.allow=never --no-optional-locks` (`lib/git-guard.ts`).
   `protocol.allow=never` alone is beaten by a repository's own
   `protocol.<name>.allow=always`, which is why the per-protocol keys are named
-  and why `GIT_NO_LAZY_FETCH=1` is set: a repository that declares itself a
-  partial clone (a promisor remote with an `uploadpack` command) otherwise runs
-  that command the moment a read such as `git show` finds a blob missing. An
+  and why the environment adds two more layers. A repository that declares
+  itself a partial clone (a promisor remote) makes a read such as `git show`
+  fetch a missing blob, through an `uploadpack` command, an http(s) server
+  that prompts through its `core.askPass`, or a `<helper>::` remote helper.
+  The per-protocol keys stop the `uploadpack` path on their own;
+  `GIT_NO_LAZY_FETCH=1` (git 2.44+) stops every lazy fetch; and an empty
+  `GIT_ALLOW_PROTOCOL` (git 2.12+) allows no protocol whatever the
+  repository's config says, which covers an older git too. An
   empty `diff.external=` is not in the list (git would run the command `''`
   and every patch diff would die with 128): the release reads pass
   `--no-ext-diff` instead.
   The child's environment is the parent's minus exactly: `GIT_DIR`,
   `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`,
   `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_EXTERNAL_DIFF`, `GIT_EXEC_PATH`,
-  `GIT_ALLOW_PROTOCOL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_PARAMETERS`,
+  `GIT_CONFIG_SYSTEM`, `GIT_CONFIG_PARAMETERS`,
   `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_<n>`, `GIT_CONFIG_VALUE_<n>`, every
   `GIT_TRACE*` and `BUN_OPTIONS`; and plus `GIT_PAGER=cat`,
-  `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `GIT_NO_LAZY_FETCH=1` and
-  `GH_PROMPT_DISABLED=1`. `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` stay,
+  `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `GIT_NO_LAZY_FETCH=1`,
+  `GIT_ALLOW_PROTOCOL=` (empty) and `GH_PROMPT_DISABLED=1`. `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM` stay,
   since the user's own `user.name` is read through them; on the hook path a
   repository's `.env` could have set them, which `--no-env-file` (below)
   closes. This is a list of known keys: a repository's config cannot be
