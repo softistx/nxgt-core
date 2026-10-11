@@ -7,6 +7,7 @@
  */
 
 import { rmSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { cachePath, readEntry, writeEntry } from './cache';
 import type { RepoId } from './repo-id';
 
@@ -17,8 +18,13 @@ const TTL_MS: Record<StampKind, number> = {
 	refreshing: 60 * 1000,
 };
 
-const stampPath = (home: string, id: RepoId, kind: StampKind): string =>
-	cachePath(home, id).replace(/\.json$/, `.${kind}.json`);
+/** `cache/stamps/<owner>__<repo>.<kind>.json`: a folder of their own, so no repository name can make a stamp path equal a cache path. */
+export const stampPath = (home: string, id: RepoId, kind: StampKind): string =>
+	join(
+		dirname(cachePath(home, id)),
+		'stamps',
+		basename(cachePath(home, id)).replace(/\.json$/, `.${kind}.json`),
+	);
 
 export function stampFresh(
 	home: string,

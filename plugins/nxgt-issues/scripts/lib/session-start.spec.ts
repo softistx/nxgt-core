@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { cachePath, writeEntry } from './cache';
-import { stampFresh } from './refresh-state';
+import { setStamp, stampFresh } from './refresh-state';
 import { type FakeRunner, fakeRunner } from './runner.fixtures';
 import {
 	checkout,
@@ -251,11 +251,7 @@ describe('sessionStartContext: a refresh that does not finish', () => {
 		const runner = fakeRunner();
 		const d = deps(runner);
 		seed(d.home, SNAPSHOT, NOW - 25 * 60_000);
-		writeEntry(
-			`${cachePath(d.home, ME)}`.replace('.json', '.failed.json'),
-			{},
-			NOW - 60_000,
-		);
+		setStamp(d.home, ME, 'failed', NOW - 60_000);
 		expect(await sessionStartContext(d)).toContain('as of 25m ago');
 		expect(runner.calls).toHaveLength(0);
 	});

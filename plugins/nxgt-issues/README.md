@@ -61,14 +61,14 @@ It reads `<home>/cache/<owner>__<repo>.json`, where `<home>` is
 | fresh | renders it; no gh call |
 | stale | renders it with "as of Nm ago" and starts `issues.ts refresh` detached, so the next session sees fresh data; not more than one per minute (a `refreshing` stamp) |
 | absent | one inline refresh capped at 800 ms; if it does not finish, prints nothing and starts the same detached refresh, so the next session finds a cache |
-| failure stamp | a refresh that fails (gh missing, logged out, bad answer) leaves a `failed` stamp beside the entry for 10 minutes: no attempt meanwhile, a stale entry is rendered as it is and an absent one prints nothing |
+| failure stamp | a refresh that fails (gh missing, logged out, bad answer) leaves a `failed` stamp (in `cache/stamps/`) for 10 minutes: no attempt meanwhile, a stale entry is rendered as it is and an absent one prints nothing |
 | rate-limit pause | a stale entry is rendered without a refresh; an absent one prints nothing, with no call |
 
 Everything shown from GitHub is untrusted: titles, labels and comments are
 cut to one line, stripped of control, zero-width and bidirectional characters
 and of angle brackets, and the output opens with a line saying so. Of a
 tracking issue's last upstream comment only the release step's own shape
-(`Fixed in <pkg>@<version>`, optionally `(#PR)`) is shown. The output is capped
+(`Fixed in <npm name>@<semver>`, optionally `(#PR)`), written by an owner, member or collaborator, is shown. The output is capped
 at 2400 characters; adopt-ready entries come first and every cut is counted in
 a "… and N more" line. The cache keeps the oldest 50 open issues plus the 10
 oldest consumer reports, and the real open count.
@@ -291,7 +291,7 @@ a name followed by a call or a member access, anything inside a path.
 | `refs.ts` | closing keywords and upstream references |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
-| `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps beside a cache entry |
+| `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/` |
 | `refresh.ts` | the two GraphQL calls that fill a repository's cache entry, and the `refresh` command |
 | `context.ts` | pure rendering of a cache entry for the hook: ranking, the caps, the 14-day flag, the token cap |
 | `session-start.ts` | the hook's decision (allowlist, fresh/stale/cold, fail-open), with the runner injected; `scripts/hooks/session-start.ts` is the entry that builds the real one |

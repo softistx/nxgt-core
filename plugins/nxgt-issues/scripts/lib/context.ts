@@ -25,8 +25,7 @@ const MORE_RESERVE = 24;
 /** One short line of plain text: no control, format (zero-width, bidi) or angle-bracket characters. */
 const oneLine = (value: string, max: number): string => {
 	const clean = value
-		// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters have no place in a context line.
-		.replace(/[\u0000-\u001f\u007f\p{Cf}\u2028\u2029]+/gu, ' ')
+		.replace(/[\p{Cc}\p{Cf}\u2028\u2029]+/gu, ' ')
 		.replace(/</g, '‹')
 		.replace(/>/g, '›')
 		.replace(/\s+/g, ' ')
@@ -35,8 +34,12 @@ const oneLine = (value: string, max: number): string => {
 };
 
 /** The only comment shown is the release step's own: `Fixed in <pkg>@<version>` and an optional `(#PR)`. */
-const RELEASE_COMMENT =
-	/^Fixed in (@?[\w.~-]+(?:\/[\w.~-]+)?@[\w.+-]+)(?: \(#\d+\))?$/;
+const NPM_NAME = '(?:@[a-z0-9~-][a-z0-9._~-]*\\/)?[a-z0-9~-][a-z0-9._~-]*';
+const RELEASE_COMMENT = new RegExp(
+	`^Fixed in ${NPM_NAME}@\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?: \\(#\\d+\\))?$`,
+);
+/** Who may speak for the release: the repository's own people. */
+const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 
 const days = (from: string, now: number): number => {
 	const time = Date.parse(from);
@@ -84,7 +87,9 @@ function issueLine(issue: PackageIssue, now: number): string {
 function adoptLine(issue: TrackingIssue): string {
 	const comment = issue.lastComment?.trim();
 	const note =
-		comment && RELEASE_COMMENT.test(comment)
+		comment &&
+		TRUSTED.has(issue.lastCommentBy ?? '') &&
+		RELEASE_COMMENT.test(comment)
 			? ` — ${oneLine(comment, 80)}`
 			: '';
 	return `- tracking #${issue.number} ${oneLine(issue.title, 70)} → ${issue.upstream} is fixed and released${note}`;
@@ -104,13 +109,13 @@ interface Section {
 }
 
 /** Sections in order, each header with as many lines as fit; every cut is counted in "… and N more". */
-function assemble(sections: readonly Section[]): string[] {
+function assemble(sections: readonly Section[], used: number): string[] {
 	const out: string[] = [];
-	let used = out.join('\n').length;
 	for (const section of sections) {
 		const room = (line: string) =>
 			used + line.length + 1 + MORE_RESERVE <= MAX_CHARS;
-		if (!room(section.header) || section.lines.length === 0) continue;
+		if (section.lines.length === 0 && section.beyond <= 0) continue;
+		if (!room(section.header)) continue;
 		out.push(section.header);
 		used += section.header.length + 1;
 		let kept = 0;
@@ -153,7 +158,8 @@ export function renderContext(
 			beyond: total - shown.length,
 		},
 	];
-	const body = assemble(sections);
+	const first = `${HEADER} ${UNTRUSTED}`;
+	const body = assemble(sections, first.length + 1);
 	if (body.length === 0) return undefined;
-	return [`${HEADER} ${UNTRUSTED}`, ...body].join('\n');
+	return [first, ...body].join('\n');
 }

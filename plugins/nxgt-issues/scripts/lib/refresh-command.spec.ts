@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { main } from './cli';
 import { harness, makeApp, removeTempDirs } from './cli.fixtures';
 import { EXIT } from './cli-context';
+import { stampFresh } from './refresh-state';
 import { GRAPHQL, listing } from './session.fixtures';
 
 afterAll(removeTempDirs);
@@ -37,5 +38,14 @@ describe('issues.ts refresh', () => {
 			run: [{ argv: GRAPHQL, result: { stdout: 'oops' } }],
 		});
 		expect(await main(broken.ctx, ['refresh'])).toBe(EXIT.failed);
+		// the app's own repository, not ME: the stamp is keyed by the directory's origin
+		expect(
+			stampFresh(
+				broken.home,
+				{ owner: 'softistx', repo: 'acme-store' },
+				'failed',
+				broken.ctx.now(),
+			),
+		).toBe(true);
 	});
 });

@@ -2,6 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { cachePath, readEntry } from './cache';
 import { RateLimitedError } from './github';
 import { refreshRepo, type Snapshot, upstreamQuery } from './refresh';
+import { setStamp, stampFresh, stampPath } from './refresh-state';
 import { fakeRunner } from './runner.fixtures';
 import {
 	GRAPHQL,
@@ -87,7 +88,12 @@ describe('refreshRepo', () => {
 										state: 'CLOSED',
 										labels: { nodes: [{ name: 'released' }] },
 										comments: {
-											nodes: [{ body: 'Fixed in @nxgt/vexora@1.2.3' }],
+											nodes: [
+												{
+													body: 'Fixed in @nxgt/vexora@1.2.3',
+													authorAssociation: 'MEMBER',
+												},
+											],
 										},
 									},
 								},
@@ -117,6 +123,7 @@ describe('refreshRepo', () => {
 				upstreamState: 'CLOSED',
 				upstreamLabels: ['released'],
 				lastComment: 'Fixed in @nxgt/vexora@1.2.3',
+				lastCommentBy: 'MEMBER',
 			},
 		]);
 	});
@@ -278,5 +285,30 @@ describe('refreshRepo: the listing', () => {
 			snapshot.issues.map((issue) => issue.number).sort((a, b) => a - b),
 		).toEqual([1, 60, 61]);
 		expect(snapshot.total).toBe(75);
+	});
+});
+
+describe('refreshRepo: stamps', () => {
+	test('a successful refresh removes both stamps', async () => {
+		const h = home();
+		setStamp(h, ME, 'failed', NOW);
+		setStamp(h, ME, 'refreshing', NOW);
+		const runner = fakeRunner({
+			run: [{ argv: GRAPHQL, result: { stdout: listing({}) } }],
+		});
+		await refreshRepo({ runner, home: h, now: () => NOW }, ME, OWNERS);
+		expect(stampFresh(h, ME, 'failed', NOW)).toBe(false);
+		expect(stampFresh(h, ME, 'refreshing', NOW)).toBe(false);
+	});
+
+	test('a stamp path never equals the cache path of another repository', () => {
+		const foo = { owner: 'softistx', repo: 'foo' };
+		const odd = { owner: 'softistx', repo: 'foo.failed' };
+		for (const kind of ['failed', 'refreshing'] as const) {
+			expect(stampPath('/h', foo, kind)).not.toBe(cachePath('/h', odd));
+		}
+		expect(stampPath('/h', foo, 'failed')).not.toBe(
+			stampPath('/h', odd, 'failed'),
+		);
 	});
 });

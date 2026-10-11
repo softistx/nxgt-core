@@ -38,6 +38,8 @@ export interface TrackingIssue {
 	readonly upstreamState?: 'OPEN' | 'CLOSED';
 	readonly upstreamLabels?: readonly string[];
 	readonly lastComment?: string;
+	/** The comment author's `authorAssociation` (OWNER, MEMBER, NONE…). */
+	readonly lastCommentBy?: string;
 }
 
 export interface Snapshot {
@@ -89,7 +91,7 @@ export function upstreamQuery(
 ): string {
 	const fields = refs.map(
 		(ref, i) =>
-			`u${i}:repository(owner:"${ref.repo.owner}",name:"${ref.repo.repo}"){issue(number:${ref.number}){state labels(first:10){nodes{name}} comments(last:1){nodes{body}}}}`,
+			`u${i}:repository(owner:"${ref.repo.owner}",name:"${ref.repo.repo}"){issue(number:${ref.number}){state labels(first:10){nodes{name}} comments(last:1){nodes{body authorAssociation}}}}`,
 	);
 	return `query{${fields.join('\n')}}`;
 }
@@ -144,7 +146,9 @@ export async function refreshRepo(
 	const tracking = wanted.map(({ node, ref }, i): TrackingIssue => {
 		const issue = obj(obj(upstream[`u${i}`])['issue']);
 		const state = text(issue['state']);
-		const comment = text(nodes(issue['comments'])[0]?.['body']);
+		const last = nodes(issue['comments'])[0];
+		const comment = text(last?.['body']);
+		const by = text(last?.['authorAssociation']);
 		return {
 			number: Number(node['number']),
 			title: text(node['title']),
@@ -154,6 +158,7 @@ export async function refreshRepo(
 				: {}),
 			upstreamLabels: labelNames(issue),
 			...(comment ? { lastComment: comment.slice(0, 300) } : {}),
+			...(comment && by ? { lastCommentBy: by } : {}),
 		};
 	});
 	const total =
