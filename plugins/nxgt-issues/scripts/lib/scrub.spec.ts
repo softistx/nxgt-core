@@ -845,6 +845,8 @@ describe('scrub: credentials under unknown names', () => {
 		['password: the hunter2 here', 'password'],
 		['the secret: it fails2', 'secret'],
 		['pwd: the cwd9', 'pwd'],
+		// Trade-off: prose without a validation or status word refuses.
+		['pwd: the cwd', 'pwd'],
 		['sessionId: abc123', 'session'],
 		['sid=abc123def456', 'sid'],
 		['oauth_token: abc', 'auth'],
@@ -856,9 +858,8 @@ describe('scrub: credentials under unknown names', () => {
 	});
 
 	test.each([
-		// Lower-case prose of two or more words after a label passes (round 3 of #246).
+		// Prose with a status word after a label passes (round 3 of #246).
 		'the secret: it fails',
-		'pwd: the cwd',
 		'password: string',
 		'Bearer tokens expire',
 		'apiKey: process.env.KEY',

@@ -117,8 +117,14 @@ const KEY_WORDS = new Set(['key', 'signing', 'hmac']);
 /** `name: v`, `name = v`, `'name' => v`; captures the first token and the rest of the value. */
 const ASSIGNMENT =
 	/(?<![\w-])([\w-]+)\??["']?[ \t]*(?:=>|[:=](?![=>]))[ \t]*(?:\r?\n[ \t]*)?(?=([^\s;}]+)([^\n;}]*))/g;
-/** Lower-case prose of two or more words after a label, unquoted and without digits. */
+/**
+ * Lower-case prose of two or more words after a label, unquoted and without
+ * digits, passes only with a validation or status word in it (`password: too
+ * short`, `token: has expired`): `password: open sesame` is a config line.
+ */
 const PROSE = /^[a-z]+(?:[ \t]+[a-z]+)+[.!]?$/;
+const STATUS =
+	/\b(?:too short|too long|required|invalid|missing|expired|not found|unauthorized|forbidden|incorrect|wrong|mismatch|empty|malformed|must|should|cannot|fail(?:s|ed)?|denied|rejected|an opaque string)\b/;
 const AUTHORIZATION =
 	/\bAuthorization["']?[ \t]*[:=][ \t]*(?:(?:Basic|Bearer|Digest|Negotiate|token)[ \t]+)?(\S+)/gi;
 const COOKIE = /\b(?:Set-)?Cookie["']?[ \t]*:[ \t]*([^\n]+)/gi;
@@ -153,7 +159,7 @@ export function findSecrets(text: string): string[] {
 		if (keyword === 'cookie' && value.includes('=')) continue; // the cookie rule decides
 		if (keyword === 'key' && isNamingKey(name, whole)) continue;
 		if (/(?:Error|Exception)$/.test(name)) continue; // `TokenExpiredError: jwt expired`
-		if (PROSE.test(whole)) continue; // `password: too short`
+		if (PROSE.test(whole) && STATUS.test(whole)) continue; // `password: too short`
 		if (isCodeValue(whole, { name, first: value })) continue;
 		found.add(keyword);
 	}

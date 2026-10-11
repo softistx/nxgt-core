@@ -227,7 +227,7 @@ a name followed by a call or a member access, anything inside a path.
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
-| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a name ending in `Error` or `Exception` and lower-case prose after a label (`password: too short`) pass |
+| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a name ending in `Error` or `Exception` and lower-case prose with a validation or status word after a label (`password: too short`, `token: has expired`) pass; `password: open sesame` refuses |
 | `key-names.ts` | `key` names: a plain one (`key`, `sortKey`) refuses only key material (`Zq8w-LmP3`, `AbCdEfGh…`, `ABCD-EFGH-IJKL`); a purposeful one (`signingKey`, `accessKeyId`, `licenseKey`) or an env-style `*_KEY` refuses any literal |
 | `common-words.ts` | the English and tech words a private repository stem is never denied as |
 | `credential-pairs.ts` | credential headers set by index or as a tuple (`headers['authorization'] = …`, `new Headers([['authorization', …]])`) and `--password`, `-W`, `-p`, `-a` flags beside their value in an argument array (a port passes) |
