@@ -3,6 +3,7 @@ import { delay } from '@nxgt/shared';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { translate } from '../i18n';
 import { hasS3 } from '../test/has-s3';
+import { MinioService } from './minio.service';
 import { S3_CREDENTIALS, StorageService } from './storage.service';
 
 // Resolved from this file, not from the working directory: `bun test` runs from
@@ -16,8 +17,9 @@ const image = Bun.file(
 const prefix = `storage-spec/${crypto.randomUUID()}`;
 const keyFor = (name: string) => `${prefix}/${name}`;
 const missing = keyFor('missing.txt');
-// A second bucket, for `fetch`'s `bucket` option. The S3 creates it on the
-// first write.
+// A second bucket, for `fetch`'s `bucket` option. Created explicitly before the
+// first write — only some S3s (SeaweedFS) create one on write — and removed
+// after.
 const OTHER_BUCKET = 'nxgt-test-other';
 
 /** The rejection of `promise`, or a failure if it resolved. */
@@ -77,6 +79,7 @@ function misconfigured(): StorageService {
 describe.skipIf(!hasS3)('StorageService', () => {
 	let service: StorageService;
 	let broken: StorageService;
+	const buckets: string[] = [];
 
 	beforeAll(() => {
 		service = new StorageService();
@@ -87,6 +90,9 @@ describe.skipIf(!hasS3)('StorageService', () => {
 		const listed = await service.list({ prefix });
 		for (const object of listed.contents ?? []) {
 			await service.s3.delete(object.key);
+		}
+		for (const bucket of buckets) {
+			await service.minio.minio.removeBucket(bucket).catch(() => {});
 		}
 	});
 
@@ -290,6 +296,10 @@ describe.skipIf(!hasS3)('StorageService', () => {
 		});
 
 		test('fetches from the bucket named in its options', async () => {
+			buckets.push(OTHER_BUCKET);
+			// Before the service exists: its constructor fires its own unawaited
+			// ensureBucketExists, which would race a second one.
+			await new MinioService(OTHER_BUCKET).ensureBucketExists(OTHER_BUCKET);
 			const other = new StorageService(OTHER_BUCKET);
 			const key = keyFor('fetch-other.txt');
 			await other.write(key, 'elsewhere');
@@ -300,6 +310,31 @@ describe.skipIf(!hasS3)('StorageService', () => {
 			} finally {
 				await other.s3.delete(key);
 			}
+		});
+
+		test('fetches without S3_BUCKET in the environment', async () => {
+			const key = keyFor('fetch-no-env-bucket.txt');
+			await service.write(key, 'no env bucket');
+			const { S3_BUCKET: _omitted, ...environment } = Bun.env;
+			const script = `
+				import { StorageService } from ${JSON.stringify(new URL('./storage.service.ts', import.meta.url).href)};
+				const storage = new StorageService(${JSON.stringify(S3_CREDENTIALS.bucket)});
+				const response = await storage.fetch(${JSON.stringify(key)});
+				console.log('RESULT', response.status, await response.text());
+			`;
+			const child = Bun.spawn(['bun', '-e', script], {
+				env: environment,
+				stdout: 'pipe',
+				stderr: 'pipe',
+			});
+			const [out, err] = await Promise.all([
+				new Response(child.stdout).text(),
+				new Response(child.stderr).text(),
+				child.exited,
+			]);
+			expect(err).toBe('');
+			// The logger shares stdout, so the result is the line that says so.
+			expect(out.split('\n')).toContain('RESULT 200 no env bucket');
 		});
 
 		test('rejects a missing key with a 404', async () => {
