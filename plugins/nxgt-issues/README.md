@@ -35,6 +35,7 @@ later version adds skills and hooks.
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts` | rewrites `host:port`, IP literals and resolver-error host names to `<host>` |
 | `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing |
+| `code-values.ts` | when the value of a credential-named assignment is code (a call whose literals are names, a type, an env read, a fallback chain) rather than a secret |
 | `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |
 | `issue-body.ts` | the issue and comment templates, with their HTML-comment markers |
