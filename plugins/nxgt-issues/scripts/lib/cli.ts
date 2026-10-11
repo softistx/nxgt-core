@@ -7,6 +7,7 @@
  *   track                           the private tracking issue (JSON on stdin)
  *   deps <pkg> [--file [--public-app]] the dependencies behind latest; --file updates the rolling issue
  *   sessions <owner/repo> [--json]  live crew sessions that depend on the repository's packages
+ *   refresh                         the SessionStart cache of this checkout's repository
  */
 
 import type { CliContext, ExitCode } from './cli-context';
@@ -17,6 +18,7 @@ import { behindDependencies } from './deps-behind';
 import { type FileFlags, fileCommand } from './file';
 import { refuseInPublicApp } from './file-checks';
 import { exitForError, printGateRefusal } from './filing';
+import { refreshCommand } from './refresh';
 import { formatRepo } from './repo-id';
 import { resolvePackage } from './resolve';
 import { sessionsCommand } from './sessions';
@@ -27,7 +29,8 @@ export const USAGE = `usage: issues.ts <command>
   file [--duplicate-of <n> | --new] [--public-app]   report JSON on stdin
   track                                 tracking JSON on stdin
   deps <pkg> [--file [--public-app]]
-  sessions <owner/repo> [--json]`;
+  sessions <owner/repo> [--json]
+  refresh                               refresh this checkout's issue cache`;
 
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
 	const result = await resolvePackage(ctx, pkg);
@@ -120,6 +123,8 @@ export async function main(
 				has('--file'),
 				has('--public-app'),
 			);
+		case 'refresh':
+			return refreshCommand(ctx);
 		case 'sessions':
 			return sessionsCommand(ctx, positional[0], has('--json'));
 	}

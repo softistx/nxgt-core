@@ -1,0 +1,17 @@
+{
+	"description": "nxgt-issues: at session start, show the package's open issues and the application's tracking issues whose upstream fix is released. Reads a 10-minute cache, refreshes it in the background, fails open, and NXGT_ISSUES_DISABLE=1 turns it off.",
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "bun",
+						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.ts"],
+						"timeout": 5
+					}
+				]
+			}
+		]
+	}
+}

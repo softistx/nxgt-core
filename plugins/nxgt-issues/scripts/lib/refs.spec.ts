@@ -107,4 +107,12 @@ describe('upstream marker', () => {
 		expect(upstreamRef('nothing here')).toBeUndefined();
 		expect(upstreamRef('<!-- nxgt-issues:upstream=bad -->')).toBeUndefined();
 	});
+
+	test('an issue number beyond 2^31-1 is no reference', () => {
+		const body = (n: string) =>
+			`<!-- nxgt-issues:upstream=softistx/nxgt-vexora#${n} -->`;
+		expect(upstreamRef(body('2147483647'))?.number).toBe(2147483647);
+		expect(upstreamRef(body('2147483648'))).toBeUndefined();
+		expect(upstreamRef(body('99999999999999999999'))).toBeUndefined();
+	});
 });

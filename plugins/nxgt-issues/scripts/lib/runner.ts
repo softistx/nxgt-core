@@ -11,6 +11,8 @@ export interface RunOptions {
 	readonly timeoutMs?: number;
 	readonly stdin?: string;
 	readonly cwd?: string;
+	/** Start the process and return at once (code 0, empty output), without waiting for it. */
+	readonly detached?: boolean;
 }
 
 export interface RunResult {
@@ -57,10 +59,15 @@ export function createRunner(
 			const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 			const child = Bun.spawn([...argv], {
 				...(options.cwd ? { cwd: options.cwd } : {}),
+				...(options.detached ? { detached: true } : {}),
 				stdin: options.stdin === undefined ? 'ignore' : 'pipe',
-				stdout: 'pipe',
-				stderr: 'pipe',
+				stdout: options.detached ? 'ignore' : 'pipe',
+				stderr: options.detached ? 'ignore' : 'pipe',
 			});
+			if (options.detached) {
+				child.unref();
+				return { code: 0, stdout: '', stderr: '' };
+			}
 			if (options.stdin !== undefined && child.stdin) {
 				child.stdin.write(options.stdin);
 				await child.stdin.end();

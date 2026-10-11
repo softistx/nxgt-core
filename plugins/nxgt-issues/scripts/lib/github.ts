@@ -49,9 +49,13 @@ export interface GhContext {
 	readonly home: string;
 	readonly now: () => number;
 	readonly cwd?: string;
+	/** Caps each gh call (the SessionStart hook's inline refresh). */
+	readonly timeoutMs?: number;
 }
 
-const RATE_LIMITED = /rate limit|secondary rate|abuse|HTTP 429|status 429/i;
+/** gh's own phrasings, so a repository named `abuse-tracker` in stderr is no rate limit. */
+const RATE_LIMITED =
+	/\b(?:API|secondary) rate limit|rate limit (?:exceeded|reached)|abuse detection|HTTP 429|status 429/i;
 
 const rateLimitPath = (home: string): string =>
 	join(home, 'cache', 'rate-limit.json');
@@ -75,11 +79,13 @@ export async function gh(
 	ctx: GhContext,
 	args: readonly string[],
 	stdin?: string,
+	options: { readonly partial?: boolean } = {},
 ): Promise<string> {
 	const paused = rateLimitedUntil(ctx.home, ctx.now());
 	if (paused !== undefined) throw new RateLimitedError(paused);
 	const result = await ctx.runner.run(['gh', ...args], {
 		...(stdin === undefined ? {} : { stdin }),
+		...(ctx.timeoutMs === undefined ? {} : { timeoutMs: ctx.timeoutMs }),
 		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
 	});
 	if (result.code === 0) return result.stdout;
@@ -88,7 +94,18 @@ export async function gh(
 		writeEntry(rateLimitPath(ctx.home), { until }, ctx.now());
 		throw new RateLimitedError(until);
 	}
+	// `gh api graphql` exits 1 on any `errors`, even beside usable `data`.
+	if (options.partial && hasData(result.stdout)) return result.stdout;
 	throw new GhError(args, result.code, result.stderr);
+}
+
+function hasData(stdout: string): boolean {
+	try {
+		const data = (JSON.parse(stdout) as { data?: unknown }).data;
+		return !!data && typeof data === 'object';
+	} catch {
+		return false;
+	}
 }
 
 export async function ghJson<T>(
