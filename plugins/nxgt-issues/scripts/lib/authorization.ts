@@ -51,7 +51,7 @@ function quoted(rest: string): { body: string; after: string } | undefined {
 }
 
 /** `${NAME:-default}` at the start of `rest`: the default is judged like the plain header value. */
-const EXPANSION_HEAD = /^\$\{[A-Za-z_]\w*:?[-=+]([^}\n]*)\}/;
+const EXPANSION_HEAD = /^["']?\$\{[A-Za-z_]\w*:?[-=+]([^}\n]*)\}/;
 
 function refusesValue(rest: string): boolean {
 	const literal = quoted(rest);

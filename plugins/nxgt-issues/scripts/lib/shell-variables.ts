@@ -52,25 +52,44 @@ const SCHEME_DEFAULT =
 const SCHEME_WORDS = /^(?:tokens?|auth|authentication|header)\W*$/i;
 const SCREAMING = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
 
-/** Base64 that decodes to printable ASCII holding a `user:pass` colon. */
+/** `Basic admin:hunter2`: a plain `user:pass` after the scheme. */
+const BASIC_USERPASS = /^Basic[ \t]+[^\s$<]\S*:[^\s$<]\S*/;
+/** A credential that only fills a slot: `xxxxxxxx`, `********`, `<token>`, `YOUR_TOKEN`. */
+const FILLER = /^(?:x+|\*+|\.+|<[^<>]*>|your[-_ ]?\w*)$/i;
+
+/** Base64 or base64url, padded or not, that decodes to printable ASCII holding a `user:pass` colon. */
 function decodesToUserPass(credential: string): boolean {
-	if (credential.length % 4 !== 0 || !/^[A-Za-z0-9+/]+$/.test(credential))
-		return false;
+	const bare = credential
+		.replace(/=+$/, '')
+		.replace(/-/g, '+')
+		.replace(/_/g, '/');
+	if (bare.length % 4 === 1 || !/^[A-Za-z0-9+/]+$/.test(bare)) return false;
 	return /^[\x20-\x7e]*:[\x20-\x7e]*$/.test(
-		Buffer.from(credential, 'base64').toString('latin1'),
+		Buffer.from(bare, 'base64').toString('latin1'),
 	);
 }
 
-/** Whether `value` is a scheme and a credential, as a `Bearer` token is in secrets.ts (a word or `YOUR_TOKEN` is not one). */
-export function isSchemeSecret(value: string): boolean {
-	const credential = SCHEME_DEFAULT.exec(value.trim())?.[1];
+/**
+ * Whether `value` is a scheme and a credential, as a `Bearer` token is in
+ * secrets.ts. Under a credential-keyword name (`credentialName`) any
+ * credential that is not filler counts; otherwise it must look like a token
+ * (a word or `YOUR_TOKEN` is not one).
+ */
+export function isSchemeSecret(value: string, credentialName = false): boolean {
+	const text = value.trim();
+	if (BASIC_USERPASS.test(text)) return true;
+	const credential = SCHEME_DEFAULT.exec(text)?.[1];
 	if (credential === undefined) return false;
 	const tokenLike =
+		credentialName ||
 		/[\d._~+/=]/.test(credential) ||
 		credential.length >= 16 ||
-		(/^Basic/i.test(value.trim()) && decodesToUserPass(credential));
+		(/^Basic/i.test(text) && decodesToUserPass(credential));
 	return (
-		tokenLike && !SCHEME_WORDS.test(credential) && !SCREAMING.test(credential)
+		tokenLike &&
+		!SCHEME_WORDS.test(credential) &&
+		!SCREAMING.test(credential) &&
+		!FILLER.test(credential)
 	);
 }
 
@@ -99,7 +118,7 @@ export const namesSecret = (name: string): boolean =>
  * benign (`${DB_PASSWORD:-$POSTGRES_PASSWORD}`).
  */
 const isBenignExpansion = (name: string, value: string): boolean =>
-	!isSchemeSecret(value) &&
+	!isSchemeSecret(value, keywordOf(name) !== undefined) &&
 	(!namesSecret(name) || BENIGN_DEFAULT.test(value.trim()));
 
 /**
@@ -161,7 +180,7 @@ export function secretDefaults(
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
 		if (isBenignExpansion(name, value)) continue;
-		if (isSchemeSecret(value)) {
+		if (isSchemeSecret(value, keywordOf(name) !== undefined)) {
 			found.push('authorization');
 			continue;
 		}

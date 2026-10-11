@@ -371,3 +371,33 @@ describe('round 10: short Basic credentials, header defaults, goauth', () => {
 		`\${GOAUTH:-netrc}`,
 	])('%p passes', passes);
 });
+
+describe('round 11: scheme words under credential names, quoted header defaults', () => {
+	test.each([
+		`\${AUTH_HEADER:-Bearer swordfish}`,
+		`AUTH_HEADER: \${AUTH_HEADER:-Bearer changeme}`,
+		`- AUTH_HEADER=\${AUTH_HEADER:-Bearer devtoken}`,
+		`API_AUTH_HEADER: "\${API_AUTH_HEADER:-Token supersecret}"`,
+		`\${AUTH_HEADER:-Digest secretvalue}`,
+		`Authorization: "\${AUTH_HEADER:-Bearer swordfish}"`,
+		`Authorization: '\${AUTH_HEADER:-Bearer swordfish}'`,
+		`headers: { Authorization: "\${AUTH_HEADER:-Bearer swordfish}" }`,
+		`\${X:-Basic dXNlcjpwYXNzMQ}`,
+		`\${AUTH_HEADER:-Basic admin:hunter2}`,
+		`\${X:-Basic admin:hunter2}`,
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		`\${AUTH_HEADER:-Bearer xxxxxxxxxxxx}`,
+		`\${AUTH_HEADER:-Bearer token}`,
+		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
+		`\${TITLE:-Bearer authentication guide}`,
+		`\${HINT:-Digest authentication required}`,
+		`\${PLAN:-Basic subscription}`,
+		`\${TIER:-Basic membership}`,
+		`\${MSG:-Basic authentication}`,
+		`\${MSG:-Bearer swordfish}`,
+	])('%p passes', passes);
+});
