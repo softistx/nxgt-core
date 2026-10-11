@@ -115,6 +115,43 @@ authorities, as the guard always documented. Grant the client the scope the
 route names — `secured([['SCOPE_users:read']])` passes a token carrying
 `SCOPE_users:read` — or add that scope to the route's OR group.
 
+### A deployed response has no `debugMessage`
+
+Since 4.2.0, `createErrorHandler()` sends `debugMessage` only when the raw
+`NODE_ENV` is explicitly `development` or `test`. Under `production`, any
+other value, or an unset `NODE_ENV` (which used to answer the detail and no
+longer does), the key is missing: a client, a gateway or a test against a
+deployed service that read it finds nothing. Read `status` and the translated
+`message` instead, and put what a client must see in the `CustomException`'s
+message key and `options`. The detail is in the service's log, unless the
+handler was built with `logToConsole: false`. To see it locally, set
+`NODE_ENV=development`. See [the error handler guide](./guide/error-handler.md).
+
+### A deployed service still answers a `debugMessage`
+
+`NODE_ENV` is `development` or `test` where the service runs: those two are the
+only values that answer the detail. Set `NODE_ENV=production` in the service's
+environment. An unset `NODE_ENV` no longer answers it (since 4.2.0), so a service still answering one has it
+set explicitly.
+
+### A local service no longer answers a `debugMessage`
+
+`createErrorHandler()` sends `debugMessage` only when `NODE_ENV` is explicitly
+`development` or `test`; an unset `NODE_ENV` answers as production does. Set it
+for the local run, for instance `NODE_ENV=development bun run dev`, or in the
+`.env` the dev server loads. The detail is also in the log.
+
+### `Invalid environment variables`
+
+Thrown when `@nxgt/shared-hono` is first imported, after logging the failing
+issue, when `NODE_ENV` is set to something other than `development`, `test` or
+`production` — `staging`, say. The package validates `NODE_ENV` strictly. Set it
+to one of the three and keep the environment's name in another variable:
+
+```sh
+NODE_ENV=production APP_ENV=staging bun run start
+```
+
 ### `principalFromMockHeaders` always names a caller
 
 It returns a promise since 4.0, and a promise is truthy. `await` it.

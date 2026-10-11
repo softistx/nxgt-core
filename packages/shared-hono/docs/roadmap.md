@@ -33,6 +33,14 @@ Nothing planned that changes what a consumer gets. See Later.
 
 ## Shipped
 
+### 4.2
+
+- **A secure-by-default error handler**: `createErrorHandler()` answers
+  `debugMessage` only when `NODE_ENV` is explicitly `development` or `test`;
+  production, any other value and an unset `NODE_ENV` get the body without
+  it, and the detail goes to the log. See
+  [the error handler guide](./guide/error-handler.md).
+
 ### 4.0 — [migration guide](./guide/migrating-to-4.md)
 
 - **The caller comes from a verified source only**: `currentUser()` reads the

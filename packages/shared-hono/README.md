@@ -60,8 +60,20 @@ import { translate } from '@nxgt/i18n';
 app.onError(createErrorHandler(translate));
 ```
 
-`CustomException` becomes `{ status, message, debugMessage, timestamp }` with
-`message` translated. `HTTPException` is forwarded. Anything else is a 500.
+`CustomException` becomes `{ status, message, timestamp }`, plus
+`debugMessage` in development and test, with `message` translated.
+`HTTPException` keeps its status and message. Anything else is a 500 with the
+translated `errors.internal-server-error`.
+
+**`debugMessage` is only sent when `NODE_ENV` is `development` or `test`.**
+Under `production`, any other value, or an **unset** `NODE_ENV`, the body has
+no `debugMessage` — no exception detail, no stack, no error message: only
+`status`, the translated `message` and `timestamp`. That detail goes to the
+logger instead. See [the error handler guide](./docs/guide/error-handler.md).
+
+**Upgrading to 4.2:** an unset `NODE_ENV` used to count as development and no
+longer does, so a response that carried `debugMessage` now omits it. Set
+`NODE_ENV=development` locally to get it back.
 
 ## Auth
 

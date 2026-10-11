@@ -35,3 +35,14 @@ export const env = parseEnv({
 	NODE_ENV: Bun.env.NODE_ENV,
 	PORT: Bun.env['PORT'],
 });
+
+/**
+ * `NODE_ENV` as the process set it, read once at import, with no default:
+ * `undefined` when unset. `env.NODE_ENV` defaults to `development`, which is
+ * right for a mock-header gate but wrong for deciding whether to show error
+ * detail, so `createErrorHandler()` reads this instead. A field rather than a
+ * constant so tests can set it.
+ */
+export const rawEnv: { NODE_ENV: string | undefined } = {
+	NODE_ENV: Bun.env.NODE_ENV,
+};
