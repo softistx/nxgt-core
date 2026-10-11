@@ -340,6 +340,37 @@ describe('close-released-issues', () => {
 		expect(world.writes.some((w) => w[2] === 'comment')).toBe(false);
 	});
 
+	test('at most one comment ever: a marker for another package or version means done', async () => {
+		const other =
+			'Fixed in @nxgt/other@2.0.0 (#7).\n\n<!-- nxgt-issues:fixed=@nxgt/other@2.0.0 -->\n';
+		const bot = { login: 'github-actions', assoc: 'NONE', body: other };
+		const closed = fakeWorld(
+			simple({
+				issues: {
+					12: { state: 'CLOSED', labels: ['released'], comments: [bot] },
+				},
+			}),
+		);
+		await run(closed);
+		expect(closed.writes).toEqual([]);
+		const open = fakeWorld(simple({ issues: { 12: { comments: [bot] } } }));
+		const { lines } = await run(open);
+		expect(open.writes.map((w) => w[2])).toEqual(['edit']);
+		expect(lines).toContain('reopened');
+	});
+
+	test('a stranger copying the marker does not count', async () => {
+		const body =
+			'Fixed in @nxgt/other@2.0.0 (#7).\n\n<!-- nxgt-issues:fixed=@nxgt/other@2.0.0 -->\n';
+		const world = fakeWorld(
+			simple({
+				issues: { 12: { comments: [{ login: 'eve', assoc: 'NONE', body }] } },
+			}),
+		);
+		await run(world);
+		expect(world.writes.some((w) => w[2] === 'comment')).toBe(true);
+	});
+
 	test('a reopened issue is not closed again, a note says so, the label is added', async () => {
 		const world = fakeWorld(
 			simple({

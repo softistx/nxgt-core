@@ -9,8 +9,9 @@
  * they are collected across all packages first, so an issue gets one comment,
  * naming the first package that fixes it: "Fixed in <pkg>@<version> (#PR)", the
  * `released` label and the close. The hidden marker in the comment is the
- * idempotency key: a second run changes nothing, and an issue reopened after
- * the release is reported, never closed again. Needs only `gh`; imports nothing
+ * idempotency key: an issue gets at most one such comment ever (any trusted
+ * comment with a fixed marker, whatever package or version, means done), and an
+ * issue reopened after the release is reported, never closed again. Needs only `gh`; imports nothing
  * from the plugin. This is the canonical copy: byte-copy it, the lib file and
  * the spec into each library's `scripts/`. It never fails the release:
  * problems print as warnings and the exit code is 0.
@@ -32,14 +33,9 @@ import {
 } from './close-released-issues-lib';
 
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+const FIXED_MARKER = /<!--\s*nxgt-issues:fixed=\S+@\S+\s*-->/;
 
-async function release(
-	c: Ctx,
-	tags: string[],
-	p: Pkg,
-	issue: number,
-	pr: number,
-) {
+async function release(c: Ctx, p: Pkg, issue: number, pr: number) {
 	const n = String(issue);
 	const raw = obj(
 		await gh(c, 'issue view', n, '--json', 'state,labels,comments'),
@@ -49,7 +45,7 @@ async function release(
 	const done = rows(raw['comments']).some((m) => {
 		const bot = obj(m['author'])['login'] === 'github-actions';
 		const trusted = bot || TRUSTED.includes(String(m['authorAssociation']));
-		return trusted && tags.some((t) => String(m['body']).includes(marker(t)));
+		return trusted && FIXED_MARKER.test(String(m['body']));
 	});
 	const open = lower(raw['state']) === 'open';
 	const labelled = rows(raw['labels']).some(
@@ -89,7 +85,6 @@ async function packageOf(
 }
 
 async function releaseAll(c: Ctx, published: Obj[]) {
-	const tags = published.map((p) => `${p['name']}@${p['version']}`);
 	const issues = new Map<number, { p: Pkg; pr: number }>();
 	for (const { name, version } of published) {
 		try {
@@ -115,9 +110,7 @@ async function releaseAll(c: Ctx, published: Obj[]) {
 			await run(c, `gh ${create}`, ['The fix is published', '-R', c.repo]);
 	}
 	for (const [issue, { p, pr }] of issues) {
-		await release(c, tags, p, issue, pr).catch((e) =>
-			warn(c, `issue #${issue}`, e),
-		);
+		await release(c, p, issue, pr).catch((e) => warn(c, `issue #${issue}`, e));
 	}
 }
 type Obj = Record<string, unknown>;

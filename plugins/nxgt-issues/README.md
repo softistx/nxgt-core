@@ -453,11 +453,15 @@ before the publish; the release step adds the comment and the `released` label
 the application side keys on, together with the closed state.
 
 The comment's second line is the hidden marker
-`<!-- nxgt-issues:fixed=<pkg>@<version> -->`, and it is the idempotency key: a
-trusted comment (owner, member, collaborator or `github-actions`) carrying it,
-whatever PR number it names, means the step is done. When that comment is there
-and the issue is open, it was reopened after the release: it is reported, never
-closed again, and the label stays.
+`<!-- nxgt-issues:fixed=<pkg>@<version> -->`, and it is the idempotency key: an
+issue gets **at most one** "Fixed in" comment, ever. Any trusted comment (owner,
+member, collaborator or `github-actions`) carrying a fixed marker, whatever
+package, version or PR it names, means done; so the CI step and `issues.ts
+released` for each package of a multi-package publish never double up. Closed
+with the comment: only the label is added if missing. Open with the comment, it
+was reopened after the release: it is reported, never closed again, and the
+label is still added. An issue fixed in 1.0.0, reopened and fixed again in 1.1.0
+is therefore not commented twice; a maintainer closes it by hand.
 
 ## Configuration
 

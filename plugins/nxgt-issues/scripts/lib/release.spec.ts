@@ -296,6 +296,66 @@ describe('the issues', () => {
 		expect(report.issues[0]?.commented).toBe(false);
 	});
 
+	test('at most one comment ever: a marker for another package or version means done', async () => {
+		const other = fixedComment('@nxgt/other', '2.0.0', 7);
+		const closed = fakeWorld(
+			simple({
+				issues: {
+					12: {
+						state: 'CLOSED',
+						labels: ['released'],
+						comments: [{ login: 'github-actions', assoc: 'NONE', body: other }],
+					},
+				},
+			}),
+		);
+		await run(closed);
+		expect(closed.writes()).toEqual([]);
+		const reopened = fakeWorld(
+			simple({
+				issues: {
+					12: {
+						comments: [
+							{
+								login: 'steve',
+								assoc: 'OWNER',
+								body: fixedComment(PKG, '1.0.0', 3),
+							},
+						],
+					},
+				},
+			}),
+		);
+		const report = await run(reopened);
+		expect(report.issues[0]).toMatchObject({
+			commented: false,
+			closed: false,
+			reopened: true,
+			labelled: true,
+		});
+		expect(reopened.writes().map((c) => c[2])).toEqual(['edit']);
+		expect(report.notes.join(' ')).toContain('#12');
+	});
+
+	test('a stranger copying the marker does not count', async () => {
+		const fake = fakeWorld(
+			simple({
+				issues: {
+					12: {
+						comments: [
+							{
+								login: 'eve',
+								assoc: 'NONE',
+								body: fixedComment('@nxgt/other', '2.0.0', 7),
+							},
+						],
+					},
+				},
+			}),
+		);
+		expect((await run(fake)).issues[0]?.commented).toBe(true);
+	});
+
 	test('a reopened issue (marker present, issue open) is not closed again, with a note', async () => {
 		const body = fixedComment(PKG, '1.4.0', 40);
 		const fake = fakeWorld(

@@ -11,7 +11,7 @@ import { TRUSTED } from './context';
 import { search } from './dashboard-data';
 import { type GhContext, gh, ghJson, RateLimitedError } from './github';
 import { commentIssue, labelNames } from './github-issues';
-import { fixedComment, fixedMarker } from './issue-body';
+import { fixedComment } from './issue-body';
 import { ensureLabels } from './labels';
 import { upstreamRef } from './refs';
 import { discoverFixes, type ReleaseInput } from './release-prs';
@@ -54,6 +54,7 @@ export interface ReleaseReport {
 }
 
 const BOT = 'github-actions';
+const FIXED_MARKER = /<!--\s*nxgt-issues:fixed=\S+@\S+\s*-->/;
 type Rows = Record<string, unknown>[];
 const rows = (value: unknown): Rows =>
 	Array.isArray(value) ? (value as Rows) : [];
@@ -146,9 +147,10 @@ async function releaseIssue(
 	const repo = formatRepo(options.repo);
 	const state = await readIssue(ctx, repo, issue);
 	const body = fixedComment(options.pkg, options.version, pr);
-	// The hidden marker is the key: a trusted comment carrying it, whatever PR it names, means done.
-	const marker = fixedMarker(options.pkg, options.version);
-	const done = state.comments.some((c) => c.trusted && c.body.includes(marker));
+	// At most one "Fixed in" comment ever: a trusted comment carrying a fixed marker, whatever package, version or PR, means done.
+	const done = state.comments.some(
+		(c) => c.trusted && FIXED_MARKER.test(c.body),
+	);
 	const commented = !done;
 	const labelled = !state.labelled;
 	const closed = state.open && !done;
