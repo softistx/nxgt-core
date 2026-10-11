@@ -13,7 +13,7 @@
  * `codegen.spec.ts` runs the real tools against the TypeScript installed.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -70,8 +70,10 @@ beforeAll(async () => {
 		await mkdir(dirname(join(root, path)), { recursive: true });
 		await Bun.write(join(root, path), content);
 	}
-	for (const file of await readdir(import.meta.dir)) {
-		if (!file.endsWith('.ts') || file.endsWith('.spec.ts')) continue;
+	// Every source file, nested ones included, so a module moved into a
+	// folder under src/ is copied too.
+	for (const file of new Bun.Glob('**/*.ts').scanSync(import.meta.dir)) {
+		if (file.endsWith('.spec.ts')) continue;
 		await Bun.write(
 			join(root, 'src', file),
 			Bun.file(join(import.meta.dir, file)),

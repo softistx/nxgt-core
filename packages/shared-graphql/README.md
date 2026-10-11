@@ -21,7 +21,7 @@ Public on npmjs; no token needed to install. Peers:
 | `graphql` | `^16.9.0 \|\| ^17.0.0` | one copy for your schema and this package's transforms; the suite runs on both majors |
 | `@nxgt/ory-sdk` | `>=0.1.0 <1` | `useOryAuth`, `useKetoChecks`, `can`; a 1.x is admitted once it is tested |
 | `stx-sdk` | `>=1.1.0` | `./security`'s policy types |
-| `typescript` | `^6.0.3` | pinned across every `@nxgt/*` package — the set is unsatisfiable if one of them widens it |
+| `typescript` | `^6.0.3 \|\| ^7.0.0` | the same range in every `@nxgt/*` package; the declarations build and check under both |
 
 The long version of each section below is in [`docs/`](./docs/README.md).
 

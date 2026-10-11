@@ -1,7 +1,8 @@
 /**
  * The codegen helpers against the real tools and the TypeScript installed:
- * 6 in the lockfile, where they generate; 7 in a run that installs it, where
- * they refuse with the fix. `typescript-7.spec.ts` covers 7 offline.
+ * 6 in the lockfile, where they generate; 7 in CI's "Newest peers" job, which
+ * installs the newest end of `^6.0.3 || ^7.0.0`, where they refuse with the
+ * fix. `typescript-7.spec.ts` covers 7 offline, in every run.
  */
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
