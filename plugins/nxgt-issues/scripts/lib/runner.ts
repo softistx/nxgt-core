@@ -7,6 +7,8 @@
  * loudly instead of calling `gh`.
  */
 
+import { childEnv, hardenGit } from './git-guard';
+
 export interface RunOptions {
 	readonly timeoutMs?: number;
 	readonly stdin?: string;
@@ -158,8 +160,9 @@ export function createRunner(
 			if (options.signal?.aborted) {
 				return { code: 1, stdout: '', stderr: 'aborted before it started' };
 			}
-			const child = Bun.spawn([...argv], {
+			const child = Bun.spawn(hardenGit(argv), {
 				...(options.cwd ? { cwd: options.cwd } : {}),
+				env: childEnv(process.env),
 				// Its own process group, so a timeout or an abort can kill the grandchildren too.
 				detached: true,
 				stdin: options.stdin === undefined ? 'ignore' : 'pipe',

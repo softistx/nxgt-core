@@ -10,9 +10,10 @@ import { join } from 'node:path';
 import { issuesHome } from '../lib/cache';
 import { runHook } from '../lib/hook';
 import { createRunner } from '../lib/runner';
-import { sessionStartContext } from '../lib/session-start';
+import { refreshCommandFor, sessionStartContext } from '../lib/session-start';
 
 const issuesScript = join(import.meta.dir, '..', 'issues.ts');
+const bunfig = join(import.meta.dir, '..', '..', 'bunfig.toml');
 
 await runHook('SessionStart', async (input) => {
 	const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
@@ -22,7 +23,12 @@ await runHook('SessionStart', async (input) => {
 		cwd,
 		home: issuesHome(process.env),
 		now: Date.now,
-		refreshCommand: [process.execPath, issuesScript, 'refresh', '--cwd', cwd],
+		refreshCommand: refreshCommandFor(
+			process.execPath,
+			issuesScript,
+			bunfig,
+			cwd,
+		),
 	});
 	if (!additionalContext) return undefined;
 	return {

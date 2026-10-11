@@ -7,7 +7,11 @@
 					{
 						"type": "command",
 						"command": "bun",
-						"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.ts"],
+						"args": [
+							"--no-env-file",
+							"--config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml",
+							"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.ts"
+						],
 						"timeout": 5
 					}
 				]

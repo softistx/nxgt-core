@@ -1,0 +1,1 @@
+# nxgt-issues: intentionally empty. The hook and the refresh run with --config pointing here, so a bunfig.toml (preload) in the repository being read is never loaded.

@@ -235,7 +235,16 @@ function mergeBase(w: W, argv: readonly string[]): RunResult {
 	return { code, stdout: '', stderr: pr ? '' : 'bad object' };
 }
 
-export function git(w: W, argv: readonly string[]): RunResult {
+/** The read-only flags the call sites add as a second layer; the rules below match positions without them. */
+const SECOND_LAYER = new Set([
+	'--no-show-signature',
+	'--no-ext-diff',
+	'--no-textconv',
+	'--end-of-options',
+]);
+
+export function git(w: W, called: readonly string[]): RunResult {
+	const argv = called.filter((a) => !SECOND_LAYER.has(a));
 	if (argv[1] === 'tag') return ok(`${w.tags.join('\n')}\n`);
 	if (argv[1] === 'log') return ok(`${w.log.join('\n')}\n`);
 	if (argv[1] === 'show') {

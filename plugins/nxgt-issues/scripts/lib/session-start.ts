@@ -15,6 +15,7 @@
  *     (a detached refresh is running) also means nothing: no inline attempt.
  */
 
+import { homedir } from 'node:os';
 import { cachePath, describeAge, readEntry } from './cache';
 import { renderContext } from './context';
 import { type GhContext, GhTimeout, rateLimitedUntil } from './github';
@@ -83,12 +84,34 @@ async function coldRefresh(
 	}
 }
 
+/**
+ * The detached refresh: bun with no `.env` file and the plugin's own (empty)
+ * bunfig.toml, so the repository being read cannot preload code into it.
+ */
+export function refreshCommandFor(
+	execPath: string,
+	issuesScript: string,
+	bunfig: string,
+	cwd: string,
+): string[] {
+	return [
+		execPath,
+		'--no-env-file',
+		`--config=${bunfig}`,
+		issuesScript,
+		'refresh',
+		'--cwd',
+		cwd,
+	];
+}
+
 /** Detached `issues.ts refresh`, unless one started under a minute ago. */
 function startRefresh(deps: SessionStartDeps, id: RepoId): void {
 	if (!claimStamp(deps.home, id, 'refreshing', deps.now())) return;
 	// Detached: the session never waits for it, and a failure is its own.
 	deps.runner
-		.run(deps.refreshCommand, { detached: true, cwd: deps.cwd })
+		// From the home folder, never the repository: bun would load that directory's bunfig.toml and .env.
+		.run(deps.refreshCommand, { detached: true, cwd: homedir() })
 		.catch(() => undefined);
 }
 
