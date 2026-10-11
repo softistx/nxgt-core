@@ -1,5 +1,11 @@
 # @nxgt/shared-logging
 
+## 1.0.5
+
+### Patch Changes
+
+- [#220](https://github.com/softistx/nxgt-core/pull/220) [`5e3fb97`](https://github.com/softistx/nxgt-core/commit/5e3fb97b41a79e9d64d5e4331d67c24790aa2659) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `loggerProvider()` now puts the request-scoped child logger on the Hono context instead of building it and discarding it, and the line format prints `[requestId=<id>]` after the level when the logger carries one. Lines without a `requestId` are byte-identical to before.
+
 ## 1.0.4
 
 ### Patch Changes
