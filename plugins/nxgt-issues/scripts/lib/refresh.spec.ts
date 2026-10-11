@@ -70,7 +70,7 @@ describe('refreshRepo', () => {
 								{
 									number: 1,
 									title: 'widget bug',
-									body: marker('softistx/nxgt-vexora#12'),
+									body: `Tracks softistx/nxgt-vexora#12 (\`@nxgt/vexora\`).\n\n${marker('softistx/nxgt-vexora#12')}`,
 								},
 								{ number: 2, title: 'foreign', body: marker('acme/quillon#4') },
 								{ number: 3, title: 'no marker', body: 'nothing' },
@@ -121,6 +121,7 @@ describe('refreshRepo', () => {
 				number: 1,
 				title: 'widget bug',
 				upstream: 'softistx/nxgt-vexora#12',
+				packageName: '@nxgt/vexora',
 				upstreamState: 'CLOSED',
 				upstreamLabels: ['released'],
 				lastComment: 'Fixed in @nxgt/vexora@1.2.3',

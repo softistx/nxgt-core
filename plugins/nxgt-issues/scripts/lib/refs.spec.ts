@@ -3,6 +3,7 @@ import {
 	closingRefs,
 	formatIssueRef,
 	parseIssueRef,
+	trackedPackage,
 	upstreamMarker,
 	upstreamRef,
 } from './refs';
@@ -123,5 +124,19 @@ describe('upstream marker', () => {
 		expect(upstreamRef(body('2147483647'))?.number).toBe(2147483647);
 		expect(upstreamRef(body('2147483648'))).toBeUndefined();
 		expect(upstreamRef(body('99999999999999999999'))).toBeUndefined();
+	});
+});
+
+describe('trackedPackage', () => {
+	test('reads the package a tracking body names', () => {
+		const body = 'Tracks softistx/nxgt-vexora#12 (`@nxgt/vexora`).\n\nsummary';
+		expect(trackedPackage(body)).toBe('@nxgt/vexora');
+		expect(trackedPackage('Tracks a/b#1 (`quillon`).')).toBe('quillon');
+	});
+
+	test('no such line, or a name that is not a package name, gives undefined', () => {
+		expect(trackedPackage('nothing')).toBeUndefined();
+		expect(trackedPackage('Tracks a/b#1 (`two words`).')).toBeUndefined();
+		expect(trackedPackage('see Tracks a/b#1 (`quillon`).')).toBeUndefined();
 	});
 });

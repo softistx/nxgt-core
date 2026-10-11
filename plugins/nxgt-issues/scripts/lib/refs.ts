@@ -85,3 +85,11 @@ export function upstreamRef(
 		return undefined;
 	return { repo: { owner: match[1], repo: match[2] }, number };
 }
+
+const TRACKED_PACKAGE =
+	/^Tracks [\w.-]+\/[\w.-]+#\d+ \(`((?:@[\w.-]+\/)?[\w.-]+)`\)\./m;
+
+/** The package a tracking body names in its `Tracks o/r#n (\`pkg\`).` line, if any. */
+export function trackedPackage(body: string): string | undefined {
+	return TRACKED_PACKAGE.exec(body)?.[1];
+}
