@@ -20,6 +20,9 @@ export interface WorldPr {
 	closing?: number[];
 	files?: string[];
 	mergeSha?: string;
+	mergedAt?: string;
+	/** An ancestor of the previous tag (released before). */
+	shipped?: boolean;
 	/** The packages a changeset this PR adds names. */
 	changesets?: string[];
 }
@@ -80,6 +83,7 @@ const prJson = (n: number, pr: WorldPr) => ({
 		repository: { name: 'nxgt-widget', owner: { login: 'softistx' } },
 	})),
 	mergeCommit: pr.mergeSha ? { oid: pr.mergeSha } : null,
+	mergedAt: pr.mergedAt ?? null,
 	files: (pr.files ?? [`${DIR}/src/a.ts`]).map((path) => ({ path })),
 });
 
@@ -225,6 +229,12 @@ function diff(w: W, argv: readonly string[]): RunResult {
 	return ok(files.join('\n'));
 }
 
+function mergeBase(w: W, argv: readonly string[]): RunResult {
+	const pr = Object.values(w.prs).find((p) => p.mergeSha === argv[3]);
+	const code = pr ? Number(!pr.shipped) : 128;
+	return { code, stdout: '', stderr: pr ? '' : 'bad object' };
+}
+
 export function git(w: W, argv: readonly string[]): RunResult {
 	if (argv[1] === 'tag') return ok(`${w.tags.join('\n')}\n`);
 	if (argv[1] === 'log') return ok(`${w.log.join('\n')}\n`);
@@ -234,5 +244,6 @@ export function git(w: W, argv: readonly string[]): RunResult {
 			: ok(w.changelog);
 	}
 	if (argv[1] === 'diff') return diff(w, argv);
+	if (argv[1] === 'merge-base') return mergeBase(w, argv);
 	return fail(`fake world: no rule for git ${argv.join(' ')}`);
 }

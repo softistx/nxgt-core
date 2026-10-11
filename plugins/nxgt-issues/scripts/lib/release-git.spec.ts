@@ -18,6 +18,7 @@ describe('changesetNames', () => {
 			'---\n---\n\nBody.\n\n---\nNote: x\n',
 			[],
 		],
+		['a rule later in the text', 'Intro\n---\n"@nxgt/a": minor\n---\n', []],
 		['no frontmatter', 'Just text: here\n', []],
 	])('%s', (_name, text, expected) => {
 		expect(changesetNames(text)).toEqual(expected);

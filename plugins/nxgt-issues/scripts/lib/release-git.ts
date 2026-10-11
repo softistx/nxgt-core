@@ -50,17 +50,11 @@ export async function git(
 	return result.code === 0 ? result.stdout : undefined;
 }
 
-/**
- * The PRs merged into the branch that touched `packages/<dir>` between the
- * package's previous tag and this release (`--first-parent`: the merge
- * commits of the branch, the integration PR included). Nothing when the tag is
- * not in this clone: a range to `HEAD` would pull in later releases.
- */
-export async function loggedPrs(
+/** The package's tag for the version and the one before it, as this clone has them. */
+export async function previousTag(
 	ctx: GhContext,
 	input: ReleaseInput,
-	notes: string[],
-): Promise<number[]> {
+): Promise<{ tag?: string; previous?: string }> {
 	const named = `${input.pkg}@${input.version}`;
 	// A root package of a single-package repository is tagged `v1.2.3` by changesets.
 	const plain = input.dir === '.' ? `v${input.version}` : undefined;
@@ -78,14 +72,45 @@ export async function loggedPrs(
 		: plain && all.includes(plain)
 			? plain
 			: undefined;
-	if (!tag) {
-		notes.push(`tag ${named} not found locally: the CHANGELOG alone was read`);
-		return [];
-	}
+	if (!tag) return {};
 	const tags = all.filter((t) =>
 		tag === plain ? /^v\d/.test(t) : t.startsWith(`${input.pkg}@`),
 	);
 	const previous = tags[tags.indexOf(tag) + 1];
+	return previous ? { tag, previous } : { tag };
+}
+
+/** Whether a merge commit is an ancestor of the tag (released before it); undefined when git cannot say. */
+export async function isAncestor(
+	ctx: GhContext,
+	sha: string,
+	tag: string,
+): Promise<boolean | undefined> {
+	const result = await ctx.runner.run(
+		['git', 'merge-base', '--is-ancestor', sha, tag],
+		{ ...(ctx.cwd ? { cwd: ctx.cwd } : {}) },
+	);
+	if (result.code === 0) return true;
+	return result.code === 1 && result.stderr.trim() === '' ? false : undefined;
+}
+
+/**
+ * The PRs merged into the branch that touched `packages/<dir>` between the
+ * package's previous tag and this release (`--first-parent`: the merge
+ * commits of the branch, the integration PR included). Nothing when the tag is
+ * not in this clone: a range to `HEAD` would pull in later releases.
+ */
+export async function loggedPrs(
+	ctx: GhContext,
+	input: ReleaseInput,
+	notes: string[],
+): Promise<number[]> {
+	const named = `${input.pkg}@${input.version}`;
+	const { tag, previous } = await previousTag(ctx, input);
+	if (!tag) {
+		notes.push(`tag ${named} not found locally: the CHANGELOG alone was read`);
+		return [];
+	}
 	if (!previous) {
 		notes.push(`no earlier tag for ${input.pkg}: the CHANGELOG alone was read`);
 		return [];
@@ -126,7 +151,10 @@ export async function commitTouches(
 
 /** The package names in a changeset file's frontmatter (`"@nxgt/x": minor`). */
 export function changesetNames(text: string): string[] {
-	const front = /^\uFEFF?---\r?\n([\s\S]*?)^---\s*$/m.exec(text)?.[1] ?? '';
+	const found = /^---\r?\n([\s\S]*?)^---\s*$/m.exec(
+		text.replace(/^\uFEFF/, ''),
+	);
+	const front = found?.index === 0 ? (found[1] ?? '') : '';
 	return [...front.matchAll(/^["']?([^"':\n]+?)["']?\s*:/gm)].map(
 		(m) => m[1] as string,
 	);
@@ -148,7 +176,7 @@ export async function addedChangesetPackages(
 	if (listing === undefined) return undefined;
 	const names: string[] = [];
 	for (const file of listing.split('\n').map((f) => f.trim())) {
-		if (!file.endsWith('.md') || file.endsWith('README.md')) continue;
+		if (!file.endsWith('.md') || file.endsWith('/README.md')) continue;
 		const text = await git(ctx, ['show', `${sha}:${file}`]);
 		if (text === undefined) return undefined;
 		names.push(...changesetNames(text));

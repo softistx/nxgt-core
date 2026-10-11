@@ -3,19 +3,20 @@
  * spec) into each library repository's `scripts/`: which issues a published
  * `<package>@<version>` fixes. It imports nothing from the plugin; it
  * duplicates `lib/release-prs.ts` and `lib/release-git.ts` on purpose
- * (AGENTS.md lists the trio); the git reads are in `close-released-issues-git.ts`.
+ * (AGENTS.md lists the four files); the git reads are in `close-released-issues-git.ts`.
  *
  * The PRs are the CHANGELOG section's `[#N]` links that touched the package
  * (`git diff` of the merge commit), plus the PRs the first-parent log of
  * `packages/<dir>` names since the previous tag. Each PR gives its closing
  * issues (`closingIssuesReferences`, then body keywords outside code and
  * quotes); a PR merged into `feat/*` leads to the PR merged from that branch
- * (`gh pr list --head`), which the comment names. A listed slice that did not
+ * (`gh pr list --head`), which the comment names, unless it merged in an earlier
+ * release (a reused branch). A listed slice that did not
  * touch the package still leads to its integration PR, counted when that
  * merge touched the package, its own issues read at rank 0.
  */
 
-import { touches } from './close-released-issues-git';
+import { releasedBefore, touches } from './close-released-issues-git';
 
 export type Exec = (
 	argv: string[],
@@ -100,7 +101,7 @@ export const gh = async (c: Ctx, cmd: string, ...args: string[]) =>
 	JSON.parse(await run(c, `gh ${cmd}`, [...args, '-R', c.repo]));
 
 const FIELDS =
-	'number,baseRefName,headRefName,body,closingIssuesReferences,mergeCommit,files';
+	'number,baseRefName,headRefName,body,closingIssuesReferences,mergeCommit,mergedAt,files';
 
 function toPr(raw: Obj, repo: string) {
 	const issues = new Set(closedBy(String(raw['body'] ?? ''), repo));
@@ -116,14 +117,15 @@ function toPr(raw: Obj, repo: string) {
 		feat: String(raw['baseRefName']).startsWith('feat/'),
 		head: String(raw['headRefName']),
 		sha: String(obj(raw['mergeCommit'])['oid'] ?? ''),
+		mergedAt: typeof raw['mergedAt'] === 'string' ? raw['mergedAt'] : '',
 		issues: [...issues],
 		files: rows(raw['files']).map((f) => String(f['path'])),
 	};
 }
 export type Pr = ReturnType<typeof toPr>;
 
-/** PR numbers named by the first-parent commits touching the package since its previous tag. */
-async function loggedPrs(c: Ctx, p: Pkg) {
+/** The tag before this release's, in this clone (undefined without one). */
+async function previousOf(c: Ctx, p: Pkg) {
 	// A root package of a single-package repository is tagged `v1.2.3` by changesets.
 	const plain = p.dir === '.' ? `v${p.version}` : '';
 	const patterns = `${p.name}@*${plain ? ' v[0-9]*' : ''}`;
@@ -140,7 +142,12 @@ async function loggedPrs(c: Ctx, p: Pkg) {
 		).test(t),
 	);
 	const previous = same[same.indexOf(tag) + 1];
-	if (!tag || !previous || !all.includes(tag)) return [];
+	return tag && previous && all.includes(tag) ? previous : undefined;
+}
+
+/** PR numbers named by the first-parent commits touching the package since its previous tag. */
+async function loggedPrs(c: Ctx, p: Pkg, previous: string | undefined) {
+	if (!previous) return [];
 	const log = await run(
 		c,
 		`git log --first-parent --format=%s ${previous}..HEAD -- ${p.dir}`,
@@ -151,12 +158,34 @@ async function loggedPrs(c: Ctx, p: Pkg) {
 	});
 }
 
+/** The PRs that merged the `feat/*` branch on, touching the package and not released before; none when the lookup fails (the issues then name the slice). */
+async function integrationOf(
+	c: Ctx,
+	p: Pkg,
+	base: string,
+	previous: string | undefined,
+	since: string,
+) {
+	const args = ['--state', 'merged', '--head', base, '--json', FIELDS];
+	const list = await gh(c, 'pr list', ...args).catch((e) => {
+		warn(c, `integration PR of ${base}`, e);
+		return [];
+	});
+	const touching: Pr[] = [];
+	for (const r of rows(list).map((x) => toPr(x, c.repo))) {
+		if (r.feat || !(await touches(c, p, r))) continue;
+		if (!(await releasedBefore(c, r, previous, since))) touching.push(r);
+	}
+	return touching;
+}
+
 /** The PRs read and the issues the release fixes, each with the PR its comment names and its rank (0 best). */
 export async function fixes(c: Ctx, p: Pkg) {
 	const path = p.dir === '.' ? 'CHANGELOG.md' : `${p.dir}/CHANGELOG.md`;
 	const show = await c.exec(['git', 'show', `HEAD:${path}`]);
 	const listed = changelogPrs(show.stdout, p.version);
-	const logged = await loggedPrs(c, p).catch((e): number[] => {
+	const previous = await previousOf(c, p).catch(() => undefined);
+	const logged = await loggedPrs(c, p, previous).catch((e): number[] => {
 		warn(c, 'git log', e);
 		return [];
 	});
@@ -188,18 +217,10 @@ export async function fixes(c: Ctx, p: Pkg) {
 			// A slice that did not touch the package still leads to its integration PR: the CHANGELOG credits the slice.
 			const base = String(raw['baseRefName']);
 			if (!merged.has(base)) {
-				// A failed lookup means no parents: the issues name the slice PR.
-				const args = ['--state', 'merged', '--head', base, '--json', FIELDS];
-				const list = await gh(c, 'pr list', ...args).catch((e) => {
-					warn(c, `integration PR of ${base}`, e);
-					return [];
-				});
-				const found = rows(list)
-					.map((r) => toPr(r, c.repo))
-					.filter((r) => !r.feat);
-				const touching: Pr[] = [];
-				for (const r of found) if (await touches(c, p, r)) touching.push(r);
-				merged.set(base, touching);
+				merged.set(
+					base,
+					await integrationOf(c, p, base, previous, pr.mergedAt),
+				);
 			}
 			const parents = merged.get(base) ?? [];
 			if (mine) {

@@ -11,7 +11,10 @@ const inPkg = (dir: string, file: string) =>
 
 /** The package names a changeset's frontmatter lists; the closing rule sits on a line of its own. */
 export function changesetNames(text: string): string[] {
-	const front = /^\uFEFF?---\r?\n([\s\S]*?)^---\s*$/m.exec(text)?.[1] ?? '';
+	const found = /^---\r?\n([\s\S]*?)^---\s*$/m.exec(
+		text.replace(/^\uFEFF/, ''),
+	);
+	const front = found?.index === 0 ? (found[1] ?? '') : '';
 	return [...front.matchAll(/^["']?([^"':\n]+?)["']?\s*:/gm)].map(
 		(m) => m[1] ?? '',
 	);
@@ -54,4 +57,30 @@ export async function addedChangesets(c: Ctx, sha: string) {
 export async function hasTags(c: Ctx, name: string) {
 	const out = await c.exec(['git', 'tag', '--list', `${name}@*`]);
 	return out.stdout.split('\n').some((t) => t.startsWith(`${name}@`));
+}
+
+/**
+ * Whether an integration PR shipped in an earlier release (a reused `feat/*`
+ * branch lists every merge it ever had): its merge commit is an ancestor of the
+ * previous tag; with no previous tag, or when git cannot say, a merge older
+ * than the slice's (`since`) was.
+ */
+export async function releasedBefore(
+	c: Ctx,
+	pr: Pr,
+	previous: string | undefined,
+	since: string,
+) {
+	if (pr.sha && previous) {
+		const r = await c.exec([
+			'git',
+			'merge-base',
+			'--is-ancestor',
+			pr.sha,
+			previous,
+		]);
+		if (r.code === 0) return true;
+		if (r.code === 1 && r.stderr.trim() === '') return false;
+	}
+	return Boolean(pr.mergedAt && since && pr.mergedAt < since);
 }

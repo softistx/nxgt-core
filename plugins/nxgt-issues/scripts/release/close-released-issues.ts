@@ -19,8 +19,8 @@
  * idempotency key: an issue gets at most one such comment ever (any trusted
  * comment with a fixed marker means done), and one reopened after the release
  * is reported, never closed again. Needs only `gh`; imports nothing from the
- * plugin. This is the canonical copy: byte-copy it, the lib file and the spec
- * into each library's `scripts/`. It never fails the release: problems print
+ * plugin. This is the canonical copy: byte-copy it, the lib and git files and
+ * the spec into each library's `scripts/`. It never fails the release: problems print
  * as warnings and the exit code is 0.
  */
 
@@ -70,7 +70,7 @@ async function release(
 	const fields = 'state,body,labels,comments';
 	const raw = obj(await gh(c, 'issue view', n, '--json', fields));
 	const named = versionNames(String(raw['body'] ?? ''));
-	// Left to an unpublished sibling only when its run will surely find the issue: rank 0, touched, and a changeset names it.
+	// Left to an unpublished sibling only when its run will surely find the issue: rank 0, touched, a changeset names it, and the sibling has an earlier tag.
 	const best = chosen(named, candidates);
 	for (const [name, dir] of away) {
 		if (

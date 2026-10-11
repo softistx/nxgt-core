@@ -816,3 +816,60 @@ describe('an integration PR credited to a slice that did not touch the package',
 		},
 	);
 });
+
+describe('a feat/* branch that was merged before', () => {
+	/** Slice 42 into feat/x is listed; #30 merged feat/x in the earlier release (fixing #9), #50 merges it now. */
+	const world = (old: object = { shipped: true }, over: World = {}): World => ({
+		...simple({
+			prs: {
+				42: {
+					base: 'feat/x',
+					head: 'fix/s42',
+					mergeSha: 'm42',
+					mergedAt: '2026-10-05T00:00:00Z',
+					files: [`${DIR}/a.ts`],
+				},
+				30: {
+					head: 'feat/x',
+					mergeSha: 'm30',
+					mergedAt: '2026-09-01T00:00:00Z',
+					closing: [9],
+					files: [`${DIR}/a.ts`],
+					...old,
+				},
+				50: {
+					head: 'feat/x',
+					mergeSha: 'm50',
+					mergedAt: '2026-10-06T00:00:00Z',
+					closing: [12],
+					files: [`${DIR}/a.ts`],
+				},
+			},
+			issues: { 12: {}, 9: {} },
+			log: [],
+		}),
+		changelog: CHANGELOG.replace('[#40]', '[#42]'),
+		...over,
+	});
+	const numbers = async (w: World) =>
+		(await run(fakeWorld(w))).issues.map((i) => i.number);
+
+	test('an integration PR released before is dropped (its merge is an ancestor of the previous tag)', async () => {
+		expect(await numbers(world())).toEqual([12]);
+	});
+
+	test('without a previous tag, the older merge is dropped by its date', async () => {
+		const w = world({ shipped: false }, { tags: ['@nxgt/widget@1.4.0'] });
+		expect(await numbers(w)).toEqual([12]);
+	});
+
+	test('when git cannot say, the older merge is dropped by its date', async () => {
+		const w = world({ shipped: false }, { failing: ['merge-base'] });
+		expect(await numbers(w)).toEqual([12]);
+	});
+
+	test('a merge not yet released is kept', async () => {
+		const w = world({ shipped: false, mergedAt: '2026-10-07T00:00:00Z' });
+		expect((await numbers(w)).sort()).toEqual([12, 9]);
+	});
+});

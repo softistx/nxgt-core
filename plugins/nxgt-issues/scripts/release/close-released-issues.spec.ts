@@ -53,8 +53,13 @@ interface Pr {
 	closing?: number[];
 	files?: string[];
 	sha?: string;
+	mergedAt?: string;
+	/** Its merge commit is an ancestor of the previous tag. */
+	shipped?: boolean;
 	/** The packages a changeset this PR adds names. */
 	changesets?: string[];
+	/** The PR also adds `.changeset/README.md`, which names `@nxgt/c`. */
+	readme?: boolean;
 }
 interface Issue {
 	body: string;
@@ -95,6 +100,7 @@ const prJson = (n: number, pr: Pr) => ({
 		repository: { name: 'nxgt-widget', owner: { login: 'softistx' } },
 	})),
 	mergeCommit: pr.sha ? { oid: pr.sha } : null,
+	mergedAt: pr.mergedAt ?? null,
 	files: (pr.files ?? ['packages/widget/src/a.ts']).map((path) => ({ path })),
 });
 
@@ -129,16 +135,26 @@ function fakeWorld(init: World) {
 		const find = (sha: string) =>
 			Object.values(init.prs ?? {}).find((p) => p.sha === sha);
 		if (argv[1] === 'show') {
+			if (String(argv[2]).endsWith(':.changeset/README.md'))
+				return ok('---\n"@nxgt/c": minor\n---\n');
 			const m = /^(\w+):\.changeset\/c(\d+)\.md$/.exec(String(argv[2]));
 			if (!m) return ok(changelogOf(init.listed ?? [40]));
 			const name = find(String(m[1]))?.changesets?.[Number(m[2])];
 			return name ? ok(`---\n"${name}": minor\n---\n\nx\n`) : bad('fatal');
 		}
+		if (argv[1] === 'merge-base') {
+			const pr = find(String(argv[3]));
+			if (!pr) return { code: 128, stdout: '', stderr: 'fatal: bad object' };
+			return pr.shipped ? ok() : { code: 1, stdout: '', stderr: '' };
+		}
 		if (argv[1] === 'diff' && argv.includes('--diff-filter=A')) {
 			const pr = find(String(argv[4]).replace(/\^1$/, ''));
 			if (!pr) return bad('fatal: bad revision');
+			const names = (pr.changesets ?? []).map(
+				(_, i) => `.changeset/c${i}.md\n`,
+			);
 			return ok(
-				(pr.changesets ?? []).map((_, i) => `.changeset/c${i}.md\n`).join(''),
+				[...names, ...(pr.readme ? ['.changeset/README.md\n'] : [])].join(''),
 			);
 		}
 		if (argv[1] === 'diff') {
@@ -952,7 +968,26 @@ describe('an integration PR credited to a slice that did not touch the package',
 	);
 
 	test('a changeset README is not a changeset', async () => {
-		expect(changesetNames('Not a changeset: really\n')).toEqual([]);
+		const w = fakeWorld({
+			...simple({
+				prs: {
+					40: {
+						closing: [12],
+						sha: 'm40',
+						files: [touching('a'), touching('c')],
+						changesets: [],
+						readme: true,
+					},
+				},
+				issues: {
+					12: { body: 'x\n\n## Versions\n\n- `@nxgt/c` 1.0.0\n' },
+				},
+			}),
+		});
+		await run(w, [], checkout('a', 'c'), published);
+		expect(w.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/a@1.4.0',
+		);
 	});
 });
 
@@ -968,6 +1003,7 @@ describe('changesetNames', () => {
 		['CRLF', '---\r\n"@nxgt/a": minor\r\n---\r\n\r\nText\r\n', ['@nxgt/a']],
 		['BOM', '\uFEFF---\n"@nxgt/a": minor\n---\n', ['@nxgt/a']],
 		['empty frontmatter', '---\n---\n', []],
+		['a rule later in the text', 'Intro\n---\n"@nxgt/a": minor\n---\n', []],
 		[
 			'empty frontmatter, then a body with a rule and a colon',
 			'---\n---\n\nBody.\n\n---\nNote: x\n',
@@ -975,5 +1011,71 @@ describe('changesetNames', () => {
 		],
 	])('%s', (_name, text, expected) => {
 		expect(changesetNames(text)).toEqual(expected);
+	});
+});
+
+describe('a feat/* branch that was merged before', () => {
+	const published = JSON.stringify([{ name: '@nxgt/a', version: '1.4.0' }]);
+	const files = ['packages/a/src/x.ts'];
+	/** Slice 42 into feat/x is listed; #30 merged feat/x in the earlier release (fixing #9), #50 merges it now. */
+	const world = (
+		old: Partial<Pr> = { shipped: true },
+		over: Partial<World> = {},
+	) =>
+		fakeWorld({
+			prs: {
+				42: {
+					base: 'feat/x',
+					head: 'fix/s42',
+					sha: 'm42',
+					mergedAt: '2026-10-05T00:00:00Z',
+					files,
+				},
+				30: {
+					head: 'feat/x',
+					sha: 'm30',
+					mergedAt: '2026-09-01T00:00:00Z',
+					closing: [9],
+					files,
+					...old,
+				},
+				50: {
+					head: 'feat/x',
+					sha: 'm50',
+					mergedAt: '2026-10-06T00:00:00Z',
+					closing: [12],
+					files,
+				},
+			},
+			issues: { 12: { body: 'x' }, 9: { body: 'x' } },
+			listed: [42],
+			log: [],
+			...over,
+		});
+	const commented = (w: ReturnType<typeof world>) =>
+		[9, 12].filter((n) => (w.issues[n]?.comments.length ?? 0) > 0);
+
+	test('an integration PR released before is dropped (its merge is an ancestor of the previous tag)', async () => {
+		const w = world();
+		await run(w, [], checkout('a'), published);
+		expect(commented(w)).toEqual([12]);
+	});
+
+	test('without a previous tag, the older merge is dropped by its date', async () => {
+		const w = world({ shipped: false }, { tagList: ['@nxgt/a@1.4.0'] });
+		await run(w, [], checkout('a'), published);
+		expect(commented(w)).toEqual([12]);
+	});
+
+	test('when git cannot say, the older merge is dropped by its date', async () => {
+		const w = world({ shipped: false }, { failing: ['merge-base'] });
+		await run(w, [], checkout('a'), published);
+		expect(commented(w)).toEqual([12]);
+	});
+
+	test('a merge not yet released is kept', async () => {
+		const w = world({ shipped: false, mergedAt: '2026-10-07T00:00:00Z' });
+		await run(w, [], checkout('a'), published);
+		expect(commented(w)).toEqual([9, 12]);
 	});
 });
