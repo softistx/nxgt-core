@@ -131,3 +131,82 @@ describe('loggerProvider', () => {
 		expect(lines[0]).not.toContain('requestId');
 	});
 });
+
+// `LOG_TAG` is read when a logger is created, like `LOG_LEVEL`. The default
+// `logger` is created at import time, so these specs set the environment first
+// and import a fresh copy of the module through a unique query string, which
+// Bun treats as a separate module instance (no subprocess needed).
+describe('LOG_TAG', () => {
+	const saved = Bun.env['LOG_TAG'];
+	let n = 0;
+
+	afterEach(() => {
+		if (saved === undefined) delete Bun.env['LOG_TAG'];
+		else Bun.env['LOG_TAG'] = saved;
+	});
+
+	async function freshModule() {
+		return (await import(
+			`./logger?log-tag-${n++}`
+		)) as typeof import('./logger');
+	}
+
+	function capture(target: winston.Logger): string[] {
+		const seen: string[] = [];
+		target.add(
+			new winston.transports.Stream({
+				stream: new Writable({
+					write(chunk, _e, done) {
+						seen.push(String(chunk).replace(ANSI, '').trimEnd());
+						done();
+					},
+				}),
+			}),
+		);
+		return seen;
+	}
+
+	test('names the label of the default instance and of createLogger without `tag`', async () => {
+		Bun.env['LOG_TAG'] = 'billing';
+		const mod = await freshModule();
+		const seenDefault = capture(mod.logger);
+		const created = mod.createLogger({
+			name: 'spec-env',
+			disableConsole: true,
+		});
+		const seenCreated = capture(created);
+		mod.logger.info('a');
+		created.info('b');
+		expect(seenDefault[0]).toContain('[billing] [info] a');
+		expect(seenCreated[0]).toContain('[billing] [info] b');
+	});
+
+	test('the request child of the default logger carries it', async () => {
+		Bun.env['LOG_TAG'] = 'billing';
+		const mod = await freshModule();
+		const seen = capture(mod.logger);
+		mod.logger.child({ requestId: 'r1' }).info('c');
+		expect(seen[0]).toContain('[billing] [info] [requestId=r1] c');
+	});
+
+	test('`tag` beats LOG_TAG', async () => {
+		Bun.env['LOG_TAG'] = 'billing';
+		const mod = await freshModule();
+		const tagged = mod.createLogger({
+			name: 'spec-env-tag',
+			tag: 'orders',
+			disableConsole: true,
+		});
+		const seen = capture(tagged);
+		tagged.info('d');
+		expect(seen[0]).toContain('[orders] [info] d');
+	});
+
+	test('unset gives `app`', async () => {
+		delete Bun.env['LOG_TAG'];
+		const mod = await freshModule();
+		const seen = capture(mod.logger);
+		mod.logger.info('e');
+		expect(seen[0]).toContain('[app] [info] e');
+	});
+});
