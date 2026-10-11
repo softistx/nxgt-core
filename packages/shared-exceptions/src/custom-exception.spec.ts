@@ -10,7 +10,7 @@ import type { StatusCode } from './status';
  * never disagrees with it.
  */
 describe('CustomException', () => {
-	describe('sellix-monorepo call shape (positional)', () => {
+	describe('the consumer monorepo call shape (positional)', () => {
 		it('keeps code numeric, which c.status() requires', () => {
 			const err = new CustomException('errors.not-found', 404);
 			expect(err.code).toBe(404);
@@ -104,7 +104,7 @@ describe('CustomException', () => {
 			expect(err).toBeInstanceOf(CustomException);
 		});
 
-		it('unauthorized is exactly unauthenticated, under sellix’s name', () => {
+		it('unauthorized is exactly unauthenticated, under the consumer monorepo’s name', () => {
 			expect(CustomException.unauthorized({}).errorCode).toBe(
 				CustomException.unauthenticated({}).errorCode,
 			);

@@ -76,7 +76,7 @@ describe('paginateListOffset (page/size)', () => {
 	});
 
 	it('honours the requested page size', async () => {
-		// sellix-monorepo computed `Math.min(Math.min(1, size ?? 20), 100)`, which
+		// The consumer monorepo computed `Math.min(Math.min(1, size ?? 20), 100)`, which
 		// pins every page to one document however many are asked for. Nothing
 		// called these statics, so nothing ever saw it.
 		const result = await (Offset as any).paginateListOffset(docs(10), {

@@ -2,8 +2,15 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { Writable } from 'node:stream';
 import { Hono } from 'hono';
 import winston from 'winston';
-import { createLogger, logger } from './logger';
-import { loggerProvider } from './logger.middleware';
+
+// The default `logger` is created at import time and reads `LOG_TAG` then, so a
+// shell that exports `LOG_TAG` would change every `[app]` assertion below. The
+// variable is cleared for the import only, then put back.
+const shellTag = Bun.env['LOG_TAG'];
+delete Bun.env['LOG_TAG'];
+const { createLogger, logger } = await import('./logger');
+const { loggerProvider } = await import('./logger.middleware');
+if (shellTag !== undefined) Bun.env['LOG_TAG'] = shellTag;
 
 // Winston colorizes the level and the message (`colorize({ all: true })`).
 // The assertions are about the text, so the escape codes are stripped.
@@ -35,7 +42,7 @@ describe('base logger line format', () => {
 		logger.info('hello');
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toMatch(
-			/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[sellix\] \[info\] hello$/,
+			/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[app\] \[info\] hello$/,
 		);
 	});
 
@@ -51,9 +58,7 @@ describe('base logger line format', () => {
 		expect(second).toBe(String(now.getMonth() + 1).padStart(2, '0'));
 	});
 
-	// OWNER QUESTION: the default label is 'sellix', a product name in a shared
-	// package. Pinned as it is.
-	test("the default label is 'sellix' and `tag` overrides it", () => {
+	test("the default label is 'app' and `tag` overrides it", () => {
 		const tagged = createLogger({
 			name: 'spec-tagged',
 			tag: 'orders',
@@ -73,7 +78,7 @@ describe('base logger line format', () => {
 		tagged.info('x');
 		logger.info('y');
 		expect(seen[0]).toContain('[orders] [info] x');
-		expect(lines[0]).toContain('[sellix] [info] y');
+		expect(lines[0]).toContain('[app] [info] y');
 	});
 });
 
@@ -97,7 +102,7 @@ describe('loggerProvider', () => {
 		await appWithProbe().request('/');
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toMatch(
-			/^\[[^\]]+\] \[sellix\] \[info\] \[requestId=[0-9a-f-]{36}\] from the handler$/,
+			/^\[[^\]]+\] \[app\] \[info\] \[requestId=[0-9a-f-]{36}\] from the handler$/,
 		);
 	});
 
@@ -129,7 +134,94 @@ describe('loggerProvider', () => {
 		await appWithProbe().request('/');
 		lines.length = 0;
 		logger.info('after');
-		expect(lines[0]).toEndWith('[sellix] [info] after');
+		expect(lines[0]).toEndWith('[app] [info] after');
 		expect(lines[0]).not.toContain('requestId');
+	});
+});
+
+// `LOG_TAG` is read when a logger is created, like `LOG_LEVEL`. The default
+// `logger` is created at import time, so these specs set the environment first
+// and import a fresh copy of the module through a unique query string, which
+// Bun treats as a separate module instance (no subprocess needed).
+describe('LOG_TAG', () => {
+	const saved = Bun.env['LOG_TAG'];
+	let n = 0;
+
+	afterEach(() => {
+		if (saved === undefined) delete Bun.env['LOG_TAG'];
+		else Bun.env['LOG_TAG'] = saved;
+	});
+
+	async function freshModule() {
+		return (await import(
+			`./logger?log-tag-${n++}`
+		)) as typeof import('./logger');
+	}
+
+	function capture(target: winston.Logger): string[] {
+		const seen: string[] = [];
+		target.add(
+			new winston.transports.Stream({
+				stream: new Writable({
+					write(chunk, _e, done) {
+						seen.push(String(chunk).replace(ANSI, '').trimEnd());
+						done();
+					},
+				}),
+			}),
+		);
+		return seen;
+	}
+
+	test('names the label of the default instance and of createLogger without `tag`', async () => {
+		Bun.env['LOG_TAG'] = 'billing';
+		const mod = await freshModule();
+		const seenDefault = capture(mod.logger);
+		const created = mod.createLogger({
+			name: 'spec-env',
+			disableConsole: true,
+		});
+		const seenCreated = capture(created);
+		mod.logger.info('a');
+		created.info('b');
+		expect(seenDefault[0]).toContain('[billing] [info] a');
+		expect(seenCreated[0]).toContain('[billing] [info] b');
+	});
+
+	test('the request child of the default logger carries it', async () => {
+		Bun.env['LOG_TAG'] = 'billing';
+		const mod = await freshModule();
+		const seen = capture(mod.logger);
+		mod.logger.child({ requestId: 'r1' }).info('c');
+		expect(seen[0]).toContain('[billing] [info] [requestId=r1] c');
+	});
+
+	test('`tag` beats LOG_TAG', async () => {
+		Bun.env['LOG_TAG'] = 'billing';
+		const mod = await freshModule();
+		const tagged = mod.createLogger({
+			name: 'spec-env-tag',
+			tag: 'orders',
+			disableConsole: true,
+		});
+		const seen = capture(tagged);
+		tagged.info('d');
+		expect(seen[0]).toContain('[orders] [info] d');
+	});
+
+	test('empty gives `app`', async () => {
+		Bun.env['LOG_TAG'] = '';
+		const mod = await freshModule();
+		const seen = capture(mod.logger);
+		mod.logger.info('f');
+		expect(seen[0]).toContain('[app] [info] f');
+	});
+
+	test('unset gives `app`', async () => {
+		delete Bun.env['LOG_TAG'];
+		const mod = await freshModule();
+		const seen = capture(mod.logger);
+		mod.logger.info('e');
+		expect(seen[0]).toContain('[app] [info] e');
 	});
 });

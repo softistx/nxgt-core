@@ -17,12 +17,12 @@ const MAX_SIZE = 100;
 
 /**
  * Both repositories put a `paginate` static on every schema, and they meant
- * different things by it: sellix-monorepo answered `{data, metadata}` from a
+ * different things by it: the consumer monorepo answered `{data, metadata}` from a
  * page and a size, nxgt-federation answered a Relay `{edges, pageInfo,
  * totalCount}` from a cursor.
  *
  * `paginate` keeps federation's meaning because federation calls it from
- * dozens of services and sellix-monorepo called it from none — its offset
+ * dozens of services and the consumer monorepo called it from none — its offset
  * variants were dead code there. They survive under explicit names rather than
  * being deleted, since a cursor connection cannot express "page 7 of 12".
  *
@@ -30,7 +30,7 @@ const MAX_SIZE = 100;
  *   paginateList        cursor, over a list already in memory
  *   paginateOffset      page/size, {data, metadata}
  *   paginateListOffset  page/size, over a list already in memory
- *   cursorPaginate      cursor, {data, metadata} — sellix's third shape
+ *   cursorPaginate      cursor, {data, metadata} — the consumer monorepo's third shape
  */
 export function applyPagination(schema: Schema) {
 	schema.static('paginate', async function () {
@@ -235,7 +235,7 @@ export function applyPagination(schema: Schema) {
 /**
  * The page window, shared by both offset statics.
  *
- * sellix-monorepo computed the size as `Math.min(Math.min(1, size ?? 20), 100)`,
+ * The consumer monorepo computed the size as `Math.min(Math.min(1, size ?? 20), 100)`,
  * whose inner `Math.min(1, …)` pins every page to a single document whatever
  * the caller asks for. Nothing called these statics, so nothing ever saw it.
  */

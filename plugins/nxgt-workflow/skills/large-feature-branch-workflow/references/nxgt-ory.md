@@ -26,7 +26,7 @@ consumed by another repository that has no way to check it.
 1. **`config/` first**, in its own slice, with the restart and the syntax check
    done and stated in the commit. Load `change-stack-config` for it.
 2. **The console or the flow routes** that consume it, here.
-3. **The consumer repository's PR** — in `sellix-monorepo` or
+3. **The consumer repository's PR** — in the consumer monorepo or
    `nxgt-federation`, a separate branch and PR there, opened only once this
    repo's half is merged.
 4. **Docs and skills last.**

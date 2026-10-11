@@ -24,7 +24,7 @@ effort onto `develop`.
 Do **not** use it for a normal bug fix or a single-module change. Those are
 already one branch and one PR, and a plan would cost more than it saves.
 
-The shape is the same in `sellix-monorepo`, `nxgt-federation`, `nxgt-ory` and
+The shape is the same in the two consumer repositories, `nxgt-ory` and
 `stx-sdk`, so an effort that touches two of them uses the same structure in
 each. What differs per repository — the green bar, the sequencing, the review
 axes — is in `references/`; **read the one for the repository you are in**
@@ -198,7 +198,7 @@ somewhere else.
 
 | repository | file |
 | --- | --- |
-| `sellix-monorepo`, `nxgt-federation` | their plugin in `softistx/plugins`, `references/workflow.md` |
+| the two consumer repositories | their plugin in `softistx/plugins`, `references/workflow.md` |
 | `nxgt-ory` | `references/nxgt-ory.md` |
 | `nxgt-core` | `references/nxgt-core.md` |
 

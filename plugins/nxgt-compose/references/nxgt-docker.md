@@ -46,7 +46,7 @@ both consumers. Do not trust a default here; read `docker network inspect proxy`
   the one repository where that variable is still defensible**, because many of
   its services really are optional on the ingress and some are reached by port.
   It is not defensible in a stack that publishes nothing: `nxgt-ory`,
-  `sellix-monorepo` and `nxgt-federation` all replaced it with a literal
+  the two consumer repositories all replaced it with a literal
   `traefik.enable=true` on 2026-09-21, after it labelled containers out of
   traefik on a plain `up -d`. See skill §9. If a service here must always be
   routed, say `true` outright rather than inheriting a machine-wide switch.
@@ -62,7 +62,7 @@ a router, and `mailpit.${HOST}`, `minio.${HOST}`, `rabbitmq.${HOST}`,
 
 Seven files remain and are **transitional**, one TCP port each: postgres `5432`,
 mariadb `3306`, mongo `27017`/`27018`, redis `6379`, mailpit SMTP `1025`, minio S3
-`9000`, rabbitmq AMQP `5672`. They exist only because `sellix-monorepo` and
+`9000`, rabbitmq AMQP `5672`. They exist only because the consumer monorepo and
 `nxgt-federation` still run dev servers on the host that dial them. Deleting them
 is the last step of converting those two repos — not a separate decision.
 

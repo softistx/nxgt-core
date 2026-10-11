@@ -59,7 +59,7 @@ a deep review must check. `references/nxgt-core.md` is this one's.
 
 ## Related repositories
 
-`sellix-monorepo` and `nxgt-federation` consume every package here from the
+the two consumer repositories consume every package here from the
 public npm registry, with no token and no registry configuration. Their
 `AGENTS.md` files carry the import rule (`Types`, `ObjectId`, `Connection` come
 from `@nxgt/shared-mongo`, never from `mongoose`), which this split did not

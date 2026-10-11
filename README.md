@@ -3,7 +3,7 @@
 The shared `@nxgt/*` packages, in one place, published to the **public npm
 registry**.
 
-These packages used to live twice — once in `sellix-monorepo/packages/` and
+These packages used to live twice — once in the consumer monorepo's `packages/` and
 once in `nxgt-federation/packages/` — as forks under the same names. A fix made
 on one side was re-made by hand on the other, or never made at all. This
 repository is the single copy.

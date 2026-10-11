@@ -1,7 +1,7 @@
 # `code-reviewer` in nxgt-core
 
 nxgt-core is the Bun workspace behind the shared `@nxgt/*` packages that
-`sellix-monorepo` and `nxgt-federation` install from npmjs, and it is the
+the two consumer repositories install from npmjs, and it is the
 marketplace for the nxgt plugins under `plugins/`. It is upstream of every
 other repository: a defect here reaches consumers only after a release, and
 the build proves almost nothing about the artifact they install, because
@@ -123,9 +123,12 @@ A change under `plugins/` is reviewed too:
 - A plugin whose content changed with no `version` bump in its
   `.claude-plugin/plugin.json`; a new plugin missing from
   `.claude-plugin/marketplace.json`.
-- A private application name is fine here (this is agent guidance, not an
-  npm page), but a secret, a token, a local absolute path or a production
-  host is not.
+- Report any private application name, or an internal name for the set of
+  applications ("the parc", "the estate"), as a finding (owner, 2026-10-11):
+  this repository is public, and the wording is "the consumer monorepo" or
+  "the applications that use these packages". The `nxgt-*` repository names
+  are fine. A secret, a token, a local absolute path or a production
+  host is a finding too.
 - The `CLAUDE.md` plugin table out of step with `plugins/`.
 
 ## `nxgt-issues`
@@ -236,5 +239,5 @@ From the table in `AGENTS.md`:
   never `changeset publish` or `npm publish`.
 - A fix here is a release before it is a consumer PR. A consumer PR opened
   before the version answers on `registry.npmjs.org` is not reviewable.
-- `CHANGELOG.md` is generated; a hand edit is a finding.
+- `CHANGELOG.md` is generated; a hand edit is a finding, except a line rewritten to remove a private name (an application, or an internal name for the set of applications).
 - Commit types: `feat`, `fix`, `update`, `chore`, `docs`, `typo`, and `ci` for the workflows and the setup action.

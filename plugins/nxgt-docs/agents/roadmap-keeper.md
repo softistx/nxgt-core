@@ -26,7 +26,7 @@ The page is published, and it is a direction, not a commitment:
 - **No dates**, no quarters, no "soon". The version something shipped in
   is the only number on the page.
 - **No private names** — no application, monorepo, customer, person, or
-  "the parc" / "the estate". "Consumers that page by cursor", not the app
+  an internal name for the set of applications. "Consumers that page by cursor", not the app
   that asked.
 - **No internal tasks.** "Refactor the pipeline" is not a roadmap entry;
   "retries with backoff on the OTLP exporter" is, if that is what the

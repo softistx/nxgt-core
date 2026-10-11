@@ -15,7 +15,7 @@ so editing a URL there alone changes nothing.
 - `name: ${STACK_PREFIX:-nxgt-ory}`, and
   `container_name: ${STACK_PREFIX:+${STACK_PREFIX}-}kratos` on each of the four
   services. Empty prefix → `kratos`, `keto`, `hydra`, `kratos-ui`, which is why
-  eleven container-name references in sellix-monorepo and nxgt-federation, and
+  eleven container-name references in the two consumer repositories, and
   the four `KRATOS_*_URL`/`KETO_*_URL` exports in the shell profile, were not
   touched at all.
 - Four hostname variables — `KRATOS_HOSTNAME`, `KETO_HOSTNAME`,

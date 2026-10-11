@@ -60,7 +60,7 @@ anything you did not create in this run.**
 
 In descending order of how often it has paid off here:
 
-- **A fix applied in one repository and not its siblings.** The parc shares
+- **A fix applied in one repository and not its siblings.** The repositories share
   skeletons: a `verify:artifacts` blind spot closed in one repo, a `verify:ssr`
   added in one, a `changeset version && bun install` script in one. Grep the
   sibling for the same script name and compare.

@@ -207,7 +207,7 @@
   not have; it now falls back to `sub`, then `clientId`.
   
   Consumers: an Ory-native app that reads `claims.exp` gets a number where it got
-  a string. Nothing in the parc did. A GraphQL app can switch its `getClaims` from
+  a string. No application that used it did. A GraphQL app can switch its `getClaims` from
   `context.user` to `context.claims` to gain the four claims it was missing.
 
 ### Patch Changes
@@ -368,7 +368,7 @@
   resolved to `1.1.0`. Both landed in the tree, each registered the `Audit` and
   `Migration` Mongoose models, and the second threw `OverwriteModelError` — 52
   failing specs in nxgt-federation, and two copies of the package in
-  sellix-monorepo already.
+  the consumer monorepo already.
   
   Internal dependencies are now `workspace:^`, which publishes as a caret range
   and dedupes. `verify-artifacts.ts` fails on an exact sibling pin so this cannot

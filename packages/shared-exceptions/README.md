@@ -52,7 +52,8 @@ had to change:
 | `internal` | 500 | `INTERNAL_SERVER_ERROR` |
 | `serviceUnavailable` | 503 | `SERVICE_UNAVAILABLE` |
 
-`unauthorized` is sellix's name for `unauthenticated`. `ServiceUnavailable` is
+`unauthorized` is an alias of `unauthenticated`, kept for a consumer that
+predates this package. `ServiceUnavailable` is
 deliberately distinct from `Forbidden` and `NotFound`: an outage must never
 read as a denial.
 

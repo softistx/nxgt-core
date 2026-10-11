@@ -103,7 +103,7 @@ describe('parseTemplate', () => {
 });
 
 describe('isPlaceholder', () => {
-	test('the parc’s placeholder conventions count as empty', () => {
+	test('the placeholder conventions count as empty', () => {
 		for (const value of [
 			'',
 			'""',

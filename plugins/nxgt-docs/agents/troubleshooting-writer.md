@@ -23,7 +23,7 @@ needs a code change — a message that says nothing, an error that should have
 a code — is reported, not made.
 
 The page is published. **Never name a private application**, a private
-monorepo, a host, a database, a person, or "the parc" / "the estate". Never
+monorepo, a host, a database, a person, or an internal name for the set of applications. Never
 paste a real token, URL with credentials, or a local path.
 
 ## Find what can go wrong

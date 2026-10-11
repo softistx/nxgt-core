@@ -53,7 +53,7 @@ carrying on without the reference.
 | --- | --- |
 | `nxgt-ory` | `references/nxgt-ory.md` — **the worked example**, converted first |
 | `nxgt-docker` | `references/nxgt-docker.md` — the platform layer, owns `proxy` and traefik |
-| an application (`sellix-monorepo`, `nxgt-federation`, …) | its plugin in `softistx/plugins`, `references/compose.md` |
+| an application repository that consumes the packages | its plugin in `softistx/plugins`, `references/compose.md` |
 
 A repository with no reference here still follows the eleven rules; add its
 reference when you convert it, in the shape of the others — what it is, what is
@@ -388,7 +388,7 @@ disagree with its neighbours indefinitely.
 It looks private — nothing publishes it, each container has its own namespace — so
 it drifts into a per-app `.env`. But a sibling repository naming
 `http://oauth-api:3000/api` has no compiler to tell it the number moved. Pick one
-number for every service in the parc, keep it in the compose file, and say in
+number for every service of the stack, keep it in the compose file, and say in
 `AGENTS.md` who dials it.
 
 ## 10. A health probe must be runnable, and must answer for one process

@@ -97,7 +97,7 @@ export class GridFSService {
 
 		// Determine limit and sort order
 		const limit = Math.min(first ?? last ?? MAX_SIZE, MAX_SIZE);
-		// Only `last` flips the read order. sellix-monorepo flipped it for
+		// Only `last` flips the read order. The consumer monorepo flipped it for
 		// `before` too and then never reversed the result back, so a
 		// `before`-only page came out newest-first while every other page came
 		// out oldest-first.

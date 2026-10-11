@@ -41,7 +41,7 @@ export function createLogger(options: {
 		level: Bun.env['LOG_LEVEL'] || 'info',
 		format: combine(
 			colorize({ all: true }),
-			label({ label: options.tag ?? 'sellix' }),
+			label({ label: options.tag ?? (Bun.env['LOG_TAG'] || 'app') }),
 			timestamp({ format: 'YYYY-DD-MM HH:mm:ss' }),
 			customFormat,
 		),
