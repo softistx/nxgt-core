@@ -1,5 +1,11 @@
 # @nxgt/shared-storage
 
+## 1.2.0
+
+### Minor Changes
+
+- [#269](https://github.com/softistx/nxgt-core/pull/269) [`a46477b`](https://github.com/softistx/nxgt-core/commit/a46477b94c63d04d10c9f3998cafd0594ba6378b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `StorageService.presign()` is the correctly spelled name; `presing()` keeps working and is deprecated.
+
 ## 1.1.1
 
 ### Patch Changes

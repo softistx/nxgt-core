@@ -282,7 +282,7 @@
     },
     "packages/shared-storage": {
       "name": "@nxgt/shared-storage",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "dependencies": {
         "@nxgt/i18n": "workspace:^",
         "@nxgt/shared": "workspace:^",
