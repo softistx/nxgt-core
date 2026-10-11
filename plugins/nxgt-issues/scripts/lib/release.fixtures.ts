@@ -53,6 +53,7 @@ export function fakeWorld(init: World = {}): Fake {
 		repoLabels: ['bug', 'released'],
 		tracking: [],
 		failing: [],
+		failOnce: [],
 		...init,
 	};
 	const calls: string[][] = [];
@@ -60,6 +61,11 @@ export function fakeWorld(init: World = {}): Fake {
 		async run(argv, options = {}) {
 			calls.push([...argv]);
 			const text = argv.join(' ');
+			const once = world.failOnce.findIndex((needle) => text.includes(needle));
+			if (once !== -1) {
+				world.failOnce.splice(once, 1);
+				return fail('HTTP 500: server error');
+			}
 			if (world.failing.some((needle) => text.includes(needle))) {
 				return fail('HTTP 500: server error');
 			}

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { fixedComment } from './issue-body';
-import { releasePackage } from './release';
+import { type ReleaseOptions, releasePackage } from './release';
 import {
 	DIR,
 	type Fake,
@@ -17,8 +17,13 @@ afterAll(removeTempDirs);
 const OWNERS = ['softistx', 'SteveGT96'];
 const input = { repo: REPO, pkg: PKG, version: '1.4.0', dir: DIR };
 
-const run = (fake: Fake, dryRun = false) =>
-	releasePackage(ghContext(fake), { ...input, owners: OWNERS, dryRun });
+const run = (fake: Fake, dryRun = false, over: Partial<ReleaseOptions> = {}) =>
+	releasePackage(ghContext(fake), {
+		...input,
+		owners: OWNERS,
+		dryRun,
+		...over,
+	});
 
 const simple = (over: World = {}): World => ({
 	log: [],
@@ -489,5 +494,106 @@ describe('the notification list', () => {
 		const fake = fakeWorld(simple({ prs: { 40: {} } }));
 		await run(fake);
 		expect(fake.calls.some((c) => c[1] === 'search')).toBe(false);
+	});
+});
+
+const versions = (...names: string[]) =>
+	`Summary.\n\n## Versions\n\n${names.map((n) => `- \`${n}\` 1.0.0`).join('\n')}\n\n## Expected\n\nx\n`;
+const SIBLINGS = [PKG, '@nxgt/other'];
+
+describe('an issue that names another package of the repository', () => {
+	test('is left to that package: no comment, label or close, with a note', async () => {
+		const fake = fakeWorld(
+			simple({ issues: { 12: { body: versions('@nxgt/other') } } }),
+		);
+		const report = await run(fake, false, { siblings: SIBLINGS });
+		expect(fake.writes()).toEqual([]);
+		expect(report.issues[0]).toMatchObject({ skipped: true, commented: false });
+		expect(report.notes.join(' ')).toContain('@nxgt/other');
+	});
+
+	test('is released when the Versions section names this package, or only packages of other repositories', async () => {
+		for (const body of [
+			versions('@nxgt/other', PKG),
+			versions('@acme/elsewhere'),
+			'no versions section',
+		]) {
+			const fake = fakeWorld(simple({ issues: { 12: { body } } }));
+			const report = await run(fake, false, { siblings: SIBLINGS });
+			expect(report.issues[0]?.commented).toBe(true);
+		}
+	});
+});
+
+describe('the marker is written last', () => {
+	test('a close that fails once leaves no marker: the next run closes and comments, with no reopened note', async () => {
+		const fake = fakeWorld({ ...simple(), failOnce: ['issue close'] });
+		const first = await run(fake);
+		expect(first.warnings.join(' ')).toContain('#12');
+		expect(fake.world.issues[12]?.comments ?? []).toEqual([]);
+		expect(fake.world.issues[12]?.labels).toContain('released');
+		const second = await run(fake);
+		expect(second.issues[0]).toMatchObject({
+			commented: true,
+			closed: true,
+			reopened: false,
+		});
+		expect(second.notes.join(' ')).not.toContain('reopened');
+		expect(fake.world.issues[12]?.state).toBe('CLOSED');
+		const order = fake.writes().map((c) => c[2]);
+		expect(order.slice(-2)).toEqual(['close', 'comment']);
+	});
+});
+
+describe('a failed integration lookup', () => {
+	test('keeps the slice PR issues, named after the slice, with a warning', async () => {
+		const fake = fakeWorld({
+			...simple({
+				prs: {
+					40: { base: 'feat/thing', head: 'fix/slice', body: 'Closes #12' },
+				},
+			}),
+			failing: ['pr list'],
+		});
+		const report = await run(fake);
+		expect(report.issues.map((i) => [i.number, i.pr])).toEqual([[12, 40]]);
+		expect(report.warnings.join(' ')).toContain('feat/thing');
+	});
+});
+
+describe('a package at the repository root', () => {
+	const root = { dir: '.' };
+	const world = () =>
+		fakeWorld({
+			...simple({
+				prs: { 40: { closing: [12], mergeSha: 'm40', files: ['src/a.ts'] } },
+			}),
+			tags: ['v1.4.0', 'v1.3.0'],
+		});
+
+	test('single-package tags (v1.4.0), the whole tree as the path, the root CHANGELOG', async () => {
+		const fake = world();
+		const report = await run(fake, false, root);
+		expect(report.issues[0]).toMatchObject({ number: 12, closed: true });
+		const log = fake.calls.find((c) => c[1] === 'log');
+		expect(log).toContain('v1.3.0..v1.4.0');
+		expect(log?.slice(-2)).toEqual(['--', '.']);
+		const show = fake.calls.find((c) => c[1] === 'show');
+		expect(show?.[2]).toEndWith(':CHANGELOG.md');
+		expect(fake.calls.find((c) => c[1] === 'diff')?.slice(-2)).toEqual([
+			'--',
+			'.',
+		]);
+	});
+
+	test('the name@version tag style works too', async () => {
+		const fake = fakeWorld(
+			simple({ prs: { 40: { closing: [12], files: ['src/a.ts'] } } }),
+		);
+		const report = await run(fake, false, root);
+		expect(report.issues[0]?.closed).toBe(true);
+		expect(fake.calls.find((c) => c[1] === 'log')).toContain(
+			'@nxgt/widget@1.3.0..@nxgt/widget@1.4.0',
+		);
 	});
 });

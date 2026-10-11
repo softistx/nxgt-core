@@ -7,19 +7,24 @@
  * limit, which stops the run. `--dry-run` reads everything and writes nothing.
  */
 
-import { TRUSTED } from './context';
-import { search } from './dashboard-data';
-import { type GhContext, gh, ghJson, RateLimitedError } from './github';
-import { commentIssue, labelNames } from './github-issues';
-import { fixedComment } from './issue-body';
-import { ensureLabels } from './labels';
-import { upstreamRef } from './refs';
+import { type GhContext, gh, RateLimitedError } from './github';
+import { commentIssue } from './github-issues';
+import { fixedComment, versionNames } from './issue-body';
+import {
+	FIXED_MARKER,
+	labelCreated,
+	type Notify,
+	notifications,
+	readIssue,
+} from './release-github';
 import { discoverFixes, type ReleaseInput } from './release-prs';
-import { formatRepo, sameRepo } from './repo-id';
+import { formatRepo } from './repo-id';
 
 export interface ReleaseOptions extends ReleaseInput {
 	readonly owners: readonly string[];
 	readonly dryRun: boolean;
+	/** The names of every package of this repository: an issue naming another one is left to its run. */
+	readonly siblings?: readonly string[];
 }
 
 export interface IssueOutcome {
@@ -31,13 +36,10 @@ export interface IssueOutcome {
 	readonly closed: boolean;
 	/** The release comment is there and the issue is open: it was reopened, so it is not closed again. */
 	readonly reopened: boolean;
-}
-
-export interface Notify {
-	readonly tracking: string;
-	readonly title: string;
-	readonly url: string;
-	readonly upstream: string;
+	/** The issue names another package of the repository: that package's run comments. */
+	readonly skipped: boolean;
+	/** The other package of the repository a skipped issue names. */
+	readonly leftTo?: string;
 }
 
 export interface ReleaseReport {
@@ -53,87 +55,6 @@ export interface ReleaseReport {
 	readonly notes: string[];
 }
 
-const BOT = 'github-actions';
-const FIXED_MARKER = /<!--\s*nxgt-issues:fixed=\S+@\S+\s*-->/;
-type Rows = Record<string, unknown>[];
-const rows = (value: unknown): Rows =>
-	Array.isArray(value) ? (value as Rows) : [];
-
-interface IssueState {
-	readonly open: boolean;
-	readonly labelled: boolean;
-	readonly comments: { trusted: boolean; body: string }[];
-}
-
-async function readIssue(
-	ctx: GhContext,
-	repo: string,
-	number: number,
-): Promise<IssueState> {
-	const raw = await ghJson<Record<string, unknown>>(ctx, [
-		'issue',
-		'view',
-		String(number),
-		'-R',
-		repo,
-		'--json',
-		'number,state,labels,comments',
-	]);
-	return {
-		open: String(raw['state']).toUpperCase() === 'OPEN',
-		labelled: rows(raw['labels']).some(
-			(label) => String(label['name']).toLowerCase() === 'released',
-		),
-		comments: rows(raw['comments']).map((comment) => {
-			const author = comment['author'] as { login?: string } | null;
-			return {
-				body: String(comment['body'] ?? ''),
-				trusted:
-					TRUSTED.has(String(comment['authorAssociation'])) ||
-					author?.login === BOT,
-			};
-		}),
-	};
-}
-
-/** Whether the `released` label is (or in a dry run would be) created. */
-async function labelCreated(
-	ctx: GhContext,
-	options: ReleaseOptions,
-): Promise<boolean> {
-	if (!options.dryRun) {
-		return (await ensureLabels(ctx, options.repo, ['released'])).length > 0;
-	}
-	const present = await labelNames(ctx, options.repo);
-	return !present.some((name) => name.toLowerCase() === 'released');
-}
-
-async function notifications(
-	ctx: GhContext,
-	options: ReleaseOptions,
-	issues: readonly number[],
-): Promise<Notify[]> {
-	const { found } = await search(
-		ctx,
-		options.owners,
-		['--label', 'upstream', '--state', 'open'],
-		'number,title,repository,body',
-	);
-	return found.flatMap((tracking) => {
-		const ref = upstreamRef(tracking.body ?? '');
-		if (!ref || !sameRepo(ref.repo, options.repo)) return [];
-		if (!issues.includes(ref.number)) return [];
-		return [
-			{
-				tracking: `${tracking.repo}#${tracking.number}`,
-				title: tracking.title,
-				url: `https://github.com/${tracking.repo}/issues/${tracking.number}`,
-				upstream: `${formatRepo(ref.repo)}#${ref.number}`,
-			},
-		];
-	});
-}
-
 const message = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
@@ -146,6 +67,22 @@ async function releaseIssue(
 ): Promise<IssueOutcome> {
 	const repo = formatRepo(options.repo);
 	const state = await readIssue(ctx, repo, issue);
+	const named = versionNames(state.body);
+	const other = named.find(
+		(name) => name !== options.pkg && options.siblings?.includes(name),
+	);
+	if (other && !named.includes(options.pkg)) {
+		return {
+			number: issue,
+			pr,
+			commented: false,
+			labelled: false,
+			closed: false,
+			reopened: false,
+			skipped: true,
+			leftTo: other,
+		};
+	}
 	const body = fixedComment(options.pkg, options.version, pr);
 	// At most one "Fixed in" comment ever: a trusted comment carrying a fixed marker, whatever package, version or PR, means done.
 	const done = state.comments.some(
@@ -156,7 +93,7 @@ async function releaseIssue(
 	const closed = state.open && !done;
 	const reopened = state.open && done;
 	if (!options.dryRun) {
-		if (commented) await commentIssue(ctx, options.repo, issue, body);
+		// The comment, which is the marker, goes last: a failure before it leaves the step to be redone, never an issue "reopened".
 		if (labelled) {
 			await gh(ctx, [
 				...['issue', 'edit', String(issue), '-R', repo],
@@ -164,8 +101,17 @@ async function releaseIssue(
 			]);
 		}
 		if (closed) await gh(ctx, ['issue', 'close', String(issue), '-R', repo]);
+		if (commented) await commentIssue(ctx, options.repo, issue, body);
 	}
-	return { number: issue, pr, commented, labelled, closed, reopened };
+	return {
+		number: issue,
+		pr,
+		commented,
+		labelled,
+		closed,
+		reopened,
+		skipped: false,
+	};
 }
 
 export async function releasePackage(
@@ -217,6 +163,12 @@ export async function releasePackage(
 		warnings,
 		notes: [
 			...found.notes,
+			...issues
+				.filter((i) => i.skipped)
+				.map(
+					(i) =>
+						`#${i.number} names ${i.leftTo}, another package of this repository: that package's run will comment`,
+				),
 			...issues
 				.filter((i) => i.reopened)
 				.map(

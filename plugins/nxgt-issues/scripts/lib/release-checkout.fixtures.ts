@@ -6,8 +6,8 @@ import type { CliContext } from './cli-context';
 import { DIR, type Fake, ghContext, PKG } from './release.fixtures';
 import { tempDir } from './temp.fixtures';
 
-/** A checkout of the library: origin and `packages/widget`. */
-export function makeLibrary(): string {
+/** A checkout of the library: origin and `packages/widget`, or with `root` a single package at the root. */
+export function makeLibrary(root = false): string {
 	const dir = join(tempDir('lib'), 'nxgt-widget');
 	const put = (path: string, data: string) => {
 		mkdirSync(join(dir, path, '..'), { recursive: true });
@@ -17,6 +17,10 @@ export function makeLibrary(): string {
 		'.git/config',
 		'[remote "origin"]\n\turl = git@github.com:softistx/nxgt-widget.git\n',
 	);
+	if (root) {
+		put('package.json', JSON.stringify({ name: PKG, version: '1.4.0' }));
+		return dir;
+	}
 	put(
 		'package.json',
 		JSON.stringify({ name: 'nxgt-widget', workspaces: ['packages/*'] }),

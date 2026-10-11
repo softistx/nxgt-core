@@ -1,20 +1,24 @@
 #!/usr/bin/env bun
 /**
- * Closes the issues a release fixed, after `changesets/action` publishes:
+ * Closes the issues a release fixed, in CI only (HEAD is the release commit;
+ * elsewhere use `issues.ts released`), after `changesets/action` publishes:
  *   bun scripts/close-released-issues.ts --published "$PUBLISHED" [--repo owner/repo] [--dry-run]
  * (`PUBLISHED` is `steps.<id>.outputs.publishedPackages`, a JSON array of
  * `{ name, version }`; `GH_TOKEN` is the workflow's token, with `issues: write`.)
  *
  * Per published package the issues come from `close-released-issues-lib.ts`;
- * they are collected across all packages first, so an issue gets one comment,
- * naming the first package that fixes it: "Fixed in <pkg>@<version> (#PR)", the
- * `released` label and the close. The hidden marker in the comment is the
+ * they are collected across all packages first. An issue gets one comment,
+ * "Fixed in <pkg>@<version> (#PR)", naming the package its `## Versions`
+ * section lists, else the one that found it with the lowest rank, else the
+ * first; then the `released` label and the close. An issue whose Versions name
+ * a package of this repository that is not published now is left to that
+ * release. The comment is written last and its hidden marker is the
  * idempotency key: an issue gets at most one such comment ever (any trusted
- * comment with a fixed marker, whatever package or version, means done), and an
- * issue reopened after the release is reported, never closed again. Needs only `gh`; imports nothing
- * from the plugin. This is the canonical copy: byte-copy it, the lib file and
- * the spec into each library's `scripts/`. It never fails the release:
- * problems print as warnings and the exit code is 0.
+ * comment with a fixed marker means done), and one reopened after the release
+ * is reported, never closed again. Needs only `gh`; imports nothing from the
+ * plugin. This is the canonical copy: byte-copy it, the lib file and the spec
+ * into each library's `scripts/`. It never fails the release: problems print
+ * as warnings and the exit code is 0.
  */
 
 import { dirname, join } from 'node:path';
@@ -29,19 +33,43 @@ import {
 	type Pkg,
 	rows,
 	run,
+	versionNames,
 	warn,
 } from './close-released-issues-lib';
+
+type Obj = Record<string, unknown>;
+interface Candidate {
+	p: Pkg;
+	pr: number;
+	rank: number;
+}
 
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 const FIXED_MARKER = /<!--\s*nxgt-issues:fixed=\S+@\S+\s*-->/;
 
-async function release(c: Ctx, p: Pkg, issue: number, pr: number) {
+/** The package the comment names: the one the issue's Versions lists, else the lowest rank, else the first. */
+function chosen(named: string[], candidates: Candidate[]): Candidate {
+	const listed = candidates.find((k) => named.includes(k.p.name));
+	const best = candidates.reduce((a, k) => (k.rank < a.rank ? k : a));
+	return listed ?? best;
+}
+
+async function release(
+	c: Ctx,
+	candidates: Candidate[],
+	away: Set<string>,
+	issue: number,
+) {
 	const n = String(issue);
-	const raw = obj(
-		await gh(c, 'issue view', n, '--json', 'state,labels,comments'),
-	);
-	const marker = (tag: string) => `<!-- nxgt-issues:fixed=${tag} -->`;
-	const body = `Fixed in ${p.tag} (#${pr}).\n\n${marker(p.tag)}\n`;
+	const fields = 'state,body,labels,comments';
+	const raw = obj(await gh(c, 'issue view', n, '--json', fields));
+	const named = versionNames(String(raw['body'] ?? ''));
+	const other = named.find((name) => away.has(name));
+	if (other && !candidates.some((k) => named.includes(k.p.name))) {
+		return c.log(`  #${issue}: left to ${other}, which is not published now`);
+	}
+	const { p, pr } = chosen(named, candidates);
+	const body = `Fixed in ${p.tag} (#${pr}).\n\n<!-- nxgt-issues:fixed=${p.tag} -->\n`;
 	const done = rows(raw['comments']).some((m) => {
 		const bot = obj(m['author'])['login'] === 'github-actions';
 		const trusted = bot || TRUSTED.includes(String(m['authorAssociation']));
@@ -51,10 +79,11 @@ async function release(c: Ctx, p: Pkg, issue: number, pr: number) {
 	const labelled = rows(raw['labels']).some(
 		(l) => lower(l['name']) === 'released',
 	);
+	// The comment, which is the marker, goes last: a failure before it leaves the step to be redone.
 	const steps = [
-		[`comment (#${pr})`, !done, `issue comment ${n} --body-file -`],
 		['label released', !labelled, `issue edit ${n} --add-label released`],
 		['close', open && !done, `issue close ${n}`],
+		[`comment (#${pr}, ${p.name})`, !done, `issue comment ${n} --body-file -`],
 	] as const;
 	const todo = steps.filter(([, needed]) => needed);
 	const what = todo.map(([label]) => label).join(', ') || 'already released';
@@ -69,31 +98,49 @@ async function release(c: Ctx, p: Pkg, issue: number, pr: number) {
 	}
 }
 
-async function packageOf(
-	c: Ctx,
-	name: string,
-	version: string,
-): Promise<Pkg | undefined> {
-	for (const file of new Bun.Glob('packages/*/package.json').scanSync(c.cwd)) {
-		const json = Bun.file(join(c.cwd, file)).json();
-		if (obj(await json.catch(() => ({})))['name'] === name) {
-			return { name, version, dir: dirname(file), tag: `${name}@${version}` };
-		}
+/** Every package of the checkout: the root one (single-package repository) and `packages/*`. */
+async function workspace(c: Ctx): Promise<{ name: string; dir: string }[]> {
+	const files = ['package.json'];
+	for (const f of new Bun.Glob('packages/*/package.json').scanSync(c.cwd)) {
+		files.push(f);
 	}
-	c.log(`warning: ${name} is not a package of this checkout`);
-	return undefined;
+	const found = [];
+	for (const file of files) {
+		const json = Bun.file(join(c.cwd, file)).json();
+		const name = obj(await json.catch(() => ({})))['name'];
+		if (typeof name === 'string') found.push({ name, dir: dirname(file) });
+	}
+	return found;
 }
 
 async function releaseAll(c: Ctx, published: Obj[]) {
-	const issues = new Map<number, { p: Pkg; pr: number }>();
+	const all = await workspace(c);
+	const names = published.map((p) => String(p['name']));
+	const away = new Set(
+		all.map((w) => w.name).filter((n) => !names.includes(n)),
+	);
+	const issues = new Map<number, Candidate[]>();
 	for (const { name, version } of published) {
 		try {
-			const p = await packageOf(c, String(name), String(version));
-			const found = p ? await fixes(c, p) : [];
-			if (p)
-				c.log(`${c.dry ? 'dry run: ' : ''}${p.tag}: ${found.length} issue(s)`);
-			for (const [issue, { pr }] of found) {
-				if (p && !issues.has(issue)) issues.set(issue, { p, pr });
+			const dir = all.find((w) => w.name === name)?.dir;
+			if (dir === undefined) {
+				c.log(`warning: ${name} is not a package of this checkout`);
+				continue;
+			}
+			const p = {
+				name: String(name),
+				version: String(version),
+				dir,
+				tag: `${name}@${version}`,
+			};
+			const { prs, found } = await fixes(c, p);
+			const read =
+				prs.length > 0 ? `PRs ${prs.map((n) => `#${n}`).join(', ')}` : 'no PRs';
+			c.log(
+				`${c.dry ? 'dry run: ' : ''}${p.tag}: ${read}, ${found.length} issue(s)`,
+			);
+			for (const [issue, { pr, rank }] of found) {
+				issues.set(issue, [...(issues.get(issue) ?? []), { p, pr, rank }]);
 			}
 		} catch (error) {
 			warn(c, `${name}@${version}`, error);
@@ -109,11 +156,12 @@ async function releaseAll(c: Ctx, published: Obj[]) {
 		if (!c.dry)
 			await run(c, `gh ${create}`, ['The fix is published', '-R', c.repo]);
 	}
-	for (const [issue, { p, pr }] of issues) {
-		await release(c, p, issue, pr).catch((e) => warn(c, `issue #${issue}`, e));
+	for (const [issue, candidates] of issues) {
+		await release(c, candidates, away, issue).catch((e) =>
+			warn(c, `issue #${issue}`, e),
+		);
 	}
 }
-type Obj = Record<string, unknown>;
 
 /** Always resolves 0: a release is never failed by its issue housekeeping. */
 export async function closeReleasedIssues(
@@ -130,10 +178,9 @@ export async function closeReleasedIssues(
 		const published = rows(JSON.parse(flag('--published') ?? ''));
 		if (!repo)
 			throw new Error('no repository: pass --repo or set GITHUB_REPOSITORY');
-		await releaseAll(
-			{ exec, repo, dry: args.includes('--dry-run'), log, cwd },
-			published,
-		);
+		const inCwd: Exec = (argv, stdin) => exec(argv, stdin, cwd);
+		const dry = args.includes('--dry-run');
+		await releaseAll({ exec: inCwd, repo, dry, log, cwd }, published);
 	} catch (error) {
 		log(`warning: nothing closed: ${message(error)}`);
 	}
@@ -145,9 +192,10 @@ if (import.meta.main) {
 		...process.env,
 		GH_TOKEN: process.env['GH_TOKEN'] ?? process.env['GITHUB_TOKEN'] ?? '',
 	};
-	const exec: Exec = async (argv, stdin) => {
+	const exec: Exec = async (argv, stdin, cwd) => {
 		const child = Bun.spawn(argv, {
 			env,
+			...(cwd ? { cwd } : {}),
 			stdin: stdin === undefined ? 'ignore' : new Blob([stdin]),
 			stdout: 'pipe',
 			stderr: 'pipe',

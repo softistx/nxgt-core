@@ -12,9 +12,11 @@
 
 import { type GhContext, ghJson, RateLimitedError } from './github';
 import {
+	changelogPath,
 	changelogPrs,
 	commitTouches,
 	git,
+	inDir,
 	loggedPrs,
 	type ReleaseInput,
 } from './release-git';
@@ -124,8 +126,11 @@ async function touchesPackage(
 	const byGit = info.mergeSha
 		? await commitTouches(ctx, info.mergeSha, dir)
 		: undefined;
-	return byGit ?? info.files.some((file) => file.startsWith(`${dir}/`));
+	return byGit ?? info.files.some((file) => inDir(dir, file));
 }
+
+const message = (error: unknown): string =>
+	error instanceof Error ? error.message : String(error);
 
 export async function discoverFixes(
 	ctx: GhContext,
@@ -135,8 +140,8 @@ export async function discoverFixes(
 	const notes: string[] = [];
 	const tag = `${input.pkg}@${input.version}`;
 	const changelog =
-		(await git(ctx, ['show', `${tag}:${input.dir}/CHANGELOG.md`])) ??
-		(await git(ctx, ['show', `HEAD:${input.dir}/CHANGELOG.md`])) ??
+		(await git(ctx, ['show', `${tag}:${changelogPath(input.dir)}`])) ??
+		(await git(ctx, ['show', `HEAD:${changelogPath(input.dir)}`])) ??
 		'';
 	const listed = changelogPrs(changelog, input.version);
 	const logged = await loggedPrs(ctx, input, notes);
@@ -166,10 +171,15 @@ export async function discoverFixes(
 				continue;
 			}
 			if (!branches.has(info.base)) {
-				branches.set(
-					info.base,
-					await integrationPrs(ctx, input.repo, info.base),
-				);
+				try {
+					const parents = await integrationPrs(ctx, input.repo, info.base);
+					branches.set(info.base, parents);
+				} catch (error) {
+					if (error instanceof RateLimitedError) throw error;
+					// No parents: the issues fall back to naming the slice PR.
+					branches.set(info.base, []);
+					warnings.push(`integration PR of ${info.base}: ${message(error)}`);
+				}
 			}
 			const parents = branches.get(info.base) ?? [];
 			for (const issue of info.issues) {

@@ -1,4 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { main } from './cli';
 import { EXIT } from './cli-context';
 import { fakeWorld } from './release.fixtures';
@@ -61,6 +63,35 @@ describe('issues.ts released', () => {
 		expect(await main(ctx, ['released', 'widget'])).toBe(EXIT.usage);
 		expect(err.join('\n')).toContain('<pkg>@<version>');
 		expect(await main(ctx, ['released'])).toBe(EXIT.usage);
+	});
+
+	test('a single package at the repository root is released', async () => {
+		const fake = fakeWorld({
+			prs: { 40: { closing: [12], files: ['src/a.ts'] } },
+			issues: { 12: {} },
+			tags: ['v1.4.0', 'v1.3.0'],
+		});
+		const { ctx } = cliContext(fake, makeLibrary(true));
+		expect(await releasedCommand(ctx, '@nxgt/widget@1.4.0', false, false)).toBe(
+			EXIT.ok,
+		);
+		expect(fake.world.issues[12]?.state).toBe('CLOSED');
+	});
+
+	test('the other packages of the checkout are passed on, so an issue naming one is left to it', async () => {
+		const fake = fakeWorld({
+			prs: { 40: { closing: [12] } },
+			issues: { 12: { body: '## Versions\n\n- `@nxgt/other` 1.0.0\n' } },
+		});
+		const dir = makeLibrary();
+		mkdirSync(join(dir, 'packages', 'other'), { recursive: true });
+		writeFileSync(
+			join(dir, 'packages', 'other', 'package.json'),
+			JSON.stringify({ name: '@nxgt/other', version: '1.0.0' }),
+		);
+		const { ctx } = cliContext(fake, dir);
+		await releasedCommand(ctx, '@nxgt/widget@1.4.0', false, false);
+		expect(fake.writes()).toEqual([]);
 	});
 
 	test('a package this checkout does not hold is a usage error', async () => {

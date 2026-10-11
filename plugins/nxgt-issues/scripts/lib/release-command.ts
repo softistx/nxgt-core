@@ -16,10 +16,13 @@ import { allowedOwners, isAllowedOwner, repoOfDirectory } from './repo-id';
 import { manifestsOf, repoRoot } from './workspaces';
 
 function describeIssue(issue: IssueOutcome, dry: boolean): string {
+	if (issue.skipped) {
+		return `  #${issue.number}: left to the package it names`;
+	}
 	const did = [
-		issue.commented ? `comment (#${issue.pr})` : '',
 		issue.labelled ? 'label released' : '',
 		issue.closed ? 'close' : '',
+		issue.commented ? `comment (#${issue.pr})` : '',
 	].filter(Boolean);
 	const verb = dry ? 'would ' : '';
 	return did.length === 0
@@ -73,9 +76,8 @@ export async function releasedCommand(
 		return EXIT.refusedGate;
 	}
 	const root = repoRoot(ctx.cwd);
-	const manifest = root
-		? manifestsOf(root).find((m) => m.name === parsed.pkg && m.dir !== root)
-		: undefined;
+	const manifests = root ? manifestsOf(root) : [];
+	const manifest = manifests.find((m) => m.name === parsed.pkg);
 	if (!(root && manifest)) {
 		ctx.err(
 			`nxgt-issues: ${parsed.pkg} is not a workspace package of this checkout`,
@@ -86,7 +88,8 @@ export async function releasedCommand(
 		const report = await releasePackage(ctx, {
 			repo,
 			...parsed,
-			dir: relative(root, manifest.dir).replaceAll('\\', '/'),
+			dir: relative(root, manifest.dir).replaceAll('\\', '/') || '.',
+			siblings: manifests.flatMap((m) => (m.name ? [m.name] : [])),
 			owners,
 			dryRun,
 		});

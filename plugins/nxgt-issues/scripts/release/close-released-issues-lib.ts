@@ -16,7 +16,9 @@
 export type Exec = (
 	argv: string[],
 	stdin?: string,
+	cwd?: string,
 ) => Promise<{ code: number; stdout: string; stderr: string }>;
+/** `dir` is `.` for a package at the repository root. */
 export interface Pkg {
 	name: string;
 	version: string;
@@ -35,6 +37,17 @@ type Obj = Record<string, unknown>;
 export const obj = (v: unknown): Obj =>
 	v && typeof v === 'object' ? (v as Obj) : {};
 export const rows = (v: unknown): Obj[] => (Array.isArray(v) ? v.map(obj) : []);
+export const inDir = (dir: string, file: string) =>
+	dir === '.' || file.startsWith(`${dir}/`);
+
+/** The package names a filed issue's `## Versions` section lists. */
+export const versionNames = (body: string): string[] =>
+	[
+		...(
+			/^## Versions\s*\n([\s\S]*?)(?=^## |$(?![\s\S]))/m.exec(body)?.[1] ?? ''
+		).matchAll(/^- `([^`]+)`/gm),
+	].map((m) => m[1] ?? '');
+
 export const lower = (v: unknown) => String(v).toLowerCase();
 export const message = (e: unknown) =>
 	e instanceof Error ? e.message : String(e);
@@ -106,14 +119,23 @@ type Pr = ReturnType<typeof toPr>;
 
 /** PR numbers named by the first-parent commits touching the package since its previous tag. */
 async function loggedPrs(c: Ctx, p: Pkg) {
-	const list = `git tag --list ${p.name}@* --sort=-version:refname`;
-	const tags = (await run(c, list)).split('\n').filter(Boolean);
-	const previous = tags[tags.indexOf(p.tag) + 1];
-	if (!previous || !tags.includes(p.tag)) return [];
-	const range = `${previous}..HEAD`;
+	// A root package of a single-package repository is tagged `v1.2.3` by changesets.
+	const plain = p.dir === '.' ? `v${p.version}` : '';
+	const patterns = `${p.name}@*${plain ? ' v[0-9]*' : ''}`;
+	const all = (
+		await run(c, `git tag --list ${patterns} --sort=-version:refname`)
+	)
+		.split('\n')
+		.filter(Boolean);
+	const tag = all.includes(p.tag) ? p.tag : plain;
+	const same = all.filter((t) =>
+		(tag === plain ? /^v\d/ : RegExp(`^${p.name}@`)).test(t),
+	);
+	const previous = same[same.indexOf(tag) + 1];
+	if (!tag || !previous || !all.includes(tag)) return [];
 	const log = await run(
 		c,
-		`git log --first-parent --format=%s ${range} -- ${p.dir}`,
+		`git log --first-parent --format=%s ${previous}..HEAD -- ${p.dir}`,
 	);
 	return log.split('\n').flatMap((subject) => {
 		const m = /^Merge pull request #(\d+)\b|\(#(\d+)\)\s*$/.exec(subject);
@@ -135,12 +157,13 @@ async function touches(c: Ctx, p: Pkg, pr: Pr) {
 			p.dir,
 		]));
 	if (diff && diff.code === 0) return diff.stdout.trim() !== '';
-	return pr.files.some((f) => f.startsWith(`${p.dir}/`));
+	return pr.files.some((f) => inDir(p.dir, f));
 }
 
-/** The issues the release fixes, each with the PR its comment names, best-named first. */
+/** The PRs read and the issues the release fixes, each with the PR its comment names and its rank (0 best). */
 export async function fixes(c: Ctx, p: Pkg) {
-	const show = await c.exec(['git', 'show', `HEAD:${p.dir}/CHANGELOG.md`]);
+	const path = p.dir === '.' ? 'CHANGELOG.md' : `${p.dir}/CHANGELOG.md`;
+	const show = await c.exec(['git', 'show', `HEAD:${path}`]);
 	const listed = changelogPrs(show.stdout, p.version);
 	const logged = await loggedPrs(c, p).catch((e): number[] => {
 		warn(c, 'git log', e);
@@ -152,6 +175,7 @@ export async function fixes(c: Ctx, p: Pkg) {
 		if (rank < (found.get(issue)?.rank ?? 3)) found.set(issue, { pr, rank });
 	};
 	const merged = new Map<string, Pr[]>();
+	const read: number[] = [];
 	for (const number of new Set([...listed, ...logged])) {
 		try {
 			const raw = obj(await gh(c, 'pr view', String(number), '--json', FIELDS));
@@ -159,22 +183,19 @@ export async function fixes(c: Ctx, p: Pkg) {
 			if (pr.head.startsWith('changeset-release/')) continue;
 			// The path-limited log proves a logged PR touched the package; a listed one may belong to another.
 			if (!logged.includes(number) && !(await touches(c, p, pr))) continue;
+			read.push(number);
 			if (!pr.feat) {
 				for (const issue of pr.issues) keep(issue, number, 0);
 				continue;
 			}
 			const base = String(raw['baseRefName']);
 			if (!merged.has(base)) {
-				const list = await gh(
-					c,
-					'pr list',
-					'--state',
-					'merged',
-					'--head',
-					base,
-					'--json',
-					FIELDS,
-				);
+				// A failed lookup means no parents: the issues name the slice PR.
+				const args = ['--state', 'merged', '--head', base, '--json', FIELDS];
+				const list = await gh(c, 'pr list', ...args).catch((e) => {
+					warn(c, `integration PR of ${base}`, e);
+					return [];
+				});
 				merged.set(
 					base,
 					rows(list)
@@ -192,5 +213,5 @@ export async function fixes(c: Ctx, p: Pkg) {
 			warn(c, `PR #${number}`, error);
 		}
 	}
-	return [...found].sort((a, b) => a[1].rank - b[1].rank);
+	return { prs: read, found: [...found].sort((a, b) => a[1].rank - b[1].rank) };
 }

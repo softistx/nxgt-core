@@ -319,7 +319,7 @@ a name followed by a call or a member access, anything inside a path.
 | `refs.ts` | closing keywords (outside code spans, fenced blocks and quote lines) and upstream references |
 | `release-git.ts` | the local git side: the CHANGELOG section's `[#N]` links, the first-parent log of a package since its previous tag, `git diff` of a merge commit |
 | `release-prs.ts` | `<pkg>@<version>` to the issues it fixes: the CHANGELOG PRs that touched the package plus the logged PRs, then `closingIssuesReferences` and the body keywords; a PR merged into `feat/*` leads to the PR merged from that branch (`gh pr list --state merged --head`) |
-| `release.ts`, `release-command.ts` | per issue, once: the "Fixed in" comment (skipped when a trusted comment carries the hidden marker), the `released` label, the close; the notification list (open `upstream` tracking issues whose hidden marker names a released issue); the `released` command |
+| `release.ts`, `release-github.ts`, `release-command.ts` | per issue, once: the `released` label, the close, then the "Fixed in" comment last (skipped when a trusted comment carries a fixed marker; the whole issue is left to the package it names when its `## Versions` section lists another package of this repository, which the command passes as `siblings`; a package at the root is accepted); the notification list (open `upstream` tracking issues whose hidden marker names a released issue); the `released` command |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
 | `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/` |
@@ -431,7 +431,15 @@ cannot message a session.
   inject into the shell. For all the published `{ name, version }` together it
   does what `issues.ts released` does, with `gh` and the token alone, and never
   fails the release: a problem is a printed warning and the exit code is 0. An
-  issue gets one comment even when several packages fix it (it names the first).
+  issue gets one comment even when several packages fix it, naming the package its
+  `## Versions` section lists, else the one that found it with the lowest rank,
+  else the first; an issue whose Versions name another package of the repository
+  that is not published now is left to that package's release. The label and the
+  close come first and the comment (the marker) last, so a failure part-way is
+  redone by the next run and never reads as "reopened". A single package at the
+  repository root works too (tags `v1.2.3` or `name@1.2.3`, the whole tree as the
+  path, the root CHANGELOG). Run it in CI only: it reads `HEAD` as the release
+  commit; elsewhere use `issues.ts released`.
   It posts as `github-actions[bot]`, whose comments the app side trusts. It
   cannot see the applications' private tracking issues, so it prints no
   notification list. `--repo owner/repo` overrides `GITHUB_REPOSITORY`;

@@ -26,6 +26,12 @@ export function changelogPrs(changelog: string, version: string): number[] {
 	return [...section.matchAll(/\[#(\d+)\]/g)].map((m) => Number(m[1]));
 }
 
+/** `dir` is `.` for a package at the repository root. */
+export const inDir = (dir: string, file: string): boolean =>
+	dir === '.' || file.startsWith(`${dir}/`);
+export const changelogPath = (dir: string): string =>
+	dir === '.' ? 'CHANGELOG.md' : `${dir}/CHANGELOG.md`;
+
 /** The PR number a commit subject names: a merge commit or a squash `(#N)`. */
 export function subjectPr(subject: string): number | undefined {
 	const match =
@@ -55,23 +61,31 @@ export async function loggedPrs(
 	input: ReleaseInput,
 	notes: string[],
 ): Promise<number[]> {
-	const tag = `${input.pkg}@${input.version}`;
+	const named = `${input.pkg}@${input.version}`;
+	// A root package of a single-package repository is tagged `v1.2.3` by changesets.
+	const plain = input.dir === '.' ? `v${input.version}` : undefined;
 	const listing = await git(ctx, [
-		'tag',
-		'--list',
-		`${input.pkg}@*`,
+		...['tag', '--list', `${input.pkg}@*`],
+		...(plain ? ['v[0-9]*'] : []),
 		'--sort=-version:refname',
 	]);
-	const tags = (listing ?? '')
+	const all = (listing ?? '')
 		.split('\n')
 		.map((name) => name.trim())
 		.filter(Boolean);
-	const at = tags.indexOf(tag);
-	if (at === -1) {
-		notes.push(`tag ${tag} not found locally: the CHANGELOG alone was read`);
+	const tag = all.includes(named)
+		? named
+		: plain && all.includes(plain)
+			? plain
+			: undefined;
+	if (!tag) {
+		notes.push(`tag ${named} not found locally: the CHANGELOG alone was read`);
 		return [];
 	}
-	const previous = tags[at + 1];
+	const tags = all.filter((t) =>
+		tag === plain ? /^v\d/.test(t) : t.startsWith(`${input.pkg}@`),
+	);
+	const previous = tags[tags.indexOf(tag) + 1];
 	if (!previous) {
 		notes.push(`no earlier tag for ${input.pkg}: the CHANGELOG alone was read`);
 		return [];

@@ -31,6 +31,13 @@ const versionLines = (versions: Readonly<Record<string, string>>): string =>
 		.map(([name, version]) => `- \`${name}\` ${version}`)
 		.join('\n');
 
+/** The package names a filed issue's `## Versions` section lists. */
+export function versionNames(body: string): string[] {
+	const section =
+		/^## Versions\s*\n([\s\S]*?)(?=^## |\n*$(?![\s\S]))/m.exec(body)?.[1] ?? '';
+	return [...section.matchAll(/^- `([^`]+)`/gm)].map((m) => m[1] as string);
+}
+
 /** The issue filed on the package's repository: anonymous by construction. */
 export function packageIssueBody(input: PackageIssueInput): string {
 	const sections = [

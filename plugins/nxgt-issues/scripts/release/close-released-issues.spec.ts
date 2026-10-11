@@ -50,12 +50,19 @@ interface Pr {
 	sha?: string;
 }
 interface Issue {
+	body: string;
 	state: string;
 	labels: string[];
 	comments: { login: string; assoc: string; body: string }[];
 }
 interface World {
 	log?: string[];
+	/** First-parent subjects per package folder (a path-limited log). */
+	logs?: Record<string, string[]>;
+	/** Tags like v1.4.0 (a single-package repository). */
+	plain?: boolean;
+	failing?: string[];
+	failOnce?: string[];
 	prs?: Record<number, Pr>;
 	issues?: Record<number, Partial<Issue>>;
 	labels?: string[];
@@ -82,16 +89,28 @@ function fakeWorld(init: World) {
 	const labels = init.labels ?? ['released'];
 	const issues: Record<number, Issue> = {};
 	for (const [n, i] of Object.entries(init.issues ?? {})) {
-		issues[Number(n)] = { state: 'OPEN', labels: [], comments: [], ...i };
+		issues[Number(n)] = {
+			body: '',
+			state: 'OPEN',
+			labels: [],
+			comments: [],
+			...i,
+		};
 	}
 	const writes: string[][] = [];
 	const calls: string[][] = [];
+	const cwds: (string | undefined)[] = [];
+	const failOnce = [...(init.failOnce ?? [])];
 	const git = (argv: string[]) => {
 		if (argv[1] === 'tag') {
 			const name = String(argv[3]).replace(/@\*$/, '');
+			if (init.plain) return ok('v1.4.0\nv1.3.0\n');
 			return ok(`${name}@1.4.0\n${name}@1.3.0\n`);
 		}
-		if (argv[1] === 'log') return ok(`${(init.log ?? []).join('\n')}\n`);
+		if (argv[1] === 'log') {
+			const dir = String(argv[argv.length - 1]);
+			return ok(`${(init.logs?.[dir] ?? init.log ?? []).join('\n')}\n`);
+		}
 		if (argv[1] === 'show') return ok(CHANGELOG);
 		if (argv[1] === 'diff') {
 			const sha = String(argv[3]).replace(/\^1$/, '');
@@ -99,12 +118,22 @@ function fakeWorld(init: World) {
 			if (!pr) return bad('fatal: bad revision');
 			const dir = String(argv[argv.length - 1]);
 			const files = pr.files ?? ['packages/widget/src/a.ts'];
-			return ok(files.filter((f) => f.startsWith(`${dir}/`)).join('\n'));
+			const inDir = (f: string) => dir === '.' || f.startsWith(`${dir}/`);
+			return ok(files.filter(inDir).join('\n'));
 		}
 		return bad('no rule');
 	};
-	const exec: Exec = async (argv, stdin) => {
+	const exec: Exec = async (argv, stdin, cwd) => {
 		calls.push(argv);
+		cwds.push(cwd);
+		const text = argv.join(' ');
+		const once = failOnce.findIndex((needle) => text.includes(needle));
+		if (once !== -1) {
+			failOnce.splice(once, 1);
+			return bad('HTTP 500');
+		}
+		if (init.failing?.some((needle) => text.includes(needle)))
+			return bad('HTTP 500');
 		const [tool, a, b, c] = argv;
 		const n = Number(c ?? b);
 		if (tool === 'git') return git(argv);
@@ -126,6 +155,7 @@ function fakeWorld(init: World) {
 			if (!issue) return bad('Could not resolve to an Issue');
 			return ok(
 				JSON.stringify({
+					body: issue.body,
 					state: issue.state,
 					labels: issue.labels.map((name) => ({ name })),
 					comments: issue.comments.map((x) => ({
@@ -149,7 +179,16 @@ function fakeWorld(init: World) {
 		if (a === 'label' && b === 'create') labels.push(String(c));
 		return ok();
 	};
-	return { exec, issues, writes, labels, calls };
+	return { exec, issues, writes, labels, calls, cwds };
+}
+
+function rootCheckout(): string {
+	const dir = tempDir();
+	writeFileSync(
+		join(dir, 'package.json'),
+		JSON.stringify({ name: '@nxgt/widget', version: '1.4.0' }),
+	);
+	return dir;
 }
 
 function checkout(...names: string[]): string {
@@ -445,6 +484,58 @@ describe('several packages published together', () => {
 		expect(world.writes).toHaveLength(again);
 	});
 
+	const touching = (n: string) => `packages/${n}/src/x.ts`;
+	const everything = ['a', 'b', 'c'].map(touching);
+	const versions = (name: string) =>
+		`Summary.\n\n## Versions\n\n- \`${name}\` 1.0.0\n\n## Expected\n\nx\n`;
+
+	test('the package the issue names in its Versions section is the one the comment names', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12], sha: 'm40', files: everything } },
+				issues: { 12: { body: versions('@nxgt/c') } },
+			}),
+		);
+		await run(world, [], checkout('a', 'b', 'c'), published);
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/c@1.4.0 (#40).',
+		);
+	});
+
+	test('with no Versions match, the package that found it with the lowest rank', async () => {
+		const world = fakeWorld({
+			...simple({
+				prs: {
+					40: { closing: [12], sha: 'm40', files: [touching('b')] },
+					41: {
+						base: 'feat/x',
+						head: 'fix/s',
+						closing: [12],
+						files: [touching('a')],
+					},
+				},
+			}),
+			logs: { 'packages/a': ['Merge pull request #41 from softistx/fix'] },
+		});
+		await run(world, [], checkout('a', 'b', 'c'), published);
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/b@1.4.0 (#40).',
+		);
+	});
+
+	test('an issue naming a sibling package that is not published now is left to its release', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12], sha: 'm40', files: everything } },
+				issues: { 12: { body: versions('@nxgt/c') } },
+			}),
+		);
+		const only = JSON.stringify([{ name: '@nxgt/a', version: '1.4.0' }]);
+		const { lines } = await run(world, [], checkout('a', 'b', 'c'), only);
+		expect(world.writes.filter((w) => w[1] === 'issue')).toEqual([]);
+		expect(lines).toContain('@nxgt/c');
+	});
+
 	test('a PR that touched one package is not credited to the others', async () => {
 		const world = fakeWorld(
 			simple({
@@ -457,6 +548,74 @@ describe('several packages published together', () => {
 		expect(world.issues[12]?.comments[0]?.body).toStartWith(
 			'Fixed in @nxgt/b@1.4.0',
 		);
+	});
+});
+
+describe('order, lookups and the working directory', () => {
+	test('the comment (the marker) is written last: a close that fails once is redone, never reported as reopened', async () => {
+		const world = fakeWorld({ ...simple(), failOnce: ['issue close'] });
+		const cwd = checkout();
+		const first = await run(world, [], cwd);
+		expect(first.lines).toContain('warning');
+		expect(world.issues[12]?.comments).toEqual([]);
+		expect(world.issues[12]?.labels).toEqual(['released']);
+		const second = await run(world, [], cwd);
+		expect(second.lines).not.toContain('reopened');
+		expect(world.issues[12]?.state).toBe('CLOSED');
+		expect(world.writes.map((w) => w[2]).slice(-2)).toEqual([
+			'close',
+			'comment',
+		]);
+	});
+
+	test('a failed integration lookup keeps the slice issues, named after the slice', async () => {
+		const world = fakeWorld({
+			...simple({
+				prs: { 40: { base: 'feat/x', head: 'fix/s', closing: [12] } },
+			}),
+			failing: ['pr list'],
+		});
+		const { lines } = await run(world);
+		expect(lines).toContain('warning');
+		expect(world.issues[12]?.comments[0]?.body).toContain('(#40)');
+	});
+
+	test('the PR numbers read are printed per package, in a dry run too', async () => {
+		const world = fakeWorld(
+			simple({
+				log: ['fix: Thing (#42)'],
+				prs: { 40: { closing: [12] }, 42: {} },
+			}),
+		);
+		const { lines } = await run(world, ['--dry-run']);
+		expect(lines).toContain('#40, #42');
+	});
+
+	test('every command runs in the given working directory', async () => {
+		const world = fakeWorld(simple());
+		const cwd = checkout();
+		await run(world, [], cwd);
+		expect(world.cwds.length).toBeGreaterThan(0);
+		expect(world.cwds.every((c) => c === cwd)).toBe(true);
+	});
+
+	test('a single package at the repository root: v tags, the whole tree, the root CHANGELOG', async () => {
+		const world = fakeWorld({
+			...simple({
+				prs: { 40: { closing: [12], sha: 'm40', files: ['src/a.ts'] } },
+			}),
+			plain: true,
+		});
+		await run(world, [], rootCheckout());
+		expect(world.issues[12]?.state).toBe('CLOSED');
+		expect(world.calls.find((c) => c[1] === 'log')).toContain('v1.3.0..HEAD');
+		expect(world.calls.find((c) => c[1] === 'show')?.[2]).toBe(
+			'HEAD:CHANGELOG.md',
+		);
+		expect(world.calls.find((c) => c[1] === 'diff')?.slice(-2)).toEqual([
+			'--',
+			'.',
+		]);
 	});
 });
 

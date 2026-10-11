@@ -23,6 +23,7 @@ export interface WorldPr {
 }
 
 export interface WorldIssue {
+	body?: string;
 	state?: 'OPEN' | 'CLOSED';
 	labels?: string[];
 	comments?: { login: string; assoc: string; body: string }[];
@@ -38,6 +39,8 @@ export interface World {
 	repoLabels?: string[];
 	tracking?: { repo: string; number: number; title: string; body: string }[];
 	failing?: readonly string[];
+	/** Calls that fail the first time only (a needle each). */
+	failOnce?: string[];
 }
 
 export const CHANGELOG = [
@@ -123,6 +126,7 @@ const issueView: Handler = (w, argv) => {
 	return ok(
 		JSON.stringify({
 			number: n,
+			body: issue.body ?? '',
 			state: issue.state,
 			labels: issue.labels.map((name) => ({ name })),
 			comments: issue.comments.map((c) => ({
@@ -191,8 +195,8 @@ function diff(w: W, argv: readonly string[]): RunResult {
 	const pr = Object.values(w.prs).find((p) => p.mergeSha === sha);
 	if (!pr) return fail('fatal: bad revision');
 	const dir = String(argv[argv.length - 1]);
-	const files = (pr.files ?? [`${DIR}/src/a.ts`]).filter((f) =>
-		f.startsWith(`${dir}/`),
+	const files = (pr.files ?? [`${DIR}/src/a.ts`]).filter(
+		(f) => dir === '.' || f.startsWith(`${dir}/`),
 	);
 	return ok(files.join('\n'));
 }
