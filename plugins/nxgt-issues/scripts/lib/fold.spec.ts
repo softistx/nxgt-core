@@ -3,6 +3,8 @@ import { buildDenyList } from './deny';
 import { fold, normalize } from './fold';
 import { scrub } from './scrub';
 
+const list0 = buildDenyList({ privateRepos: [] });
+
 describe('normalize', () => {
 	test.each([
 		['\uFF53\uFF45\uFF43', 'sec'],
@@ -40,6 +42,49 @@ describe('normalize', () => {
 		for (const text of ['zorblax%252Dvault', 'zorblax%25252Dvault']) {
 			expect(scrub(`see ${text} here`, { denyList: list }).denied).toContain(
 				'zorblax-vault',
+			);
+		}
+	});
+
+	test('an entity hidden in percent-encoding, and the reverse, is decoded', () => {
+		expect(normalize('quin%26%23116%3Bor')).toBe('quintor');
+		expect(normalize('quin&#37;74or')).toBe('quintor');
+		expect(normalize('quin%26amp%3B%2374%3Bor')).toBe('quinJor');
+	});
+
+	test('prose with an entity or a lone percent is unchanged', () => {
+		expect(normalize('a &amp; b')).toBe('a & b');
+		expect(normalize('100% and %s and 50%')).toBe('100% and %s and 50%');
+		expect(normalize('&lt;b&gt; %d')).toBe('<b> %d');
+	});
+
+	test('an entity-encoded name in percent-encoding is denied', () => {
+		const list = buildDenyList({ privateRepos: ['acme/quintor'] });
+		for (const text of ['quin%26%23116%3Bor', 'quin&#37;74or']) {
+			expect(scrub(`see ${text}`, { denyList: list }).denied).toContain(
+				'quintor',
+			);
+		}
+	});
+
+	test('a double-encoded credential assignment is refused', () => {
+		expect(scrub('password%253Dx1y2z3', { denyList: list0 }).secrets).toContain(
+			'password',
+		);
+	});
+
+	test('a malformed byte in a run does not keep the valid escapes encoded', () => {
+		expect(normalize('quinto%72%80')).toBe('quintor%80');
+		expect(normalize('quinto%2572%26%2337%3B80')).toBe('quintor%80');
+		expect(normalize('a%80b')).toBe('a%80b');
+		expect(normalize('%E0%A4%A')).toBe('%E0%A4%A');
+	});
+
+	test('a name followed by a malformed byte is still denied', () => {
+		const list = buildDenyList({ privateRepos: ['acme/quintor'] });
+		for (const text of ['quinto%72%80', 'quinto%2572%26%2337%3B80']) {
+			expect(scrub(`see ${text}`, { denyList: list }).denied).toContain(
+				'quintor',
 			);
 		}
 	});

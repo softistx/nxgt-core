@@ -54,8 +54,7 @@ const decodeEntities = (text: string): string =>
 			(whole, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? whole,
 		);
 
-/** `%2D` and the like; a malformed run stays as written. */
-const decodePercent = (run: string): string => {
+const tryDecode = (run: string): string => {
 	try {
 		return decodeURIComponent(run);
 	} catch {
@@ -63,13 +62,37 @@ const decodePercent = (run: string): string => {
 	}
 };
 
-/** Rounds of percent-decoding: `%252D` and `%25252D` are one separator hidden twice and thrice. */
-const PERCENT_ROUNDS = 3;
+/** One well-formed UTF-8 escape sequence of one to four bytes. */
+const UTF8_ESCAPE =
+	/%[0-7][0-9a-f]|%[c-d][0-9a-f]%[89ab][0-9a-f]|%e[0-9a-f](?:%[89ab][0-9a-f]){2}|%f[0-7](?:%[89ab][0-9a-f]){3}/gi;
 
-const decodePercentRuns = (text: string): string => {
+/**
+ * `%2D` and the like. A run with a malformed byte (`%72%80`) would stay
+ * wholly encoded and hide a name, so then each valid sequence is decoded on
+ * its own and the malformed bytes stay as written.
+ */
+const decodePercent = (run: string): string => {
+	try {
+		return decodeURIComponent(run);
+	} catch {
+		return run.replace(UTF8_ESCAPE, tryDecode);
+	}
+};
+
+/**
+ * Rounds of percent-decoding, each followed by one entity pass: `%252D` and
+ * `%25252D` are one separator hidden twice and thrice, `%26%23116%3B` is an
+ * entity hidden in percent-encoding and `&#37;74` a percent sign hidden in an
+ * entity. The loop stops as soon as the text is stable.
+ */
+const DECODE_ROUNDS = 3;
+
+const decodeLayers = (text: string): string => {
 	let current = text;
-	for (let round = 0; round < PERCENT_ROUNDS; round++) {
-		const next = current.replace(/(?:%[0-9a-f]{2})+/gi, decodePercent);
+	for (let round = 0; round < DECODE_ROUNDS; round++) {
+		const next = decodeEntities(
+			current.replace(/(?:%[0-9a-f]{2})+/gi, decodePercent),
+		);
 		if (next === current) break;
 		current = next;
 	}
@@ -84,7 +107,7 @@ export function normalize(text: string): string {
 	const unescaped = decodeEntities(
 		decodeEntities(text.normalize('NFKC').replace(/<!--[\s\S]*?-->/g, '')),
 	).replace(/\\([!-/:-@[-`{-~])/g, '$1');
-	return decodePercentRuns(unescaped).normalize('NFKC').replace(INVISIBLE, '');
+	return decodeLayers(unescaped).normalize('NFKC').replace(INVISIBLE, '');
 }
 
 /** The characters `fold` removes: whitespace, underscore, dot, slash, every dash. */

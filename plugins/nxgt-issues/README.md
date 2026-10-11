@@ -19,6 +19,8 @@ the security model below).
 | `fix-a-reported-issue` | skill | the package side: queue placement, regression test, `Fixes #n`, release, notify the applications |
 | `issues` (`/issues`) | skill, slash command | the dashboard across the owner's repositories; `/issues ready`, `/issues markers`, `/issues released <pkg@ver>` |
 
+Maintainer details: [docs/internals.md](docs/internals.md)
+
 ## The loop end to end
 
 1. **Application side, reporting.** A session hits a defect in an `@nxgt/*`
@@ -97,8 +99,7 @@ It prints nothing when there is nothing to show, and stays under about 600
 tokens (titles are cut to one line and introduced as data, not instructions).
 It reads a per-repository cache, fresh for 10 minutes, refreshed in the
 background when stale; the cache states, the stamps and the file modes are in
-[docs/internals.md](docs/internals.md#the-hooks-cache). Turn the hook off with
-`NXGT_ISSUES_DISABLE=1`.
+[docs/internals.md](docs/internals.md#the-hooks-cache).
 
 Everything it shows from GitHub is untrusted data, handled as the security
 model below describes. Of a tracking issue's last upstream comment only the
@@ -109,7 +110,7 @@ written by an owner, member or collaborator, is shown. The output is capped at
 oldest consumer reports, and the real open count.
 
 It fails open: no `.git`, an `origin` whose owner is not in
-`NXGT_ISSUES_OWNERS` (default `softistx,SteveGT96`; this case makes no gh call
+`NXGT_ISSUES_OWNERS` (default: see Requirements; this case makes no gh call
 at all), gh missing or not logged in, an unparseable answer or a rate limit all
 print nothing and exit 0. The hook's timeout is 5 seconds. A refresh is two
 GraphQL calls (the open and `upstream`-labelled issues, then the state, labels
@@ -195,9 +196,6 @@ nxgt-core runs this step itself: `scripts/close-released-issues*.ts` is a copy o
 the four files below, guarded by `scripts/close-released-issues-copy.spec.ts`,
 and the `close-issues` job of `.github/workflows/release.yml` runs it.
 
-The package side closes the loop in two halves, because CI can close issues but
-cannot message a session.
-
 - **At the release (CI).** A library repository copies, byte for byte, the four
   files of `plugins/nxgt-issues/scripts/release/` into its `scripts/`:
   `close-released-issues.ts`, `close-released-issues-lib.ts`,
@@ -269,11 +267,10 @@ cannot message a session.
   will surely handle it (all of: the fix is rank 0, the PR's own closing
   references name the issue; that PR touched the package's folder; it adds a
   `.changeset/*.md` naming the package; and the package has an earlier tag in the
-  clone; if git cannot say, the issue is handled now). A CHANGELOG-listed slice
-  that did not touch the package still leads to its integration PR, whose own
-  issues count at rank 0 when that merge touched the package. The label and the
-  close come first and the comment (the marker) last, so a failure part-way is
-  redone by a manual `issues.ts released` (CI's next run starts at the next tag and does not look back) and never reads as "reopened". A single package at the
+  clone; if git cannot say, the issue is handled now). The order (label, close,
+  comment last) means a failure part-way is redone by a manual `issues.ts
+  released` (CI's next run starts at the next tag and does not look back) and
+  never reads as "reopened". A single package at the
   repository root works too (tags `v1.2.3` or `name@1.2.3`, the whole tree as the
   path, the root CHANGELOG); the script also takes the root of a monorepo when
   it is published, where `issues.ts released` refuses a root that has
@@ -367,7 +364,7 @@ An empty `$issues` means the plugin is not installed: skip the step and say so.
 | `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and trusted; from the cache when fresh, else a refresh (a failed refresh falls back to a stale cache, with a warning on stderr; a tracking issue whose upstream issue GitHub could not read is left out, with a warning on stderr and exit 0); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise. Who counts as trusted: [docs/internals.md](docs/internals.md#ready) |
 | `dashboard [--json]` | the `/issues` dashboard: open issues of the allowed owners' non-archived repositories, grouped by repository, ranked live marker first (`●`: an open tracking issue still links it), then applications affected, then oldest (`⚑` after 14 days without activity); then a "Merged, awaiting release" section. Three `gh search issues` calls; if one fails the command exits 5 (rate-limited) or 6 (gh failed). The optional calls (duplicate counts, package names) only add a note and a warning on stderr, never an exit code. `--json` prints `{groups, awaiting, notes}`. Details: [docs/internals.md](docs/internals.md#dashboard) |
 | `markers [--json] [--exclude <pathspec>]…` | every `Temporary, until <upstream>#<n>` marker (`git grep`; `--exclude` skips fixtures and docs examples), judged against this repository's open tracking issues: `ready` (remove it), `unresolvable`, `untracked` or `waiting` (not flagged); a public application reads the upstream issue directly. **Exit 1 when any marker is flagged**, 0 when none, 6 when an upstream issue could not be read or `git grep`/gh failed, 2 for a foreign origin, 5 rate-limited. Exit 1 is shared with usage: a CI step runs `markers --json` and treats stdout that is not JSON as a failure. Known limit (a package that moved repositories) and the rest: [docs/internals.md](docs/internals.md#markers) |
-| `released <pkg@ver> [--json] [--dry-run]` | from the library's checkout: gives the issues the published version fixes the `released` label, closes them and comments "Fixed in `<pkg>@<ver>` (#PR)" (in that order, the comment last: it is the marker); idempotent; `--dry-run` reads and writes nothing; prints the application tracking issues linking them (the sessions to notify). Exit 1 for a malformed `<pkg@ver>`, a package this checkout lacks or a monorepo's private root, 2 for a foreign checkout, 5 rate-limited, 6 when a PR or an issue failed (the rest was done). Which issues are skipped for a sibling package: [docs/internals.md](docs/internals.md#released) |
+| `released <pkg@ver> [--json] [--dry-run]` | from the library's checkout: gives the issues the published version fixes the `released` label, closes them and comments "Fixed in `<pkg>@<ver>` (#PR)" (in that order, the comment last: it is the marker); idempotent; `--dry-run` reads and writes nothing; prints the application tracking issues linking them (the sessions to notify). Exit 1 for a malformed `<pkg@ver>`, a package this checkout lacks or a monorepo root (one with `workspaces`), 2 for a foreign checkout, 5 rate-limited, 6 when a PR or an issue failed (the rest was done). Which issues are skipped for a sibling package: [docs/internals.md](docs/internals.md#released) |
 | `release-plan <pkg@ver> [--json]` | read-only: exactly what `released --dry-run` prints, with no way to write; the pre-approved form for previews; exit 1 usage, a malformed spec or a package this checkout lacks, 2 a checkout that is not an allowed owner's, 5 rate limit, 6 failure |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent); titles, branches and paths are cleaned, under the untrusted-data header in text |
 
@@ -501,7 +498,8 @@ tool. These are not detected, so never paste a real value:
 
 - prose secrets ("the password is …");
 - variable indirection (`const X = '…'; secret(X)`);
-- XML elements (`<password>…</password>`).
+- XML elements (`<password>…</password>`);
+- percent-encoding (mixed with HTML entities) is undone only three rounds deep.
 
 The reproduction is always written from scratch, with generic values, never
 copied from the application.
@@ -525,8 +523,8 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
   checkout of a worktree);
 - the working directory's name (`file` and `deps --file` refuse outside a git
   checkout);
-- every private repository of the default owners (`softistx`, `SteveGT96`),
-  by full name, and by each distinctive stem as a whole word outside
+- every private repository of the default owners (the maintainer's, see
+  Requirements), whatever `NXGT_ISSUES_OWNERS` says, by full name, and by each distinctive stem as a whole word outside
   `node_modules/` paths (`zorblax` from `zorblax-api`); a stem that is a
   common English word or a framework, library or tool name (`compose`,
   `rest`, `content`, `react`, `docker`…, listed in `common-words.ts`, plurals,
