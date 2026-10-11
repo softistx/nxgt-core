@@ -312,6 +312,26 @@ describe('markers on a public application: an errored lookup is not "unresolvabl
 		]);
 	});
 
+	test('the closing line counts an unreadable marker apart, not as flagged', async () => {
+		const issue = (n: number) => ({
+			[`u${n}`]: issueData('CLOSED', ['released']),
+		});
+		const h = seeded(
+			{
+				run: [
+					publicApp,
+					answer({ ...issue(0), u1: null, ...issue(2) }, [
+						{ type: 'FORBIDDEN', path: ['u1'] },
+					]),
+					grep(`${WIDGET}1\n${WIDGET}2\n${WIDGET}3\n`),
+				],
+			},
+			[],
+		);
+		expect(await main(h.ctx, ['markers'])).toBe(EXIT.failed);
+		expect(h.out.at(-1)).toBe('2 of 3 marker(s) flagged; 1 unreadable.');
+	});
+
 	test('a NOT_FOUND upstream is still unresolvable', async () => {
 		const h = seeded(
 			{

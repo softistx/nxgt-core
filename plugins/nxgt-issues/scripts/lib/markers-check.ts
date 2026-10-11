@@ -159,6 +159,7 @@ function print(
 	ctx: CliContext,
 	reports: readonly MarkerReport[],
 	flagged: number,
+	unreadable: number,
 ) {
 	if (reports.length === 0) {
 		ctx.out('no markers: nothing waits for an upstream fix.');
@@ -169,10 +170,15 @@ function print(
 		const note = r.note ? ` (${r.note})` : '';
 		ctx.out(`${r.file}:${r.line} ${r.status} ${r.upstream}${detail}${note}`);
 	}
-	ctx.out(`${flagged} of ${reports.length} marker(s) flagged.`);
+	const apart = unreadable > 0 ? `; ${unreadable} unreadable` : '';
+	ctx.out(`${flagged} of ${reports.length} marker(s) flagged${apart}.`);
 }
 
-/** `issues.ts markers [--json] [--exclude <pathspec>]…`: exit 1 when any marker is flagged, 0 otherwise. */
+/**
+ * `issues.ts markers [--json] [--exclude <pathspec>]…`: exit 6 when a marker is
+ * `unreadable` (GitHub could not read its upstream issue; the rest is still
+ * printed), else 1 when any marker is flagged, else 0.
+ */
 export async function markersCommand(
 	ctx: CliContext,
 	json: boolean,
@@ -197,13 +203,15 @@ export async function markersCommand(
 	} catch (error) {
 		return exitForError(ctx, error);
 	}
+	// An unreadable marker has no verdict: it is counted apart, never as flagged.
+	const unreadable = reports.filter((r) => r.status === 'unreadable').length;
 	const flagged = reports.filter(
-		(report) => report.status !== 'waiting',
+		(r) => r.status !== 'waiting' && r.status !== 'unreadable',
 	).length;
 	if (json) ctx.out(JSON.stringify(cleanJson(reports), null, 2));
-	else print(ctx, reports, flagged);
+	else print(ctx, reports, flagged, unreadable);
 	// A marker GitHub could not read has no verdict: the run says so (6) before it says "flagged".
-	if (reports.some((report) => report.status === 'unreadable')) {
+	if (unreadable > 0) {
 		ctx.err('nxgt-issues: some upstream issues could not be read; run again.');
 		return EXIT.failed;
 	}
