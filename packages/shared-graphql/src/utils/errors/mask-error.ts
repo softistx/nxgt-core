@@ -36,7 +36,16 @@ type Translate<K extends LocaleKey> = (
  * that only wraps a plain `Error` a resolver threw is replaced by `message`,
  * so an internal message never reaches the client.
  *
- *     createYoga({ maskedErrors: { maskError: createMaskError(translate) } })
+ * `debugMessage` (a `CustomException`'s, an outage's) and an unexpected
+ * error's original reach the client only when Yoga's `isDev` is true. Yoga
+ * does not derive `isDev` from `NODE_ENV` for a custom `maskError`, so pass it:
+ *
+ *     createYoga({
+ *       maskedErrors: {
+ *         maskError: createMaskError(translate),
+ *         isDev: process.env.NODE_ENV === 'development',
+ *       },
+ *     })
  */
 export function createMaskError<K extends LocaleKey>(
 	translate: Translate<K> = translateBase,
@@ -47,7 +56,8 @@ export function createMaskError<K extends LocaleKey>(
 				? error.originalError
 				: error;
 
-		if (isOryUnavailable(original)) return serviceUnavailableError(original);
+		if (isOryUnavailable(original))
+			return serviceUnavailableError(original, isDev === true);
 
 		const key = denialMessageKey(original);
 		if (key !== undefined) {

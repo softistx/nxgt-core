@@ -74,6 +74,24 @@ describe('createMaskError', () => {
 		});
 	});
 
+	it("keeps an outage's debugMessage only when isDev is on", () => {
+		const outage = () =>
+			mask(
+				wrapped(new OryUnavailable('keto', 500, 'keto answered 500')),
+				'Unexpected error.',
+				false,
+			) as GraphQLError;
+		expect(outage().extensions).not.toHaveProperty('debugMessage');
+		const development = mask(
+			wrapped(new OryUnavailable('keto', 500, 'keto answered 500')),
+			'Unexpected error.',
+			true,
+		) as GraphQLError;
+		expect(JSON.stringify(development.extensions['debugMessage'])).toContain(
+			'keto answered 500',
+		);
+	});
+
 	it('recognises an outage from a second copy of @nxgt/ory-sdk', () => {
 		const error = mask(
 			wrapped(new ForeignOryUnavailable()),

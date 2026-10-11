@@ -76,14 +76,19 @@ export function toPrincipal(ory: OryPrincipal): TokenPrincipal {
  * Hydra or Keto could not answer, and that must not read as "not signed in".
  */
 export function oryUnavailableError(error: OryUnavailable): GraphQLError {
-	return serviceUnavailableError(error);
+	// Thrown during context building, which Yoga does not route through
+	// `maskError`: the SDK's message is added in development only.
+	return serviceUnavailableError(
+		error,
+		process.env['NODE_ENV'] === 'development',
+	);
 }
 
 /**
  * The one introspection code path — `Bearer` first, then `X-Session-Token`,
  * then the Kratos cookie; the first credential present decides. Exported so
- * a REST route mounted beside the GraphQL endpoint (content-hub-api's
- * webhook shape) authenticates through the same function instead of a
+ * a REST route mounted beside the GraphQL endpoint (a webhook, say)
+ * authenticates through the same function instead of a
  * second call.
  */
 export async function resolveOryPrincipal(

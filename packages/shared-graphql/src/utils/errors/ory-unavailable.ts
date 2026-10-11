@@ -21,13 +21,22 @@ export function isOryUnavailable(error: unknown): error is OryUnavailable {
  * A 503 the client can read as one — a real `GraphQLError` so Yoga's masking
  * leaves it alone, `extensions.http.status` so the transport says 503 too.
  * Never a denial: an outage must not read as "not signed in" or "not allowed".
+ *
+ * `extensions.debugMessage` (what the SDK saw) is added only when `debug` is
+ * true. `createMaskError` passes Yoga's `isDev`; `useOryAuth` throws this
+ * error during context building, which Yoga does not route through
+ * `maskError`, so it passes `NODE_ENV === 'development'` and nothing reaches
+ * a client in production.
  */
-export function serviceUnavailableError(error: OryUnavailable): GraphQLError {
+export function serviceUnavailableError(
+	error: OryUnavailable,
+	debug = false,
+): GraphQLError {
 	return new GraphQLError(`ory: ${error.service} is unavailable`, {
 		extensions: {
 			code: ErrorCode.ServiceUnavailable,
 			http: { status: 503 },
-			debugMessage: error.message,
+			...(debug ? { debugMessage: error.message } : {}),
 		},
 	});
 }
