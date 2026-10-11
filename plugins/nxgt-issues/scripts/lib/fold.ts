@@ -14,6 +14,8 @@
  * undone.
  */
 
+import { HIDDEN_SOURCE } from './hidden-chars';
+
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
 	amp: '&',
 	lt: '<',
@@ -61,9 +63,8 @@ const decodePercent = (run: string): string => {
 	}
 };
 
-/** Zero-width characters, the soft hyphen, the combining grapheme joiner, BOM. */
-const INVISIBLE =
-	/[\u00AD\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]|\u034F/g;
+/** Everything `hidden-chars.ts` lists: invisible, and no part of what a reader sees. */
+const INVISIBLE = new RegExp(HIDDEN_SOURCE, 'gu');
 
 /** What a reader sees: the text with the markup and the invisible characters undone. */
 export function normalize(text: string): string {

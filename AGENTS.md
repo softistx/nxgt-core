@@ -846,6 +846,12 @@ Inherited from both monorepos and unchanged:
 
 Established here, and applying to all four repositories:
 
+- **A plugin skill pre-approves only read subcommands** (`allowed-tools` as the
+  exact command plus `<command> *`, never `cmd*` or a bare `*`): a subcommand
+  that writes to GitHub keeps its permission prompt, and the CLI refuses any
+  flag it does not know, so a pre-approved pattern cannot reach a write
+  (`nxgt-issues`: `release-plan` previews, `released` writes).
+
 - **A script is a TypeScript file run by Bun, using Bun Shell — not a `.sh`.**
   `scripts/publish.ts` and `scripts/verify-artifacts.ts` are the references:
   `$` gives you the pipes and globs that made shell worth using, and everything

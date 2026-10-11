@@ -175,6 +175,18 @@ describe('file: dedupe', () => {
 	});
 });
 
+describe('file: the symptom is scrubbed too', () => {
+	test('a denied term in the symptom alone refuses, and nothing is filed', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			stdin: report({ symptom: 'secret-crm drops the last item' }),
+		});
+		expect(await fileCommand(h.ctx, {})).toBe(EXIT.refusedScrub);
+		expect(h.out.join('\n')).toContain('secret-crm');
+		expect(callsOf(h.runner, 'gh', 'issue', 'create')).toEqual([]);
+	});
+});
+
 describe('file: refusals and failures', () => {
 	test('a gate refusal files nothing', async () => {
 		const h = harness({

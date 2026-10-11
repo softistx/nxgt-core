@@ -69,7 +69,7 @@ const headerish = (name: string): boolean =>
 	wordsIn(name).some((word) => HEADER_WORD.test(word));
 
 /** Base64 or base64url, padded or not, that decodes to printable ASCII holding a `user:pass` colon. */
-function decodesToUserPass(credential: string): boolean {
+export function decodesToUserPass(credential: string): boolean {
 	const bare = credential
 		.replace(/=+$/, '')
 		.replace(/-/g, '+')
@@ -77,6 +77,28 @@ function decodesToUserPass(credential: string): boolean {
 	if (bare.length % 4 === 1 || !/^[A-Za-z0-9+/]+$/.test(bare)) return false;
 	return /^[\x20-\x7e]*:[\x20-\x7e]*$/.test(
 		Buffer.from(bare, 'base64').toString('latin1'),
+	);
+}
+
+/** `${A:-${B:-` at the start of a default: the expansions nested in it. */
+const NESTED_PREFIX = /^(?:\$\{[A-Za-z_]\w*:?[-=+])+/;
+const NESTED_SCHEME = /^(?:Basic|Digest|Token|Bearer)[ \t]+([^\s}$]{3,})/i;
+
+/**
+ * A scheme word and any credential that is not filler inside a nested default
+ * (`${A:-${B:-Bearer hunter2}}`), however short: nesting a default is how a
+ * literal is kept out of the first look at the line.
+ */
+function nestedSchemeSecret(value: string): boolean {
+	const text = value.trim();
+	const nested = NESTED_PREFIX.exec(text);
+	if (!nested) return false;
+	const credential = NESTED_SCHEME.exec(text.slice(nested[0].length))?.[1];
+	if (credential === undefined) return false;
+	return !(
+		SCHEME_WORDS.test(credential) ||
+		((SCREAMING.test(credential) || FILLER.test(credential)) &&
+			!hasDigit(credential))
 	);
 }
 
@@ -189,6 +211,10 @@ export function secretDefaults(
 	for (const match of text.matchAll(EXPANSION)) {
 		const name = match[1] ?? '';
 		const value = match[2] ?? '';
+		if (nestedSchemeSecret(value)) {
+			found.push('authorization');
+			continue;
+		}
 		if (isBenignExpansion(name, value)) continue;
 		if (isSchemeSecret(value, headerish(name))) {
 			found.push('authorization');

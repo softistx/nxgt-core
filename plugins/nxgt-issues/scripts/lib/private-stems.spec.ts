@@ -74,3 +74,19 @@ describe('private repository stems that are common words', () => {
 		expect(findDenied('node_modules/zorblax/dist/index.js', list)).toEqual([]);
 	});
 });
+
+describe('a full private name is searched everywhere', () => {
+	const single = buildDenyList({
+		privateRepos: ['acme/zorblax', 'acme/vexora-api'],
+	});
+
+	test('a single-word name still refuses inside a node_modules path', () => {
+		expect(findDenied('node_modules/zorblax/dist/index.js', single)).toEqual([
+			'zorblax',
+		]);
+	});
+
+	test('only a derived stem is exempt there', () => {
+		expect(findDenied('node_modules/vexora/dist/index.js', single)).toEqual([]);
+	});
+});

@@ -12,6 +12,7 @@ import { adoptReady, releaseFix } from './context';
 import { RateLimitedError } from './github';
 import { refreshRepo, type Snapshot } from './refresh';
 import { allowedOwners, isAllowedOwner, repoOfDirectory } from './repo-id';
+import { cleanJson, oneLine, untrustedHeader } from './untrusted';
 
 export interface ReadyIssue {
 	readonly tracking: number;
@@ -71,14 +72,17 @@ export async function readyCommand(
 	if ('exit' in snapshot) return snapshot.exit;
 	const ready = readyIssues(snapshot);
 	if (json) {
-		ctx.out(JSON.stringify(ready, null, 2));
+		ctx.out(JSON.stringify(cleanJson(ready), null, 2));
 		return EXIT.ok;
 	}
 	if (ready.length === 0) ctx.out('nothing to adopt: no released fix waits.');
+	else ctx.out(untrustedHeader());
 	for (const issue of ready) {
-		const fix = issue.version ? `, ${issue.package}@${issue.version}` : '';
+		const fix = issue.version
+			? `, ${oneLine(`${issue.package}@${issue.version}`, 120)}`
+			: '';
 		ctx.out(
-			`tracking #${issue.tracking} ${issue.title} -> ${issue.upstream} (closed, released${fix})`,
+			`tracking #${issue.tracking} ${oneLine(issue.title, 80)} -> ${oneLine(issue.upstream, 80)} (closed, released${fix})`,
 		);
 	}
 	return EXIT.ok;

@@ -8,7 +8,11 @@ description: >-
   upstream, ready to adopt", when a `Temporary, until` marker is found whose
   upstream issue is closed **and** released, when `file` answers "released: #n reported this",
   or when asked what workarounds can go.
-allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts *)
+allowed-tools:
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready *)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers *)
 ---
 
 # Adopt a released fix

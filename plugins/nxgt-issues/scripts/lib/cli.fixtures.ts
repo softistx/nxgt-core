@@ -81,6 +81,7 @@ export const BASE_RUN: readonly RunRule[] = [
 		},
 	},
 	{ argv: ['gh', 'repo', 'list', 'SteveGT96'], result: { stdout: '[]' } },
+	{ argv: ['gh', 'api', 'user/orgs'], result: { stdout: '' } },
 	{
 		argv: ['git', 'config', '--get', 'user.name'],
 		result: { stdout: 'Jane Roe\n' },

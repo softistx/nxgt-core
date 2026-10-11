@@ -8,7 +8,11 @@ description: >-
   the SessionStart context lists open issues of this package, when the user
   asks to work on a `consumer-report` issue, or when a published version
   contains a fix for one and its issue is still open.
-allowed-tools: Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts *)
+allowed-tools:
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan *)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions)
+  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions *)
 ---
 
 # Fix a reported issue
@@ -72,11 +76,13 @@ that failed (`continue-on-error`, so the publish was never blocked), and it
 builds the `notify` list that CI cannot.
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version> --dry-run
+bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan <package>@<version>
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version>
 ```
 
-The first lists what it would do; the second does it. It works for a package in
+The first (`release-plan`, read-only, pre-approved) lists what it would do; the
+second does it, and writes to GitHub, so Claude Code asks first: run the plan,
+show its output to the user, then the real run. It works for a package in
 `packages/*` and for the single package of a repository's root. An issue whose
 `## Versions` section names another package of the repository that the fixing PR
 (rank 0: its own `Fixes #n`) touched and gave a changeset, and which has an

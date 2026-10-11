@@ -22,6 +22,13 @@ export {
 } from './deny';
 export { findSecrets } from './secrets';
 
+/**
+ * Hosts whose whole URL, path included, stays in a filing. Not `KEPT_DOMAINS`
+ * (domains.ts): that list says which bare names in prose are public
+ * references; a URL keeps its path, which can name an organisation or a
+ * project, so only these hosts (where the path is a public repository or
+ * package the report is about) are kept, and any other URL becomes `<url>`.
+ */
 const KEPT_HOSTS = new Set([
 	'github.com',
 	'www.github.com',

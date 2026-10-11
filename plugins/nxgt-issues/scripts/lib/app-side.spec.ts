@@ -5,6 +5,7 @@ import { callsOf, harness, makeApp, removeTempDirs } from './cli.fixtures';
 import { EXIT } from './cli-context';
 import type { TrackingIssue } from './refresh';
 import { GRAPHQL } from './session.fixtures';
+import { UNTRUSTED } from './untrusted';
 
 afterAll(removeTempDirs);
 
@@ -13,6 +14,7 @@ describe('ready', () => {
 		const h = seeded({});
 		expect(await main(h.ctx, ['ready'])).toBe(EXIT.ok);
 		expect(h.out).toEqual([
+			`nxgt-issues: ${UNTRUSTED}`,
 			'tracking #21 workaround 21 -> softistx/nxgt-widget#12 (closed, released, @nxgt/widget@1.4.0)',
 			'tracking #24 workaround 24 -> softistx/nxgt-widget#15 (closed, released)',
 		]);
@@ -91,7 +93,7 @@ describe('ready', () => {
 			],
 		});
 		expect(await main(h.ctx, ['ready'])).toBe(EXIT.ok);
-		expect(h.out[0]).toContain('tracking #5');
+		expect(h.out[1]).toContain('tracking #5');
 		expect(callsOf(h.runner, 'gh', 'api', 'graphql')).toHaveLength(2);
 		// The second command finds the cache fresh: no further call.
 		await main(h.ctx, ['ready']);
@@ -113,7 +115,7 @@ describe('ready', () => {
 			now: NOW + 3_600_000,
 		});
 		expect(await main(h.ctx, ['ready'])).toBe(EXIT.ok);
-		expect(h.out[0]).toContain('tracking #21');
+		expect(h.out[1]).toContain('tracking #21');
 		expect(h.err.join('\n')).toContain('using the cache');
 	});
 

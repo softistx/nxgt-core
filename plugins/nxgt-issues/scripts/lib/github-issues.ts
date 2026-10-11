@@ -126,6 +126,18 @@ export async function privateRepos(
 	return names(rows, 'nameWithOwner');
 }
 
+/** The logins of the organisations the token belongs to (`gh api user/orgs`, every page). */
+export async function userOrgs(ctx: GhContext): Promise<string[]> {
+	const out = await gh(ctx, [
+		...words('api user/orgs --paginate --jq'),
+		'.[].login',
+	]);
+	return out
+		.split('\n')
+		.map((line) => line.trim())
+		.filter((login) => /^[\w.-]+$/.test(login));
+}
+
 export async function labelNames(
 	ctx: GhContext,
 	id: RepoId,

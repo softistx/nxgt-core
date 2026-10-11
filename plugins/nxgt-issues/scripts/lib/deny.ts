@@ -20,11 +20,14 @@ import { isCommonWord } from './common-words';
 import {
 	domainTerms,
 	GENERIC,
+	lower,
 	MIN_LABEL_LENGTH,
+	MIN_SUBSTRING_LENGTH,
 	mainLabel,
 	scopedParts,
 	scopeOf,
 	stems,
+	unique,
 } from './deny-terms';
 
 export interface DenyInputs {
@@ -43,12 +46,6 @@ export interface DenyInputs {
 	readonly appDomains?: readonly string[];
 	readonly home?: string | undefined;
 }
-
-export const unique = (terms: readonly (string | undefined)[]): string[] => [
-	...new Set(
-		terms.map((term) => term?.trim()).filter((term): term is string => !!term),
-	),
-];
 
 const basename = (path: string): string =>
 	path
@@ -91,11 +88,6 @@ export const EMPTY_DENY_LIST: DenyList = Object.freeze({
 	terms: [],
 	distinctive: [],
 });
-
-/** Own terms of this many characters match inside words (`vexoradb`). */
-const MIN_SUBSTRING_LENGTH = 5;
-
-const lower = (term: string): string => term.toLowerCase();
 
 /**
  * The terms that may never appear in a filing, from what the session knows.
@@ -163,7 +155,14 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 		distinctive: unique(
 			own.filter((term) => term.length >= MIN_SUBSTRING_LENGTH).map(lower),
 		),
-		stems: privateStems.filter((stem) => !own.includes(stem)).map(lower),
+		// A full repository name is searched everywhere, node_modules/ paths included; only a stem derived from a longer name is exempt there.
+		stems: privateStems
+			.filter(
+				(stem) =>
+					!own.includes(stem) &&
+					!bareNames.some((name) => lower(name) === lower(stem)),
+			)
+			.map(lower),
 	});
 }
 

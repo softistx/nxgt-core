@@ -140,11 +140,26 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
 - **No network outside `scripts/lib/runner.ts`.** No `Bun.spawn`, Bun Shell (`$` templates) or
   `fetch(` anywhere else in `lib/` (`no-network.spec.ts` enforces it); entry
   files alone build the real runner, and specs use the scripted fake.
-- **Text from GitHub is untrusted.** Titles, labels, comments and bodies reach
-  Claude's context only through `oneLine` (one line, control, zero-width and
-  bidirectional characters and angle brackets stripped) under the
-  untrusted-data header; a skill never interpolates `$ARGUMENTS` or issue text
-  into a shell line.
+- **Text from GitHub is untrusted.** Titles, labels, comments, logins and
+  bodies reach Claude's context only through `oneLine` (`untrusted.ts`: one
+  line of code points, control, format, private-use, surrogate, unassigned,
+  default-ignorable, Hangul filler, U+2800 and angle-bracket characters
+  stripped, from the one list in `hidden-chars.ts`) under the
+  untrusted-data header; `--json` outputs go through `cleanJson`. A new CLI
+  `ctx.out` that interpolates GitHub or registry data without them is a
+  finding. A skill never interpolates `$ARGUMENTS` or issue text into a shell
+  line.
+- **A skill pre-approves only reads.** `allowed-tools` lists the exact read
+  subcommand and `<command> *` (`ready`, `dashboard`, `markers`, `resolve`,
+  `sessions`, `release-plan`), never `issues.ts *` nor a `cmd*` prefix;
+  `file`, `track`, `deps` and `released` (alias `--dry-run` included) keep
+  their permission prompt, and every subcommand refuses an unknown flag.
+- **The deny-list refuses rather than shrinks.** An empty private list, an
+  owner that drops to 0 against the cache, a stale copy older than 7 days, an
+  unexpandable workspace pattern or a missing git root refuses with
+  `DenyListIncomplete`; the token's organisations and
+  `NXGT_ISSUES_DENY_OWNERS` are deny owners, never filing owners.
+  `NXGT_ISSUES_DENY_SKIP_ORGS` is the one deliberate shrink.
 - **Both release copies kept in step** (see "Deliberate" below for what may
   differ): a change to the "Fixed in" comment or its hidden marker, the
   discovery rules, the label, close, comment order, or the idempotency rule is

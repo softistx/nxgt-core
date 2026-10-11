@@ -32,6 +32,7 @@ const BARE_DOMAIN = new RegExp(
 	'giu',
 );
 
+/** Bare names kept in prose (no path to leak); `KEPT_HOSTS` in scrub.ts is the narrower list of URL hosts kept with their path. */
 const KEPT_DOMAINS = new Set(
 	(
 		'github.com npmjs.com www.npmjs.com npmjs.org registry.npmjs.org ' +

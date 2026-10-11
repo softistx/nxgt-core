@@ -112,6 +112,18 @@ describe('markers', () => {
 		expect(reports[0].version).toBe('1.4.0');
 	});
 
+	test('--json strings are cleaned', async () => {
+		const h = seeded({
+			run: [
+				grep(
+					`src/a${String.fromCodePoint(0x202e)}.ts:10:// Temporary, until @nxgt/widget#12`,
+				),
+			],
+		});
+		await main(h.ctx, ['markers', '--json']);
+		expect(h.out.join('\n')).not.toContain(String.fromCodePoint(0x202e));
+	});
+
 	test('git grep failing outside a checkout is a failure, not "no markers"', async () => {
 		const h = harness({
 			cwd: makeApp(),
