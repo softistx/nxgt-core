@@ -29,6 +29,15 @@ Nothing planned that changes what a consumer gets. See Later.
 
 ## Shipped
 
+### 3.2
+
+- **The Sandbox page off in production**: `createYogaHono` serves it
+  outside production only, and `sandbox: true` (or `enabled: true` beside
+  its options) serves it in production too.
+- **`createFormatError`'s production mode hides internal detail**: an
+  unexpected error answers `Unexpected error.`, and no error carries
+  `debugMessage` or a stack trace.
+
 ### 3.0 — [migration guide](./guide/migrating-to-3.md)
 
 - **The caller comes from a verified source only**: `useAuth()` and

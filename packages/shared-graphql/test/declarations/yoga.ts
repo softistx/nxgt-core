@@ -39,3 +39,5 @@ export const yoga = createYoga({
 export const mount = honoYoga(yoga);
 
 export const app = createYogaHono(yoga, { sandbox: { endpoint: 'explore' } });
+
+export const appWithSandbox = createYogaHono(yoga, { sandbox: true });

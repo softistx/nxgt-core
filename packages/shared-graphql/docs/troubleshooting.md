@@ -247,6 +247,24 @@ the caller. Outside production, pass `false` or leave the argument out.
 
 ## Traps that throw nothing
 
+### The Sandbox page is gone in production
+
+`GET /sandbox` answers `404 Not Found` from an app mounted with
+`createYogaHono`, while `/graphql` answers. Since 3.2 the Sandbox page is
+served outside production only: with `NODE_ENV=production` it is not mounted,
+page options such as `sandbox: { port }` included. To serve it in production,
+say so:
+
+```ts
+createYogaHono(yoga, { sandbox: true });
+// or, keeping its options
+createYogaHono(yoga, { sandbox: { endpoint: 'explore', enabled: true } });
+```
+
+Outside production, check that `NODE_ENV` is not `production` where the
+server runs — a container image often sets it — and that `sandbox` is not
+`false`.
+
 ### Every caller is anonymous behind the gateway
 
 `useAuth({ trustedGateway })` reads no caller from a request that does not

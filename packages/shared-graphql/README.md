@@ -270,6 +270,19 @@ Hono. `sandboxExplorer` serves Apollo Sandbox, started at the GraphQL endpoint
 of the server that served the page — the request's own origin, behind a proxy
 and over HTTPS alike — unless `port`, `hostname`, `protocol` or a whole
 `initialEndpoint` pins it; `createYogaHono` points it at `yoga.graphqlEndpoint`.
+
+`createYogaHono` serves that page at `/sandbox` outside production only: with
+`NODE_ENV=production` the route answers 404. `sandbox: true` serves it in
+every environment, `sandbox: false` in none; page options configure it, and
+their `enabled` decides the same way.
+
+```ts
+createYogaHono(yoga); // the Sandbox outside production
+createYogaHono(yoga, { sandbox: { port: env.PORT } }); // configured, still outside production only
+createYogaHono(yoga, { sandbox: true }); // in production too
+createYogaHono(yoga, { sandbox: { endpoint: 'explore', enabled: true } });
+```
+
 Subscriptions go over Redis
 (`graphql-subscriptions` is re-exported). `DataLoader` is re-exported so a
 subgraph does not take a second copy.
