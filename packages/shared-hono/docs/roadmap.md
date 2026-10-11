@@ -33,6 +33,13 @@ Nothing planned that changes what a consumer gets. See Later.
 
 ## Shipped
 
+### 4.3
+
+- **Accepts TypeScript 7 as well as 6**: the `typescript` peer is now
+  `^6.0.3 || ^7.0.0`, the same range in every `@nxgt/*` package, so the set
+  installs with either. The built JavaScript and declarations are checked
+  under both; nothing changes under TypeScript 6.
+
 ### 4.2
 
 - **A secure-by-default error handler**: `createErrorHandler()` answers
