@@ -44,8 +44,9 @@ Not for a spec-only change, a private helper, or a comment.
 | how a *consumer* works | the consumer repo's `AGENTS.md`, in the consumer PR |
 | a rule a future package must follow | the relevant skill |
 
-Application-specific names (`oauth-ui`, `kratos-ui`, a monorepo) are
-not written in this public repository at all, and do **not** belong on the npm page, nor in `docs/`.
+The application-specific names of a consumer application are not written in a
+public repository at all, and do **not** belong on the npm page, nor in `docs/`.
+`nxgt-*` repositories and their components are fine.
 
 ## README shape
 

@@ -46,7 +46,9 @@ getLogger().info('from a service, uses the request logger when there is one');
 through a nested `node_modules` is what `tsc` refuses to emit (TS2883) for a
 consumer installing from the registry.
 
-Level comes from `LOG_LEVEL`, default `info`. The label is `tag`, else `LOG_TAG`, else `'app'`; both are read when a logger is created, so `LOG_TAG` also names the default `logger`, `getLogger()` and the request logger.
+Level comes from `LOG_LEVEL`, default `info`. The label is `tag`, else
+`LOG_TAG`, else `'app'`. Both are read when a logger is created, so `LOG_TAG`
+also names the default `logger`, `getLogger()` and the request logger.
 Pass `disableConsole: true` to keep only the file transport.
 
 ## Line format
@@ -77,3 +79,10 @@ been; parsers may depend on it.
   reads the context when a request is in flight and falls back to `logger`
   otherwise. A module-scope `const log = getLogger()` captures the fallback
   forever — call it inside the handler.
+
+## Upgrading to 2.0.0
+
+The default label is now `app` for every logger: `createLogger` without `tag`,
+the default `logger`, `getLogger()` and the request logger. To keep your
+previous label, set `LOG_TAG=<previous label>` in the environment, or pass
+`tag` per logger. `tag` wins over `LOG_TAG`.
