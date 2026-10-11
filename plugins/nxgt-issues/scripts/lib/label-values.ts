@@ -31,7 +31,8 @@ export function isLabelMessage(
 	value: string,
 ): boolean {
 	if (ERROR_CLASS.test(name) && !operator.includes('=')) {
-		return ERROR_MESSAGE.test(value) && !isKeyMaterial(value);
+		const message = value.replace(/[\s"'`}\]),;]+$/, ''); // closing JSON punctuation
+		return ERROR_MESSAGE.test(message) && !isKeyMaterial(message);
 	}
 	if (STATUS_PHRASE.test(value)) return true;
 	return (

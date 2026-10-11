@@ -81,14 +81,19 @@ const INNER = {
 /**
  * A string literal in `code` that is an operand (after `+`, or directly in
  * `${…}`) and not plainly harmless. A literal after `(`, `,` or `[` is a call
- * argument or a subscript key (`getItem('token')`), left to the call rules;
- * escapes (`'\\n'`) are not letters.
+ * argument or a subscript key (`getItem('token')`) and passes only when it
+ * holds no digit, so `String('k3J9…')` refuses; escapes (`'\\n'`) are not
+ * letters.
  */
 const holdsLiteral = (code: string): boolean =>
 	[...code.matchAll(STRING)].some((m) => {
 		const before = code.slice(0, m.index).trimEnd().at(-1);
-		if (before === '(' || before === ',' || before === '[') return false;
 		const unescaped = (m[2] ?? '').replace(/\\./g, '');
+		if (
+			(before === '(' || before === ',' || before === '[') &&
+			!/\d/.test(unescaped)
+		)
+			return false;
 		return !isHarmlessLiteral(unescaped, INNER);
 	});
 

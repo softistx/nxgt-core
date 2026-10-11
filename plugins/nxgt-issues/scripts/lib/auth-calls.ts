@@ -24,12 +24,9 @@
  * `authenticate` is the user name and stays allowed.
  */
 
-import {
-	credentialKeyHoldsSecret,
-	functionRegions,
-	isValueLiteral,
-} from './function-values';
-import { isHarmlessLiteral } from './literals';
+import { credentialKeyHoldsSecret, functionRegions } from './function-values';
+import { comparesSecret, valueRoles } from './literal-roles';
+import { isHarmlessLiteral, looksLikeCredential } from './literals';
 
 const CALL = /(?<![\w$])((?:[A-Za-z_$][\w$]*\??\.)*[A-Za-z_$][\w$]*)\s*\(/g;
 const KEYWORDS = (
@@ -139,26 +136,17 @@ interface Position {
 	readonly encoder?: boolean;
 }
 
-/** What an encoder's literal must look like to refuse: `user:pass`, a secret word, key material. */
-const looksLikeCredential = (text: string): boolean =>
-	/^[^\s:]+:\S+$/.test(text) ||
-	/secret|passw|pwd|token|key|auth/i.test(text) ||
-	(!/\s/.test(text) && /\d/.test(text) && /[A-Za-z]/.test(text));
-
 /** A quoted literal in `arg` that is a secret. */
 function hasSecretIn(arg: string, position: Position): boolean {
 	const regions = functionRegions(arg);
+	const roles =
+		regions.length > 0 ? valueRoles(arg, isCredentialCallee) : undefined;
 	for (const match of arg.matchAll(QUOTED)) {
-		const end = match.index + match[0].length;
 		const inFunction = regions.some(
 			([a, b]) => match.index > a && match.index < b,
 		);
-		if (
-			inFunction &&
-			!isValueLiteral(arg, match.index, end, isCredentialCallee)
-		) {
-			continue; // a key inside a function value: `c.req.header('x-gateway')`
-		}
+		const role = inFunction ? roles?.get(match.index) : undefined;
+		if (inFunction && !role) continue; // a key inside a function value: `c.req.header('x-gateway')`
 		const key = KEY_BEFORE.exec(arg.slice(0, match.index))?.[1];
 		if (key && NAMING_KEYS.has(key)) continue;
 		const message = key !== undefined && MESSAGE_KEYS.has(key);
@@ -170,6 +158,7 @@ function hasSecretIn(arg: string, position: Position): boolean {
 		};
 		const literal = match[2] ?? '';
 		if (isHarmlessLiteral(literal, context)) continue;
+		if (role === 'compare' && !comparesSecret(literal)) continue;
 		if (!position.encoder || looksLikeCredential(literal)) return true;
 	}
 	return false;

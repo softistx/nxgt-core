@@ -73,6 +73,9 @@ export const wordsOf = (name: string): string[] =>
 /** A member expression of letters only: `ctx.token`, `config.secret`. */
 const MEMBER = /^[A-Za-z_$]+(?:\??\.[A-Za-z_$]+){1,3}$/;
 const ENV = /^(?:[\w$]+\.)*env\.[\w$]+$/i;
+/** A shell variable (`$PASS`, `${ADMIN_PASSWORD}`) or a command substitution, quoted or not. */
+const SHELL_VARIABLE = /^["'`]?\$\{?[A-Z_][A-Z0-9_]*\}?["'`]?$/;
+const COMMAND_SUBSTITUTION = /^["'`]?\$\(/;
 const ENV_BRACKET = /^(?:[\w$]+\.)*env\[\s*(["'])\w+\1\s*\]$/;
 
 /** True when `value` cannot be a secret: a type, a word, an env reference, a mask. */
@@ -81,7 +84,12 @@ export function isPlaceholder(raw: string): boolean {
 		.replace(/^(?:await|new|typeof)\s+/i, '')
 		.replace(/[\s,;]+$/, '');
 	const asserted = unwrapped.replace(/!$/, '');
-	if (ENV_BRACKET.test(asserted)) return true;
+	if (
+		ENV_BRACKET.test(asserted) ||
+		SHELL_VARIABLE.test(asserted) ||
+		COMMAND_SUBSTITUTION.test(asserted)
+	)
+		return true;
 	const value = unwrapped
 		.replace(/(?:\[\])+(?=[;,)}\]"'`]*$)/, '')
 		.replace(/^["'`]+|["'`;,)}\]]+$/g, '')
@@ -99,7 +107,8 @@ export function isPlaceholder(raw: string): boolean {
 }
 
 /** A call on an identifier path whose parentheses close: `getToken(c)`, `c.req.header('x')?.slice(7)`. */
-const CALL = /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\(.*\)$/;
+const CALL =
+	/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\(.*\)(?:\[\d{1,3}\])?$/;
 const QUOTED = /(["'`])((?:\\.|(?!\1).)*)\1/g;
 
 /** Prefixes of provider tokens: `sk-live-…` is a key, not a header name. */
@@ -114,8 +123,13 @@ export function isReaderKey(text: string): boolean {
 	return text.split(/[-_.]/).every((segment) => NAME_SEGMENT.test(segment));
 }
 
+/** Literals that carry no value: empty, blank, or a bare scheme word (`'Bearer '`). */
+const NO_VALUE = /^\s*(?:(?:Basic|Bearer|Digest|Negotiate|token)\s*)?$/i;
+
 function quotedArgumentIsName(call: string, index: number, text: string) {
-	if (KNOWN_LITERALS.has(text.toLowerCase())) return true;
+	if (KNOWN_LITERALS.has(text.toLowerCase()) || NO_VALUE.test(text)) {
+		return true;
+	}
 	const method = /([A-Za-z_$][\w$]*)\(\s*$/.exec(call.slice(0, index))?.[1];
 	if (method && READERS.has(method)) return isReaderKey(text);
 	return /^[A-Za-z]+$/.test(text);
