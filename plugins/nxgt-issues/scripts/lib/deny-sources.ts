@@ -7,7 +7,9 @@
  * list`, cached 24 h, the stale copy used when gh fails, and no filing at all
  * when there is neither), `git config user.name` / `user.email`, the hostname,
  * the home folder, and the application's own domains and extra terms from the
- * configuration (see `readDenyConfig`).
+ * configuration (see `readDenyConfig`). No domain configured and no explicit
+ * `"appDomains": []` in the repository's `.nxgt-issues.json` refuses the
+ * filing.
  */
 
 import { readFileSync } from 'node:fs';
@@ -84,6 +86,28 @@ export function readDenyConfig(ctx: CliContext, root?: string): DenyConfig {
 }
 
 export class DenyListIncomplete extends Error {}
+
+/** Whether `<root>/.nxgt-issues.json` says, with `"appDomains": []`, that the app has no domain. */
+export function declaresNoDomains(root: string | undefined): boolean {
+	if (!root) return false;
+	try {
+		const data = JSON.parse(
+			readFileSync(join(root, '.nxgt-issues.json'), 'utf8'),
+		);
+		const domains = (data as Record<string, unknown> | null)?.['appDomains'];
+		return Array.isArray(domains) && domains.length === 0;
+	} catch {
+		return false;
+	}
+}
+
+/** No configured domain and no explicit `appDomains: []`: the filing cannot be checked whole. */
+function requireDomains(config: DenyConfig, root: string | undefined): void {
+	if (config.appDomains.length > 0 || declaresNoDomains(root)) return;
+	throw new DenyListIncomplete(
+		'no application domain is configured; list them in .nxgt-issues.json at the repository root ({ "appDomains": ["example-app.com"] }), or write "appDomains": [] when the application has none',
+	);
+}
 
 /**
  * Whose private repositories are denied: the default owners and the configured
@@ -166,6 +190,7 @@ export async function filingDenyList(ctx: CliContext): Promise<DenyList> {
 	const root = repoRoot(ctx.cwd);
 	const app = repoOfDirectory(ctx.cwd);
 	const config = readDenyConfig(ctx, root);
+	requireDomains(config, root);
 	const built = buildDenyList({
 		appRepo: app ? formatRepo(app) : undefined,
 		appPackages: root

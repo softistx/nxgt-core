@@ -31,10 +31,12 @@ it:
 { "appDomains": ["example-app.com", "admin.example-app.fr"] }
 ```
 
-Every listed domain, its registrable domain and its main label are denied in
-filings. `file` warns while none is configured. Bare domain names are rewritten
-to `<host>` anyway, but a product name derived from a domain is only caught
-once the domain is listed.
+When the user says the application has no domain of its own, write
+`{ "appDomains": [] }` — explicitly empty. Every listed domain, its registrable
+domain and its main label are denied in filings. **`file` refuses (exit 3)
+until the file exists with an `appDomains` list**, empty or not: a product name
+derived from a domain is only caught once the domain is listed. Bare domain
+names are rewritten to `<host>` either way.
 
 ## 1. Resolve
 

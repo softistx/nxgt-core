@@ -20,7 +20,6 @@ import {
 	printReleasedHint,
 	refuseInPublicApp,
 	standing,
-	warnWithoutDomains,
 } from './file-checks';
 import {
 	allowFor,
@@ -162,7 +161,6 @@ export async function fileCommand(
 		const resolved = await resolvePackage(ctx, report.package);
 		if (!resolved.ok) return printGateRefusal(ctx, resolved);
 		const denyList = await filingDenyList(ctx);
-		warnWithoutDomains(ctx);
 		if (report.kind === 'dependencies') {
 			return await upsertRollingIssue(
 				ctx,

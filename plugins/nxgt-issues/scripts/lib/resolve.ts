@@ -96,13 +96,16 @@ const refuse = (
 const gatePath = (home: string, id: RepoId): string =>
 	join(home, 'cache', 'gate', basename(cachePath(home, id)));
 
-/** `gh api repos/o/r`, from the 24-hour cache when fresh. */
+/** `gh api repos/o/r`, from the 24-hour cache when fresh; `fresh: true` always asks (the application's own visibility). */
 export async function gateFacts(
 	ctx: GhContext,
 	id: RepoId,
+	options: { fresh?: boolean } = {},
 ): Promise<RepoFacts> {
 	const path = gatePath(ctx.home, id);
-	const cached = readEntry<RepoFacts>(path, ctx.now(), GATE_TTL_MS);
+	const cached = options.fresh
+		? undefined
+		: readEntry<RepoFacts>(path, ctx.now(), GATE_TTL_MS);
 	if (cached?.fresh) return cached.data;
 	const facts = await repoFacts(ctx, id);
 	writeEntry(path, facts, ctx.now());

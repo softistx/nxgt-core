@@ -96,7 +96,7 @@ async function appRepo(ctx: CliContext): Promise<RepoId | string> {
 	if (!isAllowedOwner(app.owner, allowedOwners(ctx.env))) {
 		return `${formatRepo(app)} does not belong to an allowed owner (NXGT_ISSUES_OWNERS)`;
 	}
-	const facts = await gateFacts(ctx, app);
+	const facts = await gateFacts(ctx, app, { fresh: true });
 	if (!facts.private) {
 		return `${formatRepo(app)} is public: a tracking issue there would link it to the anonymous upstream issue`;
 	}

@@ -38,6 +38,8 @@ export function makeApp(origin = 'git@github.com:softistx/acme-store.git') {
 		dependencies: { [PKG]: '^1.2.0' },
 	});
 	write(join(dir, 'apps', 'web', 'package.json'), { name: '@acme/web' });
+	// The app declares it has no domain of its own; specs that need one say so.
+	write(join(dir, '.nxgt-issues.json'), { appDomains: [] });
 	write(join(dir, 'node_modules', PKG, 'package.json'), {
 		name: PKG,
 		version: '1.3.0',

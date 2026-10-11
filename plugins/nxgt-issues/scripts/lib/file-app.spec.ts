@@ -1,6 +1,4 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { main } from './cli';
 import {
 	callsOf,
@@ -90,25 +88,6 @@ describe('file from a public application', () => {
 		});
 		expect(await fileCommand(h.ctx, {})).toBe(EXIT.failed);
 		expect(writes(h)).toEqual([]);
-	});
-});
-
-describe('file: application domains', () => {
-	test('warns when no domain is configured', async () => {
-		const h = harness({ cwd: makeApp(), stdin: report() });
-		await fileCommand(h.ctx, {});
-		expect(h.err.join('\n')).toContain('no application domain is configured');
-	});
-
-	test('no warning once .nxgt-issues.json lists them', async () => {
-		const app = makeApp();
-		writeFileSync(
-			join(app, '.nxgt-issues.json'),
-			JSON.stringify({ appDomains: ['acme.io'] }),
-		);
-		const h = harness({ cwd: app, stdin: report() });
-		await fileCommand(h.ctx, {});
-		expect(h.err.join('\n')).not.toContain('no application domain');
 	});
 });
 

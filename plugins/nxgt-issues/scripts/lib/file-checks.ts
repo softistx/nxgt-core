@@ -2,19 +2,17 @@
  * The checks `file` makes around the filing itself: the application's own
  * repository must not be public (an issue number in its code or a tracking
  * issue would tie it to the anonymous report) unless the user agreed
- * (`--public-app`); a warning when no application domain is configured; and
+ * (`--public-app`), read fresh rather than from the 24-hour cache; and
  * what an earlier report with the same fingerprint means once it is closed —
  * released (bump instead) or fixed but not yet released (wait).
  */
 
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
-import { readDenyConfig } from './deny-sources';
 import { GhError } from './github';
 import type { IssueSummary } from './github-issues';
 import { formatRepo, repoOfDirectory } from './repo-id';
 import { gateFacts } from './resolve';
-import { repoRoot } from './workspaces';
 
 /** A refusal exit code when the application is public and the user did not agree. */
 export async function refuseInPublicApp(
@@ -24,7 +22,7 @@ export async function refuseInPublicApp(
 	const app = repoOfDirectory(ctx.cwd);
 	if (!app || publicApp) return undefined;
 	try {
-		if (!(await gateFacts(ctx, app)).private) {
+		if (!(await gateFacts(ctx, app, { fresh: true })).private) {
 			ctx.out(
 				`refused: the application repository ${formatRepo(app)} is public; nothing was filed.`,
 			);
@@ -44,13 +42,6 @@ export async function refuseInPublicApp(
 		throw error;
 	}
 	return undefined;
-}
-
-export function warnWithoutDomains(ctx: CliContext): void {
-	if (readDenyConfig(ctx, repoRoot(ctx.cwd)).appDomains.length > 0) return;
-	ctx.err(
-		'warning: no application domain is configured (.nxgt-issues.json "appDomains", or NXGT_ISSUES_APP_DOMAINS); bare domains are still rewritten to <host>, but configure them so their names are denied too.',
-	);
 }
 
 const released = (issue: IssueSummary): boolean =>

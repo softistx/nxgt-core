@@ -72,12 +72,13 @@ stdin.
 
 What `file` does, in order:
 
-1. refuses when the application's own repository is public (read through the
-   same 24-hour gate cache), unless `--public-app` says the user agreed; a
+1. refuses when the application's own repository is public (asked fresh, never
+   from the 24-hour gate cache, so a repository made public since is seen), unless `--public-app` says the user agreed; a
    repository gh cannot see (404) is not public;
 2. resolves and gates the package (as `resolve`);
-3. builds the deny-list once (below), and warns on stderr when no application
-   domain is configured;
+3. builds the deny-list once (below); it refuses (exit 3) while no application
+   domain is configured, unless the repository's `.nxgt-issues.json` says
+   `"appDomains": []`;
 4. renders the issue body, the title, the "another consumer" comment and the
    search words, and scrubs each **rendered** text; any denied term or
    credential refuses the whole filing, printing the terms and the credential
@@ -177,16 +178,27 @@ read from, and merged across:
 
 A domain adds itself, its registrable domain and that domain's main label.
 The skill creates `.nxgt-issues.json` on first use in an application, asking
-the user for the domains.
+the user for the domains. **While no domain is configured, `file` and `deps
+--file` refuse (exit 3)**, unless the repository's `.nxgt-issues.json` says
+`"appDomains": []` (the application has none); the user-wide file and the
+environment variable can supply domains but cannot declare "none".
 
 Independently of the configuration, the scrub rewrites any dotted name ending
-in a common TLD (`com`, `net`, `org`, `io`, `dev`, `app`, `fr`, `ca`, `co`,
-`uk`, `de`, `eu`, `us`, `me`, `ai`, `cloud`, `tech`, `xyz`, …) to `<host>`
-(`myeduapp.com`, `admin.myeduapp.fr`), except `github.com`, `npmjs.com`,
+in a common TLD to `<host>` (`domains.ts`): `com`, `net`, `org`, `io`, `dev`,
+`app`, `fr`, `ca`, `co`, `uk`, `de`, `eu`, `us`, `me`, `ai`, `cloud`, `tech`,
+`xyz`, the francophone ccTLDs (`ma`, `be`, `tn`, `sn`, `ci`, `lu`, `ch`, `dz`,
+`cm`, `ht`), `it`, `sh`, and `school`, `academy`, `online`, `store`, `site`,
+`page`, among others. A path, query or fragment after it is kept
+(`<host>/graphql`); a leading `.`, `*.` or `@` goes with it (`'.myeduapp.com'`,
+`*.myeduapp.com`, `@myeduapp.com`); a Unicode label is rewritten whole
+(`école.fr`). Kept as written: `github.com` and its subdomains, `npmjs.com`,
 `npmjs.org`, `registry.npmjs.org`, `nodejs.org`, `bun.sh`, `mozilla.org`,
-`developer.mozilla.org` and the RFC 2606 `example.com|net|org` names. Code is
-left alone: `index.ts`, `process.env`, `Promise.all`, `this.app`, a name
-followed by a call, a member access or a path.
+`developer.mozilla.org`, `nuxt.com`, `vitejs.dev`, `hono.dev`,
+`typescriptlang.org`, `stackoverflow.com`, `mongodb.com`, `graphql.org`,
+`jsr.io`, `schema.org`, `vuejs.org`, `react.dev`, the RFC 2606
+`example.com|net|org` names, `ASP.NET`-style names, common script names
+(`deploy.sh`), and code: `index.ts`, `process.env`, `Promise.all`, `this.app`,
+a name followed by a call or a member access, anything inside a path.
 
 ## What the library holds
 
@@ -199,9 +211,9 @@ followed by a call, a member access or a path.
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
-| `hosts.ts` | rewrites `host:port`, IP literals and resolver-error host names to `<host>` |
+| `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
 | `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing |
-| `auth-calls.ts` | literal secrets handed to `hash`, `compare`, `sign`, `verify`, `encrypt`, `decrypt`, `createHmac`, `login`, `signIn`, `authenticate`, wherever the call sits |
+| `auth-calls.ts`, `literals.ts` | literal secrets handed to a credential call — a callee whose name has a part like `password`, `secret`, `key`, `token`, `hash`, `hmac`, `cipher`, `sign`, `verify`, `compare`, `encrypt`, `scrypt`, `pbkdf2`, `argon`, `bcrypt`, `login`, `auth`, or `btoa`, `encode`, `Buffer.from`, or a credential header's setter — at any depth, wherever the call sits; and the literals that are plainly not secrets (algorithm names, locale tags, role words, durations, messages with a space, env names, naming options) |
 | `code-values.ts` | when the value of a credential-named assignment is code (a call whose literals are names, a type, an env read, a fallback chain) rather than a secret |
 | `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |

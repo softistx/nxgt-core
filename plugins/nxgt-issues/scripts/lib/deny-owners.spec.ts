@@ -93,6 +93,7 @@ describe('no GitHub origin', () => {
 			'../..\n',
 		);
 		mkdirSync(join(wt, 'src'), { recursive: true });
+		writeFileSync(join(wt, '.nxgt-issues.json'), '{"appDomains":[]}');
 		writeFileSync(
 			join(wt, '.git'),
 			`gitdir: ${join(main, '.git', 'worktrees', 'ff')}\n`,
