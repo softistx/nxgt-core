@@ -80,6 +80,14 @@ export async function upsertRollingIssue(
 		ctx.out(`filed ${url}`);
 		return EXIT.ok;
 	}
+	// An open issue holding `released` (a reopen whose removal failed, or a hand reopen) would make the next release report "reopened, fix did not hold".
+	const holdsReleased = hasLabel(
+		(rolling.labels ?? []).map((label) => label.name),
+		'released',
+	);
+	if (open && holdsReleased) {
+		await removeIssueLabel(ctx, repo, rolling.number, LABELS.released.name);
+	}
 	if (open && rolling.body.trim() === body.trim()) {
 		ctx.out(`unchanged ${rolling.url} (the rolling issue already lists these)`);
 		return EXIT.ok;
@@ -87,9 +95,7 @@ export async function upsertRollingIssue(
 	await editIssueBody(ctx, repo, rolling.number, body);
 	if (!open) {
 		await reopenIssue(ctx, repo, rolling.number);
-		// A reopened issue that kept `released` would make the next release report "reopened, fix did not hold".
-		const labels = (rolling.labels ?? []).map((label) => label.name);
-		if (hasLabel(labels, 'released')) {
+		if (holdsReleased) {
 			await removeIssueLabel(ctx, repo, rolling.number, LABELS.released.name);
 		}
 	}

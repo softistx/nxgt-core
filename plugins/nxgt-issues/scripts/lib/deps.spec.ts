@@ -119,15 +119,27 @@ describe('file: a dependencies report', () => {
 		);
 	});
 
-	test('an open rolling issue, or a reopened one without the label, removes nothing', async () => {
-		for (const [state, labels] of [
-			['OPEN', ['dependencies', 'released']],
-			['CLOSED', ['dependencies']],
-		] as const) {
+	test('an open rolling issue holding released (a removal that failed last run) loses it on the next run, even when nothing else changes', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			stdin: deps([zod]),
+			run: rolling('OPEN', [zod], ['dependencies', 'released']),
+		});
+		expect(await fileCommand(h.ctx, {})).toBe(EXIT.ok);
+		expect(h.out[0]).toMatch(/^unchanged /);
+		expect(
+			callsOf(h.runner, 'gh', 'issue', 'edit', '3').filter((c) =>
+				c.argv.includes('--remove-label'),
+			),
+		).toHaveLength(1);
+	});
+
+	test('an issue without the label, open or reopened, removes nothing', async () => {
+		for (const state of ['OPEN', 'CLOSED']) {
 			const h = harness({
 				cwd: makeApp(),
 				stdin: deps([honoNow]),
-				run: rolling(state, [zod], [...labels]),
+				run: rolling(state, [zod], ['dependencies']),
 			});
 			await fileCommand(h.ctx, {});
 			expect(
