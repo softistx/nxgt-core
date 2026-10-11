@@ -90,25 +90,64 @@ function inspect(
 /** A takeover marker older than this belongs to a claimant that died before it finished. */
 const MARKER_ABANDONED_MS = 10_000;
 
-/** Exclusively creates the marker of one generation of a stamp; false when another claimant holds it. */
+/** Exclusively creates `path`; false when it exists already (or anything else goes wrong). */
+function createExclusive(path: string): boolean {
+	try {
+		closeSync(openSync(path, 'wx', 0o600));
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Exclusively creates the marker of one generation of a stamp; false when
+ * another claimant holds it. A marker older than MARKER_ABANDONED_MS belongs to
+ * a claimant that died: every claimant that saw that same stale marker then
+ * contends on one more exclusive create, named after the stale marker's
+ * modification time and left in place, and only its winner replaces the marker.
+ */
 function takeGeneration(marker: string): boolean {
-	for (let attempt = 0; attempt < 2; attempt++) {
-		try {
-			closeSync(openSync(marker, 'wx', 0o600));
-			return true;
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return false;
+	if (createExclusive(marker)) return true;
+	try {
+		const mtime = statSync(marker).mtimeMs;
+		if (Date.now() - mtime < MARKER_ABANDONED_MS) return false;
+		if (!createExclusive(`${marker}.${Math.floor(mtime)}`)) return false;
+		rmSync(marker, { force: true });
+		return createExclusive(marker);
+	} catch {
+		return false;
+	}
+}
+
+/** A temporary file older than this was left by a claimant that died before its rename. */
+const TEMPORARY_STALE_MS = 10_000;
+
+/**
+ * Tidies the stamp folder: drops every takeover marker of `path` except the
+ * ones of `keepGeneration` (and its abandoned-marker contests), and the
+ * temporaries older than TEMPORARY_STALE_MS.
+ */
+function sweep(path: string, keepGeneration?: string): void {
+	const folder = dirname(path);
+	const prefix = `${basename(path)}.takeover.`;
+	const keep =
+		keepGeneration === undefined ? undefined : `${prefix}${keepGeneration}`;
+	for (const name of readdirSync(folder)) {
+		const file = join(folder, name);
+		const marker =
+			name.startsWith(prefix) &&
+			!(keep && (name === keep || name.startsWith(`${keep}.`)));
+		let stale = false;
+		if (name.startsWith(`${basename(path)}.`) && name.endsWith('.tmp')) {
 			try {
-				if (Date.now() - statSync(marker).mtimeMs < MARKER_ABANDONED_MS) {
-					return false;
-				}
-				rmSync(marker, { force: true });
+				stale = Date.now() - statSync(file).mtimeMs > TEMPORARY_STALE_MS;
 			} catch {
-				return false;
+				// already gone
 			}
 		}
+		if (marker || stale) rmSync(file, { force: true });
 	}
-	return false;
 }
 
 /**
@@ -117,7 +156,8 @@ function takeGeneration(marker: string): boolean {
  * flag; a fresh one (or a half-written one) means taken; an expired one is
  * replaced by whoever first creates the takeover marker of the generation it
  * read (`<stamp>.takeover.<writtenAt>`, left in place so a late claimant that
- * read the same generation loses too), through a temporary file and a rename.
+ * read the same generation loses too), through a temporary file and a rename;
+ * the other generations' markers and stale temporaries are then swept.
  * An unwritable home is `false`: no stamp, no spawn.
  */
 export function claimStamp(
@@ -130,26 +170,33 @@ export function claimStamp(
 		const path = stampPath(home, id, kind);
 		makePrivateDir(dirname(path));
 		const content = `${JSON.stringify({ writtenAt: now, data: {} })}\n`;
-		try {
-			const fd = openSync(path, 'wx', 0o600);
+		for (let attempt = 0; attempt < 2; attempt++) {
 			try {
-				writeSync(fd, content);
-			} finally {
-				closeSync(fd);
+				const fd = openSync(path, 'wx', 0o600);
+				try {
+					writeSync(fd, content);
+				} finally {
+					closeSync(fd);
+				}
+				return true;
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return false;
 			}
+			const seen = inspect(path, kind, now);
+			if (!seen) continue; // it vanished between the create and the read: once more
+			if (
+				seen.fresh ||
+				!takeGeneration(`${path}.takeover.${seen.generation}`)
+			) {
+				return false;
+			}
+			const temporary = `${path}.${randomBytes(6).toString('hex')}.tmp`;
+			writeFileSync(temporary, content, { mode: 0o600 });
+			renameSync(temporary, path);
+			sweep(path, seen.generation);
 			return true;
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return false;
 		}
-		const seen = inspect(path, kind, now);
-		if (!seen) return claimStamp(home, id, kind, now);
-		if (seen.fresh || !takeGeneration(`${path}.takeover.${seen.generation}`)) {
-			return false;
-		}
-		const temporary = `${path}.${randomBytes(6).toString('hex')}.tmp`;
-		writeFileSync(temporary, content, { mode: 0o600 });
-		renameSync(temporary, path);
-		return true;
+		return false;
 	} catch {
 		return false;
 	}
@@ -160,12 +207,8 @@ export function clearStamps(home: string, id: RepoId): void {
 		for (const kind of ['failed', 'refreshing'] as const) {
 			const path = stampPath(home, id, kind);
 			rmSync(path, { force: true });
-			// Its takeover markers go with it.
-			for (const name of readdirSync(dirname(path))) {
-				if (name.startsWith(`${basename(path)}.takeover.`)) {
-					rmSync(join(dirname(path), name), { force: true });
-				}
-			}
+			// Its takeover markers and stale temporaries go with it.
+			sweep(path);
 		}
 	} catch {
 		// nothing to clear

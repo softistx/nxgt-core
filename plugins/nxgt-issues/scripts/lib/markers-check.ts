@@ -22,59 +22,18 @@ import {
 } from './markers';
 import { lookUpPublic } from './markers-public';
 import {
-	type Judged,
-	MarkerLookupError,
-	type MarkerReport,
-	versionFor,
-} from './markers-types';
-import { formatRepo, repoOfDirectory } from './repo-id';
-import { gate, gateFacts, type RefusalReason, resolvePackage } from './resolve';
+	type Resolution,
+	resolveCached,
+	same,
+	trackedByName,
+} from './markers-resolve';
+import { type Judged, type MarkerReport, versionFor } from './markers-types';
+import { repoOfDirectory } from './repo-id';
+import { gateFacts } from './resolve';
 import type { Snapshot } from './snapshot';
 import { cleanJson } from './untrusted';
 
 const MAX_ISSUE_NUMBER = 2 ** 31 - 1;
-
-const HINTS: Record<RefusalReason, string> = {
-	'invalid-name': 'not an npm package name; write <package>#n or owner/repo#n',
-	'unknown-package': 'neither on the registry nor installed; fix the name',
-	'no-repository-field': 'the package declares no GitHub repository',
-	'not-owner': 'its repository does not belong to an allowed owner',
-	'not-found': 'gh cannot see the repository: renamed, deleted or not visible',
-	'issues-disabled': 'issues are off there, nothing will be fixed',
-	archived: 'the repository is archived, nothing will be fixed',
-	'rate-limited': 'GitHub rate limit',
-	unreachable: 'gh failed',
-};
-
-type Resolution = { repo: string } | { problem: string };
-
-/** The upstream repository of a marker: `owner/repo` as written, an npm name through the resolve logic (and its caches). */
-async function resolveMarker(
-	ctx: CliContext,
-	marker: Marker,
-): Promise<Resolution> {
-	const { target } = marker;
-	const result =
-		target.kind === 'package'
-			? await resolvePackage(ctx, target.name)
-			: await gate(ctx, describeTarget(target), target.repo);
-	if (!('ok' in result) || result.ok) {
-		return { repo: formatRepo(result.repo) };
-	}
-	const refused = result;
-	if (refused.reason === 'rate-limited') {
-		throw new MarkerLookupError('GitHub rate limit reached.', EXIT.rateLimited);
-	}
-	if (refused.reason === 'unreachable') {
-		throw new MarkerLookupError(
-			'gh failed; run `gh auth status`.',
-			EXIT.failed,
-		);
-	}
-	return { problem: `${refused.reason}: ${HINTS[refused.reason]}` };
-}
-
-const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 async function judge(
 	ctx: CliContext,
@@ -87,12 +46,8 @@ async function judge(
 	for (const marker of markers) {
 		const written = `${describeTarget(marker.target)}#${marker.number}`;
 		const base = { file: marker.file, line: marker.line, upstream: written };
-		const key = describeTarget(marker.target).toLowerCase();
-		let resolution = resolved.get(key);
-		if (!resolution) {
-			resolution = await resolveMarker(ctx, marker);
-			resolved.set(key, resolution);
-		}
+		const known = trackedByName(snapshot, marker);
+		const resolution = known ?? (await resolveCached(ctx, marker, resolved));
 		if ('problem' in resolution || marker.number > MAX_ISSUE_NUMBER) {
 			const detail =
 				'problem' in resolution
@@ -104,7 +59,9 @@ async function judge(
 			});
 			continue;
 		}
-		const upstream = `${resolution.repo}#${marker.number}`;
+		const upstream = known
+			? known.upstream
+			: `${resolution.repo}#${marker.number}`;
 		const done = ready.find((issue) => same(issue.upstream, upstream));
 		const tracked = snapshot.tracking.some((t) => same(t.upstream, upstream));
 		const unreadable = snapshot.tracking.some(
@@ -159,6 +116,7 @@ function print(
 	ctx: CliContext,
 	reports: readonly MarkerReport[],
 	flagged: number,
+	unreadable: number,
 ) {
 	if (reports.length === 0) {
 		ctx.out('no markers: nothing waits for an upstream fix.');
@@ -169,10 +127,15 @@ function print(
 		const note = r.note ? ` (${r.note})` : '';
 		ctx.out(`${r.file}:${r.line} ${r.status} ${r.upstream}${detail}${note}`);
 	}
-	ctx.out(`${flagged} of ${reports.length} marker(s) flagged.`);
+	const apart = unreadable > 0 ? `; ${unreadable} unreadable` : '';
+	ctx.out(`${flagged} of ${reports.length} marker(s) flagged${apart}.`);
 }
 
-/** `issues.ts markers [--json] [--exclude <pathspec>]…`: exit 1 when any marker is flagged, 0 otherwise. */
+/**
+ * `issues.ts markers [--json] [--exclude <pathspec>]…`: exit 6 when a marker is
+ * `unreadable` (GitHub could not read its upstream issue; the rest is still
+ * printed), else 1 when any marker is flagged, else 0.
+ */
 export async function markersCommand(
 	ctx: CliContext,
 	json: boolean,
@@ -197,13 +160,15 @@ export async function markersCommand(
 	} catch (error) {
 		return exitForError(ctx, error);
 	}
+	// An unreadable marker has no verdict: it is counted apart, never as flagged.
+	const unreadable = reports.filter((r) => r.status === 'unreadable').length;
 	const flagged = reports.filter(
-		(report) => report.status !== 'waiting',
+		(r) => r.status !== 'waiting' && r.status !== 'unreadable',
 	).length;
 	if (json) ctx.out(JSON.stringify(cleanJson(reports), null, 2));
-	else print(ctx, reports, flagged);
+	else print(ctx, reports, flagged, unreadable);
 	// A marker GitHub could not read has no verdict: the run says so (6) before it says "flagged".
-	if (reports.some((report) => report.status === 'unreadable')) {
+	if (unreadable > 0) {
 		ctx.err('nxgt-issues: some upstream issues could not be read; run again.');
 		return EXIT.failed;
 	}

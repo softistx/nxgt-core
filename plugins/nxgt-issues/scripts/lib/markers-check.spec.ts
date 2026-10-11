@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { grep, seeded } from './app-side.fixtures';
+import { grep, seeded, tracking } from './app-side.fixtures';
 import { main } from './cli';
 import {
 	callsOf,
@@ -32,6 +32,60 @@ describe('markers', () => {
 		expect(h.out[0]).toBe(
 			'src/a.ts:10 ready @nxgt/widget#12: fixed and released; remove it (tracking #21)',
 		);
+	});
+
+	test('a package that moved repositories still matches its old marker, without the registry', async () => {
+		const h = seeded(
+			{ run: [grep('src/z.ts:4:// Temporary, until @acme/zorblax#7\n')] },
+			[
+				tracking(31, 'softistx/zorblax-old#7', {
+					packageName: '@acme/zorblax',
+					lastComment: 'Fixed in @acme/zorblax@2.0.1 (#9).',
+					lastCommentBy: 'OWNER',
+				}),
+			],
+		);
+		expect(await run(h)).toBe(EXIT.flagged);
+		expect(h.out[0]).toBe(
+			'src/z.ts:4 ready @acme/zorblax#7: fixed and released; remove it (tracking #31)',
+		);
+		expect(h.runner.fetches).toEqual([]);
+	});
+
+	test('two entries for one name and number: the one whose Tracks line agrees with its hidden marker wins', async () => {
+		const h = seeded(
+			{ run: [grep('src/w.ts:4:// Temporary, until @acme/zorblax#7\n')] },
+			[
+				tracking(41, 'softistx/zorblax-edited#7', {
+					packageName: '@acme/zorblax',
+					tracksUpstream: 'softistx/zorblax-old#7',
+				}),
+				tracking(42, 'softistx/zorblax-old#7', {
+					packageName: '@acme/zorblax',
+					tracksUpstream: 'softistx/zorblax-old#7',
+					lastComment: 'Fixed in @acme/zorblax@2.0.1 (#9).',
+					lastCommentBy: 'OWNER',
+				}),
+			],
+		);
+		expect(await run(h)).toBe(EXIT.flagged);
+		expect(h.out[0]).toContain('tracking #42');
+	});
+
+	test('the name is matched with the number: another package with the same number does not match', async () => {
+		const h = seeded(
+			{
+				fetch: [{ url: 'vexora', throws: 'HTTP 404' }],
+				run: [grep('src/y.ts:4:// Temporary, until @acme/vexora#7\n')],
+			},
+			[
+				tracking(32, 'softistx/zorblax-old#7', {
+					packageName: '@acme/zorblax',
+				}),
+			],
+		);
+		expect(await run(h)).toBe(EXIT.flagged);
+		expect(h.out[0]).toContain('unresolvable @acme/vexora#7');
 	});
 
 	test('the owner/repo form works too, and a waiting marker is not flagged', async () => {

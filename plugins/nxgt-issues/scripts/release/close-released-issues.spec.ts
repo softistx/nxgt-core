@@ -1134,5 +1134,32 @@ describe('a feat/* branch that was merged before', () => {
 				expect(commented(w)).toEqual([9, 12]);
 			},
 		);
+
+		/** Slice 41 leads to feat/x (09-20), slice 42 to feat/y (10-05); #30 merged feat/y on 09-25, before the tag. */
+		const twoBranches = (listed: number[]) =>
+			fakeWorld({
+				prs: {
+					41: slice(41, '2026-09-20T00:00:00Z'),
+					42: { ...slice(42, '2026-10-05T00:00:00Z'), base: 'feat/y' },
+					30: { ...merge('m30', '2026-09-25T00:00:00Z', [9]), head: 'feat/y' },
+					50: merge('m50', '2026-10-06T00:00:00Z', [12]),
+					51: { ...merge('m51', '2026-10-06T00:00:00Z', [13]), head: 'feat/y' },
+				},
+				issues: { 12: { body: 'x' }, 9: { body: 'x' }, 13: { body: 'x' } },
+				tagList: ['@nxgt/a@1.4.0'],
+				listed,
+				log: [],
+			});
+
+		test.each([[[41, 42]], [[42, 41]]])(
+			'an earlier-listed slice of another branch does not keep a merge its own slice outdates (%p)',
+			async (listed) => {
+				const w = twoBranches(listed);
+				await run(w, [], checkout('a'), published);
+				expect(
+					[9, 12, 13].filter((n) => (w.issues[n]?.comments.length ?? 0) > 0),
+				).toEqual([12, 13]);
+			},
+		);
 	});
 });

@@ -128,8 +128,10 @@ that matters.
 - **Owners.** The plugin touches only the repositories of `NXGT_ISSUES_OWNERS`
   (a foreign `origin` makes zero gh calls); archived repositories and those with
   issues off are refused.
-- **Fail open.** The hook prints nothing and exits 0 on any failure; a rate
-  limit pauses every call for 15 minutes.
+- **Fail open.** The hook exits 0 on any failure and prints nothing when the
+  refresh fails; only a failure of its own shell (stdin that is not JSON, an
+  unexpected throw) prints one `systemMessage` saying the hook did nothing. A
+  rate limit pauses every call for 15 minutes.
 
 ## The reporter flow
 
@@ -153,7 +155,10 @@ owner, the hook adds to Claude's context:
 - at most five tracking issues of the application whose upstream issue is
   closed **and** labelled `released` (the fix is on npm); shown first, with the
   release step's `Fixed in <pkg>@<version>` comment when that is the last one,
-  under a header that points to the `adopt-a-released-fix` skill (below).
+  under a header that points to the `adopt-a-released-fix` skill (below);
+- the tracking issues whose upstream issue GitHub could not read just now, in
+  an "upstream unreadable" section (never shown as ready; tried again at the
+  next refresh).
 
 It prints nothing when there is nothing to show, and stays under about 600
 tokens (titles are cut to one line and introduced as data, not instructions).
@@ -165,7 +170,7 @@ It reads `<home>/cache/<owner>__<repo>.json`, where `<home>` is
 the temporary file before its rename included) 0600: the cache holds the titles
 of private repositories' issues. A home that cannot be written costs the cache,
 not the output: the refresh still returns its snapshot and the hook renders it.
-The entry is fresh for 10 minutes:
+The entry is fresh for 10 minutes (2 minutes when it holds an upstream issue GitHub could not read):
 
 | cache | the hook |
 | --- | --- |
@@ -213,6 +218,23 @@ is shared with usage.
 run from, the application's checkout, or on `--cwd <dir>`. Inputs are JSON on
 stdin.
 
+**From another plugin** (an agent or a skill of `nxgt-autonomy` or `nxgt-package`,
+which have no `${CLAUDE_PLUGIN_ROOT}` of this one) the path comes from
+`installed_plugins.json`, never from a guess in the plugin cache, where old
+versions stay. This is the one lookup; those files carry the same lines:
+
+```bash
+# nxgt-issues: this checkout's install, else the user one, else this checkout's own copy
+dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  '(.plugins["nxgt-issues@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
+  "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)"
+issues=""; [ -n "$dir" ] && issues="$dir/scripts/issues.ts"
+[ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
+[ -f "$issues" ] || issues=""
+```
+
+An empty `$issues` means the plugin is not installed: skip the step and say so.
+
 | command | does |
 | --- | --- |
 | `resolve <pkg> [--json]` | prints `<pkg> -> owner/repo (public\|private, installed x, latest y)` or the refusal |
@@ -222,7 +244,7 @@ stdin.
 | `refresh` | rewrites the SessionStart cache of the directory's repository (two GraphQL calls); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
 | `ready [--json]` | the tracking issues of this repository whose upstream issue is closed **and** labelled `released` (the rule of the hook's adopt-ready section), with `package` and `version` from the release step's `Fixed in <pkg>@<version>` comment when it is the last one and an owner, member, collaborator or the release bot (GraphQL author type `Bot`, login `github-actions`) wrote it, from a PR of this or another repository; from the cache when fresh, else a refresh (two GraphQL calls; a failed refresh falls back to a stale cache, with a warning on stderr; a tracking issue whose upstream issue GitHub could not read is left out, with a warning on stderr and exit 0); exit 2 for a foreign origin, 5 rate-limited, 6 otherwise |
 | `dashboard [--json]` | the `/issues` dashboard: open issues of the allowed owners' non-archived repositories (`NXGT_ISSUES_OWNERS`), grouped by repository and headed by the packages it publishes, each group ranked live marker first (an open tracking issue of some application still links the issue, `●`), then applications affected (tracking links, or the reporter plus the "Another consumer hit this" comments an owner, member or collaborator wrote), then oldest; `⚑` after 14 days without activity; tracking issues themselves are not listed; then a "Merged, awaiting release" section (`is:closed reason:completed label:consumer-report -label:released`: a report closed as not planned or as a duplicate is not waiting for a release; oldest merge first). Three `gh search issues` calls (open issues, open `upstream` tracking issues, closed unreleased reports; the search API allows 30 a minute; a search that returns its 200-result limit adds a "truncated" note) are the dashboard: if one fails the command exits 5 (rate-limited, the shared pause applies) or 6 (gh failed). Up to three GraphQL calls are optional: the duplicate comments of up to 30 open reports (more reports add a note; one that is not counted, or whose alias GitHub answered with an error, shows `affected ?`), and the package names of the repositories that render. The package lookup reads names only: call A (25 repositories a call) reads each root `package.json` and the entry names of `packages/`, call B (at most 100 objects a call) reads exactly `packages/<dir>/package.json` for each directory (directory names are checked against `[\w.-]` first). It is cached 24 hours per repository in `cache/repo-packages.json`, only for a repository answered without an error under its alias; a missing file means the repository publishes nothing; a repository whose lookup failed is cached as failed for an hour (so one slow repository cannot fail every run) and shows under its repository name. A cold run is at most 3 searches and 3 GraphQL calls for a few repositories; with the package map cached, 1 GraphQL call. Each failed optional call adds a note and a warning on stderr, never an exit code. Third-party text goes through the same one-line cleaning and untrusted-data header as the hook's context. `--json` prints `{groups, awaiting, notes}` (no issue bodies) |
-| `markers [--json] [--exclude <pathspec>]…` | every `Temporary, until <upstream>#<n>` marker (`git grep`; each `--exclude <pathspec>` or `--exclude=<pathspec>` becomes an `:(exclude)<pathspec>` so a repository can skip its fixtures and docs examples), judged against this repository's open tracking issues: `ready` (upstream closed and released: remove it), `unresolvable` (bad reference, repository not found, not an allowed owner, archived or issues off), `untracked` (no open tracking issue here links that upstream issue; flagged in a private application), or `waiting` (not flagged). A **public** application has no tracking issues, so its markers read the upstream issue directly (`ready` or `waiting`, with `untracked` only as a note, not a flag). **Exit 1 when any marker is flagged**, 0 when none is, 6 when an upstream issue GitHub could not read leaves a marker `unreadable` (the other markers are still printed), 2 for a foreign origin, 5 rate-limited, 6 when `git grep` or gh fails; a rate limit or a gh failure is never reported as `unresolvable`. Exit 1 is shared with usage: a CI step runs `markers --json` and treats stdout that is not JSON as a failure. The marker names its upstream as `<npm-name>#n` or `owner/repo#n`; an npm name resolves like `resolve` |
+| `markers [--json] [--exclude <pathspec>]…` | every `Temporary, until <upstream>#<n>` marker (`git grep`; each `--exclude <pathspec>` or `--exclude=<pathspec>` becomes an `:(exclude)<pathspec>` so a repository can skip its fixtures and docs examples), judged against this repository's open tracking issues: `ready` (upstream closed and released: remove it), `unresolvable` (bad reference, repository not found, not an allowed owner, archived or issues off), `untracked` (no open tracking issue here links that upstream issue; flagged in a private application), or `waiting` (not flagged). A **public** application has no tracking issues, so its markers read the upstream issue directly (`ready` or `waiting`, with `untracked` only as a note, not a flag). **Known limit:** a package that moved repositories resolves there through the registry's current repository, so a marker written for its old repository reads the new repository's issue of that number; a private application matches its tracking issue by package name and number first and is not affected. Refusing instead is not simple and safe: a public application keeps nothing that names the old repository to compare with. **Exit 1 when any marker is flagged**, 0 when none is, 6 when an upstream issue GitHub could not read leaves a marker `unreadable` (the other markers are still printed; they are not counted as flagged, and the closing line states the unreadable count apart), 2 for a foreign origin, 5 rate-limited, 6 when `git grep` or gh fails; a rate limit or a gh failure is never reported as `unresolvable`. Exit 1 is shared with usage: a CI step runs `markers --json` and treats stdout that is not JSON as a failure. The marker names its upstream as `<npm-name>#n` or `owner/repo#n`; an npm name resolves like `resolve` |
 | `released <pkg@ver> [--json] [--dry-run]` | from the library's checkout: the issues the published version fixes get, in this order, the `released` label (created when missing), the close and "Fixed in `<pkg>@<ver>` (#PR)" (once, last: it is the marker); an issue whose `## Versions` section names another package of the checkout is skipped, left to that package's run (never when its Versions also name the released package), only when all hold: rank 0, the fixing PR touched that package's folder, it adds a changeset naming that package, and that package has an earlier tag in this clone (its run reads the log since it); when git cannot say, the issue is handled here; prints the application tracking issues linking them (the sessions to notify). Idempotent; `--dry-run` reads and writes nothing; exit 1 for a malformed `<pkg@ver>`, a package this checkout lacks, or a monorepo's private root (a root with `workspaces` is refused, and is never a sibling); skipped issues are left out of the printed `notify` list; 2 for a foreign checkout, 5 rate-limited, 6 when a PR or an issue failed (the rest was done) |
 | `release-plan <pkg@ver> [--json]` | read-only: exactly what `released --dry-run` prints, with no way to write; the pre-approved form for previews; exit 1 usage, a malformed spec or a package this checkout lacks, 2 a checkout that is not an allowed owner's, 5 rate limit, 6 failure |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent); titles, branches and paths are cleaned, under the untrusted-data header in text |
@@ -273,7 +295,9 @@ What `file` does, in order:
 
 A `dependencies` report never opens a second issue: it edits the one rolling
 issue (marked `<!-- nxgt-issues:deps -->`), merging rows by name, and reopens it
-with only the new rows when the package side closed it.
+with only the new rows when the package side closed it, taking its `released`
+label off so the next release does not read the reopening as a fix that did not
+hold.
 
 ### Exit codes
 
@@ -285,7 +309,7 @@ with only the new rows when the package side closed it.
 | 3 | refused by the scrub, or the deny-list could not be built whole (a first empty answer for the organisations or an owner is the one thing it cannot tell from a real none, see Install): no application domain configured, an empty or shrunken private list, a stale list older than 7 days, organisations unavailable, an unexpandable workspace pattern or an unparseable manifest, a directory outside a git checkout, or `git config` failing |
 | 4 | keyword candidates printed; nothing filed |
 | 5 | rate-limited; nothing filed (`dashboard`: nothing shown) |
-| 6 | another failure (gh, git, a spawn that failed, an unexpected error), and a GraphQL answer GitHub gave with errors the command cannot read around; a 403 that is not a rate limit says `permission` |
+| 6 | another failure (gh, git, a spawn that failed, an unexpected error), a `markers` run with a marker left `unreadable` (stdout is still the full report), and a GraphQL answer GitHub gave with errors the command cannot read around; a 403 that is not a rate limit says `permission` |
 
 Every command in the CLI table above ends in one of these codes through the same mapping (`exitForError` in `filing.ts`), and every error message is on stderr, never on the data on stdout.
 
@@ -429,7 +453,7 @@ a name followed by a call or a member access, anything inside a path.
 | module | role |
 | --- | --- |
 | `hook.ts` | the shell every hook of the plugin runs in |
-| `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once; any other run leads its own process group and is bounded by its timeout or an abort signal: the whole group is killed, so a grandchild holding the pipes dies too, and what arrived is returned; a call cut by its timeout says `timedOut`), with a scripted fake for specs |
+| `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once; any other run leads its own process group and is bounded by its timeout or an abort signal: the whole group is killed, so a grandchild holding the pipes dies too, and what arrived is returned; a call cut by its timeout says `timedOut`; SIGINT, SIGTERM and SIGHUP to the process kill every live child's group, then exit 128+n, so no `gh` outlives the CLI), with a scripted fake for specs |
 | `repo-id.ts` | which GitHub repository a directory or a `package.json` belongs to, and whether its owner is allowed |
 | `refs.ts` | closing keywords (outside code spans, fenced blocks and quote lines) and upstream references |
 | `release-git.ts`, `release-pr-info.ts` | the local git side: the CHANGELOG section's `[#N]` links, the first-parent log of a package since its previous tag, `git diff` of a merge commit, `git merge-base --is-ancestor`; and the PRs read from `gh` (integration PRs of a `feat/*` branch, dropping ones released before) |
@@ -437,7 +461,7 @@ a name followed by a call or a member access, anything inside a path.
 | `release.ts`, `release-github.ts`, `release-command.ts` | per issue, once: the `released` label, the close, then the "Fixed in" comment last (skipped when a trusted comment carries a fixed marker; the whole issue is left to another package of this repository that its `## Versions` section lists, which the command passes as `siblings` (the root only in a single-package repository; never when its Versions also name the released package), when all hold: the fix is rank 0, the fixing PR touched that package's folder, it adds a changeset naming that package, and that package has an earlier tag in this clone (its run reads the log since it); when git cannot say, the issue is handled here); the notification list (open `upstream` tracking issues whose hidden marker names a released issue); the `released` command |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically (folders 0700, files 0600) |
-| `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/`; `claimStamp` creates one exclusively (`wx`) so only one of several concurrent hooks spawns the refresh; an expired one is replaced by whoever first creates the takeover marker of the generation it read (`<stamp>.takeover.<writtenAt>`), so exactly one wins |
+| `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/`; `claimStamp` creates one exclusively (`wx`) so only one of several concurrent hooks spawns the refresh; an expired one is replaced by whoever first creates the takeover marker of the generation it read (`<stamp>.takeover.<writtenAt>`), so exactly one wins; an abandoned marker (over 10 s) is contested through `<marker>.<mtime>`, and a takeover and `clearStamps` sweep the other generations' markers and `.tmp` files older than 10 s |
 | `refresh.ts` | the two GraphQL calls that fill a repository's cache entry (`refreshRepo`, `fetchUpstream`); an answer with errors is not cached as a full snapshot; an upstream issue GitHub could not read is marked `upstreamUnknown` on its tracking entry (never read as "not found", never ready, shown as "upstream unreadable"), the rest is cached and such a snapshot is fresh for two minutes only; an error naming no alias fails the refresh |
 | `refresh-command.ts` | the `refresh` command |
 | `snapshot.ts` | the types a refresh caches: `Snapshot`, `PackageIssue`, `TrackingIssue`, `UpstreamIssue` |
@@ -449,7 +473,8 @@ a name followed by a call or a member access, anything inside a path.
 | `dashboard-data.ts`, `dashboard-command.ts` | the three searches and the duplicate-count GraphQL call behind it; the `dashboard` command and its degrade-honestly handling of the optional calls |
 | `repo-packages.ts` | the repository to package names map (root and every `packages/*`), two aliased GraphQL calls (names, then exact manifests; names only, never file bodies), cached 24 hours, a failed repository 1 hour |
 | `app-side.ts` | `loadSnapshot` (cache when fresh, else `refreshRepo`, stale cache on a failed refresh) and the `ready` command |
-| `markers-check.ts` | the `markers` command: resolves each marker's upstream (`resolvePackage` or `gate`) and flags ready, unresolvable and untracked ones |
+| `markers-resolve.ts` | where a marker's upstream comes from: the tracking issue naming its package and number first (so a package that moved repositories still matches; of two, the one whose `Tracks` line agrees with its hidden marker), else the registry or the written `owner/repo`, asked once per target |
+| `markers-check.ts` | the `markers` command: judges each marker (upstreams from `markers-resolve.ts`) and flags ready, unresolvable and untracked ones, and reports `unreadable` ones (GitHub could not read the upstream issue) apart, with exit 6 |
 | `markers-public.ts`, `markers-types.ts` | a public application's markers read the upstream issue directly (`fetchUpstream`, shared with the refresh); the report types and `MarkerLookupError` (a rate limit or gh failure: exit 5/6, never `unresolvable`) |
 | `session-start.ts` | the hook's decision (allowlist, fresh/stale/cold, fail-open), with the runner injected; `scripts/hooks/session-start.ts` is the entry that builds the real one |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
@@ -506,7 +531,7 @@ unless `NXGT_ISSUES_ALLOW_NETWORK=1`.
 
 nxgt-core runs this step itself: `scripts/close-released-issues*.ts` is a copy of
 the four files below, guarded by `scripts/close-released-issues-copy.spec.ts`,
-and `.github/workflows/release.yml` has the step.
+and the `close-issues` job of `.github/workflows/release.yml` runs it.
 
 The package side closes the loop in two halves, because CI can close issues but
 cannot message a session.
@@ -515,42 +540,57 @@ cannot message a session.
   files of `plugins/nxgt-issues/scripts/release/` into its `scripts/`:
   `close-released-issues.ts`, `close-released-issues-lib.ts`,
   `close-released-issues-git.ts` (they import each other by relative path, and
-  nothing from the plugin) and `close-released-issues.spec.ts`. Then `release.yml` changes in two places.
+  nothing from the plugin) and `close-released-issues.spec.ts`. Then `release.yml`
+  changes in two places.
 
-  The workflow's `permissions` gains `issues: write` (a `permissions` block on
-  the job would *replace* the workflow's, so keep the three together at workflow
-  level):
-
-  ```yaml
-  permissions:
-    contents: write
-    pull-requests: write
-    issues: write
-  ```
-
-  The checkout needs the history and the tags (`fetch-depth: 0`; without them
-  only the CHANGELOG is read, and a PR listed in several packages' changelogs
-  cannot be told apart), the `changesets/action` step needs `id: changesets`, and
-  a step follows it (under `jobs.<job>.steps`):
+  The release job gets `id: changesets` on the `changesets/action` step and
+  hands its outputs on; the checkout needs the history and the tags
+  (`fetch-depth: 0`; without them only the CHANGELOG is read, and a PR listed in
+  several packages' changelogs cannot be told apart). The close step is a job of
+  its own, so `issues: write` reaches it alone and not the job that holds the
+  publish token (a `permissions` block on a job *replaces* the workflow's and leaves
+  every scope it does not list at none, so the job lists the three the script
+  needs: `gh pr view` and `gh pr list` need `pull-requests: read`):
 
   ```yaml
-  steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    # … setup, build …
-    - name: Version or publish
-      id: changesets
-      uses: changesets/action@v2
-      # … as before …
-    - name: Close the issues this release fixed
-      if: steps.changesets.outputs.published == 'true'
-      continue-on-error: true
-      env:
-        GH_TOKEN: ${{ github.token }}
-        PUBLISHED: ${{ steps.changesets.outputs.published-packages }}
-      run: bun scripts/close-released-issues.ts --published "$PUBLISHED"
+  jobs:
+    release:
+      outputs:
+        published: ${{ steps.changesets.outputs.published }}
+        published-packages: ${{ steps.changesets.outputs.published-packages }}
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        # … setup, build …
+        - name: Version or publish
+          id: changesets
+          uses: changesets/action@v2
+          # … as before …
+    close-issues:
+      needs: release
+      if: ${{ !cancelled() && needs.release.outputs.published == 'true' }}
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+        pull-requests: read
+        issues: write
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        # … setup …
+        - name: Close the issues this release fixed
+          continue-on-error: true
+          env:
+            GH_TOKEN: ${{ github.token }}
+            PUBLISHED: ${{ needs.release.outputs.published-packages }}
+          run: bun scripts/close-released-issues.ts --published "$PUBLISHED"
   ```
+
+  `!cancelled()` lets the job run when the release job failed after it
+  published (the outputs are still set); `continue-on-error` keeps a failure
+  here from turning the release red.
 
   The output is `published-packages` (hyphenated) in `changesets/action@v2`,
   built from the `git-tag` events the publish script writes to

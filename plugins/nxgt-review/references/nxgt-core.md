@@ -144,7 +144,7 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   scripted fake. The runner leads its own process group per call and kills the
   group at the timeout or on `signal`, so even a grandchild holding the pipes
   is bounded and no `gh` outlives the hook; a call it cut is `timedOut`, which
-  `gh()` raises as `GhTimeout`: a timeout, never a failed stamp.
+  `gh()` raises as `GhTimeout`: in the hook's inline refresh a timeout, never a failed stamp.
 - **One exit-code mapping.** A command's error goes through `exitForError`
   (`filing.ts`), with its message on stderr; `NXGT_ISSUES_DISABLE` exits 2, so
   `markers` exit 1 only ever means flagged or usage. A GraphQL answer with
@@ -176,7 +176,7 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   differ): a change to the "Fixed in" comment or its hidden marker, the
   discovery rules, the label, close, comment order, or the idempotency rule is
   made in the script files and the lib files alike, with a spec on each side.
-- The hook fails open and silent, and makes no gh call for a foreign owner.
+- The hook fails open (exit 0; a failed refresh prints nothing, and only a failure of its own shell, such as stdin that is not JSON, prints one `systemMessage`), and makes no gh call for a foreign owner.
 
 ## Deliberate — do not report
 

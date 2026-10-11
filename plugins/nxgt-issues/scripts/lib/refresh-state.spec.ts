@@ -1,6 +1,12 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import {
+	mkdirSync,
+	readdirSync,
+	statSync,
+	utimesSync,
+	writeFileSync,
+} from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import {
 	claimStamp,
 	clearStamps,
@@ -71,6 +77,43 @@ describe('claimStamp', () => {
 	});
 });
 
+describe('stamp folder cleanup', () => {
+	const folder = (h: string) => dirname(stampPath(h, ME, 'refreshing'));
+	const age = (path: string, seconds: number) => {
+		const old = new Date(Date.now() - seconds * 1000);
+		utimesSync(path, old, old);
+	};
+
+	test('a takeover keeps its own generation marker and drops the others and old temporaries', () => {
+		const h = home();
+		claimStamp(h, ME, 'refreshing', NOW - 120_000);
+		const base = stampPath(h, ME, 'refreshing');
+		writeFileSync(`${base}.takeover.1`, '');
+		writeFileSync(`${base}.abc.tmp`, '');
+		age(`${base}.abc.tmp`, 11);
+		writeFileSync(`${base}.young.tmp`, '');
+		expect(claimStamp(h, ME, 'refreshing', NOW)).toBe(true);
+		expect(readdirSync(folder(h)).sort()).toEqual(
+			[
+				basename(base),
+				`${basename(base)}.takeover.${NOW - 120_000}`,
+				`${basename(base)}.young.tmp`,
+			].sort(),
+		);
+	});
+
+	test('clearStamps drops every marker and the old temporaries', () => {
+		const h = home();
+		claimStamp(h, ME, 'refreshing', NOW);
+		const base = stampPath(h, ME, 'refreshing');
+		writeFileSync(`${base}.takeover.7`, '');
+		writeFileSync(`${base}.old.tmp`, '');
+		age(`${base}.old.tmp`, 11);
+		clearStamps(h, ME);
+		expect(readdirSync(folder(h))).toEqual([]);
+	});
+});
+
 describe('claimStamp: processes racing for an expired stamp', () => {
 	test('exactly one of eight wins', async () => {
 		const h = home();
@@ -90,6 +133,35 @@ describe('claimStamp: processes racing for an expired stamp', () => {
 		);
 		expect(answers.filter((a) => a === 'true')).toHaveLength(1);
 		expect(answers.filter((a) => a === 'false')).toHaveLength(7);
+	});
+
+	test('an abandoned marker (11 s old): exactly one of eight wins, round after round', async () => {
+		const rounds = await Promise.all(
+			Array.from({ length: 10 }, async () => {
+				const h = home();
+				claimStamp(h, ME, 'refreshing', NOW - 120_000);
+				const marker = `${stampPath(h, ME, 'refreshing')}.takeover.${NOW - 120_000}`;
+				writeFileSync(marker, '');
+				const old = new Date(Date.now() - 11_000);
+				utimesSync(marker, old, old);
+				const start = Date.now() + 2000;
+				const script = `
+					import { claimStamp } from ${JSON.stringify(join(import.meta.dir, 'refresh-state'))};
+					while (Date.now() < ${start}) {}
+					console.log(claimStamp(${JSON.stringify(h)}, { owner: 'softistx', repo: 'nxgt-zorblax' }, 'refreshing', ${NOW}));`;
+				const children = Array.from({ length: 8 }, () =>
+					Bun.spawn(['bun', '-e', script], { stdout: 'pipe', stderr: 'pipe' }),
+				);
+				return Promise.all(
+					children.map(async (child) =>
+						(await new Response(child.stdout).text()).trim(),
+					),
+				);
+			}),
+		);
+		for (const answers of rounds) {
+			expect(answers.filter((a) => a === 'true')).toHaveLength(1);
+		}
 	});
 
 	test('a claim after the takeover finds the new stamp taken', () => {

@@ -62,8 +62,10 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers
 ```
 
 It lists the `Temporary, until <pkg>#<n>` markers: `ready` ones can be removed
-(`adopt-a-released-fix`), `unresolvable` and `untracked` ones need a decision.
-Exit 1 means at least one marker is flagged, not that the command failed.
+(`adopt-a-released-fix`), `unresolvable` and `untracked` ones need a decision,
+and `unreadable` ones (GitHub could not read the upstream issue) are tried again
+later. Exit 1 means at least one marker is flagged, not that the command
+failed; exit 6 means some marker is `unreadable` (or gh or git failed).
 
 **`released <pkg@ver>`** — from the checkout of the package's repository, run
 (`<pkg@ver>` is the argument, for instance `@nxgt/widget@1.4.0`; run it only when

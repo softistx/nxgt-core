@@ -85,3 +85,17 @@ export function upstreamRef(
 		return undefined;
 	return { repo: { owner: match[1], repo: match[2] }, number };
 }
+
+const TRACKS =
+	/^Tracks ([\w.-]+\/[\w.-]+)#(\d+) \(`((?:@[\w.-]+\/)?[\w.-]+)`\)\./m;
+
+/** The package a tracking body names in its `Tracks o/r#n (\`pkg\`).` line, if any. */
+export function trackedPackage(body: string): string | undefined {
+	return TRACKS.exec(body)?.[3];
+}
+
+/** The `o/r#n` that same line names (a person's text, so only a tie-breaker against the hidden marker). */
+export function trackedUpstream(body: string): string | undefined {
+	const match = TRACKS.exec(body);
+	return match ? `${match[1]}#${match[2]}` : undefined;
+}

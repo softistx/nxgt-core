@@ -13,6 +13,7 @@ import {
 	createIssue,
 	editIssueBody,
 	issuesWithLabel,
+	removeIssueLabel,
 	reopenIssue,
 } from './github-issues';
 import {
@@ -20,7 +21,7 @@ import {
 	type DependencyRow,
 	dependenciesIssueBody,
 } from './issue-body';
-import { ensureLabels, LABELS } from './labels';
+import { ensureLabels, hasLabel, LABELS } from './labels';
 import type { Resolved } from './resolve';
 import type { DenyList } from './scrub';
 
@@ -79,12 +80,25 @@ export async function upsertRollingIssue(
 		ctx.out(`filed ${url}`);
 		return EXIT.ok;
 	}
+	// An open issue holding `released` (a reopen whose removal failed, or a hand reopen) would make the next release report "reopened, fix did not hold".
+	const holdsReleased = hasLabel(
+		(rolling.labels ?? []).map((label) => label.name),
+		'released',
+	);
+	if (open && holdsReleased) {
+		await removeIssueLabel(ctx, repo, rolling.number, LABELS.released.name);
+	}
 	if (open && rolling.body.trim() === body.trim()) {
 		ctx.out(`unchanged ${rolling.url} (the rolling issue already lists these)`);
 		return EXIT.ok;
 	}
 	await editIssueBody(ctx, repo, rolling.number, body);
-	if (!open) await reopenIssue(ctx, repo, rolling.number);
+	if (!open) {
+		await reopenIssue(ctx, repo, rolling.number);
+		if (holdsReleased) {
+			await removeIssueLabel(ctx, repo, rolling.number, LABELS.released.name);
+		}
+	}
 	ctx.out(`${open ? 'updated' : 'reopened'} ${rolling.url}`);
 	return EXIT.ok;
 }

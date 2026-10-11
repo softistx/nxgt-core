@@ -75,6 +75,27 @@ function killGroup(child: Bun.Subprocess): void {
 	}
 }
 
+const FORWARDED = { SIGINT: 2, SIGTERM: 15, SIGHUP: 1 } as const;
+/** The children still running, so a signal to this process can reach them. */
+const live = new Set<Bun.Subprocess>();
+let forwarding = false;
+
+/**
+ * Once per process: on SIGINT, SIGTERM or SIGHUP kill every live child's
+ * process group (each leads its own, so the default signal would orphan it),
+ * then exit with the shell's 128 + n.
+ */
+function forwardSignals(): void {
+	if (forwarding) return;
+	forwarding = true;
+	for (const [name, n] of Object.entries(FORWARDED)) {
+		process.once(name, () => {
+			for (const child of live) killGroup(child);
+			process.exit(128 + n);
+		});
+	}
+}
+
 /**
  * The output and exit code of `child`, within `timeoutMs` and until `signal`
  * aborts. Past either, the child's process group is killed (a grandchild dies
@@ -149,11 +170,18 @@ export function createRunner(
 				child.unref();
 				return { code: 0, stdout: '', stderr: '' };
 			}
+			forwardSignals();
+			live.add(child);
 			if (options.stdin !== undefined && child.stdin) {
 				child.stdin.write(options.stdin);
 				await child.stdin.end();
 			}
-			return await collect(child, timeoutMs, options.signal);
+			try {
+				return await collect(child, timeoutMs, options.signal);
+			} finally {
+				// Not on exit: a grandchild may still hold the pipes, and a signal must reach it.
+				live.delete(child);
+			}
 		},
 		async fetchJson(url, timeoutMs = DEFAULT_TIMEOUT_MS) {
 			guard(`fetching ${url}`);

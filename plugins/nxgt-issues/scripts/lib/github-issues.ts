@@ -100,6 +100,23 @@ export async function editIssueBody(
 	await gh(ctx, [...argv, ...repoFlag(id)], body);
 }
 
+/** Takes a label off an issue (the label exists; GitHub ignores one the issue lacks). */
+export async function removeIssueLabel(
+	ctx: GhContext,
+	id: RepoId,
+	number: number,
+	label: string,
+): Promise<void> {
+	await gh(ctx, [
+		'issue',
+		'edit',
+		String(number),
+		'--remove-label',
+		label,
+		...repoFlag(id),
+	]);
+}
+
 export async function reopenIssue(
 	ctx: GhContext,
 	id: RepoId,

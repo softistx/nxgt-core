@@ -16,7 +16,7 @@ import { graphqlPartial, refuseUntraceable } from './graphql-partial';
 import { nodes, obj, text } from './json';
 import { hasLabel, LABELS } from './labels';
 import { clearStamps } from './refresh-state';
-import { upstreamRef } from './refs';
+import { trackedPackage, trackedUpstream, upstreamRef } from './refs';
 import { formatRepo, isAllowedOwner, type RepoId } from './repo-id';
 import type {
 	PackageIssue,
@@ -90,10 +90,14 @@ function trackingEntry(
 	ref: { repo: RepoId; number: number },
 	issue: UpstreamIssue | undefined,
 ): TrackingIssue {
+	const packageName = trackedPackage(text(node['body']));
+	const tracksUpstream = trackedUpstream(text(node['body']));
 	return {
 		number: Number(node['number']),
 		title: text(node['title']),
 		upstream: `${formatRepo(ref.repo)}#${ref.number}`,
+		...(packageName ? { packageName } : {}),
+		...(tracksUpstream ? { tracksUpstream } : {}),
 		...(issue?.state ? { upstreamState: issue.state } : {}),
 		upstreamLabels: issue?.labels ?? [],
 		...(issue?.unknown ? { upstreamUnknown: true as const } : {}),

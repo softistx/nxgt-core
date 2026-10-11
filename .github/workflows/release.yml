@@ -20,8 +20,6 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  # The close step below comments on, labels and closes issues.
-  issues: write
 
 jobs:
   release:
@@ -36,6 +34,9 @@ jobs:
     # the concurrency group above never cancels one under way — this only
     # stops a run that has hung.
     timeout-minutes: 10
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      published-packages: ${{ steps.changesets.outputs.published-packages }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,18 +63,38 @@ jobs:
           # NPM_TOKEN publishes, read through bunfig.toml.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      # Comments on, labels `released` and closes the issues the published
-      # versions fix. The output is `published-packages` (hyphenated) in v2 of
-      # the action, a JSON array built from the `git-tag` events scripts/publish.ts
-      # writes to $CHANGESETS_OUTPUT. `continue-on-error`: the packages are on
-      # npm by now, and a failure here must not turn the release red; re-run the
-      # script by hand (`--published '[{"name":"@nxgt/x","version":"1.0.0"}]'`).
-      # scripts/close-released-issues*.ts is a byte-for-byte copy of the
-      # nxgt-issues plugin's canonical script (AGENTS.md, duplication table).
+
+  # Comments on, labels `released` and closes the issues the published versions
+  # fix. A job of its own so that `issues: write` reaches this step only, not
+  # the job that holds the npm token. `published-packages` (hyphenated in v2 of
+  # the action) is a JSON array built from the `git-tag` events
+  # scripts/publish.ts writes to $CHANGESETS_OUTPUT. `continue-on-error`: the
+  # packages are on npm by now, and a failure here must not turn the release
+  # red; redo it by hand with `issues.ts released <package>@<version>` of the
+  # nxgt-issues plugin, from a checkout (idempotent: a second run changes
+  # nothing). scripts/close-released-issues*.ts is a byte-for-byte copy of the
+  # plugin's canonical script (AGENTS.md, duplication table).
+  close-issues:
+    name: Close released issues
+    needs: release
+    if: ${{ !cancelled() && needs.release.outputs.published == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # the script runs gh pr view / gh pr list
+      pull-requests: read
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup
+        uses: ./.github/actions/setup
       - name: Close released issues
-        if: steps.changesets.outputs.published == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-          PUBLISHED: ${{ steps.changesets.outputs.published-packages }}
+          PUBLISHED: ${{ needs.release.outputs.published-packages }}
         run: bun scripts/close-released-issues.ts --published "$PUBLISHED"

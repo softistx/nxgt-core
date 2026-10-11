@@ -33,12 +33,17 @@ closed **and** labelled `released`: `{ tracking, title, upstream, package?,
 version? }`. `package` and `version` come from the release step's `Fixed in
 <package>@<version>` comment; without them (the last comment is something
 else), read the upstream issue (`gh issue view <n> --repo <owner/repo>`) or the
-registry for the version that contains the fix. `[]` means nothing to adopt:
-stop. Take one entry at a time, or several that share a package.
+registry for the version that contains the fix. `[]` means no tracking issue is
+ready: in a private application stop here; in a **public** application go on to
+step 2, which reads the markers directly. Take one entry at a time, or several
+that share a package.
 
 The cache is 10 minutes old at most; a refresh is two `gh` calls. Exit 2/5/6
 mean a foreign origin (or `NXGT_ISSUES_DISABLE`), a rate limit or a gh failure: tell the user, do not
-retry in a loop.
+retry in a loop. When GitHub could not read some upstream issues just now,
+`ready` still exits 0 with a warning on stderr: the entries listed are valid,
+the unreadable ones are left out and tried again later, so adopt what is
+listed and leave the others alone (exit 6 with JSON is for `markers`, below).
 
 ## 2. Find the workarounds
 
@@ -49,13 +54,17 @@ bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers --json
 The entries with `"status": "ready"` are the markers (`file`, `line`) that
 waited for a released fix. Exit 1 only says some marker is flagged (stdout that
 is not JSON is a failure: exit 2 is a foreign origin or `NXGT_ISSUES_DISABLE`, 5 a rate limit, 6 a gh or
-git failure; tell the user, do not retry in a loop). `--exclude <pathspec>`
+git failure; tell the user, do not retry in a loop). Exit 6 with valid JSON
+means some markers are `unreadable` (GitHub could not read their upstream
+issue): the `ready` entries are still valid, the unreadable ones are retried
+later and their markers are not removed. `--exclude <pathspec>`
 (repeatable) skips fixtures and docs examples. Also handle the others the
 report shows:
 
 - `untracked`: no open tracking issue links that upstream issue (it may have been
   closed early); ask the user, do not remove the marker;
-- `unresolvable`: the reference is wrong or the repository is gone; fix the marker or ask.
+- `unresolvable`: the reference is wrong or the repository is gone; fix the marker or ask;
+- `unreadable`: GitHub could not read the upstream issue just now; leave the marker and run `markers` again later.
 
 **A public application has no tracking issues** (they would tie it to the
 anonymous report): `ready --json` is `[]` there, and `markers` reads the
