@@ -35,7 +35,7 @@ describe('base logger line format', () => {
 		logger.info('hello');
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toMatch(
-			/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[sellix\] \[info\] hello$/,
+			/^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] \[app\] \[info\] hello$/,
 		);
 	});
 
@@ -51,9 +51,7 @@ describe('base logger line format', () => {
 		expect(second).toBe(String(now.getMonth() + 1).padStart(2, '0'));
 	});
 
-	// OWNER QUESTION: the default label is 'sellix', a product name in a shared
-	// package. Pinned as it is.
-	test("the default label is 'sellix' and `tag` overrides it", () => {
+	test("the default label is 'app' and `tag` overrides it", () => {
 		const tagged = createLogger({
 			name: 'spec-tagged',
 			tag: 'orders',
@@ -73,7 +71,7 @@ describe('base logger line format', () => {
 		tagged.info('x');
 		logger.info('y');
 		expect(seen[0]).toContain('[orders] [info] x');
-		expect(lines[0]).toContain('[sellix] [info] y');
+		expect(lines[0]).toContain('[app] [info] y');
 	});
 });
 
@@ -97,7 +95,7 @@ describe('loggerProvider', () => {
 		await appWithProbe().request('/');
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toMatch(
-			/^\[[^\]]+\] \[sellix\] \[info\] \[requestId=[0-9a-f-]{36}\] from the handler$/,
+			/^\[[^\]]+\] \[app\] \[info\] \[requestId=[0-9a-f-]{36}\] from the handler$/,
 		);
 	});
 
@@ -129,7 +127,7 @@ describe('loggerProvider', () => {
 		await appWithProbe().request('/');
 		lines.length = 0;
 		logger.info('after');
-		expect(lines[0]).toEndWith('[sellix] [info] after');
+		expect(lines[0]).toEndWith('[app] [info] after');
 		expect(lines[0]).not.toContain('requestId');
 	});
 });

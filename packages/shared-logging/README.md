@@ -1,7 +1,7 @@
 # @nxgt/shared-logging
 
-The Winston logger every `@nxgt/*` package and every app in `sellix-monorepo`
-and `nxgt-federation` writes through, plus the Hono request-logging middleware.
+The Winston logger every `@nxgt/*` package and every app in the two consumer
+repositories writes through, plus the Hono request-logging middleware.
 
 It has **no internal dependencies** — it sits at the bottom of the layering, so
 anything may log without creating a cycle.
@@ -46,14 +46,14 @@ getLogger().info('from a service, uses the request logger when there is one');
 through a nested `node_modules` is what `tsc` refuses to emit (TS2883) for a
 consumer installing from the registry.
 
-Level comes from `LOG_LEVEL`, default `info`. `tag` defaults to `'sellix'`.
+Level comes from `LOG_LEVEL`, default `info`. `tag` defaults to `'app'`.
 Pass `disableConsole: true` to keep only the file transport.
 
 ## Line format
 
 ```
-[2026-06-10 22:40:20] [sellix] [info] ready
-[2026-06-10 22:40:20] [sellix] [info] [requestId=01a1135f-fc30-779d-bd81-e43fc2cfb636] from the handler
+[2026-06-10 22:40:20] [app] [info] ready
+[2026-06-10 22:40:20] [app] [info] [requestId=01a1135f-fc30-779d-bd81-e43fc2cfb636] from the handler
 ```
 
 `[timestamp] [label] [level] message`. A logger that carries a `requestId` (the
