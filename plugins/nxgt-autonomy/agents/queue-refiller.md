@@ -143,7 +143,7 @@ were unreadable, so use the others:
 dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
   '(.plugins["nxgt-issues@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)"
-issues="$dir/scripts/issues.ts"
+issues=""; [ -n "$dir" ] && issues="$dir/scripts/issues.ts"
 [ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
 [ -f "$issues" ] || issues=""
 [ -n "$issues" ] && bun "$issues" dashboard --json

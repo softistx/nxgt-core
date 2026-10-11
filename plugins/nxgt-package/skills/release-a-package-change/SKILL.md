@@ -61,7 +61,7 @@ release nothing, and `changeset status` will not ask for anything.
    `write` and `true`. Open the PR by hand meanwhile; nothing else about the
    release changes.
 7. **Close the issues the release fixed.** When the PR said `Fixes #<n>`,
-   the release workflow's `close-released-issues` step (nxgt-issues) runs after
+   the release workflow's `close-issues` job (nxgt-issues) runs after
    the publish: it labels each issue `released`, closes it if still open and
    comments "Fixed in `<package>@<version>`". CI cannot message a session, so
    then, from this checkout and for **each published version**, run the
@@ -73,7 +73,7 @@ release nothing, and `changeset status` will not ask for anything.
    dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
      '(.plugins["nxgt-issues@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
      "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)"
-   issues="$dir/scripts/issues.ts"
+   issues=""; [ -n "$dir" ] && issues="$dir/scripts/issues.ts"
    [ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
    [ -f "$issues" ] || issues=""
    # preview first (read-only), show it to the user, then the real run

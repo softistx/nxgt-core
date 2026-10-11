@@ -40,10 +40,10 @@ that share a package.
 
 The cache is 10 minutes old at most; a refresh is two `gh` calls. Exit 2/5/6
 mean a foreign origin (or `NXGT_ISSUES_DISABLE`), a rate limit or a gh failure: tell the user, do not
-retry in a loop. Exit 6 with valid JSON on stdout is the exception: GitHub could
-not read some upstream issues just now. The entries listed are still valid, the
-unreadable ones are left out and tried again later, so adopt what is listed and
-leave the others and their markers alone.
+retry in a loop. When GitHub could not read some upstream issues just now,
+`ready` still exits 0 with a warning on stderr: the entries listed are valid,
+the unreadable ones are left out and tried again later, so adopt what is
+listed and leave the others alone (exit 6 with JSON is for `markers`, below).
 
 ## 2. Find the workarounds
 

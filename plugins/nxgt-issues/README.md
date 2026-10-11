@@ -228,7 +228,7 @@ versions stay. This is the one lookup; those files carry the same lines:
 dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
   '(.plugins["nxgt-issues@nxgt-core"] // []) | (map(select(.projectPath == $p)) + map(select(.scope == "user")) + .)[0].installPath // empty' \
   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/installed_plugins.json" 2>/dev/null)"
-issues="$dir/scripts/issues.ts"
+issues=""; [ -n "$dir" ] && issues="$dir/scripts/issues.ts"
 [ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
 [ -f "$issues" ] || issues=""
 ```
@@ -453,7 +453,7 @@ a name followed by a call or a member access, anything inside a path.
 | module | role |
 | --- | --- |
 | `hook.ts` | the shell every hook of the plugin runs in |
-| `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once; any other run leads its own process group and is bounded by its timeout or an abort signal: the whole group is killed, so a grandchild holding the pipes dies too, and what arrived is returned; a call cut by its timeout says `timedOut`), with a scripted fake for specs |
+| `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once; any other run leads its own process group and is bounded by its timeout or an abort signal: the whole group is killed, so a grandchild holding the pipes dies too, and what arrived is returned; a call cut by its timeout says `timedOut`; SIGINT, SIGTERM and SIGHUP to the process kill every live child's group, then exit 128+n, so no `gh` outlives the CLI), with a scripted fake for specs |
 | `repo-id.ts` | which GitHub repository a directory or a `package.json` belongs to, and whether its owner is allowed |
 | `refs.ts` | closing keywords (outside code spans, fenced blocks and quote lines) and upstream references |
 | `release-git.ts`, `release-pr-info.ts` | the local git side: the CHANGELOG section's `[#N]` links, the first-parent log of a package since its previous tag, `git diff` of a merge commit, `git merge-base --is-ancestor`; and the PRs read from `gh` (integration PRs of a `feat/*` branch, dropping ones released before) |
@@ -461,7 +461,7 @@ a name followed by a call or a member access, anything inside a path.
 | `release.ts`, `release-github.ts`, `release-command.ts` | per issue, once: the `released` label, the close, then the "Fixed in" comment last (skipped when a trusted comment carries a fixed marker; the whole issue is left to another package of this repository that its `## Versions` section lists, which the command passes as `siblings` (the root only in a single-package repository; never when its Versions also name the released package), when all hold: the fix is rank 0, the fixing PR touched that package's folder, it adds a changeset naming that package, and that package has an earlier tag in this clone (its run reads the log since it); when git cannot say, the issue is handled here); the notification list (open `upstream` tracking issues whose hidden marker names a released issue); the `released` command |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically (folders 0700, files 0600) |
-| `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/`; `claimStamp` creates one exclusively (`wx`) so only one of several concurrent hooks spawns the refresh; an expired one is replaced by whoever first creates the takeover marker of the generation it read (`<stamp>.takeover.<writtenAt>`), so exactly one wins |
+| `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/`; `claimStamp` creates one exclusively (`wx`) so only one of several concurrent hooks spawns the refresh; an expired one is replaced by whoever first creates the takeover marker of the generation it read (`<stamp>.takeover.<writtenAt>`), so exactly one wins; an abandoned marker (over 10 s) is contested through `<marker>.<mtime>`, and a takeover and `clearStamps` sweep the other generations' markers and `.tmp` files older than 10 s |
 | `refresh.ts` | the two GraphQL calls that fill a repository's cache entry (`refreshRepo`, `fetchUpstream`); an answer with errors is not cached as a full snapshot; an upstream issue GitHub could not read is marked `upstreamUnknown` on its tracking entry (never read as "not found", never ready, shown as "upstream unreadable"), the rest is cached and such a snapshot is fresh for two minutes only; an error naming no alias fails the refresh |
 | `refresh-command.ts` | the `refresh` command |
 | `snapshot.ts` | the types a refresh caches: `Snapshot`, `PackageIssue`, `TrackingIssue`, `UpstreamIssue` |
@@ -474,7 +474,7 @@ a name followed by a call or a member access, anything inside a path.
 | `repo-packages.ts` | the repository to package names map (root and every `packages/*`), two aliased GraphQL calls (names, then exact manifests; names only, never file bodies), cached 24 hours, a failed repository 1 hour |
 | `app-side.ts` | `loadSnapshot` (cache when fresh, else `refreshRepo`, stale cache on a failed refresh) and the `ready` command |
 | `markers-resolve.ts` | where a marker's upstream comes from: the tracking issue naming its package and number first (so a package that moved repositories still matches), else the registry or the written `owner/repo`, asked once per target |
-| `markers-check.ts` | the `markers` command: resolves each marker's upstream (`resolvePackage` or `gate`) and flags ready, unresolvable and untracked ones, and reports `unreadable` ones (GitHub could not read the upstream issue) apart, with exit 6 |
+| `markers-check.ts` | the `markers` command: judges each marker (upstreams from `markers-resolve.ts`) and flags ready, unresolvable and untracked ones, and reports `unreadable` ones (GitHub could not read the upstream issue) apart, with exit 6 |
 | `markers-public.ts`, `markers-types.ts` | a public application's markers read the upstream issue directly (`fetchUpstream`, shared with the refresh); the report types and `MarkerLookupError` (a rate limit or gh failure: exit 5/6, never `unresolvable`) |
 | `session-start.ts` | the hook's decision (allowlist, fresh/stale/cold, fail-open), with the runner injected; `scripts/hooks/session-start.ts` is the entry that builds the real one |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
@@ -548,8 +548,9 @@ cannot message a session.
   (`fetch-depth: 0`; without them only the CHANGELOG is read, and a PR listed in
   several packages' changelogs cannot be told apart). The close step is a job of
   its own, so `issues: write` reaches it alone and not the job that holds the
-  publish token (a `permissions` block on a job *replaces* the workflow's, so
-  the job lists both of its own):
+  publish token (a `permissions` block on a job *replaces* the workflow's and leaves
+  every scope it does not list at none, so the job lists the three the script
+  needs: `gh pr view` and `gh pr list` need `pull-requests: read`):
 
   ```yaml
   jobs:
@@ -572,6 +573,7 @@ cannot message a session.
       runs-on: ubuntu-latest
       permissions:
         contents: read
+        pull-requests: read
         issues: write
       steps:
         - uses: actions/checkout@v4

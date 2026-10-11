@@ -82,6 +82,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      # the script runs gh pr view / gh pr list
+      pull-requests: read
       issues: write
     steps:
       - name: Checkout code
