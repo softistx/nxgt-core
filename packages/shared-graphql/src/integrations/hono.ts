@@ -47,8 +47,8 @@ export type YogaHonoSandboxOptions = RenderSandboxOptions & {
 	/** The route of the page: `sandbox` by default. */
 	endpoint?: string;
 	/**
-	 * Whether the page is served. By default it is outside production and
-	 * not in production (`NODE_ENV=production`).
+	 * Whether the page is served. By default it is served only when
+	 * `NODE_ENV` is `development` or `test`; unset or anything else, it is not.
 	 */
 	enabled?: boolean;
 };
@@ -57,13 +57,17 @@ export type HonoYogaOptions = {
 	/**
 	 * The Apollo Sandbox page. `true` serves it and `false` does not, in any
 	 * environment; page options configure it, served or not by `enabled`.
-	 * Left out — or without `enabled` — it is served outside production only
-	 * (`NODE_ENV=production`, read when `createYogaHono` is called).
+	 * Left out — or without `enabled` — it is served only when `NODE_ENV` is
+	 * explicitly `development` or `test` (read when `createYogaHono` is
+	 * called): unset, or any other value, answers 404. A dev setup with
+	 * `NODE_ENV` unset sets `NODE_ENV=development` or passes `sandbox: true`.
 	 */
 	sandbox?: boolean | YogaHonoSandboxOptions;
 };
 
-const isProduction = () => process.env['NODE_ENV'] === 'production';
+const servedByDefault = () =>
+	process.env['NODE_ENV'] === 'development' ||
+	process.env['NODE_ENV'] === 'test';
 
 /** The Sandbox's page options, or `undefined` when it is not served. */
 function sandboxOptions(
@@ -73,7 +77,7 @@ function sandboxOptions(
 	const enabled =
 		typeof sandbox === 'boolean'
 			? sandbox
-			: (options.enabled ?? !isProduction());
+			: (options.enabled ?? servedByDefault());
 	return enabled ? options : undefined;
 }
 

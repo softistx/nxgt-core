@@ -110,6 +110,26 @@ describe('createYogaHono', () => {
 			},
 		);
 
+		it('is not served by default when NODE_ENV is unset', async () => {
+			delete process.env['NODE_ENV'];
+			const response = await createYogaHono(yoga()).request('/sandbox');
+			expect(response.status).toBe(404);
+		});
+
+		it('is not served by default under another NODE_ENV', async () => {
+			runningIn('staging');
+			const response = await createYogaHono(yoga()).request('/sandbox');
+			expect(response.status).toBe(404);
+		});
+
+		it('is served with sandbox: true when NODE_ENV is unset', async () => {
+			delete process.env['NODE_ENV'];
+			const response = await createYogaHono(yoga(), {
+				sandbox: true,
+			}).request('/sandbox');
+			expect(response.status).toBe(200);
+		});
+
 		it('is not served by default in production', async () => {
 			runningIn('production');
 			const response = await createYogaHono(yoga()).request('/sandbox');
