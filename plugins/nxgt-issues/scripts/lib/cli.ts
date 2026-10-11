@@ -31,6 +31,7 @@ import { formatRepo } from './repo-id';
 import { resolvePackage } from './resolve';
 import { sessionsCommand } from './sessions';
 import { trackCommand } from './track';
+import { cleanJson } from './untrusted';
 
 export const USAGE = `usage: issues.ts <command>
   resolve <pkg> [--json]
@@ -47,7 +48,7 @@ export const USAGE = `usage: issues.ts <command>
 async function resolveCommand(ctx: CliContext, pkg: string, json: boolean) {
 	const result = await resolvePackage(ctx, pkg);
 	if (json) {
-		ctx.out(JSON.stringify(result, null, 2));
+		ctx.out(JSON.stringify(cleanJson(result), null, 2));
 		return result.ok ? EXIT.ok : EXIT.refusedGate;
 	}
 	if (!result.ok) return printGateRefusal(ctx, result);
@@ -76,7 +77,7 @@ async function depsCommand(
 		if (!resolved.ok) return printGateRefusal(ctx, resolved);
 		const rows = await behindDependencies(ctx.runner, pkg);
 		if (!file) {
-			ctx.out(JSON.stringify(rows, null, 2));
+			ctx.out(JSON.stringify(cleanJson(rows), null, 2));
 			return EXIT.ok;
 		}
 		if (rows.length === 0) {

@@ -22,6 +22,7 @@ import {
 import { GhError, RateLimitedError } from './github';
 import { allowedOwners } from './repo-id';
 import { repoPackages } from './repo-packages';
+import { cleanJson } from './untrusted';
 
 /** Runs an optional lookup; a gh failure or rate limit gives the fallback, a note and a warning. */
 async function optional<T>(
@@ -128,7 +129,7 @@ export async function dashboardCommand(
 			notes,
 			now: ctx.now(),
 		});
-		if (json) ctx.out(JSON.stringify(board, null, 2));
+		if (json) ctx.out(JSON.stringify(cleanJson(board), null, 2));
 		else for (const line of renderDashboard(board, ctx.now())) ctx.out(line);
 		return EXIT.ok;
 	} catch (error) {

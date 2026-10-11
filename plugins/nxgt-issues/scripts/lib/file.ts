@@ -42,6 +42,7 @@ import { type IssueReport, parseReport } from './report';
 import type { Resolved } from './resolve';
 import { resolvePackage } from './resolve';
 import type { DenyList } from './scrub';
+import { oneLine, untrustedHeader } from './untrusted';
 
 export interface FileFlags {
 	/** Comment on this issue: Claude judged a keyword candidate a duplicate. */
@@ -94,8 +95,11 @@ function printCandidates(ctx: CliContext, candidates: readonly IssueSummary[]) {
 	ctx.out(
 		'candidates: open issues that may report the same thing; nothing was filed.',
 	);
+	ctx.out(untrustedHeader());
 	for (const issue of candidates) {
-		ctx.out(`  #${issue.number} ${issue.title} ${issue.url}`);
+		ctx.out(
+			`  #${issue.number} ${oneLine(issue.title, 80)} ${oneLine(issue.url, 200)}`,
+		);
 	}
 	ctx.out(
 		'  Read them. Same problem: file --duplicate-of <n>. Different: file --new.',

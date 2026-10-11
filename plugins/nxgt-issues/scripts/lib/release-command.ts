@@ -13,6 +13,7 @@ import {
 	releasePackage,
 } from './release';
 import { allowedOwners, isAllowedOwner, repoOfDirectory } from './repo-id';
+import { cleanJson, oneLine, untrustedHeader } from './untrusted';
 import { manifestsOf, repoRoot } from './workspaces';
 
 function describeIssue(issue: IssueOutcome, dry: boolean): string {
@@ -42,9 +43,15 @@ function render(report: ReleaseReport): string[] {
 	}
 	lines.push(...report.notes.map((note) => `  note: ${note}`));
 	if (report.notify.length > 0) {
-		lines.push('notify (tracking issues waiting on this release):');
-		for (const n of report.notify)
-			lines.push(`  ${n.tracking} ${n.title} -> ${n.upstream}`);
+		lines.push(
+			untrustedHeader(),
+			'notify (tracking issues waiting on this release):',
+		);
+		for (const n of report.notify) {
+			lines.push(
+				`  ${n.tracking} ${oneLine(n.title, 80)} -> ${oneLine(n.upstream, 80)}`,
+			);
+		}
 	}
 	return lines;
 }
@@ -106,11 +113,13 @@ export async function releasedCommand(
 			dryRun,
 		});
 		for (const line of json
-			? [JSON.stringify(report, null, 2)]
+			? [JSON.stringify(cleanJson(report), null, 2)]
 			: render(report)) {
 			ctx.out(line);
 		}
-		for (const warning of report.warnings) ctx.err(`nxgt-issues: ${warning}`);
+		for (const warning of report.warnings) {
+			ctx.err(`nxgt-issues: ${oneLine(warning, 300)}`);
+		}
 		return report.warnings.length > 0 ? EXIT.failed : EXIT.ok;
 	} catch (error) {
 		return exitForError(ctx, error);
