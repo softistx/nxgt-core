@@ -2,8 +2,15 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { Writable } from 'node:stream';
 import { Hono } from 'hono';
 import winston from 'winston';
-import { createLogger, logger } from './logger';
-import { loggerProvider } from './logger.middleware';
+
+// The default `logger` is created at import time and reads `LOG_TAG` then, so a
+// shell that exports `LOG_TAG` would change every `[app]` assertion below. The
+// variable is cleared for the import only, then put back.
+const shellTag = Bun.env['LOG_TAG'];
+delete Bun.env['LOG_TAG'];
+const { createLogger, logger } = await import('./logger');
+const { loggerProvider } = await import('./logger.middleware');
+if (shellTag !== undefined) Bun.env['LOG_TAG'] = shellTag;
 
 // Winston colorizes the level and the message (`colorize({ all: true })`).
 // The assertions are about the text, so the escape codes are stripped.
@@ -200,6 +207,14 @@ describe('LOG_TAG', () => {
 		const seen = capture(tagged);
 		tagged.info('d');
 		expect(seen[0]).toContain('[orders] [info] d');
+	});
+
+	test('empty gives `app`', async () => {
+		Bun.env['LOG_TAG'] = '';
+		const mod = await freshModule();
+		const seen = capture(mod.logger);
+		mod.logger.info('f');
+		expect(seen[0]).toContain('[app] [info] f');
 	});
 
 	test('unset gives `app`', async () => {
