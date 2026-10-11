@@ -37,7 +37,7 @@ describe('PR discovery', () => {
 		expect(report.issues.map((i) => i.number)).toEqual([12]);
 	});
 
-	test('git log merge and squash subjects since the previous tag, filtered to PRs touching the package', async () => {
+	test('first-parent log subjects since the previous tag name the PRs, with no files filter', async () => {
 		const fake = fakeWorld(
 			simple({
 				log: [
@@ -47,19 +47,70 @@ describe('PR discovery', () => {
 				],
 				prs: {
 					40: { closing: [12] },
-					41: { body: 'Fixes #13', files: ['packages/other/a.ts'] },
+					41: { body: 'Fixes #13', files: ['x'] },
 					42: { body: 'Closes #14' },
-					43: { body: 'Resolves softistx/nxgt-widget#15', files: [`${DIR}/x`] },
+					43: { body: 'Resolves softistx/nxgt-widget#15' },
 				},
 				issues: { 12: {}, 13: {}, 14: {}, 15: {} },
 			}),
 		);
 		const report = await run(fake);
-		expect(report.prs).toEqual([40, 42, 43]);
-		expect(report.issues.map((i) => i.number)).toEqual([12, 14, 15]);
+		expect(report.prs).toEqual([40, 41, 42, 43]);
+		expect(report.issues.map((i) => i.number)).toEqual([12, 13, 14, 15]);
 		const log = fake.calls.find((c) => c[0] === 'git' && c[1] === 'log');
+		expect(log).toContain('--first-parent');
 		expect(log).toContain('@nxgt/widget@1.3.0..@nxgt/widget@1.4.0');
 		expect(log?.slice(-2)).toEqual(['--', DIR]);
+	});
+
+	test('a PR listed in the CHANGELOG that did not touch the package is dropped (git diff of its merge commit)', async () => {
+		const fake = fakeWorld(
+			simple({
+				prs: {
+					40: {
+						closing: [12],
+						mergeSha: 'm40',
+						files: ['packages/other/a.ts'],
+					},
+				},
+			}),
+		);
+		const report = await run(fake);
+		expect(report.prs).toEqual([]);
+		expect(report.issues).toEqual([]);
+		const diff = fake.calls.find((c) => c[1] === 'diff');
+		expect(diff).toEqual([
+			'git',
+			'diff',
+			'--name-only',
+			'm40^1',
+			'm40',
+			'--',
+			DIR,
+		]);
+	});
+
+	test('without the merge commit the PR files decide', async () => {
+		const fake = fakeWorld(
+			simple({
+				prs: { 40: { closing: [12], files: ['packages/other/a.ts'] } },
+			}),
+		);
+		expect((await run(fake)).prs).toEqual([]);
+	});
+
+	test('the Version PR is not read for keywords', async () => {
+		const fake = fakeWorld(
+			simple({
+				log: ['Merge pull request #45 from softistx/changeset-release/develop'],
+				prs: {
+					40: { closing: [12] },
+					45: { head: 'changeset-release/develop', body: 'fixes #99' },
+				},
+				issues: { 12: {}, 99: {} },
+			}),
+		);
+		expect((await run(fake)).issues.map((i) => i.number)).toEqual([12]);
 	});
 
 	test('closingIssuesReferences first, then the body regex; an issue of another repository is ignored', async () => {
@@ -80,11 +131,12 @@ describe('PR discovery', () => {
 		expect(report.notes.join(' ')).toContain('no earlier tag');
 	});
 
-	test('a tag not created yet: the range ends at HEAD, from the latest tag', async () => {
+	test('a tag missing locally: the CHANGELOG alone is read, never a HEAD range', async () => {
 		const fake = fakeWorld(simple({ tags: ['@nxgt/widget@1.3.0'] }));
-		await run(fake);
-		const log = fake.calls.find((c) => c[1] === 'log');
-		expect(log).toContain('@nxgt/widget@1.3.0..HEAD');
+		const report = await run(fake);
+		expect(report.prs).toEqual([40]);
+		expect(fake.calls.some((c) => c[1] === 'log')).toBe(false);
+		expect(report.notes.join(' ')).toContain('not found');
 	});
 
 	test('a PR that cannot be read is a warning, the others go on', async () => {
@@ -104,20 +156,18 @@ describe('a PR merged into an integration branch', () => {
 	const world = () =>
 		simple({
 			prs: {
-				40: { base: 'feat/thing', mergeSha: 'sha40', body: 'Closes #11' },
-				50: { base: 'develop', body: 'Fixes #12' },
-			},
-			commitPulls: {
-				sha40: [
-					{ number: 40, base: 'feat/thing', merged: true },
-					{ number: 50, base: 'develop', merged: true },
-					{ number: 51, base: 'develop', merged: false },
-				],
+				40: {
+					base: 'feat/thing',
+					head: 'fix/slice',
+					mergeSha: 'sha40',
+					body: 'Closes #11',
+				},
+				50: { head: 'feat/thing', base: 'develop', body: 'Fixes #12' },
 			},
 			issues: { 11: {}, 12: {} },
 		});
 
-	test('the integration PR that contains its commit is read too, and named in the comment', async () => {
+	test('the integration PR is found by its head branch, read, and named in the comment', async () => {
 		const fake = fakeWorld(world());
 		const report = await run(fake);
 		expect(report.issues.map((i) => [i.number, i.pr])).toEqual([
@@ -127,12 +177,43 @@ describe('a PR merged into an integration branch', () => {
 		expect(fake.world.issues[12]?.comments?.[0]?.body).toBe(
 			fixedComment(PKG, '1.4.0', 50),
 		);
+		const list = fake.calls.find((c) => c[1] === 'pr' && c[2] === 'list');
+		expect(list).toContain('feat/thing');
+		expect(list).toContain('merged');
+		expect(fake.calls.some((c) => c[1] === 'api')).toBe(false);
+	});
+
+	test('the integration PR itself, found in the first-parent log, counts once', async () => {
+		const fake = fakeWorld({
+			...world(),
+			log: ['Merge pull request #50 from softistx/feat/thing'],
+		});
+		const report = await run(fake);
+		expect(report.issues.map((i) => [i.number, i.pr])).toEqual([
+			[12, 50],
+			[11, 50],
+		]);
 	});
 
 	test('with no integration PR yet, the slice PR is named', async () => {
-		const fake = fakeWorld({ ...world(), commitPulls: {} });
+		const fake = fakeWorld({
+			...world(),
+			prs: { 40: world().prs?.[40] ?? {} },
+		});
 		const report = await run(fake);
 		expect(report.issues.map((i) => [i.number, i.pr])).toEqual([[11, 40]]);
+	});
+
+	test('a merged PR from the branch into another feat/* branch is not an integration PR', async () => {
+		const fake = fakeWorld({
+			...world(),
+			prs: {
+				...world().prs,
+				50: { head: 'feat/thing', base: 'feat/outer', body: 'Fixes #12' },
+			},
+		});
+		const report = await run(fake);
+		expect(report.issues.map((i) => i.number)).toEqual([11]);
 	});
 });
 
@@ -200,6 +281,56 @@ describe('the issues', () => {
 			}),
 		);
 		expect((await run(stranger)).issues[0]?.commented).toBe(true);
+	});
+
+	test('the hidden marker is the key: another PR number gives no second comment', async () => {
+		const body = fixedComment(PKG, '1.4.0', 99);
+		const fake = fakeWorld(
+			simple({
+				issues: {
+					12: { comments: [{ login: 'steve', assoc: 'OWNER', body }] },
+				},
+			}),
+		);
+		const report = await run(fake);
+		expect(report.issues[0]?.commented).toBe(false);
+	});
+
+	test('a reopened issue (marker present, issue open) is not closed again, with a note', async () => {
+		const body = fixedComment(PKG, '1.4.0', 40);
+		const fake = fakeWorld(
+			simple({
+				issues: {
+					12: {
+						state: 'OPEN',
+						comments: [{ login: 'steve', assoc: 'OWNER', body }],
+					},
+				},
+			}),
+		);
+		const report = await run(fake);
+		expect(report.issues[0]).toMatchObject({
+			closed: false,
+			reopened: true,
+			labelled: true,
+		});
+		expect(fake.writes().some((c) => c[2] === 'close')).toBe(false);
+		expect(fake.world.issues[12]?.labels).toContain('released');
+		expect(report.notes.join(' ')).toContain('#12');
+	});
+
+	test('keywords in code spans, fenced blocks and quotes close nothing', async () => {
+		const fake = fakeWorld(
+			simple({
+				prs: {
+					40: {
+						body: 'Used `Fixes #14`.\n> Fixes #15\n```\nCloses #16\n```\nFixes #12',
+					},
+				},
+				issues: { 12: {}, 14: {}, 15: {}, 16: {} },
+			}),
+		);
+		expect((await run(fake)).issues.map((i) => i.number)).toEqual([12]);
 	});
 
 	test('a missing released label is created once, before it is used', async () => {

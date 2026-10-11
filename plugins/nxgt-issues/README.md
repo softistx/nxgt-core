@@ -316,9 +316,10 @@ a name followed by a call or a member access, anything inside a path.
 | `hook.ts` | the shell every hook of the plugin runs in |
 | `runner.ts` | the only place that spawns a process or fetches a URL (a `detached` run starts in its own process group and returns at once), with a scripted fake for specs |
 | `repo-id.ts` | which GitHub repository a directory or a `package.json` belongs to, and whether its owner is allowed |
-| `refs.ts` | closing keywords and upstream references |
-| `release-prs.ts` | `<pkg>@<version>` to the issues it fixes: the CHANGELOG section's `[#N]` links and the `git log <prevTag>..` of `packages/<dir>` (kept when the PR touches the package), then `closingIssuesReferences` and the body keywords; a PR merged into `feat/*` leads to the integration PR holding its merge commit (`commits/<sha>/pulls`) |
-| `release.ts`, `release-command.ts` | per issue, once: the "Fixed in" comment (skipped when an identical trusted comment exists), the `released` label, the close; the notification list (open `upstream` tracking issues whose hidden marker names a released issue); the `released` command |
+| `refs.ts` | closing keywords (outside code spans, fenced blocks and quote lines) and upstream references |
+| `release-git.ts` | the local git side: the CHANGELOG section's `[#N]` links, the first-parent log of a package since its previous tag, `git diff` of a merge commit |
+| `release-prs.ts` | `<pkg>@<version>` to the issues it fixes: the CHANGELOG PRs that touched the package plus the logged PRs, then `closingIssuesReferences` and the body keywords; a PR merged into `feat/*` leads to the PR merged from that branch (`gh pr list --state merged --head`) |
+| `release.ts`, `release-command.ts` | per issue, once: the "Fixed in" comment (skipped when a trusted comment carries the hidden marker), the `released` label, the close; the notification list (open `upstream` tracking issues whose hidden marker names a released issue); the `released` command |
 | `markers.ts` | parses the `Temporary, until <package>#<n>` markers out of `git grep -n` output |
 | `cache.ts` | the 10-minute cache, written atomically |
 | `refresh-state.ts` | the `failed` (10 min) and `refreshing` (60 s) stamps in `cache/stamps/` |
@@ -385,40 +386,78 @@ unless `NXGT_ISSUES_ALLOW_NETWORK=1`.
 The package side closes the loop in two halves, because CI can close issues but
 cannot message a session.
 
-- **At the release (CI).** A library repository copies
-  `plugins/nxgt-issues/scripts/release/close-released-issues.ts` byte for byte
-  into its `scripts/` (with its spec, `close-released-issues.spec.ts`) and runs it
-  after `changesets/action` in `release.yml`:
+- **At the release (CI).** A library repository copies, byte for byte, the three
+  files of `plugins/nxgt-issues/scripts/release/` into its `scripts/`:
+  `close-released-issues.ts`, `close-released-issues-lib.ts` (it imports the
+  latter by relative path, and nothing from the plugin) and
+  `close-released-issues.spec.ts`. Then `release.yml` changes in two places.
+
+  The workflow's `permissions` gains `issues: write` (a `permissions` block on
+  the job would *replace* the workflow's, so keep the three together at workflow
+  level):
 
   ```yaml
   permissions:
+    contents: write
+    pull-requests: write
     issues: write
-  # …
-  - name: Close the issues this release fixed
-    if: steps.changesets.outputs.published == 'true'
-    continue-on-error: true
-    run: bun scripts/close-released-issues.ts --published '${{ steps.changesets.outputs.publishedPackages }}'
   ```
 
-  (the `changesets/action` step needs `id: changesets`; add `permissions: issues:
-  write` to the workflow or the job). For each published `{ name, version }` it
-  does what `issues.ts released` does, with `gh` and `GITHUB_TOKEN` alone, and
-  never fails the release: a problem is a printed warning and the exit code is
-  0. It posts as `github-actions[bot]`, whose comments the app side trusts. It
+  The checkout needs the history and the tags (`fetch-depth: 0`; without them
+  only the CHANGELOG is read, and a PR listed in several packages' changelogs
+  cannot be told apart), the `changesets/action` step needs `id: changesets`, and
+  a step follows it (under `jobs.<job>.steps`):
+
+  ```yaml
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    # … setup, build …
+    - name: Version or publish
+      id: changesets
+      uses: changesets/action@v2
+      # … as before …
+    - name: Close the issues this release fixed
+      if: steps.changesets.outputs.published == 'true'
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
+      run: bun scripts/close-released-issues.ts --published "$PUBLISHED"
+  ```
+
+  The JSON goes through `env`, never into the command line, so no output can
+  inject into the shell. For all the published `{ name, version }` together it
+  does what `issues.ts released` does, with `gh` and the token alone, and never
+  fails the release: a problem is a printed warning and the exit code is 0. An
+  issue gets one comment even when several packages fix it (it names the first).
+  It posts as `github-actions[bot]`, whose comments the app side trusts. It
   cannot see the applications' private tracking issues, so it prints no
   notification list. `--repo owner/repo` overrides `GITHUB_REPOSITORY`;
   `--dry-run` writes nothing.
-- **In the session (fallback and notification).** `issues.ts released
-  <pkg@ver>` from the library's checkout does the same work (idempotent, so it
-  is safe after the CI step too) and lists the tracking issues to notify; the
-  `fix-a-reported-issue` skill then sends one `SendMessage` per application
-  session.
+- **In the session (notification, and fallback).** `issues.ts released
+  <pkg@ver>` from the library's checkout does the same work for one package
+  (idempotent, so it is safe after the CI step) and lists the tracking issues to
+  notify; the `fix-a-reported-issue` skill then sends one `SendMessage` per
+  application session.
 
-An issue is found through `Fixes #n` in a PR of the version (the integration PR
-into `develop` closes it at its merge, before the publish; the release step adds
-the comment and the `released` label that the application side keys on, together
-with the closed state). The comment's second line is the hidden marker
-`<!-- nxgt-issues:fixed=<pkg>@<version> -->`, which makes the step idempotent.
+An issue is found through `Fixes #n` in a PR of the version: the `[#N]` links of
+the CHANGELOG section that touched the package (a `git diff` of the merge
+commit), plus the PRs the first-parent log of the package folder names since the
+previous tag (the integration PR included). A PR merged into a `feat/*` branch
+closes nothing, so the PR merged from that branch into `develop` is found by its
+head branch and read too. Keywords inside code spans, fenced blocks and `>`
+quote lines are ignored. The integration PR closes the issue at its merge,
+before the publish; the release step adds the comment and the `released` label
+the application side keys on, together with the closed state.
+
+The comment's second line is the hidden marker
+`<!-- nxgt-issues:fixed=<pkg>@<version> -->`, and it is the idempotency key: a
+trusted comment (owner, member, collaborator or `github-actions`) carrying it,
+whatever PR number it names, means the step is done. When that comment is there
+and the issue is open, it was reopened after the release: it is reported, never
+closed again, and the label stays.
 
 ## Configuration
 

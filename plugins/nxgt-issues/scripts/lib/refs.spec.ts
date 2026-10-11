@@ -43,6 +43,15 @@ describe('closingRefs', () => {
 		]);
 	});
 
+	test('code spans, fenced blocks and quote lines close nothing', () => {
+		expect(closingRefs('`Fixes #14`')).toEqual([]);
+		expect(closingRefs('> Fixes #15')).toEqual([]);
+		expect(closingRefs('```\nCloses #16\n```')).toEqual([]);
+		expect(closingRefs('~~~\nCloses #17\n~~~\nFixes #18')).toEqual([
+			{ number: 18 },
+		]);
+	});
+
 	test('owner/repo#n', () => {
 		expect(closingRefs('Fixes softistx/nxgt-core#7')).toEqual([
 			{ repo: { owner: 'softistx', repo: 'nxgt-core' }, number: 7 },

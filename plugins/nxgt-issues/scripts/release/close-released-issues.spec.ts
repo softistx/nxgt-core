@@ -8,7 +8,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { closeReleasedIssues, type Exec } from './close-released-issues';
+import { closeReleasedIssues } from './close-released-issues';
+import type { Exec } from './close-released-issues-lib';
 
 // Self-contained on purpose: this file is copied with the script into each
 // library repository, where nothing of the plugin exists.
@@ -42,6 +43,7 @@ const CHANGELOG = [
 
 interface Pr {
 	base?: string;
+	head?: string;
 	body?: string;
 	closing?: number[];
 	files?: string[];
@@ -55,10 +57,26 @@ interface Issue {
 interface World {
 	log?: string[];
 	prs?: Record<number, Pr>;
-	pulls?: Record<string, { number: number; base: string; merged: boolean }[]>;
 	issues?: Record<number, Partial<Issue>>;
 	labels?: string[];
 }
+
+const ok = (stdout = '') => ({ code: 0, stdout, stderr: '' });
+const bad = (stderr: string) => ({ code: 1, stdout: '', stderr });
+
+/** GitHub's shape for a PR, as `gh pr view` and `gh pr list` print it. */
+const prJson = (n: number, pr: Pr) => ({
+	number: n,
+	baseRefName: pr.base ?? 'develop',
+	headRefName: pr.head ?? `fix/${n}`,
+	body: pr.body ?? '',
+	closingIssuesReferences: (pr.closing ?? []).map((number) => ({
+		number,
+		repository: { name: 'nxgt-widget', owner: { login: 'softistx' } },
+	})),
+	mergeCommit: pr.sha ? { oid: pr.sha } : null,
+	files: (pr.files ?? ['packages/widget/src/a.ts']).map((path) => ({ path })),
+});
 
 function fakeWorld(init: World) {
 	const labels = init.labels ?? ['released'];
@@ -67,46 +85,41 @@ function fakeWorld(init: World) {
 		issues[Number(n)] = { state: 'OPEN', labels: [], comments: [], ...i };
 	}
 	const writes: string[][] = [];
-	const ok = (stdout = '') => ({ code: 0, stdout, stderr: '' });
-	const bad = (stderr: string) => ({ code: 1, stdout: '', stderr });
+	const calls: string[][] = [];
+	const git = (argv: string[]) => {
+		if (argv[1] === 'tag') {
+			const name = String(argv[3]).replace(/@\*$/, '');
+			return ok(`${name}@1.4.0\n${name}@1.3.0\n`);
+		}
+		if (argv[1] === 'log') return ok(`${(init.log ?? []).join('\n')}\n`);
+		if (argv[1] === 'show') return ok(CHANGELOG);
+		if (argv[1] === 'diff') {
+			const sha = String(argv[3]).replace(/\^1$/, '');
+			const pr = Object.values(init.prs ?? {}).find((p) => p.sha === sha);
+			if (!pr) return bad('fatal: bad revision');
+			const dir = String(argv[argv.length - 1]);
+			const files = pr.files ?? ['packages/widget/src/a.ts'];
+			return ok(files.filter((f) => f.startsWith(`${dir}/`)).join('\n'));
+		}
+		return bad('no rule');
+	};
 	const exec: Exec = async (argv, stdin) => {
+		calls.push(argv);
 		const [tool, a, b, c] = argv;
 		const n = Number(c ?? b);
-		if (tool === 'git' && a === 'tag') {
-			return ok('@nxgt/widget@1.4.0\n@nxgt/widget@1.3.0\n');
-		}
-		if (tool === 'git' && a === 'log')
-			return ok(`${(init.log ?? []).join('\n')}\n`);
-		if (tool === 'git' && a === 'show') return ok(CHANGELOG);
+		if (tool === 'git') return git(argv);
 		if (a === 'pr' && b === 'view') {
 			const pr = init.prs?.[Number(c)];
-			if (!pr) return bad('no pull request found');
-			return ok(
-				JSON.stringify({
-					baseRefName: pr.base ?? 'develop',
-					body: pr.body ?? '',
-					closingIssuesReferences: (pr.closing ?? []).map((number) => ({
-						number,
-						repository: { name: 'nxgt-widget', owner: { login: 'softistx' } },
-					})),
-					mergeCommit: pr.sha ? { oid: pr.sha } : null,
-					files: (pr.files ?? ['packages/widget/src/a.ts']).map((path) => ({
-						path,
-					})),
-				}),
-			);
+			return pr
+				? ok(JSON.stringify(prJson(n, pr)))
+				: bad('no pull request found');
 		}
-		if (a === 'api') {
-			const sha = /commits\/(\w+)\/pulls$/.exec(String(b))?.[1] ?? '';
-			return ok(
-				JSON.stringify(
-					(init.pulls?.[sha] ?? []).map((p) => ({
-						number: p.number,
-						base: { ref: p.base },
-						merged_at: p.merged ? '2026-10-01T00:00:00Z' : null,
-					})),
-				),
+		if (a === 'pr' && b === 'list') {
+			const head = argv[argv.indexOf('--head') + 1];
+			const rows = Object.entries(init.prs ?? {}).filter(
+				([, p]) => p.head === head,
 			);
+			return ok(JSON.stringify(rows.map(([k, p]) => prJson(Number(k), p))));
 		}
 		if (a === 'issue' && b === 'view') {
 			const issue = issues[n];
@@ -128,27 +141,29 @@ function fakeWorld(init: World) {
 		writes.push([...argv]);
 		const issue = issues[n];
 		if (a === 'issue' && b === 'comment' && issue) {
-			issue.comments.push({
-				login: 'github-actions',
-				assoc: 'NONE',
-				body: stdin ?? '',
-			});
+			const body = stdin ?? '';
+			issue.comments.push({ login: 'github-actions', assoc: 'NONE', body });
 		}
 		if (a === 'issue' && b === 'edit' && issue) issue.labels.push('released');
 		if (a === 'issue' && b === 'close' && issue) issue.state = 'CLOSED';
 		if (a === 'label' && b === 'create') labels.push(String(c));
 		return ok();
 	};
-	return { exec, issues, writes, labels };
+	return { exec, issues, writes, labels, calls };
 }
 
-function checkout(): string {
+function checkout(...names: string[]): string {
 	const dir = tempDir();
-	mkdirSync(join(dir, 'packages', 'widget'), { recursive: true });
-	writeFileSync(
-		join(dir, 'packages', 'widget', 'package.json'),
-		JSON.stringify({ name: '@nxgt/widget', version: '1.4.0' }),
-	);
+	for (const name of names.length > 0 ? names : ['widget']) {
+		mkdirSync(join(dir, 'packages', name), { recursive: true });
+		writeFileSync(
+			join(dir, 'packages', name, 'package.json'),
+			JSON.stringify({
+				name: name === 'widget' ? '@nxgt/widget' : `@nxgt/${name}`,
+				version: '1.4.0',
+			}),
+		);
+	}
 	return dir;
 }
 
@@ -156,10 +171,11 @@ async function run(
 	world: ReturnType<typeof fakeWorld>,
 	extra: string[] = [],
 	cwd = checkout(),
+	published = PUBLISHED,
 ) {
 	const lines: string[] = [];
 	const code = await closeReleasedIssues(
-		['--published', PUBLISHED, ...extra],
+		['--published', published, ...extra],
 		{ GITHUB_REPOSITORY: REPO },
 		world.exec,
 		(line) => lines.push(line),
@@ -187,35 +203,34 @@ describe('close-released-issues', () => {
 		expect(world.writes).toHaveLength(3);
 	});
 
-	test('finds PRs in the git log (merge and squash), keeps those touching the package, reads the body keywords', async () => {
+	test('finds PRs in the first-parent log (merge and squash), without a files filter, and reads the body keywords', async () => {
 		const world = fakeWorld(
 			simple({
 				log: ['Merge pull request #41 from softistx/a', 'fix: Thing (#42)'],
 				prs: {
 					40: {},
-					41: { body: 'Fixes #13', files: ['packages/other/a.ts'] },
+					41: { body: 'Fixes #13' },
 					42: { body: 'Closes #14. Resolves acme/other#3' },
 				},
 				issues: { 13: {}, 14: {} },
 			}),
 		);
 		await run(world);
-		expect(world.issues[13]?.state).toBe('OPEN');
+		expect(world.issues[13]?.state).toBe('CLOSED');
 		expect(world.issues[14]?.state).toBe('CLOSED');
 	});
 
-	test('a PR merged into feat/* leads to the integration PR holding its commit, which the comment names', async () => {
+	test('a PR merged into feat/* leads to the PR merged from that branch (found by head branch), which the comment names', async () => {
 		const world = fakeWorld(
 			simple({
 				prs: {
-					40: { base: 'feat/x', sha: 'abc', body: 'Closes #11' },
-					50: { body: 'Fixes #12' },
-				},
-				pulls: {
-					abc: [
-						{ number: 40, base: 'feat/x', merged: true },
-						{ number: 50, base: 'develop', merged: true },
-					],
+					40: {
+						base: 'feat/x',
+						head: 'fix/slice',
+						sha: 'abc',
+						body: 'Closes #11',
+					},
+					50: { head: 'feat/x', body: 'Fixes #12' },
 				},
 				issues: { 11: {}, 12: {} },
 			}),
@@ -223,6 +238,61 @@ describe('close-released-issues', () => {
 		await run(world);
 		expect(world.issues[12]?.comments[0]?.body).toContain('(#50)');
 		expect(world.issues[11]?.comments[0]?.body).toContain('(#50)');
+		const list = world.calls.find((c) => c[2] === 'pr' || c[1] === 'pr');
+		expect(
+			world.calls.some((c) => c.includes('--head') && c.includes('feat/x')),
+		).toBe(true);
+		expect(list).toBeDefined();
+		expect(world.calls.some((c) => c[1] === 'api')).toBe(false);
+	});
+
+	test('the log is first-parent and its PRs need no files filter; the Version PR is skipped', async () => {
+		const world = fakeWorld(
+			simple({
+				log: [
+					'Merge pull request #41 from softistx/a',
+					'Merge pull request #45 from softistx/changeset-release/develop',
+				],
+				prs: {
+					40: {},
+					41: { body: 'Fixes #13', files: ['packages/other/a.ts'] },
+					45: { head: 'changeset-release/develop', body: 'fixes #99' },
+				},
+				issues: { 13: {}, 99: {} },
+			}),
+		);
+		await run(world);
+		expect(world.calls.find((c) => c[1] === 'log')).toContain('--first-parent');
+		expect(world.issues[13]?.state).toBe('CLOSED');
+		expect(world.issues[99]?.state).toBe('OPEN');
+	});
+
+	test('a PR listed in the CHANGELOG that did not touch the package is dropped', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: {
+					40: { closing: [12], sha: 'm40', files: ['packages/other/a.ts'] },
+				},
+			}),
+		);
+		await run(world);
+		expect(world.issues[12]?.state).toBe('OPEN');
+	});
+
+	test('keywords in code spans, fenced blocks and quotes close nothing; a URL form closes', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: {
+					40: {
+						body: 'Used `Fixes #14`.\n> Fixes #15\n```\nCloses #16\n```\nFixes https://github.com/softistx/nxgt-widget/issues/12',
+					},
+				},
+				issues: { 12: {}, 14: {}, 15: {}, 16: {} },
+			}),
+		);
+		await run(world);
+		expect(world.issues[12]?.state).toBe('CLOSED');
+		for (const n of [14, 15, 16]) expect(world.issues[n]?.state).toBe('OPEN');
 	});
 
 	test('a second run makes no new comment, label or close', async () => {
@@ -253,6 +323,42 @@ describe('close-released-issues', () => {
 		expect(edit).toBeGreaterThan(create);
 	});
 
+	test('the hidden marker is the key: another PR number gives no second comment', async () => {
+		const body =
+			'Fixed in @nxgt/widget@1.4.0 (#99).\n\n<!-- nxgt-issues:fixed=@nxgt/widget@1.4.0 -->\n';
+		const world = fakeWorld(
+			simple({
+				issues: {
+					12: {
+						state: 'CLOSED',
+						comments: [{ login: 'github-actions', assoc: 'NONE', body }],
+					},
+				},
+			}),
+		);
+		await run(world);
+		expect(world.writes.some((w) => w[2] === 'comment')).toBe(false);
+	});
+
+	test('a reopened issue is not closed again, a note says so, the label is added', async () => {
+		const world = fakeWorld(
+			simple({
+				issues: {
+					12: {
+						comments: [
+							{ login: 'github-actions', assoc: 'NONE', body: COMMENT },
+						],
+					},
+				},
+			}),
+		);
+		const { lines } = await run(world);
+		expect(world.issues[12]?.state).toBe('OPEN');
+		expect(world.issues[12]?.labels).toEqual(['released']);
+		expect(world.writes.some((w) => w[2] === 'close')).toBe(false);
+		expect(lines).toContain('reopened');
+	});
+
 	test('an identical comment from the release bot is not posted again; a stranger copy is', async () => {
 		const bot = fakeWorld(
 			simple({
@@ -276,6 +382,50 @@ describe('close-released-issues', () => {
 		);
 		await run(stranger);
 		expect(stranger.writes.some((w) => w[2] === 'comment')).toBe(true);
+	});
+});
+
+describe('several packages published together', () => {
+	const published = JSON.stringify(
+		['a', 'b', 'c'].map((n) => ({ name: `@nxgt/${n}`, version: '1.4.0' })),
+	);
+
+	test('an issue gets one comment, naming the first package', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: {
+					40: {
+						closing: [12],
+						sha: 'm40',
+						files: ['a', 'b', 'c'].map((n) => `packages/${n}/src/x.ts`),
+					},
+				},
+			}),
+		);
+		await run(world, [], checkout('a', 'b', 'c'), published);
+		const comments = world.writes.filter((w) => w[2] === 'comment');
+		expect(comments).toHaveLength(1);
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/a@1.4.0 (#40).',
+		);
+		expect(world.writes.filter((w) => w[2] === 'close')).toHaveLength(1);
+		const again = world.writes.length;
+		await run(world, [], checkout('a', 'b', 'c'), published);
+		expect(world.writes).toHaveLength(again);
+	});
+
+	test('a PR that touched one package is not credited to the others', async () => {
+		const world = fakeWorld(
+			simple({
+				prs: {
+					40: { closing: [12], sha: 'm40', files: ['packages/b/src/x.ts'] },
+				},
+			}),
+		);
+		await run(world, [], checkout('a', 'b', 'c'), published);
+		expect(world.issues[12]?.comments[0]?.body).toStartWith(
+			'Fixed in @nxgt/b@1.4.0',
+		);
 	});
 });
 

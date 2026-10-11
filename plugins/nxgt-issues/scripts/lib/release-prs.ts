@@ -1,25 +1,28 @@
 /**
  * Which issues a published `<package>@<version>` fixes. The pull requests are
- * the `[#N]` links of the version's CHANGELOG section, plus the PRs named by
- * the commits that touched `packages/<dir>` since the package's previous tag
- * (kept only when they touch the package). Each PR gives its closing issues:
- * GitHub's `closingIssuesReferences`, then the closing keywords of its body.
- * A PR merged into a `feat/*` branch closes nothing by itself, so the
- * integration PR holding its merge commit is read too and named in the
- * "Fixed in" comment. Only issues of the library's own repository count.
+ * the `[#N]` links of the version's CHANGELOG section that touched the package,
+ * plus the PRs the first-parent log of `packages/<dir>` names since the
+ * package's previous tag (merged PRs, the integration PR included). Each PR
+ * gives its closing issues: GitHub's `closingIssuesReferences`, then the
+ * closing keywords of its body outside code and quotes. A PR merged into a
+ * `feat/*` branch closes nothing by itself, so the merged PR from that branch
+ * into the default branch (found by its head branch) is read too and named in
+ * the "Fixed in" comment. Only issues of the library's own repository count.
  */
 
 import { type GhContext, ghJson, RateLimitedError } from './github';
+import {
+	changelogPrs,
+	commitTouches,
+	git,
+	loggedPrs,
+	type ReleaseInput,
+} from './release-git';
+
+export type { ReleaseInput };
+
 import { closingRefs } from './refs';
 import { formatRepo, type RepoId, sameRepo } from './repo-id';
-
-export interface ReleaseInput {
-	readonly repo: RepoId;
-	readonly pkg: string;
-	readonly version: string;
-	/** The package's folder, relative to the repository root (`packages/widget`). */
-	readonly dir: string;
-}
 
 /** An issue the release fixes and the PR the comment names. */
 export interface Fix {
@@ -36,7 +39,9 @@ export interface Discovery {
 }
 
 interface PrInfo {
+	readonly number: number;
 	readonly base: string;
+	readonly head: string;
 	readonly mergeSha: string | undefined;
 	readonly issues: number[];
 	readonly files: string[];
@@ -47,51 +52,12 @@ const obj = (value: unknown): Obj =>
 	value && typeof value === 'object' ? (value as Obj) : {};
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-/** The `[#N]` PR links of the `## <version>` section of a changelog. */
-export function changelogPrs(changelog: string, version: string): number[] {
-	const lines = changelog.split(/\r?\n/);
-	const start = lines.findIndex((line) => line.trim() === `## ${version}`);
-	if (start === -1) return [];
-	const rest = lines.slice(start + 1);
-	const end = rest.findIndex((line) => line.startsWith('## '));
-	const section = (end === -1 ? rest : rest.slice(0, end)).join('\n');
-	return [...section.matchAll(/\[#(\d+)\]/g)].map((m) => Number(m[1]));
-}
+const FIELDS =
+	'number,baseRefName,headRefName,body,closingIssuesReferences,mergeCommit,files';
 
-/** The PR number a commit subject names: a merge commit or a squash `(#N)`. */
-export function subjectPr(subject: string): number | undefined {
-	const match =
-		/^Merge pull request #(\d+)\b/.exec(subject) ??
-		/\(#(\d+)\)\s*$/.exec(subject);
-	return match?.[1] ? Number(match[1]) : undefined;
-}
-
-async function git(
-	ctx: GhContext,
-	args: readonly string[],
-): Promise<string | undefined> {
-	const result = await ctx.runner.run(['git', ...args], {
-		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
-	});
-	return result.code === 0 ? result.stdout : undefined;
-}
-
-async function readInfo(
-	ctx: GhContext,
-	repo: RepoId,
-	number: number,
-): Promise<PrInfo> {
-	const raw = obj(
-		await ghJson(ctx, [
-			'pr',
-			'view',
-			String(number),
-			'-R',
-			formatRepo(repo),
-			'--json',
-			'number,baseRefName,body,closingIssuesReferences,mergeCommit,files',
-		]),
-	);
+/** A PR as `gh pr view` and `gh pr list` print it: its closing issues of this repository, GitHub's list first, then the body keywords. */
+function toInfo(value: unknown, repo: RepoId): PrInfo {
+	const raw = obj(value);
 	const issues = new Set<number>();
 	for (const item of list(raw['closingIssuesReferences'])) {
 		const ref = obj(item);
@@ -109,63 +75,56 @@ async function readInfo(
 	}
 	const sha = obj(raw['mergeCommit'])['oid'];
 	return {
+		number: Number(raw['number']),
 		base: String(raw['baseRefName'] ?? ''),
+		head: String(raw['headRefName'] ?? ''),
 		mergeSha: typeof sha === 'string' ? sha : undefined,
 		issues: [...issues],
 		files: list(raw['files']).map((file) => String(obj(file)['path'] ?? '')),
 	};
 }
 
-/** Merged PRs into a non-`feat/*` branch whose history holds `sha`. */
+async function readInfo(
+	ctx: GhContext,
+	repo: RepoId,
+	number: number,
+): Promise<PrInfo> {
+	const raw = await ghJson(ctx, [
+		...['pr', 'view', String(number), '-R', formatRepo(repo)],
+		...['--json', FIELDS],
+	]);
+	return toInfo(raw, repo);
+}
+
+/**
+ * The merged PRs that came from `branch` into a branch that is not `feat/*`.
+ * `commits/<sha>/pulls` cannot give them: it lists only the PR that brought
+ * the commit in (the slice), never the one that merged the branch on.
+ */
 async function integrationPrs(
 	ctx: GhContext,
 	repo: RepoId,
-	sha: string,
-	own: number,
-): Promise<number[]> {
-	const out = await ghJson<unknown[]>(ctx, [
-		'api',
-		`repos/${formatRepo(repo)}/commits/${sha}/pulls`,
+	branch: string,
+): Promise<PrInfo[]> {
+	const rows = await ghJson<unknown[]>(ctx, [
+		...['pr', 'list', '-R', formatRepo(repo), '--state', 'merged'],
+		...['--head', branch, '--json', FIELDS],
 	]);
-	return list(out).flatMap((item) => {
-		const pr = obj(item);
-		const base = String(obj(pr['base'])['ref'] ?? '');
-		const number = Number(pr['number']);
-		return pr['merged_at'] && !base.startsWith('feat/') && number !== own
-			? [number]
-			: [];
-	});
+	return list(rows)
+		.map((row) => toInfo(row, repo))
+		.filter((pr) => !pr.base.startsWith('feat/'));
 }
 
-/** The PR numbers a package's commits name, between its previous tag and this release. */
-async function loggedPrs(
+/** A CHANGELOG-listed PR counts when its merge commit changed the package (its files when git cannot say). */
+async function touchesPackage(
 	ctx: GhContext,
-	input: ReleaseInput,
-	notes: string[],
-): Promise<number[]> {
-	const tag = `${input.pkg}@${input.version}`;
-	const tags = (
-		(await git(ctx, [
-			'tag',
-			'--list',
-			`${input.pkg}@*`,
-			'--sort=-version:refname',
-		])) ?? ''
-	)
-		.split('\n')
-		.map((name) => name.trim())
-		.filter(Boolean);
-	const at = tags.indexOf(tag);
-	const previous = at === -1 ? tags[0] : tags[at + 1];
-	if (!previous) {
-		notes.push(`no earlier tag for ${input.pkg}: the CHANGELOG alone was read`);
-		return [];
-	}
-	const range = `${previous}..${at === -1 ? 'HEAD' : tag}`;
-	const log = await git(ctx, ['log', '--format=%s', range, '--', input.dir]);
-	return (log ?? '')
-		.split('\n')
-		.flatMap((subject) => subjectPr(subject.trim()) ?? []);
+	info: PrInfo,
+	dir: string,
+): Promise<boolean> {
+	const byGit = info.mergeSha
+		? await commitTouches(ctx, info.mergeSha, dir)
+		: undefined;
+	return byGit ?? info.files.some((file) => file.startsWith(`${dir}/`));
 }
 
 export async function discoverFixes(
@@ -189,29 +148,36 @@ export async function discoverFixes(
 		const known = found.get(issue);
 		if (!known || rank < known.rank) found.set(issue, { issue, pr, rank });
 	};
+	const branches = new Map<string, PrInfo[]>();
 	const touched: number[] = [];
 	for (const number of prs) {
 		try {
 			const info = await readInfo(ctx, input.repo, number);
-			const inLog = !listed.includes(number);
-			if (inLog && !info.files.some((f) => f.startsWith(`${input.dir}/`)))
+			if (info.head.startsWith('changeset-release/')) continue;
+			// The path-limited log proves a logged PR touched the package; a listed one may belong to another package.
+			if (
+				!logged.includes(number) &&
+				!(await touchesPackage(ctx, info, input.dir))
+			)
 				continue;
 			touched.push(number);
 			if (!info.base.startsWith('feat/')) {
 				for (const issue of info.issues) keep(issue, number, 0);
 				continue;
 			}
-			const parents = info.mergeSha
-				? await integrationPrs(ctx, input.repo, info.mergeSha, number)
-				: [];
-			const named = parents[0];
+			if (!branches.has(info.base)) {
+				branches.set(
+					info.base,
+					await integrationPrs(ctx, input.repo, info.base),
+				);
+			}
+			const parents = branches.get(info.base) ?? [];
 			for (const issue of info.issues) {
-				if (named === undefined) keep(issue, number, 2);
-				else keep(issue, named, 1);
+				if (parents[0]) keep(issue, parents[0].number, 1);
+				else keep(issue, number, 2);
 			}
 			for (const parent of parents) {
-				const up = await readInfo(ctx, input.repo, parent);
-				for (const issue of up.issues) keep(issue, parent, 0);
+				for (const issue of parent.issues) keep(issue, parent.number, 0);
 			}
 		} catch (error) {
 			if (error instanceof RateLimitedError) throw error;

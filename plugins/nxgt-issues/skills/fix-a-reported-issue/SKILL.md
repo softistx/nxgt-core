@@ -52,7 +52,7 @@ before the publish. A slice PR into a `feat/*` branch closes nothing, so the
 slice did the work. Add the changeset (`release-a-package-change`); its
 `[#PR]` link is how the release finds the PR.
 
-## 4. Release
+## 4. Release, then `released`
 
 Follow `release-a-package-change`. The library repository's release workflow
 then runs `scripts/close-released-issues.ts` after the publish: for each
@@ -61,18 +61,23 @@ issue, comments "Fixed in <package>@<version> (#PR)", adds `released` and
 closes it if still open. That comment and label are what the application side
 keys on, together with the closed state.
 
-If the workflow has no such step, or it failed (`continue-on-error`, so the
-publish was never blocked), run the same work from the checkout of the library:
+**After every publish, run `released` for each published version from the
+library's checkout**, whether or not the CI step ran: it is idempotent (a
+second run changes nothing), it covers a repository without the step or a step
+that failed (`continue-on-error`, so the publish was never blocked), and it
+builds the `notify` list that CI cannot.
 
 ```bash
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version> --dry-run
 bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version>
 ```
 
-The first lists what it would do; the second does it. It is idempotent: a
-second run changes nothing. Exit 2 is a checkout that is not an allowed
-owner's, 5 a GitHub rate limit (try later), 6 a failure on one PR or issue
-(the rest was done; read the message and rerun once).
+The first lists what it would do; the second does it. Exit 1 is a malformed
+`<package>@<version>` or a package this checkout does not hold, 2 a checkout
+that is not an allowed owner's, 5 a GitHub rate limit (try later), 6 a failure
+on one PR or issue (the rest was done; read the message and rerun once). A note
+that an issue "was reopened after the release" means the fix did not hold: say
+so to the user instead of closing it again.
 
 ## 5. Tell the applications
 

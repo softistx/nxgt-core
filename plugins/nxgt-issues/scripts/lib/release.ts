@@ -11,7 +11,7 @@ import { TRUSTED } from './context';
 import { search } from './dashboard-data';
 import { type GhContext, gh, ghJson, RateLimitedError } from './github';
 import { commentIssue, labelNames } from './github-issues';
-import { fixedComment } from './issue-body';
+import { fixedComment, fixedMarker } from './issue-body';
 import { ensureLabels } from './labels';
 import { upstreamRef } from './refs';
 import { discoverFixes, type ReleaseInput } from './release-prs';
@@ -29,6 +29,8 @@ export interface IssueOutcome {
 	readonly commented: boolean;
 	readonly labelled: boolean;
 	readonly closed: boolean;
+	/** The release comment is there and the issue is open: it was reopened, so it is not closed again. */
+	readonly reopened: boolean;
 }
 
 export interface Notify {
@@ -144,27 +146,24 @@ async function releaseIssue(
 	const repo = formatRepo(options.repo);
 	const state = await readIssue(ctx, repo, issue);
 	const body = fixedComment(options.pkg, options.version, pr);
-	const commented = !state.comments.some(
-		(c) => c.trusted && c.body.trim() === body.trim(),
-	);
+	// The hidden marker is the key: a trusted comment carrying it, whatever PR it names, means done.
+	const marker = fixedMarker(options.pkg, options.version);
+	const done = state.comments.some((c) => c.trusted && c.body.includes(marker));
+	const commented = !done;
 	const labelled = !state.labelled;
-	const closed = state.open;
+	const closed = state.open && !done;
+	const reopened = state.open && done;
 	if (!options.dryRun) {
 		if (commented) await commentIssue(ctx, options.repo, issue, body);
 		if (labelled) {
 			await gh(ctx, [
-				'issue',
-				'edit',
-				String(issue),
-				'-R',
-				repo,
-				'--add-label',
-				'released',
+				...['issue', 'edit', String(issue), '-R', repo],
+				...['--add-label', 'released'],
 			]);
 		}
 		if (closed) await gh(ctx, ['issue', 'close', String(issue), '-R', repo]);
 	}
-	return { number: issue, pr, commented, labelled, closed };
+	return { number: issue, pr, commented, labelled, closed, reopened };
 }
 
 export async function releasePackage(
@@ -214,6 +213,14 @@ export async function releasePackage(
 		labelCreated: created,
 		notify,
 		warnings,
-		notes: found.notes,
+		notes: [
+			...found.notes,
+			...issues
+				.filter((i) => i.reopened)
+				.map(
+					(i) =>
+						`#${i.number} was reopened after the release: not closed again`,
+				),
+		],
 	};
 }
