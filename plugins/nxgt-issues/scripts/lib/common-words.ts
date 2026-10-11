@@ -4,8 +4,8 @@
  * in passing, and the names of frameworks, libraries, tools, HTTP and database
  * vocabulary that show up in stack traces and version lists. The repository's
  * full name is still denied; a product whose stem is one of these words is
- * named explicitly through `denyTerms`. Words under 4 characters are never
- * stems, so they are not listed.
+ * named explicitly through `denyTerms`. The same list decides whether a
+ * single-word repository name (`plugins`) is denied bare; `owner/name` always is.
  */
 
 const ENGLISH = `
@@ -40,6 +40,32 @@ database table tables schema schemas index indexes migration migrations collecti
 middleware handler handlers controller controllers resolver resolvers provider providers adapter adapters plugin plugins loader loaders client clients factory helper helpers hooks store stores context reducer service services gateway proxy router routes worker workers queue queues cron scheduler logger logging tracer metrics
 `;
 
+const MORE = `
+apis oauth2 workspace workspaces python kotlin swift java elysia latex cssnano csso clean-css maizzle mjml melos
+learn learning model models training location locations plugin plugins
+`;
+
 export const COMMON_WORDS: ReadonlySet<string> = new Set(
-	`${ENGLISH} ${TECH}`.split(/\s+/).filter((word) => word.length >= 4),
+	`${ENGLISH} ${TECH} ${MORE} tex`
+		.split(/\s+/)
+		.filter((word) => word.length >= 3),
 );
+
+/**
+ * Whether `word` is a common word, or a plural, `-ing` form or versioned form
+ * of one (`locations`, `oauth2`, `http2`), or in `extra` (the generic words).
+ */
+export function isCommonWord(
+	word: string,
+	extra: ReadonlySet<string> = new Set(),
+): boolean {
+	const lower = word.toLowerCase();
+	const bare = lower.replace(/\d+$/, '');
+	const forms = [lower, bare];
+	for (const base of [lower, bare]) {
+		for (const suffix of ['ing', 'es', 's']) {
+			if (base.endsWith(suffix)) forms.push(base.slice(0, -suffix.length));
+		}
+	}
+	return forms.some((form) => COMMON_WORDS.has(form) || extra.has(form));
+}

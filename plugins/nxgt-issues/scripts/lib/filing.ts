@@ -12,6 +12,7 @@ import { GhError, RateLimitedError } from './github';
 import { formatRepo } from './repo-id';
 import type { Refused, Resolved } from './resolve';
 import { type DenyList, scrub } from './scrub';
+import { declaredDependencies } from './workspaces';
 
 export type Checked<K extends string> =
 	| { readonly ok: true; readonly texts: Readonly<Record<K, string>> }
@@ -21,11 +22,16 @@ export type Checked<K extends string> =
 			readonly secrets: string[];
 	  };
 
-/** The terms a filing on `resolved` may contain although denied: its own package and repository. */
-export const allowFor = (resolved: Resolved): string[] => [
+/**
+ * The terms a filing on `resolved` may contain although denied: its own
+ * package and repository, and the packages it declares when installed under
+ * `cwd` (bare names only, never `owner/name`).
+ */
+export const allowFor = (resolved: Resolved, cwd?: string): string[] => [
 	resolved.package,
 	resolved.repo.repo,
 	formatRepo(resolved.repo),
+	...(cwd ? declaredDependencies(cwd, resolved.package) : []),
 ];
 
 /** Scrubs every text; refuses when any one of them is refused. */

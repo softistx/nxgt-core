@@ -16,9 +16,10 @@
  * decoded text: folded, it would refuse ordinary prose.
  */
 
-import { COMMON_WORDS } from './common-words';
+import { isCommonWord } from './common-words';
 import {
 	domainTerms,
+	GENERIC,
 	MIN_LABEL_LENGTH,
 	mainLabel,
 	scopedParts,
@@ -114,9 +115,16 @@ export function buildDenyList(inputs: DenyInputs): DenyList {
 	const privateStems = unique(
 		names
 			.flatMap((name) => stems(name))
-			.filter((stem) => !COMMON_WORDS.has(stem.toLowerCase())),
+			.filter((stem) => !isCommonWord(stem, GENERIC)),
 	);
-	const privates = [...(inputs.privateRepos ?? []), ...names, ...privateStems];
+	// A single-word name that is a common word (`plugins`) is denied as `owner/name` only.
+	const bareNames = names.filter(
+		(name) => /[-_.]/.test(name) || !isCommonWord(name, GENERIC),
+	);
+	const owned = (inputs.privateRepos ?? []).filter((entry) =>
+		entry.includes('/'),
+	);
+	const privates = [...owned, ...bareNames, ...privateStems];
 	const own = [
 		...stems(repoName),
 		...packages.flatMap((pkg) => stems(pkg)),

@@ -64,7 +64,7 @@ export async function upsertRollingIssue(
 	const base = rolling && open ? parseDepsTable(rolling.body) : [];
 	const checked = checkTexts(
 		{ body: dependenciesIssueBody(mergeRows(base, rows)) },
-		{ cwd: ctx.cwd, denyList, allow: allowFor(resolved) },
+		{ cwd: ctx.cwd, denyList, allow: allowFor(resolved, ctx.cwd) },
 	);
 	if (!checked.ok) return printScrubRefusal(ctx, checked);
 	const body = checked.texts.body;

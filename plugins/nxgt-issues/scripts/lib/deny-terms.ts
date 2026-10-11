@@ -7,7 +7,7 @@
 export const MIN_LABEL_LENGTH = 4;
 
 /** Words too common to deny on their own as a segment of a repository name. */
-const GENERIC = new Set(
+export const GENERIC: ReadonlySet<string> = new Set(
 	(
 		'api core web ui server client app apps service services backend frontend ' +
 		'admin shared common utils lib libs sdk docs monorepo mobile worker gateway ' +

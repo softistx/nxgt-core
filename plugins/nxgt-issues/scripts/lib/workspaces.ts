@@ -101,6 +101,9 @@ export function dependenciesOf(manifest: Manifest): Map<string, string> {
 export interface PackageManifest {
 	readonly version?: string | undefined;
 	readonly repository?: unknown;
+	readonly dependencies?: unknown;
+	readonly peerDependencies?: unknown;
+	readonly optionalDependencies?: unknown;
 }
 
 export const asPackageManifest = (value: unknown): PackageManifest =>
@@ -125,4 +128,21 @@ export function fromNodeModules(
 		if (parent === dir) return undefined;
 		dir = parent;
 	}
+}
+
+/**
+ * The packages an installed `pkg` declares (dependencies, peer and optional
+ * dependencies), read from its local `package.json`: installed from npm, they
+ * are public whatever their repository.
+ */
+export function declaredDependencies(start: string, pkg: string): string[] {
+	const manifest = fromNodeModules(start, pkg);
+	if (!manifest) return [];
+	return [
+		manifest.dependencies,
+		manifest.peerDependencies,
+		manifest.optionalDependencies,
+	].flatMap((field) =>
+		field && typeof field === 'object' ? Object.keys(field) : [],
+	);
 }

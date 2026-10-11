@@ -32,6 +32,10 @@ describe('array flags', () => {
 	test.each([
 		"spawn('mysql', ['-u', 'root', '-p', 'hunter2'])",
 		"execa('redis-cli', ['-a', 'hunter2', 'ping'])",
+		"spawn('redis-cli', ['-a', '123456'])",
+		"spawn('mysql', ['-u','root','-p','1234'])",
+		"spawn('mysql', ['-u','root','-p1234'])",
+		"spawn('mysql', ['-u','root','-phunter2'])",
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});
@@ -39,6 +43,7 @@ describe('array flags', () => {
 	test.each([
 		"spawn('docker', ['run', '-p', '8080:80', 'img'])",
 		"spawn('ssh', ['-p', '2222', 'host'])",
+		"spawn('find', ['.', '-print'])",
 	])('%p passes', (text) => {
 		expect({ text, refused: refused(text) }).toEqual({ text, refused: false });
 	});

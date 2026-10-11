@@ -215,5 +215,6 @@ export async function filingDenyList(ctx: CliContext): Promise<DenyList> {
 	return Object.freeze({
 		terms: unique([...built.terms, ...config.denyTerms, ...folders]),
 		distinctive: built.distinctive,
+		stems: built.stems ?? [],
 	});
 }

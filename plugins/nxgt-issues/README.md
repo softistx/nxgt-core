@@ -155,8 +155,10 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
   by full name, and by each distinctive stem as a whole word outside
   `node_modules/` paths (`zorblax` from `zorblax-api`); a stem that is a
   common English word or a framework, library or tool name (`compose`,
-  `rest`, `content`, `react`, `docker`…, listed in `common-words.ts`) is never
-  denied alone — name such a product in `denyTerms` (below),
+  `rest`, `content`, `react`, `docker`…, listed in `common-words.ts`, plurals,
+  `-ing` and versioned forms included: `locations`, `oauth2`) is never denied
+  alone, and neither is a single-word repository name that is one (`plugins`,
+  denied as `owner/plugins` only) — name such a product in `denyTerms` (below),
   and of any other owner in `NXGT_ISSUES_OWNERS` (`gh repo list --visibility
   private`, cached 24 hours in `<home>/cache/private-repos.json`; when gh fails
   the stale copy is used, and with no copy at all nothing is filed).
@@ -168,7 +170,11 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
   run, or fails otherwise, refuses the filing), the hostname, the home folder;
 - the application's own domains and any extra terms from the configuration.
 
-The package being reported and its repository are allowed.
+The package being reported and its repository are allowed, and so are the
+packages it declares (`dependencies`, `peerDependencies`,
+`optionalDependencies`, read from its installed `node_modules/<pkg>/package.json`,
+no network): installed from npm, they are public even when their repository is
+private. Only the bare package name is allowed, never `owner/name`.
 
 ### Application domains and extra terms
 
@@ -227,10 +233,10 @@ a name followed by a call or a member access, anything inside a path.
 | `cache.ts` | the 10-minute cache, written atomically |
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts`, `domains.ts` | rewrite `host:port`, IP literals, resolver-error host names and bare domain names to `<host>` |
-| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a name ending in `Error` or `Exception` and lower-case prose with a validation or status word after a label (`password: too short`, `token: has expired`) pass; `password: open sesame` refuses |
+| `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing; a PascalCase `…Error:` or `…Exception:` class followed by a message (`JsonWebTokenError: invalid signature`) and a status message after a label (one that opens with a status word, `invalid signature`, or is a status phrase, `too short`, `is required`, `must be at least 8 characters`) pass; `password: open sesame`, `password: must change me` and `PasswordError: hunter2` refuse; an encoder assigned to a credential name (`const secret = new TextEncoder().encode('x')`) refuses its literal (`label-values.ts`) |
 | `key-names.ts` | `key` names: a plain one (`key`, `sortKey`) refuses only key material (`Zq8w-LmP3`, `AbCdEfGh…`, `ABCD-EFGH-IJKL`); a purposeful one (`signingKey`, `accessKeyId`, `licenseKey`) or an env-style `*_KEY` refuses any literal |
 | `common-words.ts` | the English and tech words a private repository stem is never denied as |
-| `credential-pairs.ts` | credential headers set by index or as a tuple (`headers['authorization'] = …`, `new Headers([['authorization', …]])`) and `--password`, `-W`, `-p`, `-a` flags beside their value in an argument array (a port passes) |
+| `credential-pairs.ts` | credential headers set by index or as a tuple (`headers['authorization'] = …`, `new Headers([['authorization', …]])`) and `--password`, `-W`, `-p`, `-a` flags beside their value in an argument array, plus `'-pvalue'` after a database client (a port after `-p` passes unless `mysql`, `mariadb`, `psql` or `redis-cli` comes earlier on the line) |
 | `auth-calls.ts`, `literals.ts` | literal secrets handed to a credential call — a callee whose name has a part like `password`, `secret`, `key`, `token`, `hash`, `hmac`, `cipher`, `sign`, `verify`, `compare`, `encrypt`, `scrypt`, `pbkdf2`, `argon`, `bcrypt`, `login`, `auth`, or `btoa`, `encode`, `Buffer.from`, or a credential header's setter or `res.cookie` — at any depth, wherever the call sits; and the literals that are plainly not secrets (algorithm names, locale tags, role words, durations, env names, naming options; a message with a space only under a `message`, `error` or `description` key, never as a positional argument of a key call, so `verify(sig, 'Signature is invalid')` refuses; no role word, locale or env name in the key position of a sign, signature, hash, hmac, cipher, password, verify or webhook call, or the password of `login`; `encode` and `Buffer.from` refuse only a literal that looks like a credential) |
 | `code-values.ts` | when the value of a credential-named assignment is code (a call whose literals are names, a type, an env read, a fallback chain) rather than a secret |
 | `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |

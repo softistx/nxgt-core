@@ -16,6 +16,10 @@ describe('auth error names and prose after a label', () => {
 		'password: is required',
 		'token: has expired',
 		'api_key: must be set',
+		'password: must be at least 8 characters',
+		'password: cannot be empty',
+		'password: does not match',
+		'token: is invalid',
 	])('%p passes', (text) => {
 		expect({ text, secrets: secretsOf(text) }).toEqual({ text, secrets: [] });
 	});
@@ -33,6 +37,13 @@ describe('auth error names and prose after a label', () => {
 		'config:\n  password: open sesame',
 		// Trade-off: prose with no validation or status word refuses.
 		'pwd: the cwd',
+		'password: must change me',
+		'password: wrong horse battery staple',
+		'DB_PASSWORD: empty quiet river',
+		'password: fails sometimes',
+		"const secretError = 'hunter2'",
+		'PasswordError: hunter2',
+		'SessionException: abc123secretXYZ',
 	])('%p refuses', (text) => {
 		expect(secretsOf(text)).not.toEqual([]);
 	});

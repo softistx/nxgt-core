@@ -114,7 +114,7 @@ export async function fileIssue(
 	const checked = checkTexts(texts, {
 		cwd: ctx.cwd,
 		denyList,
-		allow: allowFor(resolved),
+		allow: allowFor(resolved, ctx.cwd),
 	});
 	if (!checked.ok) return printScrubRefusal(ctx, checked);
 	const { title, body, comment, search } = checked.texts;
