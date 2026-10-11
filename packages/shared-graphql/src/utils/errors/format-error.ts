@@ -45,7 +45,12 @@ export function createFormatError<
 	production?: boolean,
 ): NonNullable<ApolloServerOptions<C>['formatError']> {
 	return (formattedError, graphQLError) => {
-		const known = formatKnownError(formattedError, graphQLError, translate);
+		const known = formatKnownError(
+			formattedError,
+			graphQLError,
+			translate,
+			!production,
+		);
 		if (!production) return known ?? formattedError;
 		if (known) return withoutDebugDetails(known);
 		if (isOriginalGraphQLError(graphQLError)) {
@@ -88,10 +93,11 @@ function formatKnownError<K extends LocaleKey>(
 	formattedError: GraphQLFormattedError,
 	graphQLError: unknown,
 	translate: (message: K, context?: TranslationContext) => string,
+	debug: boolean,
 ): GraphQLFormattedError | undefined {
 	const error = unwrapResolverError(graphQLError);
 	if (isOryUnavailable(error)) {
-		const unavailable = serviceUnavailableError(error);
+		const unavailable = serviceUnavailableError(error, debug);
 		return {
 			...formattedError,
 			message: unavailable.message,
