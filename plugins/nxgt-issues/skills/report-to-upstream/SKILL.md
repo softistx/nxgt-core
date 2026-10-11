@@ -20,6 +20,22 @@ permission to file; report the URL afterwards.
 
 Every command runs from the application's checkout (or takes `--cwd <dir>`).
 
+## 0. First use in an application: its domains
+
+Look for `.nxgt-issues.json` at the repository root with an `appDomains` list.
+If it is missing or the list is empty, ask the user (AskUserQuestion) which
+domains the application uses (production, staging, admin, API), then create
+it:
+
+```json
+{ "appDomains": ["example-app.com", "admin.example-app.fr"] }
+```
+
+Every listed domain, its registrable domain and its main label are denied in
+filings. `file` warns while none is configured. Bare domain names are rewritten
+to `<host>` anyway, but a product name derived from a domain is only caught
+once the domain is listed.
+
 ## 1. Resolve
 
 ```bash
@@ -76,11 +92,15 @@ What it prints, and what to do:
 | output (exit) | meaning | next |
 | --- | --- | --- |
 | `filed <url>` (0) | a new issue | step 4 with its number |
-| `commented <url> (duplicate of #n…)` (0) | the same report existed; a comment says another consumer hit it | step 4 with `#n` |
+| `commented <url> (duplicate of #n…)` (0) | the same report existed and is open; a comment says another consumer hit it | step 4 with `#n` |
+| `commented <url> (duplicate of #n, closed)` + `fixed but not released yet` (0) | the fix is merged, not published | wait for the release; keep the workaround and its marker; step 4 with `#n` |
+| `released: #n reported this…` (0) | the fix is published; nothing was filed | bump the package to the fixed release and remove the workaround; only if it still fails on that release, run `file --new` |
+| `refused: the application repository … is public` (2) | filing from a public application could tie it to the report | ask the user (AskUserQuestion); only with their OK rerun with `--public-app` |
 | `candidates: …` (4) | open issues that may be the same | read them (`gh issue view`); same problem → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --duplicate-of <n>` with the same JSON; different → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --new` |
 | `refused: the text is not anonymous…` (3) | a private term or a credential was found | rewrite the named parts generically and run `file` again; never work around the scrub |
 | `refused: <reason>` (2) | the gate refused | tell the user; file nothing |
 | `rate-limited: …` (5) | GitHub throttled the token | tell the user when calls resume; do not retry in a loop |
+| `… was refused (permission)` on stderr (6) | the token lacks a permission | tell the user; `gh auth status` |
 
 ## 4. Track it in the application
 
@@ -96,7 +116,13 @@ labelled `upstream`, linking the upstream issue. It refuses when the
 application's repository is public, because that would tie the application to
 the anonymous issue: tell the user instead.
 
-Mark every workaround in the code with the upstream issue:
+**In a public application** (the user agreed to `--public-app`): add no
+issue-number markers and open no tracking issue without the user's explicit
+OK — both are public and point at the anonymous report. Ask; without a yes,
+mark the workaround with a plain `// Temporary: workaround for an upstream bug`
+and keep the URL in the reply to the user only.
+
+Otherwise mark every workaround in the code with the upstream issue:
 
 ```ts
 // Temporary, until @nxgt/example#12

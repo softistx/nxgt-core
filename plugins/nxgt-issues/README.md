@@ -46,7 +46,7 @@ stdin.
 | command | does |
 | --- | --- |
 | `resolve <pkg> [--json]` | prints `<pkg> -> owner/repo (public\|private, installed x, latest y)` or the refusal |
-| `file [--duplicate-of <n> \| --new]` | files the report on stdin (below) |
+| `file [--duplicate-of <n> \| --new] [--public-app]` | files the report on stdin (below) |
 | `track` | opens or refreshes the private tracking issue (stdin below) |
 | `deps <pkg> [--file]` | prints the dependencies of `<pkg>@latest` whose latest release falls outside the declared range; `--file` puts them in the rolling issue |
 | `sessions <owner/repo> [--json]` | the live nxgt-crew sessions whose repository depends on a package published from `owner/repo` (none when nxgt-crew is absent) |
@@ -72,16 +72,23 @@ stdin.
 
 What `file` does, in order:
 
-1. resolves and gates the package (as `resolve`);
-2. builds the deny-list once (below);
-3. renders the issue body, the title, the "another consumer" comment and the
+1. refuses when the application's own repository is public (read through the
+   same 24-hour gate cache), unless `--public-app` says the user agreed; a
+   repository gh cannot see (404) is not public;
+2. resolves and gates the package (as `resolve`);
+3. builds the deny-list once (below), and warns on stderr when no application
+   domain is configured;
+4. renders the issue body, the title, the "another consumer" comment and the
    search words, and scrubs each **rendered** text; any denied term or
    credential refuses the whole filing, printing the terms and the credential
    keywords to remove, never a value;
-4. dedupes: an issue labelled `consumer-report` with the same fingerprint gets
-   the comment; otherwise one keyword search lists open candidates for Claude
+5. dedupes: an open issue labelled `consumer-report` with the same fingerprint
+   gets the comment; a closed one gets it too, with a "wait for the release"
+   hint, unless it is labelled `released`: then nothing is filed and `file`
+   says to bump (`--new` files anyway, for a bug that survives the bump);
+   otherwise one keyword search lists open candidates for Claude
    to judge (`--duplicate-of <n>` comments there, `--new` files anyway);
-5. creates the missing labels (the kind and `consumer-report`) and files,
+6. creates the missing labels (the kind and `consumer-report`) and files,
    printing the URL.
 
 A `dependencies` report never opens a second issue: it edits the one rolling
@@ -94,11 +101,11 @@ with only the new rows when the package side closed it.
 | --- | --- |
 | 0 | done: filed, commented, updated, tracked, or nothing to do |
 | 1 | usage: unknown command, invalid flags or input |
-| 2 | refused by the gate (the reasons below), or `track` on a public or foreign application |
+| 2 | refused by the gate (the reasons below), `file` from a public application without `--public-app`, or `track` on a public or foreign application |
 | 3 | refused by the scrub, or the deny-list could not be built whole |
 | 4 | keyword candidates printed; nothing filed |
 | 5 | rate-limited; nothing filed |
-| 6 | another failure (gh, git), printed on stderr |
+| 6 | another failure (gh, git), printed on stderr; a 403 that is not a rate limit says `permission` |
 
 ### Refusals
 
@@ -119,10 +126,11 @@ The gate answer (`gh api repos/o/r`: owner, `has_issues`, `archived`,
 
 ### Rate limits
 
-Every gh call goes through one wrapper. A refusal for rate (HTTP 403 or 429, or
-a message that says "rate limit") writes `rateLimitedUntil` (now + 15 minutes)
+Every gh call goes through one wrapper. A refusal for rate (HTTP 429, or a
+message that says "rate limit", "secondary rate" or "abuse") writes `rateLimitedUntil` (now + 15 minutes)
 to `<home>/cache/rate-limit.json`; until then every call fails at once without
-spawning gh. A filing makes at most one search-API call (the keyword search);
+spawning gh. Any other HTTP 403 is a missing permission: it fails that call
+(exit 6) and pauses nothing. A filing makes at most one search-API call (the keyword search);
 the fingerprint lookup lists `consumer-report` issues instead of searching.
 
 ## The deny-list
@@ -137,12 +145,20 @@ again after decoding and folding separators and camelCase (see `deny.ts`).
 `file` builds it once per filing from:
 
 - the application's repository (`origin`, read from `.git/config`) and its
-  package and workspace names;
+  package and workspace names; without a GitHub `origin`, the checkout's root
+  folder name and the name of the folder holding the git common dir (the main
+  checkout of a worktree);
 - the working directory's name;
-- every private repository of the allowed owners (`gh repo list --visibility
+- every private repository of the default owners (`softistx`, `SteveGT96`)
+  and of any other owner in `NXGT_ISSUES_OWNERS` (`gh repo list --visibility
   private`, cached 24 hours in `<home>/cache/private-repos.json`; when gh fails
-  the stale copy is used, and with no copy at all nothing is filed);
-- `git config user.name` and `user.email`, the hostname, the home folder;
+  the stale copy is used, and with no copy at all nothing is filed).
+  `NXGT_ISSUES_OWNERS` narrows who receives filings, never what is denied. A
+  `gh repo list` that returns `[]` cannot be told apart from a token that sees
+  none of the owner's private repositories: check `gh auth status` and the
+  token's scopes if a private name is expected on the list;
+- `git config user.name` and `user.email` (unset is fine; a git that cannot be
+  run, or fails otherwise, refuses the filing), the hostname, the home folder;
 - the application's own domains and any extra terms from the configuration.
 
 The package being reported and its repository are allowed.
@@ -160,6 +176,17 @@ read from, and merged across:
 - `NXGT_ISSUES_APP_DOMAINS` and `NXGT_ISSUES_DENY_TERMS`, comma-separated.
 
 A domain adds itself, its registrable domain and that domain's main label.
+The skill creates `.nxgt-issues.json` on first use in an application, asking
+the user for the domains.
+
+Independently of the configuration, the scrub rewrites any dotted name ending
+in a common TLD (`com`, `net`, `org`, `io`, `dev`, `app`, `fr`, `ca`, `co`,
+`uk`, `de`, `eu`, `us`, `me`, `ai`, `cloud`, `tech`, `xyz`, …) to `<host>`
+(`myeduapp.com`, `admin.myeduapp.fr`), except `github.com`, `npmjs.com`,
+`npmjs.org`, `registry.npmjs.org`, `nodejs.org`, `bun.sh`, `mozilla.org`,
+`developer.mozilla.org` and the RFC 2606 `example.com|net|org` names. Code is
+left alone: `index.ts`, `process.env`, `Promise.all`, `this.app`, a name
+followed by a call, a member access or a path.
 
 ## What the library holds
 
@@ -174,6 +201,7 @@ A domain adds itself, its registrable domain and that domain's main label.
 | `scrub.ts` | the anonymity pass: transforms, then a deny-list check that refuses a filing on any hit or on a credential assignment |
 | `hosts.ts` | rewrites `host:port`, IP literals and resolver-error host names to `<host>` |
 | `secrets.ts` | known token shapes, and the credential assignments, headers, flags and key blocks that refuse a filing |
+| `auth-calls.ts` | literal secrets handed to `hash`, `compare`, `sign`, `verify`, `encrypt`, `decrypt`, `createHmac`, `login`, `signIn`, `authenticate`, wherever the call sits |
 | `code-values.ts` | when the value of a credential-named assignment is code (a call whose literals are names, a type, an env read, a fallback chain) rather than a secret |
 | `deny.ts`, `deny-terms.ts`, `fold.ts` | the deny-list and its search, with the normalization that catches `secret_app`, `Secret App`, `secret&#45;app`... |
 | `fingerprint.ts` | the duplicate fingerprint of a report |
@@ -182,10 +210,10 @@ A domain adds itself, its registrable domain and that domain's main label.
 | `github.ts`, `github-issues.ts` | every gh call, with the rate-limit pause |
 | `labels.ts` | the labels and `ensureLabels` |
 | `crew-registry.ts` | a read-only copy of nxgt-crew's registry reader and liveness rule |
-| `workspaces.ts` | a repository's manifests and their dependencies |
+| `workspaces.ts` | a repository's manifests, their dependencies, and an installed dependency's manifest |
 | `deny-sources.ts` | where a filing's deny-list comes from, and the configuration |
 | `report.ts` | the stdin JSON of `file` |
-| `cli.ts`, `cli-context.ts`, `filing.ts`, `file.ts`, `deps.ts`, `deps-behind.ts`, `track.ts`, `sessions.ts` | the commands |
+| `cli.ts`, `cli-context.ts`, `filing.ts`, `file.ts`, `file-checks.ts`, `deps.ts`, `deps-behind.ts`, `track.ts`, `sessions.ts` | the commands |
 
 The `issue-body.ts` templates do not scrub. `file` renders the whole body (and
 the duplicate comment) and runs `scrub()` on the rendered text, refusing on

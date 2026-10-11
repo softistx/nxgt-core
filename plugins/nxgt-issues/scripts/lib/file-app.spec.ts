@@ -14,7 +14,7 @@ import {
 afterAll(removeTempDirs);
 
 import { EXIT } from './cli-context';
-import { fileCommand } from './file';
+import { fileCommand, searchQuery } from './file';
 import { fingerprint, fingerprintMarker } from './fingerprint';
 
 const appRepo = (over: Record<string, unknown>) => ({
@@ -175,7 +175,23 @@ describe('file: a closed issue with the same fingerprint', () => {
 	});
 });
 
-describe('file: flags', () => {
+describe('file: flags, allowed names, search words', () => {
+	test('the package and its repository may be named', async () => {
+		const h = harness({
+			cwd: makeApp(),
+			stdin: report({
+				summary: 'In @nxgt/widget (softistx/nxgt-widget, nxgt-widget).',
+			}),
+		});
+		expect(await fileCommand(h.ctx, {})).toBe(EXIT.ok);
+	});
+
+	test('searchQuery keeps at most six plain words', () => {
+		expect(searchQuery('a "parse()" drops, the last item of lists x')).toBe(
+			'parse drops the last item lists',
+		);
+	});
+
 	test.each([
 		[['file', '--duplicate-of']],
 		[['file', '--duplicate-of', '--new']],

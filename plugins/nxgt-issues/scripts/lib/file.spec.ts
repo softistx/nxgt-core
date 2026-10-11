@@ -11,7 +11,7 @@ import {
 afterAll(removeTempDirs);
 
 import { EXIT } from './cli-context';
-import { fileCommand, searchQuery } from './file';
+import { fileCommand } from './file';
 import { fingerprint, fingerprintMarker } from './fingerprint';
 
 const issue = (number: number, body: string, state = 'OPEN') => ({
@@ -62,12 +62,6 @@ describe('file: a new report', () => {
 		expect(searches).toHaveLength(1);
 		expect(searches[0]?.argv).toContain('parse last item');
 	});
-
-	test('searchQuery keeps at most six plain words', () => {
-		expect(searchQuery('a "parse()" drops, the last item of lists x')).toBe(
-			'parse drops the last item lists',
-		);
-	});
 });
 
 describe('file: the rendered texts are scrubbed', () => {
@@ -107,16 +101,6 @@ describe('file: the rendered texts are scrubbed', () => {
 		const text = h.out.join('\n');
 		expect(text).toContain('password');
 		expect(text).not.toContain('hunter2');
-	});
-
-	test('the package and its repository may be named', async () => {
-		const h = harness({
-			cwd: makeApp(),
-			stdin: report({
-				summary: 'In @nxgt/widget (softistx/nxgt-widget, nxgt-widget).',
-			}),
-		});
-		expect(await fileCommand(h.ctx, {})).toBe(EXIT.ok);
 	});
 });
 

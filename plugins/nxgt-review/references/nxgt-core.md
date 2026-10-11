@@ -137,6 +137,10 @@ From the table in `AGENTS.md`:
   `ci.yml` — nxgt-data's copy, not shared.
 - `plugins/{nxgt-autonomy,nxgt-crew,nxgt-economy,nxgt-docs,nxgt-issues}/scripts/lib/hook.ts`
   — the hook shell copied in each plugin, since each installs on its own.
+- `plugins/nxgt-issues/scripts/lib/crew-registry.ts` — a read-only copy of
+  nxgt-crew's `store.ts`, `record.ts`, `settings.ts`, `liveness.ts` and
+  `system.ts` (reader, record check, knobs, liveness, pid probe); its record
+  check is looser on purpose.
 - `LICENSE` at the root and in every `packages/*/`.
 - `stx-sdk` as a peer of `shared-hono` and `shared-graphql`, and a root
   devDependency.
