@@ -1,7 +1,8 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import type { Ory, OryPrincipal } from '@nxgt/ory-sdk';
 import { OryUnavailable } from '@nxgt/ory-sdk';
 import { createSchema, createYoga } from 'graphql-yoga';
+import { createMaskError } from '../utils/errors/mask-error';
 import { resolveOryPrincipal, useOryAuth } from './ory-auth';
 
 const expiry = new Date('2026-09-07T12:00:00.000Z');
@@ -119,5 +120,73 @@ describe('useOryAuth — an anonymous request clears what the context factory se
 			expect(seen[key]).toBe(undefined);
 			expect(key in seen).toBe(true);
 		}
+	});
+});
+
+describe('useOryAuth — an outage during context building, behind createMaskError', () => {
+	const outage = async () => {
+		const yoga = createYoga<object, never>({
+			schema: createSchema<never>({
+				typeDefs: 'type Query { ok: Boolean }',
+				resolvers: { Query: { ok: () => true } },
+			}),
+			maskedErrors: { maskError: createMaskError(), isDev: false },
+			logging: false,
+			plugins: [
+				useOryAuth(
+					stubOry(async () => {
+						throw new OryUnavailable('keto', 500, 'keto answered 500');
+					}),
+				) as never,
+			],
+		});
+		const response = await yoga.fetch('http://api.test/graphql', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ query: '{ ok }' }),
+		});
+		return { status: response.status, text: await response.text() };
+	};
+
+	test('answers 503 SERVICE_UNAVAILABLE and leaks no debugMessage', async () => {
+		const { status, text } = await outage();
+		expect(status).toBe(503);
+		expect(text).toContain('SERVICE_UNAVAILABLE');
+		expect(text).not.toContain('keto answered 500');
+		expect(text).not.toContain('debugMessage');
+	});
+
+	describe('debugMessage follows NODE_ENV, and only `development` counts', () => {
+		const original = process.env['NODE_ENV'];
+		afterEach(() => {
+			if (original === undefined) delete process.env['NODE_ENV'];
+			else process.env['NODE_ENV'] = original;
+		});
+
+		test('development: debugMessage is present', async () => {
+			process.env['NODE_ENV'] = 'development';
+			const { status, text } = await outage();
+			expect(status).toBe(503);
+			expect(text).toContain('keto answered 500');
+			expect(text).toContain('debugMessage');
+		});
+
+		test('production: debugMessage is absent', async () => {
+			process.env['NODE_ENV'] = 'production';
+			const { text } = await outage();
+			expect(text).not.toContain('debugMessage');
+		});
+
+		test('unset: debugMessage is absent', async () => {
+			delete process.env['NODE_ENV'];
+			const { text } = await outage();
+			expect(text).not.toContain('debugMessage');
+		});
+
+		test('test: debugMessage is absent (a leak, unlike the Sandbox)', async () => {
+			process.env['NODE_ENV'] = 'test';
+			const { text } = await outage();
+			expect(text).not.toContain('debugMessage');
+		});
 	});
 });

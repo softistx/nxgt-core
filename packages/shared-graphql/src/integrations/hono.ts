@@ -42,9 +42,44 @@ const honoLanguage = () => {
 	return typeof language === 'string' ? language : undefined;
 };
 
-type HonoYogaOptions = {
-	sandbox?: RenderSandboxOptions & { endpoint?: string };
+/** The Sandbox page `createYogaHono` serves, and where. */
+export type YogaHonoSandboxOptions = RenderSandboxOptions & {
+	/** The route of the page: `sandbox` by default. */
+	endpoint?: string;
+	/**
+	 * Whether the page is served. By default it is served only when
+	 * `NODE_ENV` is `development` or `test`; unset or anything else, it is not.
+	 */
+	enabled?: boolean;
 };
+
+export type HonoYogaOptions = {
+	/**
+	 * The Apollo Sandbox page. `true` serves it and `false` does not, in any
+	 * environment; page options configure it, served or not by `enabled`.
+	 * Left out — or without `enabled` — it is served only when `NODE_ENV` is
+	 * explicitly `development` or `test` (read when `createYogaHono` is
+	 * called): unset, or any other value, answers 404. A dev setup with
+	 * `NODE_ENV` unset sets `NODE_ENV=development` or passes `sandbox: true`.
+	 */
+	sandbox?: boolean | YogaHonoSandboxOptions;
+};
+
+const servedByDefault = () =>
+	process.env['NODE_ENV'] === 'development' ||
+	process.env['NODE_ENV'] === 'test';
+
+/** The Sandbox's page options, or `undefined` when it is not served. */
+function sandboxOptions(
+	sandbox: HonoYogaOptions['sandbox'],
+): YogaHonoSandboxOptions | undefined {
+	const options = typeof sandbox === 'object' ? sandbox : {};
+	const enabled =
+		typeof sandbox === 'boolean'
+			? sandbox
+			: (options.enabled ?? servedByDefault());
+	return enabled ? options : undefined;
+}
 
 export function honoYoga<
 	ServerContext extends Partial<YogaInitialContext>,
@@ -81,13 +116,14 @@ export function createYogaHono<
 		return ctx.json({ status: 'ok' }, 200);
 	});
 
-	app.get(
-		options?.sandbox?.endpoint || 'sandbox',
-		sandboxExplorer({
-			graphqlEndpoint: yoga.graphqlEndpoint,
-			...options?.sandbox,
-		}),
-	);
+	const sandbox = sandboxOptions(options?.sandbox);
+	if (sandbox) {
+		const { endpoint, enabled: _, ...page } = sandbox;
+		app.get(
+			endpoint || 'sandbox',
+			sandboxExplorer({ graphqlEndpoint: yoga.graphqlEndpoint, ...page }),
+		);
+	}
 
 	app.use(yoga.graphqlEndpoint, honoYoga(yoga));
 

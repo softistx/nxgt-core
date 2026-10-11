@@ -63,9 +63,17 @@ new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 | `CustomException.notFound()` | `NOT_FOUND` | 404 | translated key |
 | any other `CustomException` | its `errorCode` | its status | translated key |
 | a Mongoose error | through `castError` | its status | translated key |
-| `OryUnavailable` | `SERVICE_UNAVAILABLE` | 503 | `ory: keto is unavailable` |
+| `OryUnavailable` | `SERVICE_UNAVAILABLE` | 503 | `ory: keto is unavailable` (`debugMessage` per the rule below) |
 | a `GraphQLError` thrown on purpose | its own | its own | its own |
 | a plain `Error` a resolver threw | `INTERNAL_SERVER_ERROR` | — | the mask message |
+
+`debugMessage` is a development aid and never reaches a client in production. Which switch decides depends on where the error comes from:
+
+- a resolver error, through `createMaskError`: the `isDev` the app passes to `maskedErrors`;
+- `useOryAuth`'s outage (thrown while the context is built): `NODE_ENV === 'development'` only. `test` does not count, because this is a leak to a client; the Sandbox page, a convenience, also accepts `test`;
+- Apollo, through `createFormatError`: its `production` argument (left out means debug).
+
+`debugMessage` (and an unexpected error's original) reach the client only when Yoga's `isDev` is true, and Yoga does not derive `isDev` from `NODE_ENV` for a custom `maskError`: pass `maskedErrors: { maskError, isDev: process.env.NODE_ENV === 'development' }`.
 
 ```json
 {
@@ -87,14 +95,51 @@ decides it.
 | Thrown | `extensions.code` | message |
 | --- | --- | --- |
 | a `denial()` | its code (`http.status` answers the transport) | its key, translated with your `translate` |
-| a `CustomException` or a Mongoose error | its `errorCode` (plus `debugMessage`) | translated key |
+| a `CustomException` or a Mongoose error | its `errorCode` (plus `debugMessage` outside production) | translated key |
 | `OryUnavailable` | `SERVICE_UNAVAILABLE`, `http: { status: 503 }` in `extensions` | `ory: keto is unavailable` |
-| an Apollo validation or parse error | its own | translated `errors.<code>` |
-| anything else | as Apollo formats it | as Apollo formats it — not masked here |
+| an Apollo validation or parse error | its own (plus `debugMessage` outside production) | translated `errors.<code>` |
+| a `GraphQLError` thrown on purpose | its own | its own |
+| anything else, outside production | as Apollo formats it | as Apollo formats it |
+| anything else, in production | `INTERNAL_SERVER_ERROR` | `Unexpected error.` |
 
 `formatError` shapes the error body; it does not set the response's status,
 so `http.status` is information for the client, not the transport's answer.
-The stack trace is removed when the second argument, `production`, is true.
+
+### In production
+
+The second argument, `production`, hides every internal detail from the
+client:
+
+- an unexpected error — a plain `Error` a resolver threw, or anything thrown
+  that is not an `Error` — answers `Unexpected error.` with
+  `INTERNAL_SERVER_ERROR`, its `path` and `locations` kept, as
+  `createMaskError` masks it under Yoga;
+- no error carries `extensions.debugMessage` or `extensions.stacktrace`,
+  whatever set them — a `CustomException`'s `debugMessage`, the text of an
+  Apollo validation error, an outage's cause, a `GraphQLError` of your own.
+
+```ts
+new ApolloServer({
+	formatError: createFormatError(translate, process.env.NODE_ENV === 'production'),
+});
+```
+
+```json
+{
+	"errors": [
+		{
+			"message": "Unexpected error.",
+			"locations": [{ "line": 1, "column": 3 }],
+			"path": ["note"],
+			"extensions": { "code": "INTERNAL_SERVER_ERROR" }
+		}
+	]
+}
+```
+
+Left out or `false`, the client receives everything above, `debugMessage` and
+the stack trace included. Log on the server what you need to read there: the
+client no longer carries it in production.
 
 ## An outage is a 503, never a denial
 
@@ -108,29 +153,32 @@ It is recognised by class, and also by its name and shape: an install that
 ends up with two copies of `@nxgt/ory-sdk` throws an `OryUnavailable` whose
 class is not the one this package imported, and that must still be a 503
 rather than a masked 500. `isOryUnavailable(error)` is the test, and
-`serviceUnavailableError(error)` builds the 503 `GraphQLError` both use —
-exported for a server that writes its own `maskError`:
+`serviceUnavailableError(error, debug = false)` builds the 503 `GraphQLError` both
+use (`debugMessage` only when `debug` is true) — exported for a server that writes its own `maskError`:
 
 ```ts
 import { isOryUnavailable, serviceUnavailableError } from '@nxgt/shared-graphql';
 import { GraphQLError } from 'graphql';
 import type { MaskError } from 'graphql-yoga';
 
-const maskError: MaskError = (error, message) => {
+const maskError: MaskError = (error, message, isDev) => {
 	const original = error instanceof GraphQLError ? error.originalError : error;
-	if (isOryUnavailable(original)) return serviceUnavailableError(original);
+	if (isOryUnavailable(original)) return serviceUnavailableError(original, isDev === true);
 	// …
 };
 ```
 
 `oryUnavailableError`, which `useOryAuth` throws when it cannot resolve the
-caller, is the same function under its older name.
+caller, wraps `serviceUnavailableError` and adds the rule that decides
+`debugMessage` there: `process.env.NODE_ENV === 'development'`.
 
 ## Internal messages stay internal
 
 graphql-js wraps every error a resolver throws in a `GraphQLError`. A wrapper
 around a plain `Error` — a driver's `connect ECONNREFUSED 10.0.0.5:27017` — is
 replaced by the mask message, as Yoga's default mask does; its `path` is kept.
-In development (`isDev`) the original is in `extensions.debugMessage`.
+In development (`isDev`) the original is in `extensions.debugMessage`; Yoga does not
+derive `isDev` from `NODE_ENV` for a custom `maskError`, so pass
+`maskedErrors: { maskError, isDev: process.env.NODE_ENV === 'development' }`.
 
 A `GraphQLError` you throw yourself, and every validation error, passes as is.

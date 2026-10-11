@@ -29,6 +29,21 @@ Nothing planned that changes what a consumer gets. See Later.
 
 ## Shipped
 
+### 3.2
+
+- **`debugMessage` only in development**: `createMaskError` sends a
+  `CustomException`'s and an outage's `debugMessage` only when Yoga's `isDev`
+  is on, and `useOryAuth`'s outage only when `NODE_ENV` is `development`.
+  `serviceUnavailableError(error, debug = false)` takes the matching `debug`
+  parameter and adds `debugMessage` only when it is true.
+- **The Sandbox page off unless in development**: `createYogaHono` serves it
+  only when `NODE_ENV` is explicitly `development` or `test` (unset or
+  anything else answers 404), and `sandbox: true` (or `enabled: true` beside
+  its options) serves it in every environment.
+- **`createFormatError`'s production mode hides internal detail**: an
+  unexpected error answers `Unexpected error.`, and no error carries
+  `debugMessage` or a stack trace.
+
 ### 3.0 — [migration guide](./guide/migrating-to-3.md)
 
 - **The caller comes from a verified source only**: `useAuth()` and

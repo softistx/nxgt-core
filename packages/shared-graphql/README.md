@@ -234,8 +234,17 @@ status and translated message; `OryUnavailable` into `SERVICE_UNAVAILABLE`
 
 Under Apollo, `createFormatError` sets the `code` and the translated message
 (and `SERVICE_UNAVAILABLE` for an outage, with `http.status` in `extensions`
-only — `formatError` cannot change the transport status). It masks nothing
-Apollo would not.
+only — `formatError` cannot change the transport status). Pass `true` as its
+second argument in production, and the client reads no internal detail: an
+unexpected error answers `Unexpected error.` with `INTERNAL_SERVER_ERROR`, as
+`createMaskError` masks it, and no error carries `debugMessage` or a stack
+trace.
+
+```ts
+new ApolloServer({
+	formatError: createFormatError(translate, process.env.NODE_ENV === 'production'),
+});
+```
 
 ## Plugins and context
 
@@ -261,6 +270,24 @@ Hono. `sandboxExplorer` serves Apollo Sandbox, started at the GraphQL endpoint
 of the server that served the page — the request's own origin, behind a proxy
 and over HTTPS alike — unless `port`, `hostname`, `protocol` or a whole
 `initialEndpoint` pins it; `createYogaHono` points it at `yoga.graphqlEndpoint`.
+
+`createYogaHono` serves that page at `/sandbox` only when `NODE_ENV` is
+explicitly `development` or `test`, read when it is called: unset, or any other
+value, the route answers 404. A dev setup with `NODE_ENV` unset sets
+`NODE_ENV=development` or passes `sandbox: true`, which serves it in every
+environment (`sandbox: false` in none); page options configure it, and their
+`enabled` decides the same way. Yoga's own GraphiQL at `/graphql` is on in
+every environment unless `createYoga({ graphiql: false })` (or
+`graphiql: process.env.NODE_ENV === 'development'`); `createYogaHono` does not
+control it.
+
+```ts
+createYogaHono(yoga); // the Sandbox when NODE_ENV is development or test
+createYogaHono(yoga, { sandbox: { port: env.PORT } }); // configured, same default
+createYogaHono(yoga, { sandbox: true }); // whatever NODE_ENV is
+createYogaHono(yoga, { sandbox: { endpoint: 'explore', enabled: true } });
+```
+
 Subscriptions go over Redis
 (`graphql-subscriptions` is re-exported). `DataLoader` is re-exported so a
 subgraph does not take a second copy.

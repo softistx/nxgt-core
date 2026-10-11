@@ -207,7 +207,12 @@ The same, from `can`.
 
 Keto (or Kratos, Hydra — the name varies) did not answer. This is on
 purpose: an outage is never turned into a denial or an anonymous caller. The
-client can retry; `extensions.debugMessage` carries what the SDK saw.
+client can retry; `extensions.debugMessage` carries what the SDK saw, in
+development only. What counts as development depends on the path: a Yoga
+resolver error follows the `isDev` the app passes to `maskedErrors`;
+`useOryAuth` follows `NODE_ENV === 'development'` (unset, `production` and
+`test` add nothing); Apollo follows `createFormatError`'s `production`
+argument (left out means debug).
 
 ### A denial's message reads `notes.errors.not-found`
 
@@ -236,7 +241,38 @@ above, or throw `denial(code, message)` from the resolver.
 does. Throw a `CustomException`, a `denial()` or a `GraphQLError` for a
 message meant for the caller.
 
+### `Unexpected error.` from Apollo Server, and no `debugMessage`, in production
+
+`createFormatError(translate, true)` masks an unexpected error and removes
+every `extensions.debugMessage` and `extensions.stacktrace` in production: a
+client reads no internal detail. Read the cause in the server's log — an
+Apollo plugin's `didEncounterErrors` sees the original error — and throw a
+`CustomException`, a `denial()` or a `GraphQLError` for a message meant for
+the caller. Outside production, pass `false` or leave the argument out.
+
 ## Traps that throw nothing
+
+### The Sandbox page answers 404
+
+`GET /sandbox` answers `404 Not Found` from an app mounted with
+`createYogaHono`, while `/graphql` answers. The Sandbox page is served by
+default only when `NODE_ENV` is explicitly `development` or `test`, read when
+`createYogaHono` is called: with `NODE_ENV` unset, or `production`, or any
+other value, it is not mounted, page options such as `sandbox: { port }`
+included. In a dev setup, set `NODE_ENV=development`, or say so:
+
+```ts
+createYogaHono(yoga, { sandbox: true });
+// or, keeping its options
+createYogaHono(yoga, { sandbox: { endpoint: 'explore', enabled: true } });
+```
+
+Also check that `sandbox` is not `false`.
+
+Yoga's own GraphiQL at `/graphql` is on in every environment unless
+`createYoga({ graphiql: false })` (or
+`graphiql: process.env.NODE_ENV === 'development'`); `createYogaHono` does not
+control it.
 
 ### Every caller is anonymous behind the gateway
 
