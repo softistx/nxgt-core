@@ -1,6 +1,7 @@
 /** What `markers` reports about each marker. */
 
 import type { ExitCode } from './cli-context';
+import type { MarkerTarget } from './markers';
 
 export type MarkerStatus = 'ready' | 'unresolvable' | 'untracked' | 'waiting';
 
@@ -28,4 +29,24 @@ export interface Judged {
 	readonly report: MarkerReport;
 	/** `owner/repo#n` when the upstream resolved. */
 	readonly upstream?: string;
+	readonly target: MarkerTarget;
+}
+
+/**
+ * The release version, when the comment is about what the marker waits for:
+ * a package marker needs the comment's package to be the same; an
+ * `owner/repo#n` marker names no package, so the version stays.
+ */
+export function versionFor(
+	target: MarkerTarget,
+	fix: { package: string; version: string } | undefined,
+): { version: string } | Record<string, never> {
+	if (!fix) return {};
+	if (
+		target.kind === 'package' &&
+		target.name.toLowerCase() !== fix.package.toLowerCase()
+	) {
+		return {};
+	}
+	return { version: fix.version };
 }

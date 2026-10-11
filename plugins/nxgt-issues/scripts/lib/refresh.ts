@@ -40,8 +40,9 @@ export interface TrackingIssue {
 	readonly lastComment?: string;
 	/** The comment author's `authorAssociation` (OWNER, MEMBER, NONE…). */
 	readonly lastCommentBy?: string;
-	/** The comment author's login (the release bot is trusted by it). */
+	/** The comment author's login and GraphQL type (`Bot` for the release bot, whose login is `github-actions`). */
 	readonly lastCommentLogin?: string;
+	readonly lastCommentAuthorType?: string;
 }
 
 /** What one upstream issue says now. */
@@ -51,6 +52,7 @@ export interface UpstreamIssue {
 	readonly lastComment?: string;
 	readonly lastCommentBy?: string;
 	readonly lastCommentLogin?: string;
+	readonly lastCommentAuthorType?: string;
 }
 
 export interface Snapshot {
@@ -102,7 +104,7 @@ export function upstreamQuery(
 ): string {
 	const fields = refs.map(
 		(ref, i) =>
-			`u${i}:repository(owner:"${ref.repo.owner}",name:"${ref.repo.repo}"){issue(number:${ref.number}){state labels(first:10){nodes{name}} comments(last:1){nodes{body authorAssociation author{login}}}}}`,
+			`u${i}:repository(owner:"${ref.repo.owner}",name:"${ref.repo.repo}"){issue(number:${ref.number}){state labels(first:10){nodes{name}} comments(last:1){nodes{body authorAssociation author{__typename login}}}}}`,
 	);
 	return `query{${fields.join('\n')}}`;
 }
@@ -125,13 +127,16 @@ export async function fetchUpstream(
 		const last = nodes(issue['comments'])[0];
 		const comment = text(last?.['body']).slice(0, 300);
 		const by = text(last?.['authorAssociation']);
-		const login = text(obj(last?.['author'])['login']);
+		const author = obj(last?.['author']);
+		const login = text(author['login']);
+		const type = text(author['__typename']);
 		return {
 			...(state === 'OPEN' || state === 'CLOSED' ? { state } : {}),
 			labels: labelNames(issue),
 			...(comment ? { lastComment: comment } : {}),
 			...(comment && by ? { lastCommentBy: by } : {}),
 			...(comment && login ? { lastCommentLogin: login } : {}),
+			...(comment && type ? { lastCommentAuthorType: type } : {}),
 		};
 	});
 }
@@ -194,6 +199,9 @@ export async function refreshRepo(
 				: {}),
 			...(issue?.lastComment && issue.lastCommentLogin
 				? { lastCommentLogin: issue.lastCommentLogin }
+				: {}),
+			...(issue?.lastComment && issue.lastCommentAuthorType
+				? { lastCommentAuthorType: issue.lastCommentAuthorType }
 				: {}),
 		};
 	});

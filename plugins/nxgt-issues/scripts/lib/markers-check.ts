@@ -25,6 +25,7 @@ import {
 	type Judged,
 	MarkerLookupError,
 	type MarkerReport,
+	versionFor,
 } from './markers-types';
 import type { Snapshot } from './refresh';
 import { formatRepo, repoOfDirectory } from './repo-id';
@@ -96,7 +97,10 @@ async function judge(
 				'problem' in resolution
 					? resolution.problem
 					: 'issue number out of range';
-			out.push({ report: { ...base, status: 'unresolvable', detail } });
+			out.push({
+				report: { ...base, status: 'unresolvable', detail },
+				target: marker.target,
+			});
 			continue;
 		}
 		const upstream = `${resolution.repo}#${marker.number}`;
@@ -105,17 +109,20 @@ async function judge(
 		if (done) {
 			const fix = releaseFix(done);
 			const detail = `fixed and released; remove it (tracking #${done.number})`;
-			const version = fix ? { version: fix.version } : {};
-			out.push({
-				report: { ...base, status: 'ready', detail, ...version },
-				upstream,
-			});
+			const version = versionFor(marker.target, fix);
+			const report: MarkerReport = {
+				...base,
+				status: 'ready',
+				detail,
+				...version,
+			};
+			out.push({ report, upstream, target: marker.target });
 		} else {
 			const detail = `no open tracking issue of this repository links ${upstream}`;
 			const report: MarkerReport = tracked
 				? { ...base, status: 'waiting' }
 				: { ...base, status: 'untracked', detail };
-			out.push({ report, upstream });
+			out.push({ report, upstream, target: marker.target });
 		}
 	}
 	return out;

@@ -63,6 +63,7 @@ describe('markers', () => {
 
 	test('unresolvable: an unknown package and a repository gh cannot see', async () => {
 		const h = seeded({
+			fetch: [{ url: 'ghost', throws: 'HTTP 404' }],
 			run: [
 				{
 					argv: ['gh', 'api', 'repos/softistx/gone'],

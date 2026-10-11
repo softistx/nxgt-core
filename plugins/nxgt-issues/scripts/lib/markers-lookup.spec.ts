@@ -26,7 +26,7 @@ const upstream = (state: string, labels: string[], comment?: string) => ({
 										{
 											body: comment,
 											authorAssociation: 'NONE',
-											author: { login: 'github-actions[bot]' },
+											author: { __typename: 'Bot', login: 'github-actions' },
 										},
 									]
 								: [],
@@ -129,6 +129,41 @@ describe('markers: a public application has no tracking issues', () => {
 	});
 });
 
+describe('markers: edges', () => {
+	test('a registry that cannot be reached exits 6', async () => {
+		const h = seeded({
+			fetch: [{ url: 'ghost', throws: 'timeout' }],
+			run: [grep('src/a.ts:1:// Temporary, until @nxgt/ghost#3\n')],
+		});
+		expect(await main(h.ctx, ['markers'])).toBe(EXIT.failed);
+	});
+
+	test('the version is taken only when the comment is about the marker package', async () => {
+		const h = seeded({
+			fetch: [
+				{
+					url: '/@nxgt%2Fother/',
+					json: { version: '1.0.0', repository: 'github:softistx/nxgt-widget' },
+				},
+			],
+			run: [
+				grep(
+					[
+						'a.ts:1:// Temporary, until @nxgt/other#12',
+						'b.ts:2:// Temporary, until @nxgt/widget#12',
+						'c.ts:3:// Temporary, until softistx/nxgt-widget#12',
+					].join('\n'),
+				),
+			],
+		});
+		await main(h.ctx, ['markers', '--json']);
+		const versions = JSON.parse(h.out.join('\n')).map(
+			(r: { version?: string }) => r.version,
+		);
+		expect(versions).toEqual([undefined, '1.4.0', '1.4.0']);
+	});
+});
+
 describe('markers --exclude', () => {
 	test('is passed to git grep as an exclude pathspec, repeatable', async () => {
 		const h = seeded({ run: [grep('', 1)], now: NOW });
@@ -147,6 +182,16 @@ describe('markers --exclude', () => {
 			':(exclude)docs',
 			':(exclude)**/*.fixtures.ts',
 		]);
+	});
+
+	test('the = form is accepted, and an empty one is a usage error', async () => {
+		const h = seeded({ run: [grep('', 1)] });
+		expect(await main(h.ctx, ['markers', '--exclude=docs'])).toBe(EXIT.ok);
+		expect(callsOf(h.runner, 'git', 'grep')[0]?.argv.slice(-2)).toEqual([
+			'--',
+			':(exclude)docs',
+		]);
+		expect(await main(h.ctx, ['markers', '--exclude='])).toBe(EXIT.usage);
 	});
 
 	test('a missing value is a usage error', async () => {

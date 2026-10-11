@@ -40,8 +40,8 @@ const RELEASE_COMMENT = new RegExp(
 );
 /** Who may speak for the release: the repository's own people. */
 const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
-/** The CI release step posts as this bot, with association CONTRIBUTOR or NONE. */
-const RELEASE_BOT = 'github-actions[bot]';
+/** The CI release step posts as this bot (GraphQL names it `github-actions`, type `Bot`; REST adds `[bot]`), with association CONTRIBUTOR or NONE. */
+const RELEASE_BOT = 'github-actions';
 
 const days = (from: string, now: number): number => {
 	const time = Date.parse(from);
@@ -90,14 +90,18 @@ function issueLine(issue: PackageIssue, now: number): string {
 export function releaseFix(
 	issue: Pick<
 		TrackingIssue,
-		'lastComment' | 'lastCommentBy' | 'lastCommentLogin'
+		| 'lastComment'
+		| 'lastCommentBy'
+		| 'lastCommentLogin'
+		| 'lastCommentAuthorType'
 	>,
 ): { package: string; version: string; comment: string } | undefined {
 	// The release step writes the sentence, a blank line and a hidden marker: only the first line counts.
 	const comment = issue.lastComment?.split('\n', 1)[0]?.trim();
 	const trusted =
 		TRUSTED.has(issue.lastCommentBy ?? '') ||
-		issue.lastCommentLogin === RELEASE_BOT;
+		(issue.lastCommentLogin === RELEASE_BOT &&
+			issue.lastCommentAuthorType === 'Bot');
 	if (!comment || !trusted) return undefined;
 	const match = RELEASE_COMMENT.exec(comment);
 	if (!match?.[1] || !match[2]) return undefined;

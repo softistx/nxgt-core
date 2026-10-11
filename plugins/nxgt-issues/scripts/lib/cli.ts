@@ -90,15 +90,17 @@ async function depsCommand(
 	}
 }
 
-/** Every value of a repeatable `--flag <value>`; undefined when one has none. */
+/** Every value of a repeatable `--flag <value>` or `--flag=<value>`; undefined when one has none. */
 export function optionValues(
 	args: readonly string[],
 	flag: string,
 ): string[] | undefined {
 	const values: string[] = [];
 	for (const [i, arg] of args.entries()) {
-		if (arg !== flag) continue;
-		const value = args[i + 1];
+		let value: string | undefined;
+		if (arg === flag) value = args[i + 1];
+		else if (arg.startsWith(`${flag}=`)) value = arg.slice(flag.length + 1);
+		else continue;
 		if (!value || value.startsWith('--')) return undefined;
 		values.push(value);
 	}

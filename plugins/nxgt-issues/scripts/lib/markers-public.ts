@@ -2,7 +2,7 @@
 
 import type { CliContext } from './cli-context';
 import { releaseFix } from './context';
-import type { Judged, MarkerReport } from './markers-types';
+import { type Judged, type MarkerReport, versionFor } from './markers-types';
 import { fetchUpstream, type UpstreamIssue } from './refresh';
 
 export async function lookUpPublic(
@@ -25,7 +25,7 @@ export async function lookUpPublic(
 	(await fetchUpstream(ctx, refs)).forEach((issue, i) => {
 		found.set(wanted[i] ?? '', issue);
 	});
-	return judged.map(({ report, upstream }) => {
+	return judged.map(({ report, upstream, target }) => {
 		if (report.status !== 'untracked' || !upstream) return report;
 		const issue = found.get(upstream);
 		const note = report.detail;
@@ -49,7 +49,7 @@ export async function lookUpPublic(
 				detail:
 					'fixed and released; remove it (no tracking issue: public application)',
 				...(note ? { note } : {}),
-				...(fix ? { version: fix.version } : {}),
+				...versionFor(target, fix),
 			};
 		}
 		return { ...base, status: 'waiting', ...(note ? { note } : {}) };

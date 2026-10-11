@@ -56,7 +56,7 @@ report shows:
 **A public application has no tracking issues** (they would tie it to the
 anonymous report): `ready --json` is `[]` there, and `markers` reads the
 upstream issue directly. It adopts from the markers alone: `ready` markers
-carry `package` and `version` when the release comment is there, otherwise read
+carry `version` when the release comment is there, otherwise read
 the upstream issue or the registry.
 
 ## 3. Bump, remove, verify
@@ -79,9 +79,10 @@ the upstream issue or the registry.
 
 Open the PR, titled and committed by the repository's own convention (say what
 was adopted: `<package>@<version>`). The body lists what was removed, the green
-bar, and `Closes #<tracking>` for each tracking issue: the application's
-default branch is `develop`, so the merge closes them. After the merge, comment
-on each:
+bar, and `Closes #<tracking>` for each tracking issue. That closes them at
+the merge only when the PR targets the repository's default branch; for any
+other base, close each by hand (`gh issue close <tracking>`) after the merge.
+Then comment on each:
 
 ```bash
 gh issue comment <tracking> --body "Adopted in #<PR>."

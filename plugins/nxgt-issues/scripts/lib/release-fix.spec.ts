@@ -36,14 +36,17 @@ describe('releaseFix: forms and authors', () => {
 		expect(releaseFix(comment(body))?.version).toBe('1.0.0');
 	});
 
-	test('the release bot is trusted, look-alikes are not', () => {
-		const by = (login: string, association = 'NONE') =>
+	test('the release bot is trusted, look-alikes and namesakes are not', () => {
+		const by = (login: string, type = 'Bot', association = 'NONE') =>
 			tracking(1, 'softistx/nxgt-vexora#1', {
 				lastComment: 'Fixed in p@1.0.0 (#1).',
 				lastCommentBy: association,
 				lastCommentLogin: login,
+				lastCommentAuthorType: type,
 			});
-		expect(releaseFix(by('github-actions[bot]'))?.version).toBe('1.0.0');
+		expect(releaseFix(by('github-actions'))?.version).toBe('1.0.0');
+		expect(releaseFix(by('github-actions', 'User'))).toBeUndefined();
+		expect(releaseFix(by('github-actions[bot]'))).toBeUndefined();
 		expect(releaseFix(by('github-actions-fake'))).toBeUndefined();
 		expect(releaseFix(by('other[bot]'))).toBeUndefined();
 	});
