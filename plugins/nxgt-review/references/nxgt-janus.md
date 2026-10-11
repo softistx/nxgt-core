@@ -391,7 +391,7 @@ drift the table does not describe.
   (CI installs frozen); a lock-only bump of an `@nxgt/*` devDependency gets an
   empty changeset.
 - `bunfig.toml` carries the token, never `.npmrc`. Every package MIT with
-  its own `LICENSE`, and `typescript` `^6.0.3` as a peer in every package (the
+  its own `LICENSE`, and `typescript` `^6.0.3 || ^7.0.0` as a peer in every package (the
   root pins `~6.0.3`) — *observed, not stated in `AGENTS.md`*.
 - A README is the npm page, with the six sections *Install*, *API*,
   *Traps*, *Documentation*, *Type safety, counted*, *Licence*, and the

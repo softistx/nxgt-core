@@ -184,8 +184,9 @@ All of them are in `AGENTS.md` with the detail; the short forms:
   must resolve against the **package root**: the bundle is `dist/index.js` and
   the source is `src/<dir>/<file>.ts`, so no fixed relative depth serves both
   layouts.
-- **`typescript` stays `^6.0.3` across all thirteen.** Raising it in one package
-  makes the set unsatisfiable and breaks `@nxgt/shared-openapi` at import.
+- **`typescript` is `^6.0.3 || ^7.0.0` across all thirteen, moved together.**
+  A range changed in one package alone fails CI's "Newest peers" job; see
+  AGENTS.md's "`typescript` is a peer, 6 or 7, widened together".
 - **Registry config lives in `bunfig.toml`, never a `.npmrc`.** A committed
   `.npmrc` expands `${NPM_TOKEN}` to an empty string wherever the variable is
   unset, sends it as an `Authorization` header, and gets a 401 — defeating

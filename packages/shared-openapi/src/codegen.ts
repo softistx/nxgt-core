@@ -1,15 +1,6 @@
 import { mkdir, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import openapiTS, { astToString } from 'openapi-typescript';
-import ts from 'typescript';
-
-const DATE = ts.factory.createTypeReferenceNode(
-	ts.factory.createIdentifier('Date'),
-);
-const FILE = ts.factory.createTypeReferenceNode(
-	ts.factory.createIdentifier('File'),
-);
-const NULL = ts.factory.createLiteralTypeNode(ts.factory.createNull());
+import { compilerApi } from './compiler-api';
 
 export async function generateOpenapiTS(
 	input: string | URL,
@@ -21,21 +12,27 @@ export async function generateOpenapiTS(
 		outputFileName?: string;
 	} = {},
 ) {
+	// Loaded here, not at module scope: see compiler-api.ts.
+	const ts = await compilerApi('generateOpenapiTS');
+	const {
+		default: openapiTS,
+		astToString,
+		tsNullable,
+	} = await import('openapi-typescript');
+	const DATE = ts.factory.createTypeReferenceNode('Date');
+	const FILE = ts.factory.createTypeReferenceNode('File');
+
 	const ast = await openapiTS(input, {
 		transform(schemaObject, _metadata) {
 			if (schemaObject.format === 'date-time') {
 				return {
-					schema: schemaObject.nullable
-						? ts.factory.createUnionTypeNode([DATE, NULL])
-						: DATE,
+					schema: schemaObject.nullable ? tsNullable([DATE]) : DATE,
 					questionToken: true,
 				};
 			}
 			if (schemaObject.format === 'binary') {
 				return {
-					schema: schemaObject.nullable
-						? ts.factory.createUnionTypeNode([FILE, NULL])
-						: FILE,
+					schema: schemaObject.nullable ? tsNullable([FILE]) : FILE,
 					questionToken: true,
 				};
 			}
@@ -66,5 +63,5 @@ export async function generateOpenapiTS(
 
 	writer.write(astToString(ast));
 
-	writer.end();
+	await writer.end();
 }

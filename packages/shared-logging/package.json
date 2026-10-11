@@ -49,6 +49,6 @@
 		"@types/lodash": "^4.17.25"
 	},
 	"peerDependencies": {
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3 || ^7.0.0"
 	}
 }

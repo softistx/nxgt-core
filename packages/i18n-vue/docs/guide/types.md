@@ -6,6 +6,11 @@ it, the editor completes `t('home.` and the type checker — `tsc` for code,
 that cannot be right. Without it, `t` takes any string and any arguments, and
 the checks happen only when `t` runs.
 
+The package accepts TypeScript 6 and 7, and so do the generated types: `tsc`
+checks `t()` in your `.ts` files under either. `vue-tsc` 3 drives
+TypeScript's compiler API, which TypeScript 7 does not ship, so it runs only
+where `typescript` resolves to 6 — under 7, nothing checks the templates.
+
 ## With Vite
 
 ```ts

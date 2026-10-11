@@ -249,7 +249,7 @@ reference may set its own. Every rule below means that number.
 - `private: true`, a missing `LICENSE`, a license that is not MIT, a sibling
   pinned exactly (`workspace:*`), a `link:`/`file:` in a field a consumer
   resolves, a **required** peer that is on no registry, or `typescript`
-  moved off `^6.0.3` in one package alone.
+  moved off the shared range in one package alone.
 - An asset the code reads at runtime that is not in its own directory named
   in `files`.
 - A public surface that changed with no `README.md` or `docs/` change. Say
