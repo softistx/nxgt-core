@@ -143,7 +143,7 @@ packages/<name>/
 		"typecheck": "tsc --noEmit"
 	},
 	"nxgt": { "entrypoints": ["src/index.ts"] },
-	"peerDependencies": { "typescript": "^6.0.3" }
+	"peerDependencies": { "typescript": "^6.0.3 || ^7.0.0" }
 }
 ```
 

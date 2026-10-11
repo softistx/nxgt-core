@@ -93,6 +93,9 @@ as `home.greeting`.
 - [`setLocale: the locale is not a locale of the catalogues — pick one with pickLocale`](#setlocale-the-locale-is-not-a-locale-of-the-catalogues--pick-one-with-picklocale)
 - [`useI18n: no i18n is installed — …`](#usei18n-no-i18n-is-installed--appusecreatei18n-catalogues--first-in-a-component-or-where-inject-works)
 
+**Type checking**
+- [`Package subpath './lib/tsc' is not defined by "exports"`](#package-subpath-libtsc-is-not-defined-by-exports)
+
 **Traps that throw nothing**
 - [`t('…')` takes any string: no completion, no type error](#t-takes-any-string-no-completion-no-type-error)
 - [The page hydrates in another language, or Vue warns of a hydration mismatch](#the-page-hydrates-in-another-language-or-vue-warns-of-a-hydration-mismatch)
@@ -531,6 +534,40 @@ unchanged. Pass one of `locales`, or `pickLocale(value, locales, locale.value)`.
 — a module's top level, a `setTimeout`, a Pinia store created outside the
 app. Call it inside `setup`, or inside `app.runWithContext(() => …)`. Under
 Nuxt, the module installs it: check `@nxgt/i18n-vue/nuxt` is in `modules`.
+
+## Type checking
+
+### `Package subpath './lib/tsc' is not defined by "exports"`
+
+Running `vue-tsc` in a project whose `typescript` is 7 stops before checking
+anything, with `Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath
+'./lib/tsc' is not defined by "exports" in …/node_modules/typescript/package.json`
+(measured with `vue-tsc` 3.3.13 and `typescript` 7.0.2).
+
+`vue-tsc` runs TypeScript's own `tsc` by requiring `typescript/lib/tsc`.
+TypeScript 7 is the native compiler and ships no such file, so there is
+nothing for it to run. This is `vue-tsc`'s limit, not this package's: the
+package accepts both TypeScript 6 and 7, and nothing in `t()`'s types depends
+on the compiler's version.
+
+Run the template check where `typescript` resolves to 6, and keep `tsc` on 7
+for your `.ts` files if you want it:
+
+```jsonc
+// package.json
+{
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vue-tsc": "^3.3.13"
+  },
+  "scripts": { "typecheck:templates": "vue-tsc --noEmit" }
+}
+```
+
+Until `vue-tsc` supports TypeScript 7, `t()` in a `.vue` template is
+unchecked under 7: an unknown key or a wrong argument in a template is not
+reported there, while the same call in a `.ts` file or a `<script>` is
+checked by `tsc` as before.
 
 ## Traps that throw nothing
 

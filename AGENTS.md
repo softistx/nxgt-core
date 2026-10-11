@@ -172,7 +172,7 @@ fields, `siblings.ts` its sibling ranges against the workspace's `workspace:` sp
 `browser.ts` (the `browser` condition, which only this repository has),
 `classes.ts`, `imports.ts` (served by `declarations.ts`), `types.ts` (served by `resolve-types.ts`) and `emit.ts`. The split follows nxgt-janus's copy module for module, as
 nxgt-data's and nxgt-http's do, so a check added to one copy is a check to
-port to the others. All four hold the same three checks, each described
+port to the others. One check is not yet in the others: `install.ts`'s `workspaceTypeScript` pin (the probe installs the root `typescript` range, so the lockfile job emits fixtures with tsc 6 and "Newest peers" with tsc 7) is only here; nxgt-janus, nxgt-http and nxgt-data have not got it, and it is to port. All four hold the same three checks, each described
 below: the test-code check, the unbuilt-package guard and `missingFiles`, whose
 spec holds that a `files` entry `dis` is not covered by `dist/`. `browser.ts`
 is this copy's alone. `imports.ts`, `declarations.ts` and their specs are
@@ -876,8 +876,8 @@ Established here, and applying to all four repositories:
 `bun run test` is **989 pass, 4 skip, 0 fail** on 2026-10-06 with MongoDB
 and an S3 up: 862 in the packages (the 4 skips are `shared-hono`'s;
 `shared-storage` runs its 6 against the S3 and reports 0 pass 0 fail
-without one; `i18n-vue`'s 115 include a real `nuxt build`), then 127 in
-`scripts/`. Without an S3 the storage suites skip. Treat any failure as yours.
+without one; `i18n-vue`'s 115 include a real `nuxt build`), then 130 in
+`scripts/`. `shared-openapi` runs 5 specs and skips 2 (measured 2026-10-10). Without an S3 the storage suites skip. Treat any failure as yours.
 
 That is `bun run --filter '*' test` — **one process per package**, not one
 `bun test` for the whole workspace. Running the packages together in one

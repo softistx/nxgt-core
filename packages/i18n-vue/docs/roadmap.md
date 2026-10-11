@@ -18,6 +18,9 @@ server and hydrates from the payload.
 
 ## Later
 
+- **Checking templates under TypeScript 7.** Templates are unchecked under
+  TypeScript 7 until `vue-tsc` supports it; check them where `typescript`
+  resolves to 6 meanwhile.
 - **Formats shared by every message** — named number, date and time formats
   declared once, as `intl-messageformat` allows.
 - **Watching what a `messages` module imports**, not only its own file — so
