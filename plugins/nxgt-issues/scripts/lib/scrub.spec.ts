@@ -1002,6 +1002,12 @@ describe('scrub: quantity exemption is per whole word', () => {
 		'adminToken=5555',
 		'ADMIN_PASSWORD=20240101d',
 		'tokenTtl: 1234567d',
+		'DB_PASSWORD=Xk9$mP(2qL',
+		'DB_PASSWORD="aB3$(xyz"',
+		'MONGO_PASSWORD=Kq7.Zp2(',
+		'REDIS_PASSWORD=abc$def(1',
+		'password: (hunter2)',
+		'password: getpass(hunter2',
 	])('%p refuses', (text) => {
 		expect(scrub(text, {}).refused).toBe(true);
 	});

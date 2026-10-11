@@ -123,14 +123,18 @@ function keywordOf(name: string): string | undefined {
 }
 
 /** A call or a plain member expression: code that reads a secret, not one. */
-const isCode = (value: string): boolean =>
-	/^[\w$.]*\(/.test(value) ||
-	/^[A-Za-z_$]+(?:\??\.[A-Za-z_$]+){1,3}$/.test(value);
+/** A call on an identifier path whose parentheses close: `getToken(c)`, `c.req.header('x')?.slice(7)`. */
+const CALL = /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\(.*\)$/;
+/** A member expression of letters only: `ctx.token`, `config.secret`. */
+const MEMBER = /^[A-Za-z_$]+(?:\??\.[A-Za-z_$]+){1,3}$/;
 
 /** True when `value` cannot be a secret: a type, a word, an env reference, a mask. */
 export function isPlaceholder(raw: string): boolean {
-	const value = raw
-		.replace(/^(?:await|new|typeof)\s+/i, '')
+	const unwrapped = raw.replace(/^(?:await|new|typeof)\s+/i, '');
+	// Tested before the trailing `)` is stripped below: a value like
+	// `Xk9$mP(2qL` opens a parenthesis it never closes, so it is not a call.
+	if (CALL.test(unwrapped.replace(/[\s,;]+$/, ''))) return true;
+	const value = unwrapped
 		.replace(/(?:\[\])+(?=[;,)}\]"'`]*$)/, '')
 		.replace(/^["'`]+|["'`;,)}\]]+$/g, '')
 		.toLowerCase();
@@ -138,7 +142,7 @@ export function isPlaceholder(raw: string): boolean {
 		value === '' ||
 		WORDS.has(value) ||
 		/^[{[]/.test(value) ||
-		isCode(value) ||
+		MEMBER.test(value) ||
 		/^<[^<>]{0,40}>$/.test(value) ||
 		/^[*•x]{3,}$|^\.{3}$|^…$/.test(value) ||
 		/^(?:[\w$]+\.)*env\.[\w$]+$/.test(value)
