@@ -2,8 +2,10 @@
 
 import type { CliContext } from './cli-context';
 import { releaseFix } from './context';
+import { hasLabel } from './labels';
 import { type Judged, type MarkerReport, versionFor } from './markers-types';
-import { fetchUpstream, type UpstreamIssue } from './refresh';
+import { fetchUpstream } from './refresh';
+import type { UpstreamIssue } from './snapshot';
 
 export async function lookUpPublic(
 	ctx: CliContext,
@@ -34,6 +36,13 @@ export async function lookUpPublic(
 			line: report.line,
 			upstream: report.upstream,
 		};
+		if (issue?.unknown) {
+			return {
+				...base,
+				status: 'unreadable',
+				detail: `${upstream} could not be read; try again`,
+			};
+		}
 		if (!issue?.state) {
 			return {
 				...base,
@@ -41,7 +50,7 @@ export async function lookUpPublic(
 				detail: `${upstream} not found`,
 			};
 		}
-		if (issue.state === 'CLOSED' && issue.labels.includes('released')) {
+		if (issue.state === 'CLOSED' && hasLabel(issue.labels, 'released')) {
 			const fix = releaseFix(issue);
 			return {
 				...base,

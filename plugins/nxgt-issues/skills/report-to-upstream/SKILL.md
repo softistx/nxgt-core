@@ -102,7 +102,8 @@ JSON
 duplicate fingerprint is computed from: keep it about the behaviour, not the
 application.
 
-What it prints, and what to do:
+What it prints, and what to do (an error, a rate limit and a deny-list
+refusal go to stderr; stdout holds the result):
 
 | output (exit) | meaning | next |
 | --- | --- | --- |
@@ -114,7 +115,7 @@ What it prints, and what to do:
 | `candidates: …` (4) | open issues that may be the same | read them (`gh issue view`); same problem → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --duplicate-of <n>` with the same JSON; different → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --new` |
 | `refused: <deny list could not be built>` (3) | the deny-list is incomplete: no `appDomains` configured, the owners' private repositories (or the token's organisations) could not be listed or came back empty, a workspace pattern could not be expanded, the directory is not in a git checkout, or `git config` failed | fix the named configuration (`.nxgt-issues.json`), or run `gh auth status`; never file by hand. Applies to `deps --file` too |
 | `refused: the text is not anonymous…` (3) | a private term or a credential was found | rewrite the named parts generically and run `file` again; never work around the scrub |
-| `refused: <reason>` (2) | the gate refused | tell the user; file nothing |
+| `refused: <reason>` (2) | the gate refused (exit 2 is also `NXGT_ISSUES_DISABLE`, which prints that on stderr) | tell the user; file nothing |
 | `rate-limited: …` (5) | GitHub throttled the token | tell the user when calls resume; do not retry in a loop |
 | `… was refused (permission)` on stderr (6) | the token lacks a permission | tell the user; `gh auth status` |
 

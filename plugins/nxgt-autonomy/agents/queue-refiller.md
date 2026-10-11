@@ -130,9 +130,11 @@ line, a command and its output, or two places that disagree.
 ### Upstream issues, when `nxgt-issues` is installed
 
 The owner's open issues are candidates nobody has to rediscover. Run once
-(`dashboard` makes search calls; exit 5 is a rate limit, and `ready` exits 2
-in a checkout that is not an application's and 5 on a rate limit: for 2 or 5
-write `issues: not checked` and go on. `markers --json` exits 1 with JSON when
+(`dashboard` makes search calls; exit 5 is a rate limit, and `dashboard`, `ready` and `markers` exit 2
+in a checkout that is not an application's (or with `NXGT_ISSUES_DISABLE`
+set) and `ready` and `dashboard` 5 on a rate limit: for 2 or 5 write
+`issues: not checked` and go on; for 6 (gh could not check) write
+`issues: could not check` and go on. `markers --json` exits 1 with JSON when
 it found markers: that is flagged markers, not a failure):
 
 ```bash

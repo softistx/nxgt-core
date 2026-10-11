@@ -20,7 +20,7 @@ import {
 	type DependencyRow,
 	dependenciesIssueBody,
 } from './issue-body';
-import { ensureLabels } from './labels';
+import { ensureLabels, LABELS } from './labels';
 import type { Resolved } from './resolve';
 import type { DenyList } from './scrub';
 
@@ -57,7 +57,7 @@ export async function upsertRollingIssue(
 	denyList: DenyList,
 ): Promise<ExitCode> {
 	const repo = resolved.repo;
-	const rolling = (await issuesWithLabel(ctx, repo, 'dependencies'))
+	const rolling = (await issuesWithLabel(ctx, repo, LABELS.dependencies.name))
 		.filter((issue) => issue.body.includes(DEPS_MARKER))
 		.sort((a, b) => a.number - b.number)[0];
 	const open = rolling?.state.toUpperCase() === 'OPEN';
@@ -69,7 +69,7 @@ export async function upsertRollingIssue(
 	if (!checked.ok) return printScrubRefusal(ctx, checked);
 	const body = checked.texts.body;
 	if (!rolling) {
-		const labels = ['dependencies', 'consumer-report'];
+		const labels = [LABELS.dependencies.name, LABELS['consumer-report'].name];
 		await ensureLabels(ctx, repo, labels);
 		const url = await createIssue(ctx, repo, {
 			title: DEPS_TITLE,

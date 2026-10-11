@@ -7,7 +7,8 @@
  * other people's text: they are cut to one short line and introduced as data.
  */
 
-import type { PackageIssue, Snapshot, TrackingIssue } from './refresh';
+import { hasLabel, LABELS } from './labels';
+import type { PackageIssue, Snapshot, TrackingIssue } from './snapshot';
 import { oneLine, UNTRUSTED } from './untrusted';
 
 export { oneLine, UNTRUSTED };
@@ -33,6 +34,16 @@ export const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 /** The CI release step posts as this bot (GraphQL names it `github-actions`, type `Bot`; REST adds `[bot]`), with association CONTRIBUTOR or NONE. */
 const RELEASE_BOT = 'github-actions';
 
+/**
+ * The release bot, by login and (when the source tells) GraphQL type. The
+ * cached last comment carries both, so both must match. `gh issue view`, which
+ * the release step reads comments through, carries the login only: it passes
+ * no type, as the standalone release script, which must stay in step with it,
+ * trusts the login alone too.
+ */
+export const isReleaseBot = (login?: string, type?: string): boolean =>
+	login === RELEASE_BOT && (type === undefined || type === 'Bot');
+
 export const days = (from: string, now: number): number => {
 	const time = Date.parse(from);
 	return Number.isNaN(time)
@@ -43,7 +54,7 @@ export const days = (from: string, now: number): number => {
 /** Consumer reports first, then the oldest first; `number` breaks ties. */
 export function rankIssues(issues: readonly PackageIssue[]): PackageIssue[] {
 	const report = (issue: PackageIssue) =>
-		issue.labels.includes('consumer-report') ? 0 : 1;
+		hasLabel(issue.labels, 'consumer-report') ? 0 : 1;
 	return [...issues].sort(
 		(a, b) =>
 			report(a) - report(b) ||
@@ -59,17 +70,21 @@ export function adoptReady(
 	return tracking
 		.filter(
 			(issue) =>
+				!issue.upstreamUnknown &&
 				issue.upstreamState === 'CLOSED' &&
-				issue.upstreamLabels?.includes('released'),
+				hasLabel(issue.upstreamLabels ?? [], 'released'),
 		)
 		.sort((a, b) => a.number - b.number);
 }
 
 function issueLine(issue: PackageIssue, now: number): string {
 	const flag = days(issue.updatedAt, now) >= INACTIVE_DAYS ? ' ⚑' : '';
-	const kind = issue.labels.find((label) => label !== 'consumer-report');
+	const report = hasLabel(issue.labels, 'consumer-report');
+	const kind = issue.labels.find(
+		(label) => label.toLowerCase() !== LABELS['consumer-report'].name,
+	);
 	const tags = [
-		issue.labels.includes('consumer-report') ? 'consumer-report' : undefined,
+		report ? LABELS['consumer-report'].name : undefined,
 		kind ? oneLine(kind, 24) : undefined,
 	].filter(Boolean);
 	const tagged = tags.length > 0 ? ` [${tags.join(', ')}]` : '';
@@ -90,8 +105,8 @@ export function releaseFix(
 	const comment = issue.lastComment?.split('\n', 1)[0]?.trim();
 	const trusted =
 		TRUSTED.has(issue.lastCommentBy ?? '') ||
-		(issue.lastCommentLogin === RELEASE_BOT &&
-			issue.lastCommentAuthorType === 'Bot');
+		(issue.lastCommentAuthorType !== undefined &&
+			isReleaseBot(issue.lastCommentLogin, issue.lastCommentAuthorType));
 	if (!comment || !trusted) return undefined;
 	const match = RELEASE_COMMENT.exec(comment);
 	if (!match?.[1] || !match[2]) return undefined;
@@ -157,6 +172,7 @@ export function renderContext(
 	const shown = ranked.slice(0, MAX_ISSUES);
 	const ready = adoptReady(snapshot.tracking);
 	const adopt = ready.slice(0, MAX_ADOPT);
+	const unreadable = snapshot.tracking.filter((t) => t.upstreamUnknown);
 	const asOf = options.age ? ` (${options.age})` : '';
 	const total = Math.max(snapshot.total ?? 0, ranked.length);
 	const sections: Section[] = [
@@ -164,6 +180,16 @@ export function renderContext(
 			header: `${HEADER} fixes released upstream, ready to adopt (skill adopt-a-released-fix)${asOf}:`,
 			lines: adopt.map(adoptLine),
 			beyond: ready.length - adopt.length,
+		},
+		{
+			header: `${HEADER} upstream unreadable (GitHub could not be read just now; try later)${asOf}:`,
+			lines: unreadable
+				.slice(0, MAX_ADOPT)
+				.map(
+					(t) =>
+						`- tracking #${t.number} ${oneLine(t.title, 70)} → ${oneLine(t.upstream, 80)}`,
+				),
+			beyond: Math.max(0, unreadable.length - MAX_ADOPT),
 		},
 		{
 			header: `${HEADER} ${snapshot.repo} has ${total} open issue(s)${asOf}; ⚑ = no activity for ${INACTIVE_DAYS}+ days:`,

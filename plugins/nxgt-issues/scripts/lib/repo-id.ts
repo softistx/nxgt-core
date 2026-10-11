@@ -17,6 +17,8 @@ export interface RepoId {
 export const DEFAULT_OWNERS = ['softistx', 'SteveGT96'] as const;
 
 const NAME = '[\\w.-]+';
+/** `owner/repo` made of nothing a query or a path could misread; the one pattern behind the cache names and the GraphQL aliases. */
+export const SAFE_REPO = new RegExp(`^(${NAME})/(${NAME})$`);
 /** `ssh.github.com` is the SSH-over-443 host. */
 const HOST = '(?:www\\.|ssh\\.)?github\\.com';
 

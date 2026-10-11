@@ -138,8 +138,20 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   passing through it is a finding. Filings stay anonymous: no application name
   in a package issue or comment, names only in the private tracking issue.
 - **No network outside `scripts/lib/runner.ts`.** No `Bun.spawn`, Bun Shell (`$` templates) or
-  `fetch(` anywhere else in `lib/` (`no-network.spec.ts` enforces it); entry
-  files alone build the real runner, and specs use the scripted fake.
+  `fetch(` anywhere else in `lib/`, in `scripts/hooks/*.ts` or in a
+  `*.fixtures.ts` (`no-network.spec.ts` enforces it; a fixture imports only
+  `type Runner`); entry files alone build the real runner, and specs use the
+  scripted fake. The runner leads its own process group per call and kills the
+  group at the timeout or on `signal`, so even a grandchild holding the pipes
+  is bounded and no `gh` outlives the hook; a call it cut is `timedOut`, which
+  `gh()` raises as `GhTimeout`: a timeout, never a failed stamp.
+- **One exit-code mapping.** A command's error goes through `exitForError`
+  (`filing.ts`), with its message on stderr; `NXGT_ISSUES_DISABLE` exits 2, so
+  `markers` exit 1 only ever means flagged or usage. A GraphQL answer with
+  errors is never cached as a full snapshot and an unreadable alias is never
+  read as "not found" (`graphql-partial.ts` is the one transport). Label names
+  are lower-cased where parsed and compared through `hasLabel` and the
+  `LABELS` keys, never a bare literal.
 - **Text from GitHub is untrusted.** Titles, labels, comments, logins and
   bodies reach Claude's context only through `oneLine` (`untrusted.ts`: one
   line of code points, control, format, private-use, surrogate, unassigned,

@@ -13,7 +13,7 @@ import { loadSnapshot } from './app-side';
 import type { CliContext, ExitCode } from './cli-context';
 import { EXIT } from './cli-context';
 import { adoptReady, releaseFix } from './context';
-import { GhError, RateLimitedError } from './github';
+import { exitForError } from './filing';
 import {
 	describeTarget,
 	type Marker,
@@ -27,9 +27,9 @@ import {
 	type MarkerReport,
 	versionFor,
 } from './markers-types';
-import type { Snapshot } from './refresh';
 import { formatRepo, repoOfDirectory } from './repo-id';
 import { gate, gateFacts, type RefusalReason, resolvePackage } from './resolve';
+import type { Snapshot } from './snapshot';
 import { cleanJson } from './untrusted';
 
 const MAX_ISSUE_NUMBER = 2 ** 31 - 1;
@@ -107,7 +107,17 @@ async function judge(
 		const upstream = `${resolution.repo}#${marker.number}`;
 		const done = ready.find((issue) => same(issue.upstream, upstream));
 		const tracked = snapshot.tracking.some((t) => same(t.upstream, upstream));
-		if (done) {
+		const unreadable = snapshot.tracking.some(
+			(t) => same(t.upstream, upstream) && t.upstreamUnknown,
+		);
+		if (unreadable) {
+			const detail = `${upstream} could not be read; try again`;
+			out.push({
+				report: { ...base, status: 'unreadable', detail },
+				upstream,
+				target: marker.target,
+			});
+		} else if (done) {
 			const fix = releaseFix(done);
 			const detail = `fixed and released; remove it (tracking #${done.number})`;
 			const version = versionFor(marker.target, fix);
@@ -168,31 +178,34 @@ export async function markersCommand(
 	json: boolean,
 	excludes: readonly string[] = [],
 ): Promise<ExitCode> {
-	const grep = await ctx.runner.run(markerGrepArgv(excludes), { cwd: ctx.cwd });
-	// git grep: 1 = no match; anything else is a failure (not a git checkout…).
-	if (grep.code > 1) {
-		ctx.err(`git grep failed: ${grep.stderr.trim().slice(0, 200)}`);
-		return EXIT.failed;
-	}
-	const markers = grep.code === 0 ? parseMarkers(grep.stdout) : [];
 	let reports: MarkerReport[] = [];
 	try {
+		const grep = await ctx.runner.run(markerGrepArgv(excludes), {
+			cwd: ctx.cwd,
+		});
+		// git grep: 1 = no match; anything else is a failure (not a git checkout…).
+		if (grep.code > 1) {
+			ctx.err(`git grep failed: ${grep.stderr.trim().slice(0, 200)}`);
+			return EXIT.failed;
+		}
+		const markers = grep.code === 0 ? parseMarkers(grep.stdout) : [];
 		if (markers.length > 0) {
 			const snapshot = await loadSnapshot(ctx);
 			if ('exit' in snapshot) return snapshot.exit;
 			reports = await checkMarkers(ctx, markers, snapshot);
 		}
 	} catch (error) {
-		ctx.err(error instanceof Error ? error.message : String(error));
-		if (error instanceof MarkerLookupError) return error.exit;
-		if (error instanceof RateLimitedError) return EXIT.rateLimited;
-		if (error instanceof GhError) return EXIT.failed;
-		throw error;
+		return exitForError(ctx, error);
 	}
 	const flagged = reports.filter(
 		(report) => report.status !== 'waiting',
 	).length;
 	if (json) ctx.out(JSON.stringify(cleanJson(reports), null, 2));
 	else print(ctx, reports, flagged);
+	// A marker GitHub could not read has no verdict: the run says so (6) before it says "flagged".
+	if (reports.some((report) => report.status === 'unreadable')) {
+		ctx.err('nxgt-issues: some upstream issues could not be read; run again.');
+		return EXIT.failed;
+	}
 	return flagged > 0 ? EXIT.flagged : EXIT.ok;
 }

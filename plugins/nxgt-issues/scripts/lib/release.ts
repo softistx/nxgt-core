@@ -10,6 +10,7 @@
 import { type GhContext, gh, RateLimitedError } from './github';
 import { commentIssue } from './github-issues';
 import { fixedComment, versionNames } from './issue-body';
+import { LABELS } from './labels';
 import { addedChangesetPackages, commitTouches, hasTags } from './release-git';
 import {
 	FIXED_MARKER,
@@ -129,7 +130,7 @@ async function releaseIssue(
 		if (labelled) {
 			await gh(ctx, [
 				...['issue', 'edit', String(issue), '-R', repo],
-				...['--add-label', 'released'],
+				...['--add-label', LABELS.released.name],
 			]);
 		}
 		if (closed) await gh(ctx, ['issue', 'close', String(issue), '-R', repo]);

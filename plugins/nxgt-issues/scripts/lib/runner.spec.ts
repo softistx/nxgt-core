@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRunner, networkAllowed } from './runner';
 import { fakeRunner } from './runner.fixtures';
@@ -169,5 +169,101 @@ describe('a detached run', () => {
 		expect(existsSync(marker)).toBe(false);
 		for (let i = 0; i < 40 && !existsSync(marker); i++) await Bun.sleep(50);
 		expect(existsSync(marker)).toBe(true);
+	});
+});
+
+/** Kills a pid a spec started, whatever state it is in. */
+const alive = (pid: number): boolean => {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch {
+		return false;
+	}
+};
+
+const reap = (pidFile: string): void => {
+	try {
+		process.kill(Number(readFileSync(pidFile, 'utf8').trim()), 'SIGKILL');
+	} catch {
+		// already gone
+	}
+};
+
+describe('the real runner: a timeout is bounded', () => {
+	const runner = createRunner({ NXGT_ISSUES_ALLOW_NETWORK: '1' });
+
+	test('a grandchild holding the pipe does not hold the call past its timeout', async () => {
+		const dir = tempDir('grandchild');
+		const pidFile = join(dir, 'pid');
+		const script = join(dir, 'gh');
+		// Forks a sleeper that inherits stdout, then waits on it.
+		writeFileSync(script, `sleep 8 &\necho $! > '${pidFile}'\nwait\n`);
+		try {
+			const started = performance.now();
+			const result = await runner.run(['sh', script], { timeoutMs: 300 });
+			expect(performance.now() - started).toBeLessThan(1500);
+			expect(result.code).not.toBe(0);
+			// The whole process group is killed: the sleeper is gone without our help.
+			const sleeper = Number(readFileSync(pidFile, 'utf8').trim());
+			await Bun.sleep(100);
+			expect(alive(sleeper)).toBe(false);
+		} finally {
+			reap(pidFile);
+		}
+	});
+
+	test('output written before the timeout is kept', async () => {
+		const dir = tempDir('partial-output');
+		const pidFile = join(dir, 'pid');
+		const script = join(dir, 'gh');
+		writeFileSync(
+			script,
+			`echo early\nsleep 8 &\necho $! > '${pidFile}'\nwait\n`,
+		);
+		try {
+			const result = await runner.run(['sh', script], { timeoutMs: 300 });
+			expect(result.stdout).toContain('early');
+		} finally {
+			reap(pidFile);
+		}
+	});
+
+	test('a call cut by its timeout says so; one that finished or was aborted does not', async () => {
+		const cut = await runner.run(['sleep', '8'], { timeoutMs: 100 });
+		expect(cut.timedOut).toBe(true);
+		const done = await runner.run(['echo', 'x']);
+		expect(done.timedOut).toBeUndefined();
+		const controller = new AbortController();
+		const pending = runner.run(['sleep', '8'], {
+			timeoutMs: 20_000,
+			signal: controller.signal,
+		});
+		await Bun.sleep(50);
+		controller.abort();
+		expect((await pending).timedOut).toBeUndefined();
+	});
+
+	test('aborting the signal kills the child at once', async () => {
+		const controller = new AbortController();
+		const started = performance.now();
+		const pending = runner.run(['sleep', '8'], {
+			timeoutMs: 20_000,
+			signal: controller.signal,
+		});
+		await Bun.sleep(100);
+		controller.abort();
+		const result = await pending;
+		expect(performance.now() - started).toBeLessThan(2000);
+		expect(result.code).not.toBe(0);
+	});
+
+	test('a signal already aborted starts nothing', async () => {
+		const controller = new AbortController();
+		controller.abort();
+		const result = await runner.run(['sleep', '8'], {
+			signal: controller.signal,
+		});
+		expect(result.code).not.toBe(0);
 	});
 });

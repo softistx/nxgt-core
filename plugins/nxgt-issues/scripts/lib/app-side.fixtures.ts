@@ -2,7 +2,7 @@
 
 import { cachePath, writeEntry } from './cache';
 import { harness, makeApp } from './cli.fixtures';
-import type { Snapshot, TrackingIssue } from './refresh';
+import type { Snapshot, TrackingIssue } from './snapshot';
 
 export const NOW = Date.parse('2026-10-10T12:00:00Z');
 export const APP = { owner: 'softistx', repo: 'acme-store' };

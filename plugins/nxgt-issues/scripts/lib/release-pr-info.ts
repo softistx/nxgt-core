@@ -5,6 +5,7 @@
  */
 
 import { type GhContext, ghJson, RateLimitedError } from './github';
+import { obj } from './json';
 import { closingRefs } from './refs';
 import { commitTouches, inDir, isAncestor } from './release-git';
 import { formatRepo, type RepoId, sameRepo } from './repo-id';
@@ -19,9 +20,6 @@ export interface PrInfo {
 	readonly files: string[];
 }
 
-type Obj = Record<string, unknown>;
-const obj = (value: unknown): Obj =>
-	value && typeof value === 'object' ? (value as Obj) : {};
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 const FIELDS =

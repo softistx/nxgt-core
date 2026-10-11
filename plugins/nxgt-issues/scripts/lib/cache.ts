@@ -2,11 +2,14 @@
  * The on-disk cache: `<home>/cache/<owner>__<repo>.json`, each entry stamped
  * with when it was written, fresh for ten minutes. Written through a temporary
  * file and a rename so a reader never sees half an entry; a file that does not
- * parse is a miss, never an error.
+ * parse is a miss, never an error. The folders are 0700 and the files 0600
+ * (the temporary file included): issue titles of private repositories are
+ * nobody else's business on a shared machine.
  */
 
 import { randomBytes } from 'node:crypto';
 import {
+	chmodSync,
 	mkdirSync,
 	readFileSync,
 	renameSync,
@@ -14,8 +17,8 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
-import type { RepoId } from './repo-id';
+import { dirname, join } from 'node:path';
+import { type RepoId, SAFE_REPO } from './repo-id';
 
 export const CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -25,14 +28,17 @@ export function issuesHome(env: Record<string, string | undefined>): string {
 	return join(config, 'nxgt-issues');
 }
 
-const SAFE = /^[\w.-]+$/;
-
 /** `<home>/cache/<owner>__<repo>.json`; throws on a name that could leave the folder. */
 export function cachePath(home: string, id: RepoId): string {
 	for (const part of [id.owner, id.repo]) {
-		if (!SAFE.test(part) || part === '.' || part === '..') {
+		if (part === '.' || part === '..') {
 			throw new Error(`nxgt-issues: refusing the cache name "${part}"`);
 		}
+	}
+	if (!SAFE_REPO.test(`${id.owner}/${id.repo}`)) {
+		throw new Error(
+			`nxgt-issues: refusing the cache name "${id.owner}/${id.repo}"`,
+		);
 	}
 	return join(home, 'cache', `${id.owner}__${id.repo}.json`.toLowerCase());
 }
@@ -73,11 +79,23 @@ export function readEntry<T>(
 	}
 }
 
+/** The folder and any missing parent, 0700; a folder that already exists is tightened to 0700 too. */
+export function makePrivateDir(dir: string): void {
+	mkdirSync(dir, { recursive: true, mode: 0o700 });
+	try {
+		chmodSync(dir, 0o700);
+	} catch {
+		// not ours to change: the write below decides whether it works
+	}
+}
+
 export function writeEntry(path: string, data: unknown, now: number): void {
-	mkdirSync(join(path, '..'), { recursive: true });
+	makePrivateDir(dirname(path));
 	const temporary = `${path}.${randomBytes(6).toString('hex')}.tmp`;
 	try {
-		writeFileSync(temporary, `${JSON.stringify({ writtenAt: now, data })}\n`);
+		writeFileSync(temporary, `${JSON.stringify({ writtenAt: now, data })}\n`, {
+			mode: 0o600,
+		});
 		renameSync(temporary, path);
 	} catch (error) {
 		rmSync(temporary, { force: true });

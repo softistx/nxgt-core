@@ -81,7 +81,7 @@ describe('an empty private list is never accepted', () => {
 			run: [list('softistx', []), list('SteveGT96', [])],
 		});
 		expect(await fileCommand(h.ctx, {})).toBe(EXIT.refusedScrub);
-		expect(h.out.join('\n')).toContain('nothing was filed');
+		expect(h.err.join('\n')).toContain('nothing was filed');
 	});
 });
 

@@ -19,6 +19,8 @@ import { join } from 'node:path';
 import { readEntry, writeEntry } from './cache';
 import { type GhContext, GhError } from './github';
 import { graphqlPartial } from './graphql-partial';
+import { obj } from './json';
+import { SAFE_REPO } from './repo-id';
 
 export const PACKAGES_TTL_MS = 24 * 60 * 60 * 1000;
 export const FAILED_TTL_MS = 60 * 60 * 1000;
@@ -31,18 +33,14 @@ interface Stored {
 	readonly failed?: true;
 }
 type Store = Record<string, Stored>;
-type Obj = Record<string, unknown>;
 interface Target {
 	readonly repo: string;
 	readonly owner: string;
 	readonly name: string;
 }
 
-const SAFE = /^([\w.-]+)\/([\w.-]+)$/;
 const DIR = /^[\w.-]+$/;
 const path = (home: string) => join(home, 'cache', 'repo-packages.json');
-const obj = (value: unknown): Obj =>
-	value && typeof value === 'object' ? (value as Obj) : {};
 const repository = (alias: string, t: Target, body: string) =>
 	`${alias}:repository(owner:"${t.owner}",name:"${t.name}"){${body}}`;
 const BLOB = '...on Blob{text}';
@@ -158,7 +156,7 @@ export async function repoPackages(
 		const cached = store[repo.toLowerCase()];
 		const age = cached ? now - cached.at : -1;
 		const ttl = cached?.failed ? FAILED_TTL_MS : PACKAGES_TTL_MS;
-		const match = SAFE.exec(repo);
+		const match = SAFE_REPO.exec(repo);
 		if (cached && age >= 0 && age < ttl) {
 			if (!cached.failed) result.set(repo, cached.packages);
 		} else if (match?.[1] && match[2]) {

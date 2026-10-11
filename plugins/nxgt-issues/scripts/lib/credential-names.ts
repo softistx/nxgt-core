@@ -27,3 +27,19 @@ export function namesCredential(name: string): boolean {
 	if (last === 'key') return KEY_QUALIFIERS.has(words.at(-2) ?? '');
 	return LAST_WORDS.has(last);
 }
+
+const PLAIN_IDENTIFIER = /^[A-Za-z_$][\w$.]*$/;
+const CREDENTIAL_WORD =
+	/secret|token|passw|api_?key|auth(?!or)|cookie|session/i;
+
+/**
+ * The other question, asked of a plain identifier that is assigned a literal
+ * (`GATEWAY_SECRET_HEADER = "x"`, `authHeader`): does it hold a credential
+ * word anywhere? `tokenType` does. `namesCredential` above is the strict one
+ * for comparisons (`tokenType === "access"` compares a kind, not a secret), so
+ * the two answer differently on purpose: neither refuses a superset of the
+ * other, and merging them either way breaks a pinned over-refusal or lets a
+ * credential-named assignment through.
+ */
+export const identifierHoldsCredentialWord = (identifier: string): boolean =>
+	PLAIN_IDENTIFIER.test(identifier) && CREDENTIAL_WORD.test(identifier);

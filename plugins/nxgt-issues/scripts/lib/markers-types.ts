@@ -3,7 +3,13 @@
 import type { ExitCode } from './cli-context';
 import type { MarkerTarget } from './markers';
 
-export type MarkerStatus = 'ready' | 'unresolvable' | 'untracked' | 'waiting';
+/** `unreadable`: GitHub could not read the upstream issue just now; the run exits 6. */
+export type MarkerStatus =
+	| 'ready'
+	| 'unreadable'
+	| 'unresolvable'
+	| 'untracked'
+	| 'waiting';
 
 export interface MarkerReport {
 	readonly file: string;

@@ -1,6 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
 	allowedOwners,
@@ -11,8 +10,10 @@ import {
 	parseRemote,
 	parseRepositoryField,
 	repoOfDirectory,
+	SAFE_REPO,
 	sameRepo,
 } from './repo-id';
+import { removeTempDirs, tempDir } from './temp.fixtures';
 
 const soft = { owner: 'softistx', repo: 'nxgt-core' };
 
@@ -166,8 +167,8 @@ describe('originUrlFromConfig', () => {
 });
 
 describe('repoOfDirectory', () => {
-	const root = mkdtempSync(join(tmpdir(), 'nxgt-issues-repo-'));
-	afterAll(() => rmSync(root, { recursive: true, force: true }));
+	const root = tempDir('repo');
+	afterAll(removeTempDirs);
 	const origin = (url: string) => `[remote "origin"]\n\turl = ${url}\n`;
 
 	test('a plain checkout, from a nested directory', () => {
@@ -246,4 +247,22 @@ describe('repoOfDirectory', () => {
 		);
 		expect(repoOfDirectory(repo)).toBeUndefined();
 	});
+});
+
+describe('SAFE_REPO', () => {
+	test.each(['softistx/nxgt-core', 'a.b/c_d', 'SteveGT96/App.X'])(
+		'accepts %p and captures owner and repo',
+		(name) => {
+			const match = SAFE_REPO.exec(name);
+			expect(match?.[1]).toBe(name.split('/')[0]);
+			expect(match?.[2]).toBe(name.split('/')[1]);
+		},
+	);
+
+	test.each(['a/b/c', '/b', 'a/', 'a b/c', 'a/b\n', 'a\\b/c', ''])(
+		'refuses %p',
+		(name) => {
+			expect(SAFE_REPO.test(name)).toBe(false);
+		},
+	);
 });

@@ -44,6 +44,13 @@ export class GhError extends Error {
 	}
 }
 
+/** A gh call the runner cut at its timeout: slow, not failed. */
+export class GhTimeout extends GhError {
+	constructor(argv: readonly string[], timeoutMs: number | undefined) {
+		super(argv, 124, `timed out after ${timeoutMs ?? '?'} ms`);
+	}
+}
+
 export interface GhContext {
 	readonly runner: Runner;
 	readonly home: string;
@@ -51,6 +58,8 @@ export interface GhContext {
 	readonly cwd?: string;
 	/** Caps each gh call (the SessionStart hook's inline refresh). */
 	readonly timeoutMs?: number;
+	/** Aborting it kills the gh call in flight (the SessionStart hook's inline refresh). */
+	readonly signal?: AbortSignal;
 }
 
 /** gh's own phrasings, so a repository named `abuse-tracker` in stderr is no rate limit. */
@@ -86,8 +95,10 @@ export async function gh(
 	const result = await ctx.runner.run(['gh', ...args], {
 		...(stdin === undefined ? {} : { stdin }),
 		...(ctx.timeoutMs === undefined ? {} : { timeoutMs: ctx.timeoutMs }),
+		...(ctx.signal ? { signal: ctx.signal } : {}),
 		...(ctx.cwd ? { cwd: ctx.cwd } : {}),
 	});
+	if (result.timedOut) throw new GhTimeout(args, ctx.timeoutMs);
 	if (result.code === 0) return result.stdout;
 	if (RATE_LIMITED.test(result.stderr)) {
 		const until = ctx.now() + RATE_LIMIT_PAUSE_MS;

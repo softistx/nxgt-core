@@ -3,8 +3,8 @@ import { NOW, seeded, TRACKING } from './app-side.fixtures';
 import { main } from './cli';
 import { callsOf, harness, makeApp, removeTempDirs } from './cli.fixtures';
 import { EXIT } from './cli-context';
-import type { TrackingIssue } from './refresh';
 import { GRAPHQL } from './session.fixtures';
+import type { TrackingIssue } from './snapshot';
 import { UNTRUSTED } from './untrusted';
 
 afterAll(removeTempDirs);

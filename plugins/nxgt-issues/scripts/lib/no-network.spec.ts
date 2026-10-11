@@ -40,17 +40,20 @@ const FORBIDDEN: readonly [string, RegExp][] = [
 const stripComments = (source: string): string =>
 	source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-const libraryFiles = (
-	readdirSync(import.meta.dir, { recursive: true }) as string[]
-)
-	.map((name) => name.replaceAll('\\', '/'))
-	.filter(
-		(name) =>
-			/\.[cm]?[jt]sx?$/.test(name) &&
-			!/\.(spec|test)\.[cm]?[jt]sx?$/.test(name) &&
-			!/\.fixtures\.[cm]?[jt]sx?$/.test(name) &&
-			name !== 'runner.ts',
-	);
+const isSource = (name: string) =>
+	/\.[cm]?[jt]sx?$/.test(name) && !/\.(spec|test)\.[cm]?[jt]sx?$/.test(name);
+
+/** `lib/` (fixtures included), then the hook entries: each is `[path from lib/, label]`. */
+const scanned = [
+	...(readdirSync(import.meta.dir, { recursive: true }) as string[])
+		.map((name) => name.replaceAll('\\', '/'))
+		.filter((name) => isSource(name) && name !== 'runner.ts'),
+	...readdirSync(join(import.meta.dir, '..', 'hooks'))
+		.filter(isSource)
+		.map((name) => `../hooks/${name}`),
+];
+const libraryFiles = scanned.filter((name) => !name.includes('.fixtures.'));
+const fixtureFiles = scanned.filter((name) => name.includes('.fixtures.'));
 
 describe('no process or network outside runner.ts', () => {
 	test('the check sees the library', () => {
@@ -59,11 +62,26 @@ describe('no process or network outside runner.ts', () => {
 		expect(libraryFiles).not.toContain('runner.ts');
 	});
 
-	test.each(libraryFiles)('%s', (name) => {
+	test('the check sees the hook entries and the fixtures', () => {
+		expect(libraryFiles).toContain('../hooks/session-start.ts');
+		expect(fixtureFiles).toContain('runner.fixtures.ts');
+		expect(fixtureFiles).toContain('release-checkout.fixtures.ts');
+	});
+
+	// A fixture's fake has `fetch` rules and a `fetches` list: only a call counts there.
+	const FIXTURE_FORBIDDEN: readonly [string, RegExp][] = [
+		...FORBIDDEN.filter(([label]) => label !== 'fetch'),
+		['fetch call', /(?<![\w$.])fetch\s*\(/],
+	];
+
+	test.each([...libraryFiles, ...fixtureFiles])('%s', (name) => {
 		const source = stripComments(
 			readFileSync(join(import.meta.dir, name), 'utf8'),
 		);
-		for (const [label, pattern] of FORBIDDEN) {
+		const patterns = name.includes('.fixtures.')
+			? FIXTURE_FORBIDDEN
+			: FORBIDDEN;
+		for (const [label, pattern] of patterns) {
 			expect({ file: name, label, found: pattern.test(source) }).toEqual({
 				file: name,
 				label,
@@ -72,10 +90,44 @@ describe('no process or network outside runner.ts', () => {
 		}
 	});
 
+	test.each(fixtureFiles)(
+		'%s imports nothing from runner.ts but its types',
+		(name) => {
+			const source = stripComments(
+				readFileSync(join(import.meta.dir, name), 'utf8'),
+			);
+			const imports = [
+				...source.matchAll(
+					/import\s+(type\s+)?[^;]*?from\s*['"]\.\/runner['"]/g,
+				),
+			];
+			for (const found of imports) expect(found[1]).toBe('type ');
+			expect(source).not.toMatch(/createRunner/);
+		},
+	);
+
 	test('runner.ts is where they live', () => {
 		const source = readFileSync(join(import.meta.dir, 'runner.ts'), 'utf8');
 		expect(source).toMatch(/Bun\.spawn/);
 		expect(source).toMatch(/fetch\(/);
+	});
+});
+
+describe('the fixture patterns', () => {
+	const call = /(?<![\w$.])fetch\s*\(/;
+	test.each(['await fetch(url)', 'fetch (url)', 'x = fetch(u)'])(
+		'catch %p',
+		(code) => {
+			expect(call.test(code)).toBe(true);
+		},
+	);
+	test.each([
+		'options.fetch ?? []',
+		'fetch?: readonly Rule[]',
+		'rules.fetch?.find(x)',
+		'fetchJson(u)',
+	])('leave %p', (code) => {
+		expect(call.test(code)).toBe(false);
 	});
 });
 

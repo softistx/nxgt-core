@@ -8,6 +8,7 @@
  */
 
 import { days, INACTIVE_DAYS, oneLine, UNTRUSTED } from './context';
+import { hasLabel } from './labels';
 
 export interface DashIssue {
 	/** `owner/repo` */
@@ -65,11 +66,9 @@ export interface Dashboard {
 export const issueKey = (issue: Pick<DashIssue, 'repo' | 'number'>): string =>
 	`${issue.repo}#${issue.number}`.toLowerCase();
 
-const REPORT = 'consumer-report';
-
 function rank(issue: DashIssue, input: DashInput, links: number): RankedIssue {
 	const key = issueKey(issue);
-	const report = issue.labels.includes(REPORT);
+	const report = hasLabel(issue.labels, 'consumer-report');
 	const reporter = report ? 1 + (input.duplicates?.get(key) ?? 0) : 0;
 	return {
 		...issue,
@@ -96,7 +95,7 @@ export function rankDashboard(input: DashInput): Dashboard {
 	}
 	const byRepo = new Map<string, RankedIssue[]>();
 	for (const issue of input.issues) {
-		if (issue.labels.includes('upstream')) continue;
+		if (hasLabel(issue.labels, 'upstream')) continue;
 		const list = byRepo.get(issue.repo) ?? [];
 		list.push(rank(issue, input, links.get(issueKey(issue)) ?? 0));
 		byRepo.set(issue.repo, list);

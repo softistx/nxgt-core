@@ -135,7 +135,11 @@ describe('dashboard', () => {
 		expect(searches[0]?.argv).toContain('--archived=false');
 		expect(searches[0]?.argv.filter((a) => a === '--owner')).toHaveLength(2);
 		const third = searches[2]?.argv ?? [];
-		expect(third.slice(-2)).toEqual(['--', '-label:released']);
+		expect(third.slice(-3)).toEqual([
+			'--',
+			'-label:released',
+			'reason:completed',
+		]);
 		const board = JSON.parse(h.out.join('\n'));
 		expect(Object.keys(board).sort()).toEqual(['awaiting', 'groups', 'notes']);
 		expect(JSON.stringify(board)).not.toContain('"body"');
@@ -295,5 +299,72 @@ describe('dashboard', () => {
 		expect(h.out.join('\n')).toContain(
 			'duplicate counts cover the first 30 reports',
 		);
+	});
+});
+
+describe('dashboard: data correctness', () => {
+	test('"awaiting release" asks only for completed issues', async () => {
+		const h = harness({ cwd: makeApp(), now: NOW, run: RULES });
+		await main(h.ctx, ['dashboard']);
+		const awaiting = callsOf(h.runner, 'gh', 'search')[2]?.argv ?? [];
+		expect(awaiting).toContain('--state');
+		expect(awaiting.join(' ')).toContain('reason:completed');
+	});
+
+	test('an errored duplicate-count alias shows "affected ?"', async () => {
+		const errored: RunRule = {
+			argv: ['gh', 'api', 'graphql'],
+			when: (argv) => !isPackages(argv),
+			result: {
+				code: 1,
+				stderr: 'gh: errors',
+				stdout: JSON.stringify({
+					data: { r0: null },
+					errors: [{ type: 'SERVICE_UNAVAILABLE', path: ['r0'] }],
+				}),
+			},
+		};
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [OPEN, TRACKING, AWAITING, PACKAGES, errored],
+		});
+		expect(await main(h.ctx, ['dashboard'])).toBe(EXIT.ok);
+		const line = h.out.find((l) => l.startsWith('- #2')) ?? '';
+		expect(line).toContain('affected ?');
+	});
+
+	test('a capitalised Upstream or Consumer-Report label behaves like the lowercase one', async () => {
+		const open: RunRule = {
+			argv: SEARCH,
+			when: (argv) => has('open')(argv) && !argv.includes('upstream'),
+			result: {
+				stdout: JSON.stringify([
+					row('softistx/zorblax-core', 1),
+					row('softistx/zorblax-core', 2, {
+						labels: [{ name: 'Consumer-Report' }],
+						updatedAt: day(1),
+					}),
+					row('softistx/zorblax-core', 3, { labels: [{ name: 'Upstream' }] }),
+				]),
+			},
+		};
+		const h = harness({
+			cwd: makeApp(),
+			now: NOW,
+			run: [open, TRACKING, AWAITING, PACKAGES, DUPES],
+		});
+		await main(h.ctx, ['dashboard', '--json']);
+		const board = JSON.parse(h.out.join('\n'));
+		const issues = board.groups.flatMap(
+			(g: { issues: { number: number; labels: string[] }[] }) => g.issues,
+		);
+		expect(issues.map((i: { number: number }) => i.number).sort()).toEqual([
+			1, 2,
+		]);
+		const two = issues.find((i: { number: number }) => i.number === 2);
+		expect(two.labels).toEqual(['consumer-report']);
+		// counted as a report: the duplicate lookup was made for it
+		expect(callsOf(h.runner, 'gh', 'api', 'graphql').length).toBeGreaterThan(1);
 	});
 });

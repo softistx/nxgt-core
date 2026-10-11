@@ -11,8 +11,9 @@
  * code passes); a flag value refuses unless it is a placeholder.
  */
 
-import { CREDENTIAL_HEADER, namesCredential } from './auth-calls';
+import { CREDENTIAL_HEADER } from './auth-calls';
 import { isPlaceholder } from './code-values';
+import { identifierHoldsCredentialWord } from './credential-names';
 import { isHarmlessLiteral } from './literals';
 
 /** `x['authorization'] = 'value'`. */
@@ -53,7 +54,7 @@ export function hasCredentialPair(text: string): boolean {
 		}
 	}
 	for (const match of text.matchAll(COMPUTED)) {
-		if (!namesCredential(match[1] ?? '')) continue;
+		if (!identifierHoldsCredentialWord(match[1] ?? '')) continue;
 		const context = { ...HEADER_VALUE, template: match[2] === '`' };
 		if (!isHarmlessLiteral(match[3] ?? '', context)) return true;
 	}
