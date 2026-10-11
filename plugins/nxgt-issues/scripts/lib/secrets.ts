@@ -18,9 +18,11 @@
  * the assignment path: a header, a cookie, a `curl -u` or a `--flag` whose
  * value is a call refuses. Articles and pronouns are not placeholders:
  * `password: the hunter2` refuses. A value may sit on the next line (JSON,
- * YAML).
+ * YAML). A literal handed to an auth or crypto call refuses wherever the call
+ * sits (`auth-calls.ts`).
  */
 
+import { hasSecretArgument } from './auth-calls';
 import { isCodeValue, isPlaceholder, wordsOf } from './code-values';
 
 const TOKEN_PATTERNS: readonly RegExp[] = [
@@ -174,5 +176,6 @@ export function findSecrets(text: string): string[] {
 		}
 	}
 	if (PRIVATE_KEY_BLOCK.test(text)) found.add('private-key-block');
+	if (hasSecretArgument(text)) found.add('secret-argument');
 	return [...found];
 }

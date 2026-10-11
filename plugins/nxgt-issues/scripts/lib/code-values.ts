@@ -47,7 +47,7 @@ const QUANTITY = new Set(
 const SMALL_NUMBER = /^(?:\d{1,4}|\d{1,6}(?:ms|s|m|h|d))$/i;
 
 /** Literals a call may carry although they hold digits or dashes. */
-const KNOWN_LITERALS = new Set(
+export const KNOWN_LITERALS: ReadonlySet<string> = new Set(
 	(
 		'hex base64 base64url utf8 utf-8 utf16le latin1 ascii binary ' +
 		'sha1 sha256 sha384 sha512 md5 hs256 hs384 hs512 rs256 rs512 es256 es384 ' +
@@ -102,11 +102,23 @@ export function isPlaceholder(raw: string): boolean {
 const CALL = /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*\(.*\)$/;
 const QUOTED = /(["'`])((?:\\.|(?!\1).)*)\1/g;
 
+/** Prefixes of provider tokens: `sk-live-…` is a key, not a header name. */
+const TOKEN_PREFIX =
+	/^(?:sk|pk|rk|ghp|gho|ghs|ghu|ghr|github|xox[abprs]|npm|glpat|akia)[-_]/i;
+/** One segment of a header, cookie or key name: `x`, `API`, `Key`, `refreshToken`. */
+const NAME_SEGMENT = /^(?:[a-z]+(?:[A-Z][a-z]+)*|[A-Z]+|[A-Z][a-z]+)$/;
+
+/** The first argument of a reader: a plain name, never a token-shaped string. */
+export function isReaderKey(text: string): boolean {
+	if (TOKEN_PREFIX.test(text)) return false;
+	return text.split(/[-_.]/).every((segment) => NAME_SEGMENT.test(segment));
+}
+
 function quotedArgumentIsName(call: string, index: number, text: string) {
 	if (KNOWN_LITERALS.has(text.toLowerCase())) return true;
-	if (/^[A-Za-z]+$/.test(text)) return true;
 	const method = /([A-Za-z_$][\w$]*)\(\s*$/.exec(call.slice(0, index))?.[1];
-	return !!method && READERS.has(method) && /^[A-Za-z][A-Za-z_.-]*$/.test(text);
+	if (method && READERS.has(method)) return isReaderKey(text);
+	return /^[A-Za-z]+$/.test(text);
 }
 
 /** A call that reads a secret: every literal a name, no bare `P4ss`-like word. */
