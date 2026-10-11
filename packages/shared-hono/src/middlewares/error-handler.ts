@@ -12,9 +12,9 @@ export type ErrorHandlerOptions = {
 	showStackInTest?: boolean;
 	/**
 	 * Log every error. Defaults to `true`. Under `NODE_ENV=production` the
-	 * stack and a `CustomException`'s `debugMessage` are always logged (also when
-	 * `NODE_ENV` is unset), since
-	 * the response no longer carries them; `false` logs nothing at all.
+	 * stack and a `CustomException`'s `debugMessage` are always logged (also
+	 * when `NODE_ENV` is unset), since the response no longer carries them;
+	 * `false` logs nothing at all.
 	 */
 	logToConsole?: boolean;
 };
