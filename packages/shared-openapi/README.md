@@ -18,7 +18,11 @@ installs with either. The codegen helpers need TypeScript 6 to run
 generates clients installs them, and one that only `$ref`s the YAML never does.
 `openapi-typescript` declares `typescript` `^5.x` as its own peer, so npm
 refuses it next to TypeScript 6 or 7 unless told otherwise
-(`--legacy-peer-deps`, or an `overrides` entry); Bun installs it as it is.
+(`--legacy-peer-deps`, or an `overrides` entry); Bun installs it as it is:
+
+```bash
+bun add -d @hey-api/openapi-ts openapi-typescript
+```
 
 ## The YAML ships in `openapi/`
 
