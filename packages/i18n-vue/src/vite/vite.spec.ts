@@ -428,6 +428,26 @@ describe('i18nTypes with lazy', () => {
 		expect(dev.sent).toEqual([]);
 	});
 
+	test('leaves a hand-written i18n.catalogues.d.ts alone, fails the build, and serves nothing', async () => {
+		const root = project();
+		const file = join(root, 'src/generated/i18n.catalogues.d.ts');
+		mkdirSync(join(root, 'src/generated'), { recursive: true });
+		writeFileSync(file, "declare module 'mine' {}\n");
+		const plugin = i18nTypes({ locales: ['en', 'fr'], lazy: true });
+		const message =
+			'i18n: src/generated/i18n.catalogues.d.ts was not written by @nxgt/i18n-vue — point the types at a file of their own';
+		await expectThrowAsync(() => start(plugin, root), Error, message);
+		expect(readFileSync(file, 'utf8')).toBe("declare module 'mine' {}\n");
+		const { resolveId, load } = plugin as { resolveId: unknown; load: unknown };
+		const id = await run(resolveId, CATALOGUES);
+		await expectThrowAsync(async () => run(load, id), Error, message);
+		await expectThrowAsync(
+			async () => run(load, `\0${LOCALE}fr`),
+			Error,
+			message,
+		);
+	});
+
 	test('refuses a lazy that is not a boolean, with a TypeError', () => {
 		expectThrow(
 			() =>

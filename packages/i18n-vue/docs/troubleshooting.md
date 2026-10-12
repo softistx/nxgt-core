@@ -477,7 +477,8 @@ fallback locale has `{at, date}`, say. Use it as the fallback locale does.
 
 ### `i18n: <path> was not written by @nxgt/i18n-vue — point the types at a file of their own`
 
-The Vite plugin's `out` is a file that exists and was not written by
+The Vite plugin's `out` — or, with `lazy: true`, the `<out>.catalogues.d.ts`
+beside it — is a file that exists and was not written by
 `typesSource`: its first two lines are not a generated file's header, so it
 is yours. The plugin never replaces it. Point `out`
 elsewhere, or delete the file if it is a stale copy.
