@@ -39,8 +39,9 @@ export interface I18n {
 	 * until then `locale` and `t` stay on the previous locale. The promise
 	 * resolves when the switch is done, and rejects when the catalogue could
 	 * not be loaded or cannot be right — the locale then unchanged. When
-	 * calls overlap, the last one wins. On a server, `await` it before
-	 * rendering.
+	 * calls overlap, the last one wins: a superseded call resolves without
+	 * switching when its load succeeds, and still rejects when it fails. On a
+	 * server, `await` it before rendering.
 	 */
 	setLocale(locale: Locale): Promise<void>;
 	/** The message `key` in the current locale. An unknown key, or an argument that cannot be right, **throws**. Reactive: a template re-renders when the locale changes. */

@@ -76,6 +76,13 @@ const lazy = createI18n({
 	loaders: { fr: () => import('./locales/fr.json') },
 });
 await lazy.setLocale('fr');
+// The same under plain Node ESM, which needs the JSON import attribute.
+createI18n({
+	catalogues: { en },
+	loaders: {
+		fr: () => import('./locales/fr.json', { with: { type: 'json' } }),
+	},
+});
 const switched: Promise<void> = i18n.setLocale('en');
 setupNuxtI18n({
 	catalogues: { en, fr },

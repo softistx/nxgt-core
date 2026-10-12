@@ -571,7 +571,7 @@ setLocale((event.target as HTMLSelectElement).value as Locale);
 
 ### `setLocale: the locale is not a locale of the catalogues — pick one with pickLocale`
 
-`setLocale` got a locale the catalogues do not have; the locale is
+`setLocale` got a locale in neither `catalogues` nor `loaders`; the locale is
 unchanged. Pass one of `locales`, or `pickLocale(value, locales, locale.value)`.
 
 ### `setLocale: the catalogue of <locale> could not be loaded`
@@ -602,8 +602,19 @@ array, `null`. Import the JSON file itself, or export the catalogue as
 loaders: { fr: () => import('./locales/fr.json') } // a JSON module: its default is the catalogue
 ```
 
-A plain object with a `default` key is not unwrapped: only an `import()`
-namespace (its `Symbol.toStringTag` is `'Module'`) is.
+The loader's answer is unwrapped to its `default` export when it is a
+module namespace, which is recognised by either of two rules:
+
+- its `Symbol.toStringTag` is `'Module'`, as a native `import()` answers
+  under Bun, Node or Vite in development;
+- or it mirrors its default export: an object `default`, at least one other
+  key, and every other key holding the same value as `default`'s. This is
+  what a bundle answers once the tag is gone — `bun build` without
+  splitting, `bun build --compile`, Rollup when a JSON file is imported both
+  statically and dynamically.
+
+Anything else is taken as the catalogue itself: a plain `{ default: {...} }`
+with no other key is a catalogue whose one key is `default`.
 
 ### `useI18n: no i18n is installed — app.use(createI18n({ catalogues })) first, in a component or where inject works`
 

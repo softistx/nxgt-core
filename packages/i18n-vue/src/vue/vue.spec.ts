@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'bun:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { computed, createSSRApp, defineComponent, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
 import { expectThrow, expectThrowAsync } from '../../test/expect-throw';
@@ -355,6 +358,25 @@ describe('catalogues loaded on demand', () => {
 		expect(i18n.locale.value).toBe('de');
 	});
 
+	test('a superseded call whose load fails still rejects, and the locale stays where the last call put it', async () => {
+		const fr = deferred<Catalogue>();
+		const i18n = createI18n({
+			catalogues: { en, de: freshFr() },
+			loaders: { fr: () => fr.promise },
+		});
+		const toFr = i18n.setLocale('fr');
+		await i18n.setLocale('de');
+		const offline = new Error('offline');
+		fr.reject(offline);
+		const error = await expectThrowAsync(
+			() => toFr,
+			Error,
+			'setLocale: the catalogue of fr could not be loaded',
+		);
+		expect(error.cause).toBe(offline);
+		expect(i18n.locale.value).toBe('de');
+	});
+
 	test('a switch to a loaded locale wins over a load still pending', async () => {
 		const fr = deferred<Catalogue>();
 		const loader = counted(() => fr.promise);
@@ -449,6 +471,35 @@ describe('catalogues loaded on demand', () => {
 			() => i18n.setLocale('fr'),
 			Error,
 			'i18n: fr: home.greeting is missing — en, the fallback locale, has it',
+		);
+	});
+
+	test('unwraps a namespace that mirrors its default export, as a bundle answers one with no tag', async () => {
+		const mirrored = createI18n({
+			catalogues: { en },
+			loaders: {
+				fr: async () => {
+					const fr = freshFr();
+					return { default: fr, home: fr['home'] };
+				},
+			},
+		});
+		await mirrored.setLocale('fr');
+		expect(mirrored.t('home.title')).toBe('Bienvenue');
+		// A key whose value differs from default's is no mirror: a catalogue.
+		const unlike = createI18n({
+			catalogues: { en },
+			loaders: {
+				fr: async () => {
+					const fr = freshFr();
+					return { default: fr, home: structuredClone(fr['home']) };
+				},
+			},
+		});
+		await expectThrowAsync(
+			() => unlike.setLocale('fr'),
+			Error,
+			'i18n: fr: default.home.greeting is not a key of en, the fallback locale',
 		);
 	});
 
@@ -607,6 +658,34 @@ describe('on a plain Bun server, with no Vite and no Nuxt', () => {
 		const [fr, en] = await Promise.all([render('fr'), render('en')]);
 		expect(fr).toBe('<p>Bonjour Ada</p>');
 		expect(en).toBe('<p>Hello Ada</p>');
+	});
+
+	test('loads from a bundle built without splitting, whose namespace has no tag', async () => {
+		const dir = mkdtempSync(join(tmpdir(), 'i18n-vue-bundle-'));
+		try {
+			const entry = join(dir, 'entry.ts');
+			const fixture = join(import.meta.dir, '../../test/lazy-locales/fr.json');
+			writeFileSync(
+				entry,
+				`export const loaders = { fr: () => import(${JSON.stringify(fixture)}) };\n`,
+			);
+			const built = await Bun.build({
+				entrypoints: [entry],
+				outdir: join(dir, 'out'),
+				splitting: false,
+				target: 'bun',
+			});
+			expect(built.success).toBe(true);
+			const bundle = await import((built.outputs[0] as { path: string }).path);
+			const i18n = createI18n({
+				catalogues: { en: lazyEn },
+				loaders: bundle.loaders,
+			});
+			await i18n.setLocale('fr');
+			expect(i18n.t('home.greeting', { name: 'Ada' })).toBe('Bonjour Ada');
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 
 	test('translates with t alone, with no app at all', async () => {

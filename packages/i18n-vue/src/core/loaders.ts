@@ -36,11 +36,37 @@ export interface LoadedCatalogue {
  */
 const checked = new WeakMap<Messages, WeakMap<object, LoadedCatalogue>>();
 
-/** A module namespace — what `import()` answers — told apart from a catalogue that has a `default` key. */
-const isModule = (value: unknown): value is { readonly default?: unknown } =>
-	isObject(value) &&
-	(value as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] ===
-		'Module';
+/**
+ * A module namespace, told apart from a catalogue that has a `default` key,
+ * by either of two rules:
+ *
+ * - its `Symbol.toStringTag` is `'Module'`, as a native `import()` answers;
+ * - or it mirrors its default export: an object `default`, at least one
+ *   other key, and every other key the same value as `default`'s — what a
+ *   bundler's namespace of a JSON file looks like once the tag is gone
+ *   (`bun build` without splitting, `bun build --compile`, Rollup).
+ *
+ * A plain `{ default: {...} }` with no other key matches neither: it is a
+ * catalogue whose one key is `default`.
+ */
+function isModule(value: unknown): value is { readonly default: unknown } {
+	if (!isObject(value)) return false;
+	if (
+		(value as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] ===
+		'Module'
+	) {
+		return true;
+	}
+	const inner = value['default'];
+	if (!isObject(inner)) return false;
+	const others = Object.keys(value).filter((key) => key !== 'default');
+	return (
+		others.length > 0 &&
+		others.every(
+			(key) => Object.hasOwn(inner, key) && inner[key] === value[key],
+		)
+	);
+}
 
 async function loadCatalogue(
 	loaders: CatalogueLoaders,

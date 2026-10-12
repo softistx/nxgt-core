@@ -100,8 +100,9 @@ so the same arguments work in every locale.
   in `loaders` rather than `catalogues`: its catalogue is checked against the
   fallback locale's, with the same messages, before the locale switches — a
   catalogue that cannot be right rejects the promise and leaves the locale
-  unchanged. Each catalogue object is checked once against the same
-  fallback catalogue, across every i18n. See
+  unchanged. Each catalogue object is checked once per set of `catalogues`
+  it is checked against, across every i18n: `{ en }` and `{ en, fr }` are
+  two sets, each checking it once. See
   [Loading a locale on demand](vue.md#loading-a-locale-on-demand).
 
 `createTranslator` does not check them; call `checkCatalogues` yourself if

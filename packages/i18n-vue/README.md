@@ -107,8 +107,9 @@ createApp(App).use(i18n);
 Only the locales a visitor uses need to be downloaded: give the others as
 `loaders`, and `setLocale` fetches and checks a catalogue the first time it is
 asked for. Opt-in; `catalogues` alone works as it always has. The record is
-plain `import()` calls, so it works the same under Bun, Node or any bundler,
-with no plugin.
+plain `import()` calls and needs no plugin: Bun, Vite, webpack and esbuild
+import JSON as is, and plain Node ESM with
+`import('./locales/fr.json', { with: { type: 'json' } })`.
 
 ```ts
 const i18n = createI18n({
@@ -119,7 +120,8 @@ await i18n.setLocale('fr'); // loads fr.json, checks it against en, then switche
 ```
 
 Until the catalogue is loaded, `locale` and `t` stay on the previous locale;
-when calls overlap, the last one wins. On a server, `await setLocale(…)`
+when calls overlap, the last one wins — a superseded call resolves without
+switching, or still rejects if its load failed. On a server, `await setLocale(…)`
 before rendering. See
 [Loading a locale on demand](docs/guide/vue.md#loading-a-locale-on-demand).
 
