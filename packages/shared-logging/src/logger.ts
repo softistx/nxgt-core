@@ -31,6 +31,21 @@ export function createLogger(options: {
 		},
 	);
 
+	// `logger.error(error)` hands winston the error itself as the line, and
+	// `colorize` then rewrites its `message` in place: the caller's error came
+	// back with escape codes, and one whose `message` is read-only (a
+	// DOMException, such as an aborted fetch) made the call throw. The line is
+	// a copy instead.
+	const copyError = format((info) => {
+		if (!(info instanceof Error)) return info;
+		const copy: winston.Logform.TransformableInfo = {
+			...info,
+			message: info.message,
+		};
+		if (info.stack !== undefined) copy['stack'] = info.stack;
+		return copy;
+	});
+
 	const fileRotateTransport = new winston.transports.DailyRotateFile({
 		filename: `logs/${options.name}-%DATE%.log`,
 		datePattern: 'YYYY-MM-DD',
@@ -40,6 +55,7 @@ export function createLogger(options: {
 	return winston.createLogger({
 		level: Bun.env['LOG_LEVEL'] || 'info',
 		format: combine(
+			copyError(),
 			colorize({ all: true }),
 			label({ label: options.tag ?? (Bun.env['LOG_TAG'] || 'app') }),
 			timestamp({ format: 'YYYY-DD-MM HH:mm:ss' }),
