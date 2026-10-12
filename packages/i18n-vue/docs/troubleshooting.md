@@ -59,6 +59,7 @@ as `home.greeting`.
 - [`i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts`](#i18ntypes-out-must-be-the-path-of-a-dts-file-as-srcgeneratedi18ndts)
 - [`i18nTypes: lazy must be true or false, as i18nTypes({ locales, lazy: true })`](#i18ntypes-lazy-must-be-true-or-false-as-i18ntypes-locales-lazy-true-)
 - [`nxgtI18n: cookie must be a cookie name, as 'language'`](#nxgti18n-cookie-must-be-a-cookie-name-as-language)
+- [`nxgtI18n: lazy must be true or false, as { locales: ['en', 'fr'], lazy: true }`](#nxgti18n-lazy-must-be-true-or-false-as--locales-en-fr-lazy-true-)
 - [`setupLazyNuxtI18n: locales holds <locale>, which is neither in catalogues nor in loaders — …`](#setuplazynuxti18n-locales-holds-locale-which-is-neither-in-catalogues-nor-in-loaders--give-each-locale-a-catalogue-or-a-loader)
 
 **Catalogues**
@@ -311,6 +312,22 @@ have, or is not a string. Letters, digits and `-_.` are safe:
 ```ts
 nxgtI18n: { locales: ['en', 'fr'], cookie: 'app_locale' }
 ```
+
+### `nxgtI18n: lazy must be true or false, as { locales: ['en', 'fr'], lazy: true }`
+
+A `TypeError` when Nuxt starts: the module's `lazy` was given something
+other than a boolean — a string such as `'true'` from an environment
+variable, or the list of locales to load on demand. It only switches loading
+on demand on or off: every locale but the fallback one is then a chunk of
+its own.
+
+```ts
+nxgtI18n: { locales: ['en', 'fr'], lazy: true }
+```
+
+From an environment variable, compare it: `lazy: process.env.I18N_LAZY === 'true'`.
+To load only some locales on demand, write the plugin yourself with
+[`setupLazyNuxtI18n`](guide/nuxt.md#locales-loaded-on-demand).
 
 ### `setupLazyNuxtI18n: locales holds <locale>, which is neither in catalogues nor in loaders — give each locale a catalogue or a loader`
 

@@ -50,14 +50,17 @@ When Nuxt starts — `nuxt dev`, `nuxt build`, `nuxt prepare`:
    project's root — or the resources object a `messages` module exports —
    merges any `catalogues` under them, and **checks** them. A catalogue that
    cannot be right fails the command, naming the locale and the key.
-2. adds a plugin that installs the i18n in every request and in the browser.
+2. adds a plugin that installs the i18n in every request and in the browser
+   — with `lazy: true`, one that loads every locale but the fallback one on
+   demand ([What `lazy` generates](#what-lazy-generates)).
 3. writes `.nuxt/types/nxgt-i18n-vue.d.ts`, which types `t` in every
    template and `useI18n()` in every component ([Types](types.md)).
 4. auto-imports `useI18n`.
 
 In `nuxt dev`, a change to a file the module read restarts Nuxt, which reads
 and checks the catalogues again — every `<locale>.json` and, with `dir`,
-every `<locale>/**/*.json` too, whether it changed or is new.
+every `<locale>/**/*.json` too, whether it changed or is new — and writes
+every template again, the locale modules of `lazy` included.
 
 ## Options
 
@@ -71,11 +74,102 @@ Under `nxgtI18n`:
 | `messages` | `string` | — | A module whose default export is the resources object, or a function that returns it — instead of `dir`. Not with `dir` |
 | `catalogues` | `readonly Catalogues[]` | `[]` | Catalogues a package ships, merged under yours key by key |
 | `cookie` | `string` | `'language'` | The cookie that stores a chosen locale |
+| `lazy` | `boolean` | `false` | Load every locale but the fallback one on demand, each a chunk of its own ([below](#what-lazy-generates)) |
 
 See [Splitting catalogues](catalogues.md#splitting-catalogues) for the folder
 layout and `messages`.
 
 A wrong option is a `TypeError` starting `nxgtI18n:` when Nuxt starts.
+
+## What `lazy` generates
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+	modules: ['@nxgt/i18n-vue/nuxt'],
+	nxgtI18n: {
+		locales: ['en', 'fr', 'de'],
+		lazy: true,
+	},
+});
+```
+
+Without `lazy`, the plugin inlines every catalogue, so the client bundle
+holds them all. With `lazy: true`, the module writes, under `.nuxt/`:
+
+- **one module per locale but the fallback one**,
+  `nxgt-i18n-vue/locales/<locale>.mjs`, whose default export is that
+  locale's merged catalogue — folder layout and packages' `catalogues`
+  included, checked like the others when Nuxt starts:
+
+  ```js
+  // .nuxt/nxgt-i18n-vue/locales/fr.mjs
+  export default {"home":{"title":"Bienvenue"}};
+  ```
+
+- **the plugin**, which inlines the fallback catalogue alone and imports
+  each other locale on demand — the plugin of
+  [Locales loaded on demand](#locales-loaded-on-demand), written for you:
+
+  ```js
+  // .nuxt/nxgt-i18n-vue/plugin.mjs, abridged
+  const catalogues = {"en":{"home":{"title":"Welcome"}}};
+  const loaders = {
+  	"fr": () => import("#build/nxgt-i18n-vue/locales/fr.mjs"),
+  	"de": () => import("#build/nxgt-i18n-vue/locales/de.mjs"),
+  };
+  const locales = ["en","fr","de"];
+
+  export default defineNuxtPlugin({
+  	name: '@nxgt/i18n-vue',
+  	enforce: 'pre',
+  	async setup(nuxtApp) {
+  		// useRequestHeaders, useCookie and useState, all before the await
+  		const i18n = await setupLazyNuxtI18n({ catalogues, loaders, locales, /* … */ });
+  		nuxtApp.vueApp.use(i18n);
+  		nuxtApp.runWithContext(() => useHead({ htmlAttrs: { lang: i18n.locale } }));
+  	},
+  });
+  ```
+
+What follows from it:
+
+- **`nuxt build` emits a chunk per locale** but the fallback one, and the
+  entry chunk holds none of them. The browser fetches one only when the
+  page switches to it.
+- **The server renders in the visitor's locale**, never in the fallback one
+  first. The plugin is async and not `parallel`, so Nuxt waits for it —
+  and for the visitor's catalogue — before the next plugin and before
+  rendering.
+- **The catalogue the page was rendered in travels in the payload**
+  (`CATALOGUE_STATE_KEY`; `null` for the fallback locale), so the browser
+  hydrates in it without fetching its chunk. The page's HTML grows by that
+  one catalogue.
+- **`setLocale` answers a promise**, resolved once the locale's chunk is
+  loaded. A click handler can ignore it; on the server, `await` it — in a
+  route middleware, say — or the page renders in the previous locale:
+
+  ```ts
+  // app/middleware/locale.global.ts
+  export default defineNuxtRouteMiddleware(async (to) => {
+  	const { locales, setLocale } = useI18n();
+  	const wanted = locales.find((locale) => locale === to.query.lang);
+  	if (wanted !== undefined) await setLocale(wanted);
+  });
+  ```
+
+- **The types under `.nuxt/` are the same**: `t` and `setLocale` are typed
+  from the fallback catalogue and `locales`, whether a locale is inline or
+  loaded on demand.
+- **Everything else is the same**: the locale is resolved, stored and
+  hydrated as [below](#how-the-locale-is-resolved); a catalogue change in
+  `nuxt dev` restarts Nuxt, which writes the locale modules again.
+
+`lazy` only produces the `loaders` record `createI18n` takes
+([Loading a locale on demand](vue.md#loading-a-locale-on-demand)); the plugin
+is the one you could write by hand. With one locale only, there is nothing to
+load on demand and the plugin has no loader. `lazy` must be a boolean
+([Troubleshooting](../troubleshooting.md#nxgti18n-lazy-must-be-true-or-false-as--locales-en-fr-lazy-true-)).
 
 ## How the locale is resolved
 
@@ -123,8 +217,9 @@ nuxt prepare && vue-tsc -b
 
 ## Writing the plugin yourself
 
-The module's plugin is generated (`pluginSource`); it only passes Nuxt's
-composables to `setupNuxtI18n`, from `@nxgt/i18n-vue/nuxt/runtime`. To change
+The module's plugin is generated (`pluginSource`; with its `loaders`
+option, the plugin of `lazy`); it only passes Nuxt's composables to
+`setupNuxtI18n`, from `@nxgt/i18n-vue/nuxt/runtime`. To change
 what it does — another cookie option, another source of the requested
 locale — write the same plugin without the module:
 
@@ -163,7 +258,8 @@ it imports `@nuxt/kit`.
 
 ### Locales loaded on demand
 
-`setupLazyNuxtI18n` is the same plugin with some locales in `loaders`
+`setupLazyNuxtI18n` is the same plugin with some locales in `loaders` — what
+the module's [`lazy`](#what-lazy-generates) generates
 ([Loading a locale on demand](vue.md#loading-a-locale-on-demand)): only the
 fallback locale ships in the plugin, and each other one is a chunk of its
 own. It is async, so the plugin is too:
@@ -244,9 +340,10 @@ chunk per locale.
 
 - **No locale in the URL.** There is no `/fr/…` routing, no alternate links,
   no SEO helpers. Read a prefix in your own middleware and call `setLocale`.
-- **No lazy loading from the module yet.** The module's plugin holds every
-  catalogue, so the client bundle does. Fine for tens of kilobytes; beyond
-  that, write the plugin yourself with
-  [`setupLazyNuxtI18n`](#locales-loaded-on-demand), and see the
-  [roadmap](../roadmap.md).
+- **No lazy loading unless you ask.** Without `lazy`, the module's plugin
+  holds every catalogue, so the client bundle does — fine for tens of
+  kilobytes. With [`lazy: true`](#what-lazy-generates) it loads every locale
+  but the fallback one on demand; to choose which locales load up front,
+  write the plugin yourself with
+  [`setupLazyNuxtI18n`](#locales-loaded-on-demand).
 - **No hot reload of a message.** A catalogue change restarts `nuxt dev`.

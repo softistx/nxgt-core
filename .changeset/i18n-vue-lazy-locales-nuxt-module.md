@@ -1,0 +1,5 @@
+---
+"@nxgt/i18n-vue": minor
+---
+
+The Nuxt module takes an optional `lazy: true` (`nxgtI18n: { locales, lazy: true }`) that loads every locale but the fallback one on demand: it writes `.nuxt/nxgt-i18n-vue/locales/<locale>.mjs` per other locale (its merged catalogue, folder layout and packages' `catalogues` included), and a plugin that inlines the fallback catalogue alone, imports each other locale with `import('#build/nxgt-i18n-vue/locales/<locale>.mjs')` and awaits `setupLazyNuxtI18n`. `nuxt build` emits a chunk per locale, absent from the entry chunk; the server loads the visitor's catalogue before it renders, and the catalogue it rendered in travels in the payload, so the browser hydrates without fetching it. `setLocale` answers a promise resolved once the chunk is loaded: `await` it on the server. The types under `.nuxt/` are the same. Without `lazy`, nothing changes: the plugin and the types are byte for byte the same. `pluginSource` and `PluginSourceOptions` take an optional `loaders` (module specifiers by locale) that switches to that plugin. New error: `nxgtI18n: lazy must be true or false, as { locales: ['en', 'fr'], lazy: true }`, a `TypeError`.
