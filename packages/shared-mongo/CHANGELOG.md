@@ -1,5 +1,13 @@
 # @nxgt/shared-mongo
 
+## 1.2.2
+
+### Patch Changes
+
+- [#293](https://github.com/softistx/nxgt-core/pull/293) [`e01de85`](https://github.com/softistx/nxgt-core/commit/e01de85ab88882d5ae843b91725f2662aae75a98) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `createMigrationFile` writes a template that takes `ClientSession` and `Connection` from `@nxgt/shared-mongo`, as the README asks of app code, instead of from `mongoose`. The file is written already formatted, and `bunx @biomejs/biome` is no longer spawned, so creating a migration never downloads Biome.
+- Updated dependencies [[`1a07baf`](https://github.com/softistx/nxgt-core/commit/1a07bafd3439c37b5f1ffda5e67d255aa466526b)]:
+  - @nxgt/shared@1.1.2
+
 ## 1.2.1
 
 ### Patch Changes

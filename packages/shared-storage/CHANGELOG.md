@@ -1,5 +1,18 @@
 # @nxgt/shared-storage
 
+## 1.2.2
+
+### Patch Changes
+
+- [#300](https://github.com/softistx/nxgt-core/pull/300) [`258aa51`](https://github.com/softistx/nxgt-core/commit/258aa512be768a2b72a95fa16c82b0e6a894fc3a) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `resources` now translate GridFSService's `files.errors.file-not-found` and `files.errors.file-not-found-after-rename`, which used to show as raw keys, and the French resources say every `storage.errors.*` message in French; all but one were left in English.
+
+- [#299](https://github.com/softistx/nxgt-core/pull/299) [`9cd10db`](https://github.com/softistx/nxgt-core/commit/9cd10db0967283c54b535c355070c72bcda65a71) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The tarball no longer ships `dist/test/has-s3.d.ts`, the declaration of a spec helper that nothing exports.
+
+- [#297](https://github.com/softistx/nxgt-core/pull/297) [`4689cd5`](https://github.com/softistx/nxgt-core/commit/4689cd58d5a990e440bafaeb0a44d00997546df6) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The package ships a `docs/` folder with a troubleshooting page: one entry per message a consumer can hit, headed by the exact text, with when it happens, why, and the fix. The README links it.
+- Updated dependencies [[`e01de85`](https://github.com/softistx/nxgt-core/commit/e01de85ab88882d5ae843b91725f2662aae75a98), [`1a07baf`](https://github.com/softistx/nxgt-core/commit/1a07bafd3439c37b5f1ffda5e67d255aa466526b)]:
+  - @nxgt/shared-mongo@1.2.2
+  - @nxgt/shared@1.1.2
+
 ## 1.2.1
 
 ### Patch Changes
