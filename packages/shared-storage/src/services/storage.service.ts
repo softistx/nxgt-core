@@ -27,6 +27,32 @@ function presignMethod(method: string | undefined): PresignMethod {
 	throw new TypeError(`StorageService.fetch cannot sign a ${method} request`);
 }
 
+/**
+ * The presigned URL signs only `host`: S3 answers 403 to a request carrying an
+ * `x-amz-*` header it did not sign, so such a header is refused here instead.
+ * Write with metadata, an ACL or a checksum through `write`.
+ */
+function refuseUnsignedHeaders(headers: HeadersInit | undefined): void {
+	for (const name of new Headers(headers).keys()) {
+		if (name.startsWith('x-amz-'))
+			throw new TypeError(
+				`StorageService.fetch cannot sign the ${name} header: use write`,
+			);
+	}
+}
+
+/**
+ * Bun's network error carries the request URL in `path`, here a presigned
+ * one, signature included: the error that reaches the logger drops it.
+ */
+function withoutUrl(error: unknown): unknown {
+	if (!(error instanceof Error) || !('path' in error)) return error;
+	const copy = new Error(error.message);
+	copy.name = error.name;
+	if ('code' in error) Object.assign(copy, { code: error.code });
+	return copy;
+}
+
 export class StorageService {
 	s3: S3Client;
 	private bucket: string;
@@ -141,6 +167,7 @@ export class StorageService {
 			// key with a space, a `%` or a non-ASCII character (a 404 for a file
 			// `ensureExists` just found), encoded or not, while the client signs
 			// such a key correctly. The URL is signed for this request's method.
+			refuseUnsignedHeaders(options.headers);
 			const url = this.s3.presign(input, {
 				bucket: bucket ?? this.bucket,
 				method: presignMethod(options.method),
@@ -148,7 +175,7 @@ export class StorageService {
 			});
 			return await fetch(url, options);
 		} catch (error) {
-			throw this.failure(error, 'storage.errors.fetch-failed');
+			throw this.failure(withoutUrl(error), 'storage.errors.fetch-failed');
 		}
 	}
 

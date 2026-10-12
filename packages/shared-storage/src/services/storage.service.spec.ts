@@ -338,10 +338,42 @@ describe.skipIf(!hasS3)('StorageService', () => {
 		test('refuses a method it cannot sign', async () => {
 			const key = keyFor('patched.txt');
 			await service.write(key, 'x');
-			expectInternal(
-				await rejection(service.fetch(key, { method: 'PATCH' })),
-				'storage.errors.fetch-failed',
+			const error = await rejection(service.fetch(key, { method: 'PATCH' }));
+			expectInternal(error, 'storage.errors.fetch-failed');
+			expect((error as CustomException<string>).debugMessage).toContain(
+				'cannot sign a PATCH request',
 			);
+		});
+
+		test('refuses an x-amz-* header it cannot sign', async () => {
+			const key = keyFor('with meta.txt');
+			await service.write(key, 'x');
+			const error = await rejection(
+				service.fetch(key, {
+					method: 'PUT',
+					body: 'y',
+					headers: { 'x-amz-meta-owner': 'someone' },
+				}),
+			);
+			expectInternal(error, 'storage.errors.fetch-failed');
+			expect((error as CustomException<string>).debugMessage).toContain(
+				'cannot sign the x-amz-meta-owner header',
+			);
+			expect(await service.file(key).text()).toBe('x');
+		});
+
+		test('signs a lower-case method, and a PUT with a body replaces the file', async () => {
+			const key = keyFor('put through fetch.txt');
+			await service.write(key, 'before');
+			const head = await service.fetch(key, { method: 'head' });
+			expect(head.status).toBe(200);
+			const put = await service.fetch(key, {
+				method: 'PUT',
+				body: 'after',
+				headers: { 'Content-Type': 'text/plain' },
+			});
+			expect(put.ok).toBe(true);
+			expect(await service.file(key).text()).toBe('after');
 		});
 
 		test('fetches from the bucket named in its options', async () => {

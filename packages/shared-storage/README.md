@@ -47,7 +47,9 @@ constructor's bucket, itself `S3_BUCKET` by default. It fetches a URL presigned
 for the request's method (`GET`, `HEAD`, `PUT`, `POST` or `DELETE`; any other
 is a `fetch-failed`), so any key reads as it was written, a space, a `%` or a
 non-ASCII character included, and the rest of the request — `headers` such as
-`Range`, `signal` — goes through as given. MinIO methods whose
+`Range` or `Content-Type`, `signal`, a `PUT`'s `body` — goes through as given.
+The URL signs only the host, so an `x-amz-*` header (metadata, an ACL, a
+checksum) is refused as `fetch-failed`: write those with `write`. MinIO methods whose
 result types would otherwise leak minio's internal module are annotated
 through the public `Client` (`Awaited<ReturnType<Client['putObject']>>`) so a
 consumer's `.d.ts` resolves.
