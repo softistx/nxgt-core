@@ -1,10 +1,19 @@
-import {
-	type CatalogueLoaders,
-	checkLocale,
-	type Messages,
-} from './catalogues';
+import { type Catalogue, checkLocale, type Messages } from './catalogues';
 import { isObject } from './guards';
 import { createFormatter, type Formatter } from './translator';
+
+/**
+ * One locale's catalogue, fetched when `setLocale` first asks for it:
+ * `() => import('./locales/fr.json')`. It answers the catalogue, or a module
+ * whose default export is one — what a dynamic `import()` of a JSON file
+ * answers under Bun, Vite or Node.
+ */
+export type CatalogueLoader = () => Promise<
+	Catalogue | { readonly default: Catalogue }
+>;
+
+/** A loader per locale: `{ fr: () => import('./locales/fr.json') }`. */
+export type CatalogueLoaders = Readonly<Record<string, CatalogueLoader>>;
 
 /** One locale's catalogue loaded on demand: checked, with a formatter of its own. */
 export interface LoadedCatalogue {
@@ -121,5 +130,48 @@ export function onDemandCatalogues(
 			inFlight.set(locale, load);
 			return load;
 		},
+	};
+}
+
+/** What `localeSwitcher` switches between. */
+export interface LocaleSwitcherOptions {
+	/** Every locale `setLocale` accepts: the catalogues', then the loaders'. */
+	readonly locales: readonly string[];
+	/** Whether the locale is one of the catalogues given up front. */
+	readonly isEager: (locale: string) => boolean;
+	readonly onDemand: OnDemandCatalogues;
+	/** Makes `locale` the current one. */
+	readonly apply: (locale: string) => void;
+}
+
+/**
+ * `setLocale`: bad input throws synchronously; a loaded locale is applied at
+ * once; one in `loaders` is applied once loaded and checked, unless a later
+ * call came in meanwhile — the last call wins. A superseded call whose load
+ * succeeds resolves without switching; one whose load fails still rejects.
+ */
+export function localeSwitcher(
+	options: LocaleSwitcherOptions,
+): (locale: string) => Promise<void> {
+	const { locales, isEager, onDemand, apply } = options;
+	/** Bumped by every call: a load that ends after a later call switches nothing. */
+	let latest = 0;
+	return (next) => {
+		if (typeof next !== 'string') {
+			throw new TypeError('setLocale: the locale must be a string, as fr');
+		}
+		if (!locales.includes(next)) {
+			throw new Error(
+				'setLocale: the locale is not a locale of the catalogues — pick one with pickLocale',
+			);
+		}
+		const call = ++latest;
+		if (isEager(next) || onDemand.get(next) !== undefined) {
+			apply(next);
+			return Promise.resolve();
+		}
+		return onDemand.load(next).then(() => {
+			if (call === latest) apply(next);
+		});
 	};
 }

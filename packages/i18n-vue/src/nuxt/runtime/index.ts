@@ -8,7 +8,7 @@
 import { type Ref, watch } from 'vue';
 import type { Catalogues } from '../../core/catalogues';
 import { parseAcceptLanguage, pickLocale } from '../../core/locale';
-import { createI18n, type I18n } from '../../vue';
+import { createI18n, type I18n } from '../../vue/index';
 
 export { STATE_KEY } from '../state-key';
 

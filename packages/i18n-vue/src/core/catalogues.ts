@@ -22,19 +22,6 @@ export interface Catalogue {
 export type Catalogues = Readonly<Record<string, Catalogue>>;
 
 /**
- * One locale's catalogue, fetched when `setLocale` first asks for it:
- * `() => import('./locales/fr.json')`. It answers the catalogue, or a module
- * whose default export is one — what a dynamic `import()` of a JSON file
- * answers under Bun, Vite or Node.
- */
-export type CatalogueLoader = () => Promise<
-	Catalogue | { readonly default: Catalogue }
->;
-
-/** A loader per locale: `{ fr: () => import('./locales/fr.json') }`. */
-export type CatalogueLoaders = Readonly<Record<string, CatalogueLoader>>;
-
-/**
  * What an argument is, from the way a message uses it: `{n, number}` and
  * `{n, plural, …}` a number, `{at, date}` a date, anything else a string.
  */
@@ -71,43 +58,6 @@ const KEY_SEGMENT = /^[a-z][a-zA-Z0-9]*$|^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/;
  */
 export function isKeySegment(segment: string): boolean {
 	return KEY_SEGMENT.test(segment);
-}
-
-/** `over` merged into `under` key by key: an object is merged, anything else replaces. */
-function mergeCatalogue(under: Catalogue, over: Catalogue): Catalogue {
-	const out: Record<string, string | Catalogue> = { ...under };
-	for (const [key, value] of Object.entries(over)) {
-		const below = Object.hasOwn(out, key) ? out[key] : undefined;
-		// Defined, not assigned: `out.__proto__ = …` would set the prototype and
-		// hide the key from the check that refuses it.
-		Object.defineProperty(out, key, {
-			value:
-				isObject(below) && isObject(value)
-					? mergeCatalogue(below, value)
-					: value,
-			enumerable: true,
-			writable: true,
-			configurable: true,
-		});
-	}
-	return out;
-}
-
-/**
- * Each of `project`'s locales, with `sources` merged under it in order: a
- * source's locale the project does not have is left out.
- */
-export function layerCatalogues(
-	sources: readonly Catalogues[],
-	project: Record<string, Catalogue>,
-): Record<string, Catalogue> {
-	const out: Record<string, Catalogue> = {};
-	for (const [locale, catalogue] of Object.entries(project)) {
-		out[locale] = [...sources.map((source) => source[locale]), catalogue]
-			.filter((layer): layer is Catalogue => layer !== undefined)
-			.reduce(mergeCatalogue, {});
-	}
-	return out;
 }
 
 function flatten(

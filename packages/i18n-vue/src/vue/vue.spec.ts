@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { computed, createSSRApp, defineComponent, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
-import { expectThrow, expectThrowAsync } from '../test/expect-throw';
-import lazyEn from '../test/lazy-locales/en.json';
-import type { Catalogue, CatalogueLoader } from './core/catalogues';
-import { createI18n, useI18n } from './vue';
+import { expectThrow, expectThrowAsync } from '../../test/expect-throw';
+import lazyEn from '../../test/lazy-locales/en.json';
+import type { Catalogue } from '../core/catalogues';
+import type { CatalogueLoader } from '../core/loaders';
+import { createI18n, useI18n } from './index';
 
 const catalogues = {
 	en: {
@@ -427,7 +428,7 @@ describe('catalogues loaded on demand', () => {
 		const enOnly = { home: { title: 'Welcome', greeting: 'Hello {name}' } };
 		const fromModule = createI18n({
 			catalogues: { en: enOnly },
-			loaders: { fr: () => import('../test/lazy-locales/fr.json') },
+			loaders: { fr: () => import('../../test/lazy-locales/fr.json') },
 		});
 		await fromModule.setLocale('fr');
 		expect(fromModule.t('home.greeting', { name: 'Ada' })).toBe('Bonjour Ada');
@@ -459,7 +460,7 @@ describe('catalogues loaded on demand', () => {
 			() => Promise.resolve(null),
 			() => Promise.resolve([]),
 			// A module with no default export.
-			() => import('../test/expect-throw'),
+			() => import('../../test/expect-throw'),
 		]) {
 			const i18n = createI18n({
 				catalogues: { en },
@@ -589,7 +590,7 @@ describe('catalogues loaded on demand', () => {
 describe('on a plain Bun server, with no Vite and no Nuxt', () => {
 	// What a backend writes by hand: a static import for the fallback locale, a
 	// dynamic import per other locale. No plugin produced this record.
-	const loaders = { fr: () => import('../test/lazy-locales/fr.json') };
+	const loaders = { fr: () => import('../../test/lazy-locales/fr.json') };
 
 	const render = async (locale: string) => {
 		const i18n = createI18n({ catalogues: { en: lazyEn }, loaders });

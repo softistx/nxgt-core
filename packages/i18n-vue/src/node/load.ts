@@ -6,10 +6,10 @@ import {
 	type Catalogues,
 	checkCatalogues,
 	isKeySegment,
-	layerCatalogues,
 	type Messages,
 } from '../core/catalogues';
 import { isObject, LOCALE } from '../core/guards';
+import { layerCatalogues } from '../core/layer';
 
 /** Where the catalogues of a project are, for the Vite plugin and the Nuxt module. */
 export interface CatalogueSource {

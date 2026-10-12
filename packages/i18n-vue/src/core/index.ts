@@ -8,15 +8,14 @@ export { checkArguments } from './arguments';
 export {
 	type ArgumentKind,
 	type Catalogue,
-	type CatalogueLoader,
-	type CatalogueLoaders,
 	type Catalogues,
 	checkCatalogues,
 	isKeySegment,
-	layerCatalogues,
 	type Message,
 	type Messages,
 } from './catalogues';
+export { layerCatalogues } from './layer';
+export type { CatalogueLoader, CatalogueLoaders } from './loaders';
 export {
 	type DetectLocaleOptions,
 	detectLocale,
