@@ -59,7 +59,8 @@ describe('pluginSource with loaders', () => {
 		);
 	});
 
-	test('is not parallel, so Nuxt awaits it before rendering', () => {
+	test('has an async setup and is not parallel, so Nuxt awaits it before rendering', () => {
+		expect(source).toContain('\tasync setup(nuxtApp) {');
 		expect(source).not.toContain('parallel');
 	});
 });

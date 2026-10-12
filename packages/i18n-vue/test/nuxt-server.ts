@@ -26,11 +26,12 @@ export interface BuiltNuxtApp {
 
 export async function buildAndServe(app: string): Promise<BuiltNuxtApp> {
 	await Bun.$`bun run ${join(app, 'link.ts')}`.quiet();
+	// Decided before the build, as @nuxt/kit decides it.
+	const cached = join(app, 'node_modules/.cache/nuxt/.nuxt');
+	const buildDir = existsSync(join(app, '.nuxt')) ? cached : join(app, '.nuxt');
 	const build = await Bun.$`node ${nuxt} build`.cwd(app).quiet().nothrow();
 	const buildLog = `${build.stdout}${build.stderr}`;
 	if (build.exitCode !== 0) throw new Error(`nuxt build failed:\n${buildLog}`);
-	const cached = join(app, 'node_modules/.cache/nuxt/.nuxt');
-	const buildDir = existsSync(cached) ? cached : join(app, '.nuxt');
 	const port = 30_000 + Math.floor(Math.random() * 20_000);
 	const origin = `http://127.0.0.1:${port}`;
 	const server = Bun.spawn(['node', join(app, '.output/server/index.mjs')], {

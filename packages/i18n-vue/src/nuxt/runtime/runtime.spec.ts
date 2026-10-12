@@ -361,14 +361,15 @@ describe('setupLazyNuxtI18n', () => {
 		const run = Bun.spawnSync([
 			process.execPath,
 			join(import.meta.dir, '../../../test/lazy-nuxt-requests.ts'),
-			'200',
+			'1000',
 		]);
 		if (run.exitCode !== 0) console.error(run.stderr.toString());
 		expect(run.exitCode).toBe(0);
 		const { requests, alive } = JSON.parse(run.stdout.toString());
-		expect(requests).toBe(200);
-		// Conservative stack scanning pins some — measured from 0 to 22 of 200
-		// over fifteen runs; a cache would pin all 200.
-		expect(alive).toBeLessThan(requests / 2);
+		expect(requests).toBe(1000);
+		// Conservative stack scanning pins a few, however many requests ran —
+		// measured from 0 to 3 of 1000 over twelve runs, and up to 22 of 200 —
+		// while a leak grows with them: a cache would pin all 1000.
+		expect(alive).toBeLessThan(50);
 	});
 });
