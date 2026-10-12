@@ -590,6 +590,22 @@ try {
 }
 ```
 
+In a Nuxt plugin built on `setupLazyNuxtI18n`, the same error **rejects the
+plugin**: the locale resolved for the request — from the cookie, the state
+or `Accept-Language` — is in `loaders`, and its loader failed before
+anything was rendered, so Nuxt answers its error page. Look at the `cause`
+first: a chunk missing after a deployment, or an `import()` path that does
+not exist, are the usual ones. To render in the fallback locale instead,
+catch it in the plugin and set up again without that locale's loader — the
+cookie keeps the visitor's choice for the next request:
+
+```ts
+const i18n = await setupLazyNuxtI18n(context).catch((error) => {
+	console.error(error, (error as Error).cause);
+	return setupLazyNuxtI18n({ ...context, locales: ['en'], loaders: {} });
+});
+```
+
 ### `setLocale: the loader of <locale> must answer a catalogue, or a module whose default export is one`
 
 A `TypeError`, as the rejection of `setLocale`'s promise: the loader

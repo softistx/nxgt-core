@@ -277,6 +277,21 @@ describe('setupLazyNuxtI18n', () => {
 		);
 	});
 
+	test('after a rejection, setting up again without the loader renders in the fallback locale', async () => {
+		// The recovery docs/troubleshooting.md shows.
+		const context = lazyContext({
+			cookie: 'de',
+			loader: () => Promise.reject(new Error('offline')),
+		});
+		const i18n = await setupLazyNuxtI18n(context).catch(() =>
+			setupLazyNuxtI18n({ ...context, locales: ['en'], loaders: {} }),
+		);
+		expect(i18n.locale.value).toBe('en');
+		expect(context.state.value).toBe('en');
+		expect(context.cookie.value).toBe('de');
+		expect(context.catalogue.value).toBeNull();
+	});
+
 	test('keeps nothing per request: catalogues a loader answers fresh each time are collected', () => {
 		// A server sets up an i18n per request, and a loader that fetches answers
 		// a new object each time: none may outlive its request, as one fed back

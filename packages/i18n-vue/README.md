@@ -63,7 +63,7 @@ Peers:
 | `@nxgt/i18n-vue/node` | `loadCatalogues`, the shared loader — `dir` (files, folder layout included) or `messages` (a module) — for a build that is neither Vite nor Nuxt | Node, at build |
 | `@nxgt/i18n-vue/vite` | `i18nTypes()`, the Vite plugin that checks the catalogues and writes the types; re-exports `/node` and the generator it is made of | Node, at build |
 | `@nxgt/i18n-vue/nuxt` | The Nuxt module | Node, at build |
-| `@nxgt/i18n-vue/nuxt/runtime` | `setupNuxtI18n`, what the module's plugin runs | browser, server |
+| `@nxgt/i18n-vue/nuxt/runtime` | `setupNuxtI18n`, what the module's plugin runs, and `setupLazyNuxtI18n`, its variant with locales loaded on demand | browser, server |
 
 ## Catalogues
 
@@ -295,7 +295,7 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 | `/node`: `loadCatalogues`, `loadMessages`, `readCatalogues`, `ReadCatalogues`, `checkCatalogueSource`, `CatalogueSource`, `LoadedCatalogues`, `typesSource`, `TypesSourceOptions`, `writeTypes`, `writeIfChanged` | The shared loader, Node-only, for a build that is neither Vite nor Nuxt |
 | `/vite`: everything of `/node`, plus `i18nTypes`, `I18nTypesOptions`, `TYPES_FILE` | The Vite plugin |
 | `/nuxt`: default, `ModuleOptions`, `checkModuleOptions`, `pluginSource`, `PluginSourceOptions`, `STATE_KEY`, `TYPES_TEMPLATE`, `PLUGIN_TEMPLATE` | The Nuxt module |
-| `/nuxt/runtime`: `setupNuxtI18n`, `NuxtI18nContext`, `STATE_KEY` | What the module's plugin runs |
+| `/nuxt/runtime`: `setupNuxtI18n`, `NuxtI18nContext`, `STATE_KEY`, `setupLazyNuxtI18n`, `LazyNuxtI18nContext`, `CATALOGUE_STATE_KEY` | What the module's plugin runs, and its variant whose locales load on demand ([guide](docs/guide/nuxt.md#locales-loaded-on-demand)) |
 
 ## Things that bite
 
