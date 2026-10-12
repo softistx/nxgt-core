@@ -12,8 +12,6 @@ server and hydrates from the payload.
 
 ## Next
 
-- **Loading a locale's catalogue on demand**, so an app with many locales
-  ships only the one it renders in. Today every catalogue is in the bundle.
 - **Hot reload of a message in `nuxt dev`**, rather than a restart of Nuxt.
 
 ## Later
@@ -40,6 +38,15 @@ server and hydrates from the payload.
 
 ## Shipped
 
+- **Loading a locale's catalogue on demand** — an app with many locales
+  ships only the fallback one and loads the others when they are picked.
+  `createI18n` takes `loaders`, plain functions such as
+  `() => import('./locales/fr.json')` that need no plugin, a bundled Bun
+  server included, and `setLocale` resolves once the catalogue is loaded and
+  checked. `i18nTypes({ lazy: true })` serves them as Vite modules,
+  the Nuxt module's `lazy: true` loads them on the server and hydrates from
+  the payload, and `setupLazyNuxtI18n` does the same for a hand-written
+  plugin. `catalogues` alone works as before.
 - **TypeScript 7 as well as 6** — the `typescript` peer accepts either. Under
   7, `tsc` checks the `.ts` files and the `.vue` templates go unchecked until
   `vue-tsc` runs on 7; see the troubleshooting page.
