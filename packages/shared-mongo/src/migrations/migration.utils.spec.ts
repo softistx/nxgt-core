@@ -81,6 +81,17 @@ describe('createMigrationFile', () => {
 		expect(source).toContain('export async function up');
 		expect(source).toContain('export async function down');
 	});
+
+	test('Should take the Mongoose types from @nxgt/shared-mongo, already formatted', async () => {
+		dir = await mkdtemp(join(tmpdir(), 'migration-create-'));
+		const source = await Bun.file(
+			await createMigrationFile(dir, 'imports'),
+		).text();
+
+		expect(source).toContain("from '@nxgt/shared-mongo'");
+		expect(source).not.toContain("from 'mongoose'");
+		expect(source.split('\n').every((line) => line.length <= 80)).toBe(true);
+	});
 });
 
 describe('loadMigrationFiles', () => {

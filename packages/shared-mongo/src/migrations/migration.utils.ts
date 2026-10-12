@@ -75,6 +75,24 @@ export function sortMigrationsDesc(
 
 // ─── Generator ────────────────────────────────────────────────────────────────
 
+/** The body of a new migration file. */
+const MIGRATION_TEMPLATE = `import type { ClientSession, Connection } from '@nxgt/shared-mongo';
+
+export async function up(
+	db: Connection,
+	session?: ClientSession,
+): Promise<void> {
+	// TODO: Implement migration
+}
+
+export async function down(
+	db: Connection,
+	session?: ClientSession,
+): Promise<void> {
+	// TODO: Implement rollback
+}
+`;
+
 /**
  * Creates a new migration file with a 14-digit timestamp prefix and a boilerplate template.
  */
@@ -96,26 +114,10 @@ export async function createMigrationFile(
 	const filename = `${timestamp}-${sanitized}.ts`;
 	const filePath = join(resolve(migrationsDir), filename);
 
-	const content = `import type { ClientSession, Connection } from 'mongoose';
-
-export async function up(db: Connection, session?: ClientSession): Promise<void> {
-	// TODO: Implement migration
-}
-
-export async function down(db: Connection, session?: ClientSession): Promise<void> {
-	// TODO: Implement rollback
-}
-`;
-
-	await writeFile(filePath, content, 'utf8');
-
-	// Attempt to format with Biome if available
-	try {
-		const { spawnSync } = require('node:child_process');
-		spawnSync('bunx', ['@biomejs/biome', 'format', '--write', filePath]);
-	} catch {
-		// Ignore if biome is not found or fails
-	}
+	// Written already formatted, as Biome's defaults would leave it: the
+	// consumer's own formatter takes it from there, and nothing is downloaded.
+	// Mongoose's types come from this package, never from `mongoose` (README).
+	await writeFile(filePath, MIGRATION_TEMPLATE, 'utf8');
 
 	return filePath;
 }
