@@ -112,3 +112,9 @@ import { resources } from '@nxgt/shared-storage';
   closed — it talks to that.
 - **Specs skip themselves** unless all four variables are set. Infrastructure
   that is absent is not a failing test, and CI runs them against SeaweedFS.
+
+## Docs
+
+| Page | Read it when |
+| --- | --- |
+| [Troubleshooting](./docs/troubleshooting.md) | you have an error message in hand |
