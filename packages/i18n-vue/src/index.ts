@@ -12,4 +12,4 @@
  */
 
 export * from './core';
-export { createI18n, type I18n, type I18nOptions, useI18n } from './vue';
+export { createI18n, type I18n, type I18nOptions, useI18n } from './vue/index';

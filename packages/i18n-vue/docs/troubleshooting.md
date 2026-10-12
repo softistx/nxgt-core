@@ -13,6 +13,9 @@ How the messages are shaped:
 - **A catalogue that cannot be right is an `Error` starting `i18n:`**, naming
   the locale and the key. It is raised by the Vite plugin or the Nuxt module
   at build time, and by `createI18n` when the app starts.
+- **A locale loaded on demand that cannot be loaded rejects `setLocale`'s
+  promise** with `setLocale: …`, or with the catalogue's own `i18n: …`; the
+  locale stays as it was.
 - **A call to `t` that cannot be right is an `Error` starting `t:`** — or a
   `TypeError` when an argument has the wrong type. With the generated types,
   the type checker reports each of these first.
@@ -35,6 +38,10 @@ as `home.greeting`.
 - [`createI18n: catalogues holds something that is not a locale — …`](#createi18n-catalogues-holds-something-that-is-not-a-locale--key-each-catalogue-by-a-bcp-47-tag-as-en-or-pt-br)
 - [`createI18n: fallbackLocale must be a locale of the catalogues`](#createi18n-fallbacklocale-must-be-a-locale-of-the-catalogues)
 - [`createI18n: locale must be a locale of the catalogues — pick one with pickLocale`](#createi18n-locale-must-be-a-locale-of-the-catalogues--pick-one-with-picklocale)
+- [`createI18n: loaders must be an object of functions by locale, as { fr: () => import('./locales/fr.json') }`](#createi18n-loaders-must-be-an-object-of-functions-by-locale-as--fr---importlocalesfrjson-)
+- [`createI18n: loaders holds something that is not a locale — key each loader by a BCP 47 tag, as fr or pt-BR`](#createi18n-loaders-holds-something-that-is-not-a-locale--key-each-loader-by-a-bcp-47-tag-as-fr-or-pt-br)
+- [`createI18n: fallbackLocale must be a locale of the catalogues, not one loaded on demand — …`](#createi18n-fallbacklocale-must-be-a-locale-of-the-catalogues-not-one-loaded-on-demand--the-reference-is-checked-when-createi18n-runs)
+- [`createI18n: locale must be a locale of the catalogues, not one loaded on demand — …`](#createi18n-locale-must-be-a-locale-of-the-catalogues-not-one-loaded-on-demand--start-in-a-loaded-locale-then-await-setlocalelocale)
 - [`createTranslator: catalogues must be an object of catalogues by locale, as { en, fr }`](#createtranslator-catalogues-must-be-an-object-of-catalogues-by-locale-as--en-fr-)
 - [`createTranslator: getLanguage must be a locale or a function that answers one`](#createtranslator-getlanguage-must-be-a-locale-or-a-function-that-answers-one)
 - [`pickLocale: supported must hold at least one locale`](#picklocale-supported-must-hold-at-least-one-locale)
@@ -50,7 +57,10 @@ as `home.greeting`.
 - [`<i18nTypes|nxgtI18n>: dir and messages cannot both be set — messages replaces the folder`](#i18ntypesnxgti18n-dir-and-messages-cannot-both-be-set--messages-replaces-the-folder)
 - [`<i18nTypes|nxgtI18n>: catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]`](#i18ntypesnxgti18n-catalogues-must-be-a-list-of-catalogues-by-locale-as--en--fr--)
 - [`i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts`](#i18ntypes-out-must-be-the-path-of-a-dts-file-as-srcgeneratedi18ndts)
+- [`i18nTypes: lazy must be true or false, as i18nTypes({ locales, lazy: true })`](#i18ntypes-lazy-must-be-true-or-false-as-i18ntypes-locales-lazy-true-)
 - [`nxgtI18n: cookie must be a cookie name, as 'language'`](#nxgti18n-cookie-must-be-a-cookie-name-as-language)
+- [`nxgtI18n: lazy must be true or false, as { locales: ['en', 'fr'], lazy: true }`](#nxgti18n-lazy-must-be-true-or-false-as--locales-en-fr-lazy-true-)
+- [`setupLazyNuxtI18n: locales holds <locale>, which is neither in catalogues nor in loaders — …`](#setuplazynuxti18n-locales-holds-locale-which-is-neither-in-catalogues-nor-in-loaders--give-each-locale-a-catalogue-or-a-loader)
 
 **Catalogues**
 - [`i18n: <dir>/<locale>.json is missing — every locale has a catalogue`](#i18n-dirlocalejson-is-missing--every-locale-has-a-catalogue)
@@ -91,13 +101,17 @@ as `home.greeting`.
 - [`t: the language must be a string — a locale, or a function that answers one`](#t-the-language-must-be-a-string--a-locale-or-a-function-that-answers-one)
 - [`setLocale: the locale must be a string, as fr`](#setlocale-the-locale-must-be-a-string-as-fr)
 - [`setLocale: the locale is not a locale of the catalogues — pick one with pickLocale`](#setlocale-the-locale-is-not-a-locale-of-the-catalogues--pick-one-with-picklocale)
+- [`setLocale: the catalogue of <locale> could not be loaded`](#setlocale-the-catalogue-of-locale-could-not-be-loaded)
+- [`setLocale: the loader of <locale> must answer a catalogue, or a module whose default export is one`](#setlocale-the-loader-of-locale-must-answer-a-catalogue-or-a-module-whose-default-export-is-one)
 - [`useI18n: no i18n is installed — …`](#usei18n-no-i18n-is-installed--appusecreatei18n-catalogues--first-in-a-component-or-where-inject-works)
 
 **Type checking**
 - [`Package subpath './lib/tsc' is not defined by "exports"`](#package-subpath-libtsc-is-not-defined-by-exports)
+- [`Cannot find module 'virtual:@nxgt/i18n-vue/catalogues' or its corresponding type declarations`](#cannot-find-module-virtualnxgti18n-vuecatalogues-or-its-corresponding-type-declarations)
 
 **Traps that throw nothing**
 - [`t('…')` takes any string: no completion, no type error](#t-takes-any-string-no-completion-no-type-error)
+- [A server renders in the fallback locale although `setLocale` was called](#a-server-renders-in-the-fallback-locale-although-setlocale-was-called)
 - [The page hydrates in another language, or Vue warns of a hydration mismatch](#the-page-hydrates-in-another-language-or-vue-warns-of-a-hydration-mismatch)
 - [Every visitor switches language when one does](#every-visitor-switches-language-when-one-does)
 - [A component's `t` is not the i18n's](#a-components-t-is-not-the-i18ns)
@@ -152,6 +166,43 @@ cookie, `navigator.language` or a user's profile. Match it first:
 
 ```ts
 createI18n({ catalogues, locale: pickLocale(user.locale, ['en', 'fr'], 'en') });
+```
+
+### `createI18n: loaders must be an object of functions by locale, as { fr: () => import('./locales/fr.json') }`
+
+`loaders` is not an object, or one of its values is not a function — most
+often the path of the catalogue where a function importing it belongs. The
+function is what makes the load happen on demand:
+
+```ts
+createI18n({ catalogues: { en }, loaders: { fr: () => import('./locales/fr.json') } });
+```
+
+### `createI18n: loaders holds something that is not a locale — key each loader by a BCP 47 tag, as fr or pt-BR`
+
+A key of `loaders` is not a BCP 47 tag (`French`, `fr_FR`). Key each loader
+as you key `catalogues`: `fr`, `pt-BR`.
+
+### `createI18n: fallbackLocale must be a locale of the catalogues, not one loaded on demand — the reference is checked when createI18n runs`
+
+`fallbackLocale` names a locale that only `loaders` has. The fallback
+locale is the reference every catalogue, loaded or not, is checked
+against, so it must be there when `createI18n` runs. Move its catalogue to
+`catalogues`:
+
+```ts
+createI18n({ catalogues: { en }, loaders: { fr: () => import('./locales/fr.json') }, fallbackLocale: 'en' });
+```
+
+### `createI18n: locale must be a locale of the catalogues, not one loaded on demand — start in a loaded locale, then await setLocale(locale)`
+
+The start `locale` is one only `loaders` has: `createI18n` cannot wait for
+a catalogue, and the first render would have nothing to show. Start in a
+loaded locale and switch:
+
+```ts
+const i18n = createI18n({ catalogues: { en }, loaders });
+await i18n.setLocale(locale);
 ```
 
 ### `createTranslator: catalogues must be an object of catalogues by locale, as { en, fr }`
@@ -242,6 +293,17 @@ i18nTypes({ locales: ['en', 'fr'], catalogues: [uiCatalogues] });
 that exports nothing; the types would still apply, but only a `.d.ts` says
 what the file is.
 
+### `i18nTypes: lazy must be true or false, as i18nTypes({ locales, lazy: true })`
+
+`lazy` was given something other than a boolean — a string such as
+`'yes'`, or the list of locales to load on demand. It only switches the
+served modules on or off: every locale but the fallback one is then loaded
+on demand.
+
+```ts
+i18nTypes({ locales: ['en', 'fr'], lazy: true });
+```
+
 ### `nxgtI18n: cookie must be a cookie name, as 'language'`
 
 `cookie` holds a space, `;`, `=` or another character a cookie name cannot
@@ -249,6 +311,38 @@ have, or is not a string. Letters, digits and `-_.` are safe:
 
 ```ts
 nxgtI18n: { locales: ['en', 'fr'], cookie: 'app_locale' }
+```
+
+### `nxgtI18n: lazy must be true or false, as { locales: ['en', 'fr'], lazy: true }`
+
+A `TypeError` when Nuxt starts: the module's `lazy` was given something
+other than a boolean — a string such as `'true'` from an environment
+variable, or the list of locales to load on demand. It only switches loading
+on demand on or off: every locale but the fallback one is then a chunk of
+its own.
+
+```ts
+nxgtI18n: { locales: ['en', 'fr'], lazy: true }
+```
+
+From an environment variable, compare it: `lazy: process.env.I18N_LAZY === 'true'`.
+To load only some locales on demand, write the plugin yourself with
+[`setupLazyNuxtI18n`](guide/nuxt.md#locales-loaded-on-demand).
+
+### `setupLazyNuxtI18n: locales holds <locale>, which is neither in catalogues nor in loaders — give each locale a catalogue or a loader`
+
+A `TypeError`, as the rejection of `setupLazyNuxtI18n`'s promise, before
+anything is resolved: `locales` lists a locale with neither a catalogue nor
+a loader. A cookie or an `Accept-Language` header could pick it, and the
+i18n could never switch to it. Add its loader, or drop it from `locales`:
+
+```ts
+setupLazyNuxtI18n({
+	catalogues: { en },
+	loaders: { fr: () => import('~~/locales/fr.json') },
+	locales: ['en', 'fr'], // each one in catalogues or loaders
+	// …
+});
 ```
 
 ## Catalogues
@@ -301,7 +395,7 @@ Two sources define the same key: `locales/en.json` already has `mails` and
 prefix (`locales/en/mails.json` and `locales/en/mails/welcome.json`, whether
 or not `welcome` also happens to be one of `mails.json`'s own keys). A file's
 own prefix is its alone — nothing else may add to it. Keep the message in one
-place. See [Splitting catalogues](catalogues.md#splitting-catalogues).
+place. See [Splitting catalogues](guide/catalogues.md#splitting-catalogues).
 
 ### `i18n: <dir>/<locale>/<file> is missing — <dir>/<fallback>/<file> exists`
 
@@ -417,7 +511,8 @@ fallback locale has `{at, date}`, say. Use it as the fallback locale does.
 
 ### `i18n: <path> was not written by @nxgt/i18n-vue — point the types at a file of their own`
 
-The Vite plugin's `out` is a file that exists and was not written by
+The Vite plugin's `out` — or, with `lazy: true`, the `<out>.catalogues.d.ts`
+beside it — is a file that exists and was not written by
 `typesSource`: its first two lines are not a generated file's header, so it
 is yours. The plugin never replaces it. Point `out`
 elsewhere, or delete the file if it is a stale copy.
@@ -524,8 +619,76 @@ setLocale((event.target as HTMLSelectElement).value as Locale);
 
 ### `setLocale: the locale is not a locale of the catalogues — pick one with pickLocale`
 
-`setLocale` got a locale the catalogues do not have; the locale is
+`setLocale` got a locale in neither `catalogues` nor `loaders`; the locale is
 unchanged. Pass one of `locales`, or `pickLocale(value, locales, locale.value)`.
+
+### `setLocale: the catalogue of <locale> could not be loaded`
+
+`setLocale`'s promise rejects with this when the loader of a locale in
+`loaders` threw or rejected: offline, a chunk missing after a deployment, a
+wrong path. The loader's own error is the `cause`; log it to see why. The
+locale is unchanged, and the failure is not kept: the next
+`setLocale(locale)` runs the loader again, so retrying is safe.
+
+```ts
+try {
+	await setLocale('fr');
+} catch (error) {
+	console.error(error, (error as Error).cause);
+}
+```
+
+In a Nuxt plugin built on `setupLazyNuxtI18n`, the same error **rejects the
+plugin**: the locale resolved for the request — from the cookie, the state
+or `Accept-Language` — is in `loaders`, and its loader failed before
+anything was rendered, so Nuxt answers its error page. Look at the `cause`
+first: a chunk missing after a deployment, or an `import()` path that does
+not exist, are the usual ones. To render in the fallback locale instead,
+catch it in the plugin and set up again with the catalogues alone — the
+cookie keeps the visitor's choice for the next request. `context` is the
+object the plugin passes to `setupLazyNuxtI18n`, its composables called
+before the first `await` ([Nuxt](guide/nuxt.md#locales-loaded-on-demand)):
+
+```ts
+const context = { catalogues: { en }, loaders, locales, fallbackLocale: 'en', cookie, state, catalogue, requested };
+const i18n = await setupLazyNuxtI18n(context).catch((error) => {
+	console.error(error, (error as Error).cause);
+	return setupLazyNuxtI18n({
+		...context,
+		locales: Object.keys(context.catalogues),
+		loaders: {},
+	});
+});
+```
+
+### `setLocale: the loader of <locale> must answer a catalogue, or a module whose default export is one`
+
+A `TypeError`, as the rejection of `setLocale`'s promise: the loader
+answered something that is neither a catalogue nor a module whose
+`default` export is one — a module with only named exports, a string, an
+array, `null`. Import the JSON file itself, or export the catalogue as
+`default`:
+
+```ts
+loaders: { fr: () => import('./locales/fr.json') } // a JSON module: its default is the catalogue
+```
+
+The loader's answer is unwrapped to its `default` export when it is a
+module namespace, which is recognised by any of three rules:
+
+- its `Symbol.toStringTag` is `'Module'`, as a native `import()` answers
+  under Bun, Node or Vite in development;
+- or it mirrors its default export: an object `default`, at least one other
+  key, and every other key holding the same value as `default`'s. This is
+  what a bundle answers once the tag is gone — `bun build` without
+  splitting, `bun build --compile`, Rollup when a JSON file is imported both
+  statically and dynamically;
+- or it is frozen, with no prototype and an own `default`: Rollup's
+  namespace when no top-level key of the JSON is an identifier (all
+  kebab-case), which then holds only `default`.
+
+Anything else is taken as the catalogue itself: a plain `{ default: {...} }`
+with no other key is a catalogue whose one key is `default`.
 
 ### `useI18n: no i18n is installed — app.use(createI18n({ catalogues })) first, in a component or where inject works`
 
@@ -569,6 +732,20 @@ unchecked under 7: an unknown key or a wrong argument in a template is not
 reported there, while the same call in a `.ts` file or a `<script>` is
 checked by `tsc` as before.
 
+### `Cannot find module 'virtual:@nxgt/i18n-vue/catalogues' or its corresponding type declarations`
+
+`tsc` or `vue-tsc` does not see the types of the modules
+`i18nTypes({ lazy: true })` serves. They are in their own file beside `out`
+— `src/generated/i18n.catalogues.d.ts` by default — written when Vite
+starts. Either Vite has not run yet (in CI, run `vite build` before the
+type check), `lazy` is not `true`, or your `tsconfig.json` names `out` alone
+in `files`: add the second file, or include `src/**/*.d.ts`.
+
+The same import failing in Vite itself (`Failed to resolve import
+"virtual:@nxgt/i18n-vue/catalogues"`) means the plugin runs without
+`lazy: true`, or not at all: add `i18nTypes({ locales, lazy: true })` to
+the config's `plugins`.
+
 ## Traps that throw nothing
 
 ### `t('…')` takes any string: no completion, no type error
@@ -582,6 +759,19 @@ The generated file is missing, or not in the program:
   keep the `tsconfig.json` Nuxt generates, which references `.nuxt/`.
 - A file of your own that declares `module '@nxgt/i18n-vue'` with an empty
   `I18nMessages` does no harm; one with other keys adds them.
+
+### A server renders in the fallback locale although `setLocale` was called
+
+The locale is in `loaders`, and `setLocale` was not awaited: the catalogue
+is still loading when `renderToString` runs, so `t` still answers in the
+previous locale — and nothing throws. On a server, always await it before
+rendering; a locale of `catalogues` switches at once either way:
+
+```ts
+const i18n = createI18n({ catalogues: { en }, loaders });
+await i18n.setLocale(locale);
+const html = await renderToString(createSSRApp(App).use(i18n));
+```
 
 ### The page hydrates in another language, or Vue warns of a hydration mismatch
 

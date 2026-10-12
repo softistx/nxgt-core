@@ -60,43 +60,6 @@ export function isKeySegment(segment: string): boolean {
 	return KEY_SEGMENT.test(segment);
 }
 
-/** `over` merged into `under` key by key: an object is merged, anything else replaces. */
-function mergeCatalogue(under: Catalogue, over: Catalogue): Catalogue {
-	const out: Record<string, string | Catalogue> = { ...under };
-	for (const [key, value] of Object.entries(over)) {
-		const below = Object.hasOwn(out, key) ? out[key] : undefined;
-		// Defined, not assigned: `out.__proto__ = …` would set the prototype and
-		// hide the key from the check that refuses it.
-		Object.defineProperty(out, key, {
-			value:
-				isObject(below) && isObject(value)
-					? mergeCatalogue(below, value)
-					: value,
-			enumerable: true,
-			writable: true,
-			configurable: true,
-		});
-	}
-	return out;
-}
-
-/**
- * Each of `project`'s locales, with `sources` merged under it in order: a
- * source's locale the project does not have is left out.
- */
-export function layerCatalogues(
-	sources: readonly Catalogues[],
-	project: Record<string, Catalogue>,
-): Record<string, Catalogue> {
-	const out: Record<string, Catalogue> = {};
-	for (const [locale, catalogue] of Object.entries(project)) {
-		out[locale] = [...sources.map((source) => source[locale]), catalogue]
-			.filter((layer): layer is Catalogue => layer !== undefined)
-			.reduce(mergeCatalogue, {});
-	}
-	return out;
-}
-
 function flatten(
 	catalogue: unknown,
 	locale: string,
@@ -253,10 +216,48 @@ function checkNoConventionCollision(
 }
 
 /**
+ * Reads one locale's catalogue into its messages: objects of camelCase or
+ * kebab-case keys, no two keys that are one key in two conventions, and
+ * every message valid ICU.
+ */
+function readLocale(catalogue: unknown, locale: string): Messages {
+	const flat = new Map<string, string>();
+	flatten(catalogue, locale, '', flat);
+	checkNoConventionCollision(locale, flat.keys());
+	return new Map(
+		[...flat].map(([key, text]) => [key, analyse(text, locale, key)]),
+	);
+}
+
+/**
+ * Checks one locale's catalogue on its own — read, then compared with
+ * `reference`, the fallback locale's messages, unless it is the fallback
+ * locale itself — and answers its messages. What `setLocale` runs on a
+ * catalogue loaded on demand; `checkCatalogues` runs the same two steps over
+ * every locale.
+ */
+export function checkLocale(
+	catalogue: unknown,
+	locale: string,
+	fallbackLocale: string,
+	reference: Messages,
+): Messages {
+	const messages = readLocale(catalogue, locale);
+	if (locale !== fallbackLocale) {
+		compare(locale, messages, fallbackLocale, reference);
+	}
+	return messages;
+}
+
+/**
  * Checks the catalogues of every locale and answers their messages. A
  * catalogue that is not objects of camelCase or kebab-case keys, a message
  * that does not parse, and a locale that differs from the fallback locale in
  * its keys or its arguments **throw**, naming the locale and the key.
+ *
+ * Every locale is read before any is compared, so a message that does not
+ * parse is reported before a key missing in another locale — the order
+ * `checkLocale` alone, one locale at a time, cannot give.
  */
 export function checkCatalogues(
 	catalogues: Catalogues,
@@ -265,15 +266,7 @@ export function checkCatalogues(
 ): ReadonlyMap<string, Messages> {
 	const out = new Map<string, Messages>();
 	for (const locale of locales) {
-		const flat = new Map<string, string>();
-		flatten(catalogues[locale], locale, '', flat);
-		checkNoConventionCollision(locale, flat.keys());
-		out.set(
-			locale,
-			new Map(
-				[...flat].map(([key, text]) => [key, analyse(text, locale, key)]),
-			),
-		);
+		out.set(locale, readLocale(catalogues[locale], locale));
 	}
 	const reference = out.get(fallbackLocale) as Messages;
 	for (const locale of locales) {

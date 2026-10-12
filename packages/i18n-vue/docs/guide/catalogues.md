@@ -96,6 +96,14 @@ so the same arguments work in every locale.
 - **When the app starts**, in `createI18n`. Its catalogues are checked once
   per object: a server that creates an i18n per request from the same
   imported catalogues checks them once.
+- **When a locale is loaded on demand**, in `setLocale`, for a locale given
+  in `loaders` rather than `catalogues`: its catalogue is checked against the
+  fallback locale's, with the same messages, before the locale switches — a
+  catalogue that cannot be right rejects the promise and leaves the locale
+  unchanged. Each catalogue object is checked once per set of `catalogues`
+  it is checked against, across every i18n: `{ en }` and `{ en, fr }` are
+  two sets, each checking it once. See
+  [Loading a locale on demand](vue.md#loading-a-locale-on-demand).
 
 `createTranslator` does not check them; call `checkCatalogues` yourself if
 you use it alone:
@@ -192,6 +200,41 @@ file may add to it, even a sibling the first file does not itself have.
 // down to every key nested under it
 { "line1": "…" }
 ```
+
+### Split files, loaded on demand
+
+A split catalogue cannot be handed to `loaders` as one `import()` of a JSON
+file: under `locales/fr/` it is several. With Vite, `i18nTypes({ lazy: true })`
+merges them for you and serves each locale as one module, so the folder
+layout and `loaders` go together with nothing else to write:
+
+```text
+locales/
+  en.json
+  en/mails.json
+  fr.json
+  fr/mails.json        # served with fr.json as one chunk
+```
+
+```ts
+// vite.config.ts
+i18nTypes({ locales: ['en', 'fr'], lazy: true });
+```
+
+```ts
+// src/main.ts
+import { catalogues, fallbackLocale, loaders } from 'virtual:@nxgt/i18n-vue/catalogues';
+
+const i18n = createI18n({ catalogues, loaders, fallbackLocale });
+```
+
+`virtual:@nxgt/i18n-vue/locale/fr` is `fr.json` and `fr/mails.json` merged —
+with the packages' `catalogues` under them, if any — exactly what the types
+are written from. See
+[Types: catalogues loaded on demand](types.md#catalogues-loaded-on-demand).
+Without Vite, merge the files in a build step of your own (`loadCatalogues`
+answers the merged catalogues) and write one JSON file per locale for
+`loaders` to import.
 
 ## Messages from a module
 

@@ -11,9 +11,16 @@
  * The calls that **must keep compiling** are here too, unmarked: a refusal
  * that refuses the correct call is a bug.
  *
- * **Twenty-one plausible mistakes, twenty-one refused.**
+ * **Twenty-six plausible mistakes, twenty-six refused.**
  */
 
+import {
+	catalogues as servedCatalogues,
+	fallbackLocale as servedFallback,
+	loaders as servedLoaders,
+	locales as servedLocales,
+} from 'virtual:@nxgt/i18n-vue/catalogues';
+import servedFr from 'virtual:@nxgt/i18n-vue/locale/fr';
 import {
 	type CatalogueKey,
 	createI18n,
@@ -24,7 +31,7 @@ import {
 	useI18n,
 } from '@nxgt/i18n-vue';
 import type { ModuleOptions } from '@nxgt/i18n-vue/nuxt';
-import { setupNuxtI18n } from '@nxgt/i18n-vue/nuxt/runtime';
+import { setupLazyNuxtI18n, setupNuxtI18n } from '@nxgt/i18n-vue/nuxt/runtime';
 import { i18nTypes } from '@nxgt/i18n-vue/vite';
 import { ref } from 'vue';
 import en from './locales/en.json';
@@ -70,6 +77,31 @@ i18nTypes({
 	out: 'src/generated/i18n.d.ts',
 });
 const options: ModuleOptions = { locales: ['en', 'fr'], cookie: 'lang' };
+// A locale loaded on demand: a dynamic import of a JSON catalogue, awaited.
+const lazy = createI18n({
+	catalogues: { en },
+	loaders: { fr: () => import('./locales/fr.json') },
+});
+await lazy.setLocale('fr');
+// The same under plain Node ESM, which needs the JSON import attribute.
+createI18n({
+	catalogues: { en },
+	loaders: {
+		fr: () => import('./locales/fr.json', { with: { type: 'json' } }),
+	},
+});
+const switched: Promise<void> = i18n.setLocale('en');
+// The modules i18nTypes({ lazy: true }) serves, typed by the file it writes
+// beside the types of t (generated/i18n.catalogues.d.ts).
+i18nTypes({ locales: ['en', 'fr'], lazy: true });
+const served = createI18n({
+	catalogues: servedCatalogues,
+	loaders: servedLoaders,
+	fallbackLocale: servedFallback,
+});
+await served.setLocale('fr');
+servedLocales satisfies readonly ('en' | 'fr')[];
+createI18n({ catalogues: { en, fr: servedFr } });
 setupNuxtI18n({
 	catalogues: { en, fr },
 	fallbackLocale: 'en',
@@ -162,4 +194,32 @@ const badCookie: ModuleOptions = { locales: ['en'], cookie: 1 };
 // @ts-expect-error — 'mails.welcome.title'.
 i18n.t('mails.welcome.titel');
 
-export { badCookie, current, locale, options, picked };
+// 22. A loader written as the path of the catalogue.
+// @ts-expect-error — () => import('./locales/fr.json').
+createI18n({ catalogues: { en }, loaders: { fr: './locales/fr.json' } });
+
+// 23. A loader that answers the catalogue itself, not a promise of it.
+// @ts-expect-error — a function answering a Promise.
+createI18n({ catalogues: { en }, loaders: { fr: () => fr } });
+
+// 24. A lazy option that is not a boolean.
+// @ts-expect-error — lazy: true.
+i18nTypes({ locales: ['en', 'fr'], lazy: 'yes' });
+
+// 25. A module option lazy that is a number.
+// @ts-expect-error — lazy: true.
+const badLazy: ModuleOptions = { locales: ['en'], lazy: 1 };
+
+// 26. A lazy Nuxt context with no loaders.
+// @ts-expect-error — loaders: { fr: () => import('./locales/fr.json') }.
+setupLazyNuxtI18n({
+	catalogues: { en },
+	locales: ['en', 'fr'],
+	fallbackLocale: 'en',
+	cookie: ref<string | null | undefined>(null),
+	state: ref<string | undefined>(),
+	catalogue: ref(null),
+	requested: () => 'fr',
+});
+
+export { badCookie, badLazy, current, locale, options, picked, switched };

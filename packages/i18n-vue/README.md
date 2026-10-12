@@ -63,7 +63,7 @@ Peers:
 | `@nxgt/i18n-vue/node` | `loadCatalogues`, the shared loader — `dir` (files, folder layout included) or `messages` (a module) — for a build that is neither Vite nor Nuxt | Node, at build |
 | `@nxgt/i18n-vue/vite` | `i18nTypes()`, the Vite plugin that checks the catalogues and writes the types; re-exports `/node` and the generator it is made of | Node, at build |
 | `@nxgt/i18n-vue/nuxt` | The Nuxt module | Node, at build |
-| `@nxgt/i18n-vue/nuxt/runtime` | `setupNuxtI18n`, what the module's plugin runs | browser, server |
+| `@nxgt/i18n-vue/nuxt/runtime` | `setupNuxtI18n`, what the module's plugin runs, and `setupLazyNuxtI18n`, its variant with locales loaded on demand | browser, server |
 
 ## Catalogues
 
@@ -104,6 +104,27 @@ const i18n = createI18n({
 createApp(App).use(i18n);
 ```
 
+Only the locales a visitor uses need to be downloaded: give the others as
+`loaders`, and `setLocale` fetches and checks a catalogue the first time it is
+asked for. Opt-in; `catalogues` alone works as it always has. The record is
+plain `import()` calls and needs no plugin: Bun, Vite, webpack and esbuild
+import JSON as is, and plain Node ESM with
+`import('./locales/fr.json', { with: { type: 'json' } })`.
+
+```ts
+const i18n = createI18n({
+	catalogues: { en }, // the fallback locale, and the start locale, are always here
+	loaders: { fr: () => import('./locales/fr.json'), de: () => import('./locales/de.json') },
+});
+await i18n.setLocale('fr'); // loads fr.json, checks it against en, then switches
+```
+
+Until the catalogue is loaded, `locale` and `t` stay on the previous locale;
+when calls overlap, the last one wins — a superseded call resolves without
+switching, or still rejects if its load failed. On a server, `await setLocale(…)`
+before rendering. See
+[Loading a locale on demand](docs/guide/vue.md#loading-a-locale-on-demand).
+
 `app.use(i18n)` adds `t` to every template and provides the i18n to
 `useI18n()`:
 
@@ -131,8 +152,8 @@ const choose = (event: Event) =>
 | --- | --- |
 | `t(key, args?)` | The message in the current locale. Reactive: a template or a `computed` re-runs when the locale changes |
 | `locale` | The current locale, a read-only `Ref` |
-| `setLocale(locale)` | Switches every `t` of the app. A locale the catalogues do not have **throws** |
-| `locales`, `fallbackLocale` | The catalogues' locales, and the reference one |
+| `setLocale(locale)` | Switches every `t` of the app, and answers a `Promise<void>`: already resolved for a loaded locale, which switches at once; resolved once the catalogue is loaded and checked for one in `loaders`, rejected if it cannot be. A locale in neither **throws** |
+| `locales`, `fallbackLocale` | The catalogues' locales then the `loaders`-only ones, and the reference one |
 | `has(key)` | Whether a key computed at run time is a message — `t` would throw otherwise |
 
 To remember a choice in a browser app, store it where `detectLocale` reads it:
@@ -194,6 +215,23 @@ and writes `src/generated/i18n.d.ts`. A catalogue that cannot be right
 | `messages` | — | A module whose default export is the resources object, or a function that returns it — instead of `dir`. Not with `dir` |
 | `catalogues` | `[]` | Catalogues a package ships, merged **under** yours key by key — pass the same to `layerCatalogues` at run time |
 | `out` | `'src/generated/i18n.d.ts'` | The file written. A file there that the plugin did not write is never replaced: that throws |
+| `lazy` | `false` | Also serve the catalogues as modules — the fallback locale's inline, every other one a chunk of its own — and write their types to `<out>.catalogues.d.ts` |
+
+With `lazy: true`, the plugin produces the `loaders` record for you, from
+the same merged catalogues as the types (folder layout and packages
+included):
+
+```ts
+// main.ts
+import { createI18n } from '@nxgt/i18n-vue';
+import { catalogues, fallbackLocale, loaders } from 'virtual:@nxgt/i18n-vue/catalogues';
+
+createApp(App).use(createI18n({ catalogues, loaders, fallbackLocale }));
+```
+
+`vite build` splits one chunk per non-fallback locale; in `vite dev`, a
+catalogue change reloads the page with the new modules. It is optional —
+`loaders` written by hand work the same.
 
 Splitting `locales/<locale>.json` into `locales/<locale>/*.json` — one file
 per feature, say — needs nothing but the files: `locales/en/mails.json` is
@@ -240,6 +278,20 @@ included) or `messages`, and `catalogues` as for Vite, and `cookie` (default
 `'language'`). A change to a file the module read restarts `nuxt dev`. See
 [Nuxt](docs/guide/nuxt.md).
 
+`lazy: true` loads every locale but the fallback one on demand: the plugin
+holds the fallback catalogue alone, each other locale is a chunk of its own,
+and the server loads the visitor's before it renders, so the page is never in
+the fallback locale first. The catalogue it rendered in travels in the
+payload, so the browser hydrates without loading it again.
+
+```ts
+nxgtI18n: { locales: ['en', 'fr', 'de'], lazy: true },
+```
+
+`setLocale` then answers a promise that resolves once the chunk is loaded;
+`await` it on the server, in a route middleware for instance. See
+[What lazy generates](docs/guide/nuxt.md#what-lazy-generates).
+
 ## Outside Vue
 
 `createTranslator` is `@nxgt/i18n`'s translator, strict, and imports no
@@ -263,6 +315,7 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 | Export | What it is |
 | --- | --- |
 | `createI18n(options)`, `I18n`, `I18nOptions` | The i18n of an app: a Vue plugin with a reactive locale |
+| `CatalogueLoader`, `CatalogueLoaders` | A locale's catalogue loaded on demand — `() => import('./locales/fr.json')` — and one per locale, for `loaders` |
 | `useI18n()` | The installed i18n, in a component or where `inject` works |
 | `createTranslator(catalogues, getLanguage)`, `Translate`, `LanguageProvider` | `t(key, args?, language?)` without Vue |
 | `pickLocale`, `parseAcceptLanguage`, `detectLocale`, `WantedLocales`, `DetectLocaleOptions` | Choosing the locale |
@@ -273,7 +326,7 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 | `/node`: `loadCatalogues`, `loadMessages`, `readCatalogues`, `ReadCatalogues`, `checkCatalogueSource`, `CatalogueSource`, `LoadedCatalogues`, `typesSource`, `TypesSourceOptions`, `writeTypes`, `writeIfChanged` | The shared loader, Node-only, for a build that is neither Vite nor Nuxt |
 | `/vite`: everything of `/node`, plus `i18nTypes`, `I18nTypesOptions`, `TYPES_FILE` | The Vite plugin |
 | `/nuxt`: default, `ModuleOptions`, `checkModuleOptions`, `pluginSource`, `PluginSourceOptions`, `STATE_KEY`, `TYPES_TEMPLATE`, `PLUGIN_TEMPLATE` | The Nuxt module |
-| `/nuxt/runtime`: `setupNuxtI18n`, `NuxtI18nContext`, `STATE_KEY` | What the module's plugin runs |
+| `/nuxt/runtime`: `setupNuxtI18n`, `NuxtI18nContext`, `STATE_KEY`, `setupLazyNuxtI18n`, `LazyNuxtI18nContext`, `CATALOGUE_STATE_KEY` | What the module's plugin runs, and its variant whose locales load on demand ([guide](docs/guide/nuxt.md#locales-loaded-on-demand)) |
 
 ## Things that bite
 
@@ -289,14 +342,17 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 - **A message is text.** Tags are not parsed (`<b>{name}</b>` formats to those
   characters), and Vue's `{{ }}` escapes the result. Never pass a message with
   arguments to `v-html`.
+- **`await setLocale(…)` on a server** when the locale is in `loaders`:
+  without it the page renders in the previous locale, since the catalogue
+  is not loaded yet. A locale of `catalogues` switches at once either way.
 - **Create one i18n per request on a server.** The locale is the i18n's own;
   one shared across requests would switch every visitor. The Nuxt module does
   this for you. The catalogues are checked once per set of catalogue objects —
   `{ en, fr }` wrapped anew is the same set — so treat them as immutable.
 - **Any component with its own `t`** (a prop, a `setup` binding) hides the
   global one in its template — which is how `const { t } = useI18n()` works.
-- **What the types refuse is measured**: 21 cases in TypeScript, 7 in a
-  template and 3 under Nuxt, each failing the typecheck the day it stops
+- **What the types refuse is measured**: 26 cases in TypeScript, 7 in a
+  template and 5 under Nuxt, each failing the typecheck the day it stops
   being refused. See [Types](docs/guide/types.md#type-safety-is-measured).
 
 ## Documentation
