@@ -1,5 +1,11 @@
 # @nxgt/shared-hono
 
+## 4.3.2
+
+### Patch Changes
+
+- [#283](https://github.com/softistx/nxgt-core/pull/283) [`6963eea`](https://github.com/softistx/nxgt-core/commit/6963eea9c69d44868b3ba9db4a59c2f1886a87ad) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `createErrorHandler` keeps the headers of an `HTTPException` thrown with a `res`. `basicAuth` and `bearerAuth` answered 401 without their `WWW-Authenticate` header, and a `Retry-After` or `Set-Cookie` put on the response was lost. The body stays the handler's JSON, so the headers describing the replaced body, and the hop-by-hop ones, are not copied. A browser calling a `basicAuth` route now receives `WWW-Authenticate: Basic` on a 401, which can open its login dialog.
+
 ## 4.3.1
 
 ### Patch Changes
