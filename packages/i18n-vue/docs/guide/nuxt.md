@@ -136,7 +136,11 @@ What follows from it:
 
 - **`nuxt build` emits a chunk per locale** but the fallback one, and the
   entry chunk holds none of them. The browser fetches one only when the
-  page switches to it.
+  page switches to it: Nuxt writes a `<link rel="prefetch">` for every
+  dynamic import, which would make every page download every locale once
+  the browser is idle, so the module turns the prefetch and the preload of
+  the locale chunks off (in its `build:manifest` hook). Every other chunk is
+  prefetched as before.
 - **The server renders in the visitor's locale**, never in the fallback one
   first. The plugin is async and not `parallel`, so Nuxt waits for it —
   and for the visitor's catalogue — before the next plugin and before
@@ -161,6 +165,12 @@ What follows from it:
 - **The types under `.nuxt/` are the same**: `t` and `setLocale` are typed
   from the fallback catalogue and `locales`, whether a locale is inline or
   loaded on demand.
+- **The locale is resolved among `locales` in the order you configured**,
+  as without `lazy`: with `['pt-PT', 'pt-BR', 'en']`, `Accept-Language: pt`
+  picks `pt-PT` either way. `useI18n().locales`, though, lists the fallback
+  locale first, then the others in your order — `createI18n`'s order, the
+  locales of `catalogues` then those of `loaders`
+  ([The rules](vue.md#the-rules)). Sort it yourself for a language menu.
 - **Everything else is the same**: the locale is resolved, stored and
   hydrated as [below](#how-the-locale-is-resolved); a catalogue change in
   `nuxt dev` restarts Nuxt, which writes the locale modules again.

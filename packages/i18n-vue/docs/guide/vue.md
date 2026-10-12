@@ -137,7 +137,10 @@ const loaders = { fr: () => import('./locales/fr.json', { with: { type: 'json' }
 - **A locale in both is already loaded.** Its catalogue from `catalogues` is
   used, and its loader is never called.
 - **`locales`** lists the locales of `catalogues` in their order, then the
-  ones only `loaders` has, in theirs.
+  ones only `loaders` has, in theirs. With the fallback locale alone in
+  `catalogues`, it comes first, whatever order a config lists the locales
+  in: sort `locales` yourself to show them in another order, as in a
+  language menu.
 - A wrong `loaders` — not an object of functions, or keyed by something that
   is not a locale — is a `TypeError` from `createI18n`. These checks only run
   when `loaders` is given.
