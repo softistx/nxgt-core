@@ -42,7 +42,30 @@ export interface NuxtI18nContext {
  */
 export function setupNuxtI18n(context: NuxtI18nContext): I18n {
 	const { catalogues, fallbackLocale, cookie, state } = context;
-	const locales = Object.keys(catalogues);
+	const locale = resolveLocale(context, Object.keys(catalogues));
+	const i18n = createI18n({ catalogues, fallbackLocale, locale });
+	watch(
+		i18n.locale,
+		(next) => {
+			state.value = next;
+			cookie.value = next;
+		},
+		{ flush: 'sync' },
+	);
+	return i18n;
+}
+
+/**
+ * The locale of the request, among `locales`: the state when it is one of
+ * them, else the cookie, then the requested languages, then the fallback
+ * locale, matched as by `pickLocale`. Writes it to the state, and never to
+ * the cookie: a guessed locale is not a choice.
+ */
+function resolveLocale(
+	context: NuxtI18nContext,
+	locales: readonly string[],
+): string {
+	const { fallbackLocale, cookie, state } = context;
 	if (state.value === undefined || !locales.includes(state.value)) {
 		const requested = context.requested();
 		const wanted =
@@ -57,14 +80,5 @@ export function setupNuxtI18n(context: NuxtI18nContext): I18n {
 			fallbackLocale,
 		);
 	}
-	const i18n = createI18n({ catalogues, fallbackLocale, locale: state.value });
-	watch(
-		i18n.locale,
-		(locale) => {
-			state.value = locale;
-			cookie.value = locale;
-		},
-		{ flush: 'sync' },
-	);
-	return i18n;
+	return state.value;
 }
