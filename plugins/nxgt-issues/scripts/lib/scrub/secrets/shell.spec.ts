@@ -1,4 +1,3 @@
-// biome-ignore-all lint/suspicious/noTemplateCurlyInString: compose defaults are written as plain strings
 import { describe, expect, test } from 'bun:test';
 import { scrub } from '../scrub';
 import { findSecrets } from './secrets';
@@ -7,6 +6,7 @@ import { passes, refused } from './secrets.fixtures';
 const USERPASS = 'dXNlcjpwYXNz'; // user:pass
 const WORD = 'ZXhhbXBsZQ'; // example (no colon)
 
+// biome-ignore-start lint/suspicious/noTemplateCurlyInString: compose defaults are written as plain strings
 describe('a Basic scheme followed by a compose default', () => {
 	test.each([
 		`Authorization: Basic \${CREDS:-${USERPASS}}`,
@@ -48,6 +48,7 @@ describe('nested compose defaults', () => {
 		expect(findSecrets(text)).toEqual([]);
 	});
 });
+// biome-ignore-end lint/suspicious/noTemplateCurlyInString: end of the compose defaults
 
 describe('commands with a literal secret inside $(…) still hit the older rules', () => {
 	test.each([
