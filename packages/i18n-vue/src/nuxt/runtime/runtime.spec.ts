@@ -367,7 +367,8 @@ describe('setupLazyNuxtI18n', () => {
 		expect(run.exitCode).toBe(0);
 		const { requests, alive } = JSON.parse(run.stdout.toString());
 		expect(requests).toBe(200);
-		// Conservative stack scanning may pin the last few; a cache would pin all.
-		expect(alive).toBeLessThan(20);
+		// Conservative stack scanning pins some — measured from 0 to 22 of 200
+		// over fifteen runs; a cache would pin all 200.
+		expect(alive).toBeLessThan(requests / 2);
 	});
 });
