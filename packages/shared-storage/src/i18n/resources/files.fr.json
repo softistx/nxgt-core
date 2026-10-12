@@ -1,0 +1,6 @@
+{
+	"errors": {
+		"file-not-found": "Fichier introuvable.",
+		"file-not-found-after-rename": "Fichier introuvable après son renommage."
+	}
+}

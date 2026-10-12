@@ -1,0 +1,6 @@
+{
+	"errors": {
+		"file-not-found": "File not found.",
+		"file-not-found-after-rename": "File not found after renaming it."
+	}
+}
