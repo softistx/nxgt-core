@@ -82,6 +82,41 @@ describe('setupNuxtI18n in the browser', () => {
 	});
 });
 
+describe('setupNuxtI18n resolution, pinned before it is shared', () => {
+	test('a state that is a locale wins over the cookie, and is kept as it is', () => {
+		const ctx = context({ state: 'pt-BR', cookie: 'fr', requested: 'en' });
+		expect(setupNuxtI18n(ctx).locale.value).toBe('pt-BR');
+		expect(ctx.state.value).toBe('pt-BR');
+		expect(ctx.cookie.value).toBe('fr');
+	});
+
+	test('a state that is no locale is replaced by the resolved one', () => {
+		const ctx = context({ state: 'xx', cookie: 'pt-BR', requested: 'fr' });
+		setupNuxtI18n(ctx);
+		expect(ctx.state.value).toBe('pt-BR');
+	});
+
+	test('the cookie wins over navigator.languages too', () => {
+		expect(
+			setupNuxtI18n(context({ cookie: 'fr', requested: ['pt-BR', 'en'] }))
+				.locale.value,
+		).toBe('fr');
+	});
+
+	test('a null cookie and an empty header answer the fallback locale', () => {
+		const ctx = context({ cookie: null, requested: '' });
+		expect(setupNuxtI18n(ctx).locale.value).toBe('en');
+		expect(ctx.state.value).toBe('en');
+		expect(ctx.cookie.value).toBeNull();
+	});
+
+	test('Accept-Language is read by quality, not by order', () => {
+		expect(
+			setupNuxtI18n(context({ requested: 'en;q=0.2, fr;q=0.9' })).locale.value,
+		).toBe('fr');
+	});
+});
+
 describe('setLocale', () => {
 	test('writes the state and the cookie, so the next page renders in it', () => {
 		const ctx = context({ requested: 'en' });
