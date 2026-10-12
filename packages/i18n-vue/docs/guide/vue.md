@@ -201,7 +201,10 @@ module namespace, which is recognised by either of two rules:
   key, and every other key holding the same value as `default`'s. This is
   what a bundle answers once the tag is gone — `bun build` without
   splitting, `bun build --compile`, Rollup when a JSON file is imported both
-  statically and dynamically.
+  statically and dynamically;
+- or it is frozen, with no prototype and an own `default`: Rollup's
+  namespace when no top-level key of the JSON is an identifier (all
+  kebab-case), which then holds only `default`.
 
 Anything else is taken as the catalogue itself: a plain `{ default: {...} }`
 with no other key is a catalogue whose one key is `default`.

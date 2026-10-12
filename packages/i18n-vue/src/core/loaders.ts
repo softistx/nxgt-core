@@ -44,7 +44,11 @@ const checked = new WeakMap<Messages, WeakMap<object, LoadedCatalogue>>();
  * - or it mirrors its default export: an object `default`, at least one
  *   other key, and every other key the same value as `default`'s — what a
  *   bundler's namespace of a JSON file looks like once the tag is gone
- *   (`bun build` without splitting, `bun build --compile`, Rollup).
+ *   (`bun build` without splitting, `bun build --compile`, Rollup);
+ * - or it is frozen, with no prototype and an own `default`: Rollup's
+ *   namespace, which holds only `default` when no top-level key of the JSON
+ *   is an identifier (all kebab-case). No JSON import or literal has that
+ *   shape.
  *
  * A plain `{ default: {...} }` with no other key matches neither: it is a
  * catalogue whose one key is `default`.
@@ -59,6 +63,9 @@ function isModule(value: unknown): value is { readonly default: unknown } {
 	}
 	const inner = value['default'];
 	if (!isObject(inner)) return false;
+	if (Object.getPrototypeOf(value) === null && Object.isFrozen(value)) {
+		return true;
+	}
 	const others = Object.keys(value).filter((key) => key !== 'default');
 	return (
 		others.length > 0 &&

@@ -474,6 +474,17 @@ describe('catalogues loaded on demand', () => {
 		);
 	});
 
+	test("unwraps Rollup's frozen, prototype-less namespace that holds only default", async () => {
+		const i18n = createI18n({
+			catalogues: { en },
+			loaders: {
+				fr: async () => Object.freeze({ __proto__: null, default: freshFr() }),
+			},
+		});
+		await i18n.setLocale('fr');
+		expect(i18n.t('home.title')).toBe('Bienvenue');
+	});
+
 	test('unwraps a namespace that mirrors its default export, as a bundle answers one with no tag', async () => {
 		const mirrored = createI18n({
 			catalogues: { en },
@@ -677,6 +688,9 @@ describe('on a plain Bun server, with no Vite and no Nuxt', () => {
 			});
 			expect(built.success).toBe(true);
 			const bundle = await import((built.outputs[0] as { path: string }).path);
+			// The case this covers: the bundle's namespace carries no tag.
+			const namespace = await bundle.loaders.fr();
+			expect(namespace[Symbol.toStringTag]).toBeUndefined();
 			const i18n = createI18n({
 				catalogues: { en: lazyEn },
 				loaders: bundle.loaders,
