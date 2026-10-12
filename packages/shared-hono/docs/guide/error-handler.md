@@ -21,6 +21,13 @@ app.onError(createErrorHandler(translate));
 Every body also carries `status`, the same number as the response's, and
 `timestamp`.
 
+An `HTTPException` thrown with a `res` keeps that response's headers: Hono's
+`basicAuth` and `bearerAuth` throw one carrying `WWW-Authenticate`, and a
+`Retry-After` or a `Set-Cookie` you put there reaches the client too. The body
+is still the JSON above, so `Content-Type`, `Content-Length`,
+`Content-Encoding` and `Transfer-Encoding` are not copied. The `res` body is
+not read: `message` is the exception's own, which `basicAuth` leaves empty.
+
 An `HTTPException`'s `message` and a `CustomException`'s message key reach the
 client in every environment, production included (a key the translator does
 not know is sent as written). Never build either from internal detail such as
