@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
+import { ref } from 'vue';
 import { expectThrow } from '../../test/expect-throw';
+import type { Catalogue } from '../core/catalogues';
 import { loadCatalogues } from '../node/load';
 import { typesSource } from '../node/types-source';
 import { checkModuleOptions } from './options';
 import { pluginSource } from './plugin-source';
+import { setupLazyNuxtI18n, setupNuxtI18n } from './runtime/index';
 import { moduleTemplates, PLUGIN_TEMPLATE, TYPES_TEMPLATE } from './templates';
 
 const fixture = (name: string) => join(import.meta.dir, '../../test', name);
@@ -82,6 +85,52 @@ describe('moduleTemplates with lazy: true', () => {
 		const one = moduleTemplates({ ...lazy, locales: ['en'] }, { lazy: true });
 		expect(one.locales).toEqual([]);
 		expect(one.plugin.getContents()).toContain('const loaders = {\n};');
+	});
+});
+
+describe('moduleTemplates with lazy: true and the fallback locale not first', () => {
+	const home = (title: string) => ({ home: { title } });
+	const catalogues = {
+		'pt-PT': home('Bem-vindo'),
+		'pt-BR': home('Bem-vinda'),
+		en: home('Welcome'),
+	};
+	const locales = ['pt-PT', 'pt-BR', 'en'];
+	const loaded = { ...lazy, locales, fallbackLocale: 'pt-BR', catalogues };
+	const plugin = moduleTemplates(loaded, { lazy: true }).plugin.getContents();
+
+	test('keeps the configured order of the locales', () => {
+		expect(plugin).toContain('const locales = ["pt-PT","pt-BR","en"];');
+	});
+
+	test('resolves the locale as the eager plugin does: pt is pt-PT, the first of locales', async () => {
+		const context = {
+			fallbackLocale: 'pt-BR',
+			cookie: ref<string | null | undefined>(),
+			requested: () => 'pt',
+		};
+		const eager = setupNuxtI18n({
+			...context,
+			catalogues,
+			state: ref<string | undefined>(),
+		});
+		const generated = JSON.parse(
+			/const locales = (.*);/.exec(plugin)?.[1] ?? '[]',
+		);
+		const lazily = await setupLazyNuxtI18n({
+			...context,
+			catalogues: { 'pt-BR': catalogues['pt-BR'] },
+			loaders: {
+				'pt-PT': async () => catalogues['pt-PT'],
+				en: async () => catalogues.en,
+			},
+			locales: generated,
+			state: ref<string | undefined>(),
+			catalogue: ref<Catalogue | null | undefined>(),
+		});
+		expect(eager.locale.value).toBe('pt-PT');
+		expect(lazily.locale.value).toBe(eager.locale.value);
+		expect(lazily.t('home.title')).toBe('Bem-vindo');
 	});
 });
 

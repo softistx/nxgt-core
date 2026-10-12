@@ -26,6 +26,8 @@ export interface ModuleTemplates {
 	readonly types: ModuleTemplate<typeof TYPES_TEMPLATE>;
 	/** With `lazy: true`, one catalogue module per locale but the fallback one; else none. */
 	readonly locales: readonly ModuleTemplate[];
+	/** The locales of those modules, in the configured order; else none. */
+	readonly lazyLocales: readonly string[];
 }
 
 /**
@@ -61,6 +63,7 @@ export function moduleTemplates(
 			},
 			types,
 			locales: [],
+			lazyLocales: [],
 		};
 	}
 	const loaders = Object.fromEntries(
@@ -75,6 +78,7 @@ export function moduleTemplates(
 					fallbackLocale,
 					cookie,
 					loaders,
+					locales: loaded.locales,
 				}),
 		},
 		types,
@@ -82,5 +86,6 @@ export function moduleTemplates(
 			filename: localeTemplate(locale),
 			getContents: () => catalogueModuleSource(catalogues[locale] ?? {}),
 		})),
+		lazyLocales: lazy,
 	};
 }

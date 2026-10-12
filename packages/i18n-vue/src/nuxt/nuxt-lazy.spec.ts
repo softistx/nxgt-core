@@ -124,6 +124,22 @@ describe('a Nuxt app built with the module and lazy: true', () => {
 		expect(guessed.headers.get('set-cookie')).toBeNull();
 	});
 
+	test('neither prefetches nor preloads a locale chunk, on a page in the fallback locale or in another', async () => {
+		const locales = [...chunksWith('Bienvenue'), ...chunksWith('Willkommen')];
+		expect(locales).toHaveLength(2);
+		for (const cookie of ['language=en', 'language=de']) {
+			const links = (await page({ cookie })).match(/<link[^>]*>/g) ?? [];
+			const hinted = links.filter((link) =>
+				/rel="(prefetch|preload|modulepreload)"/.test(link),
+			);
+			// The entry chunk is preloaded: the hints are there, only not the locales'.
+			expect(hinted.length).toBeGreaterThan(0);
+			for (const chunk of locales) {
+				expect(hinted.filter((link) => link.includes(chunk))).toEqual([]);
+			}
+		}
+	});
+
 	test('ships each other locale as a chunk of its own, absent from the entry chunk', async () => {
 		const html = await page({ cookie: 'language=en' });
 		const entry = /<script type="module" src="\/_nuxt\/([^"]+\.js)"/.exec(

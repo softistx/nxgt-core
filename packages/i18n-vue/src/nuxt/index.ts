@@ -19,6 +19,7 @@ import {
 } from '@nuxt/kit';
 import type { NuxtModule } from 'nuxt/schema';
 import { loadCatalogues } from '../node/load';
+import { skipLocalePrefetch } from './manifest';
 import { checkModuleOptions, type ModuleOptions } from './options';
 import { moduleTemplates } from './templates';
 
@@ -67,6 +68,12 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
 
 		const templates = moduleTemplates(loaded, options);
 		for (const locale of templates.locales) addTemplate(locale);
+		if (templates.lazyLocales.length > 0) {
+			// Nuxt prefetches every dynamic import: not the locales of `lazy`.
+			nuxt.hook('build:manifest', (manifest) =>
+				skipLocalePrefetch(manifest, templates.lazyLocales),
+			);
+		}
 		addPluginTemplate(templates.plugin);
 		addTypeTemplate(templates.types);
 		addImports({ name: 'useI18n', from: '@nxgt/i18n-vue' });
