@@ -1,5 +1,13 @@
 # @nxgt/shared-storage
 
+## 1.2.1
+
+### Patch Changes
+
+- [#287](https://github.com/softistx/nxgt-core/pull/287) [`daca93d`](https://github.com/softistx/nxgt-core/commit/daca93d139839b2604c95a72991d9e0f1d37b0bb) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `StorageService.fetch` reads a key with a space, a `%` or a non-ASCII character. It answered a non-ok 404 `Response` for such a key, which `ensureExists` had just found, because Bun's `s3://` fetch misses it. It now fetches a URL presigned for the request's method, so `Range` and `HEAD` work as before. A method that cannot be signed, or an `x-amz-*`, `Host` or `Authorization` header, which the URL does not sign and S3 would refuse, is a `fetch-failed`: write metadata with `write`. The error logged for a failed fetch no longer carries the presigned URL. `S3_CREDENTIALS` lives in its own module, which ends the import cycle between `minio.service` and `storage.service`; it is still exported from the same place.
+- Updated dependencies [[`8a818b1`](https://github.com/softistx/nxgt-core/commit/8a818b173909936133db0ebe5f839b9b702fecfe)]:
+  - @nxgt/shared-logging@2.0.1
+
 ## 1.2.0
 
 ### Minor Changes

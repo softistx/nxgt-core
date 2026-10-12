@@ -1,5 +1,11 @@
 # @nxgt/shared-logging
 
+## 2.0.1
+
+### Patch Changes
+
+- [#291](https://github.com/softistx/nxgt-core/pull/291) [`8a818b1`](https://github.com/softistx/nxgt-core/commit/8a818b173909936133db0ebe5f839b9b702fecfe) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `logger.error(error)` no longer rewrites the error's `message` with colour escape codes, and no longer throws `Attempted to assign to readonly property.` for an error whose `message` is read-only, such as the `DOMException` of an aborted fetch: the logged line is a copy of the error. The printed line is unchanged.
+
 ## 2.0.0
 
 ### Major Changes
