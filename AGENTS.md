@@ -861,8 +861,8 @@ Inherited from both monorepos and unchanged:
   unused: `biome.json` turns `noUnusedVariables` and `noUnusedImports` off for
   `**/*.vue`, and `vue-tsc` is what checks them.
 - Commit messages: `<type>: <Capitalized summary>`, types `feat`, `fix`,
-  `update`, `chore`, `docs`, `typo`, and `ci` for the workflows and the setup
-  action.
+  `update`, `chore`, `docs`, `typo`, `test` for a commit that only adds or
+  changes specs, and `ci` for the workflows and the setup action.
 
 Established here, and applying to all four repositories:
 
