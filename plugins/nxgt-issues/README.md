@@ -332,8 +332,11 @@ is shared with usage.
 
 ## The CLI
 
-`bun plugins/nxgt-issues/scripts/issues.ts <command>` (from a skill:
-`bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts`). It acts on the directory it is
+`bun plugins/nxgt-issues/scripts/issues.ts <command>` from a checkout of this
+repository; from a skill, always
+`bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts <command>`
+(the flags keep the working repository's `bunfig.toml` and `.env` out; see
+[Bun in the untrusted directory](#security-model-and-known-limits)). It acts on the directory it is
 run from, the application's checkout, or on `--cwd <dir>`. Inputs are JSON on
 stdin.
 
@@ -350,9 +353,11 @@ dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-co
 issues=""; [ -n "$dir" ] && issues="$dir/scripts/issues.ts"
 [ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
 [ -f "$issues" ] || issues=""
+[ -n "$issues" ] && bun --no-env-file --config="${issues%/scripts/issues.ts}/bunfig.toml" "$issues" <command>
 ```
 
 An empty `$issues` means the plugin is not installed: skip the step and say so.
+Run it with the flags shown, as the plugin's own skills do.
 
 | command | does |
 | --- | --- |
@@ -486,10 +491,10 @@ application's `appDomains` and `denyTerms`, see below).
   (a `preload` runs code) and `.env`. The SessionStart hook and the detached
   refresh therefore run `bun --no-env-file --config=<plugin>/bunfig.toml` (the
   plugin's own, empty file), the refresh from the home directory. The skills'
-  `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts …` commands do not carry the
-  flags, so a CLI run from inside an untrusted repository still loads that
-  repository's `bunfig.toml` and `.env`: a known limit, which Claude Code's
-  workspace trust already gates.
+  `allowed-tools` and commands, and the `issues.ts` calls of the `nxgt-autonomy`
+  agents and the `nxgt-package` skill, carry the same flags
+  (`skills.spec.ts` checks every one), so a CLI run from inside an untrusted
+  repository loads neither its `bunfig.toml` nor its `.env`.
 - **Untrusted text.** Everything read from GitHub (titles, labels, bodies,
   comments, logins, repository names) and from the registry is data. Every CLI
   command that prints it (`file` candidates, `ready`, the `released` notify

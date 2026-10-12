@@ -28,6 +28,7 @@ import {
 import {
 	asPackageManifest,
 	fromNodeModules,
+	PACKAGE_NAME,
 	type PackageManifest,
 } from './workspaces';
 
@@ -69,8 +70,6 @@ export interface ResolveContext extends GhContext {
 	readonly env: Record<string, string | undefined>;
 	readonly cwd: string;
 }
-
-const PACKAGE_NAME = /^(?:@[a-z0-9~-][\w.~-]*\/)?[a-z0-9~-][\w.~-]*$/i;
 
 /** The registry's answer; `unreachable` is a failure that is no 404 (timeout, 5xx, offline), as opposed to a package that does not exist. */
 async function fromRegistry(

@@ -141,8 +141,8 @@ dir="$(jq -r --arg p "$(dirname "$(git rev-parse --path-format=absolute --git-co
 issues=""; [ -n "$dir" ] && issues="$dir/scripts/issues.ts"
 [ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
 [ -f "$issues" ] || issues=""
-[ -n "$issues" ] && bun "$issues" dashboard --json     # open issues of the owner's repositories
-[ -n "$issues" ] && bun "$issues" ready --json         # from an application checkout
+[ -n "$issues" ] && bun --no-env-file --config="${issues%/scripts/issues.ts}/bunfig.toml" "$issues" dashboard --json     # open issues of the owner's repositories
+[ -n "$issues" ] && bun --no-env-file --config="${issues%/scripts/issues.ts}/bunfig.toml" "$issues" ready --json         # from an application checkout
 ```
 
 (The lookup is the one the `nxgt-issues` README documents: the install recorded in `installed_plugins.json`, never a guess in the cache; inside nxgt-core the checkout's own copy.)

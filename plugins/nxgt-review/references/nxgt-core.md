@@ -166,7 +166,8 @@ A change under `plugins/nxgt-issues/` is checked for what the plugin promises:
   line.
 - **A skill pre-approves only reads.** `allowed-tools` lists the exact read
   subcommand and `<command> *` (`ready`, `dashboard`, `markers`, `resolve`,
-  `sessions`, `release-plan`), never `issues.ts *` nor a `cmd*` prefix;
+  `sessions`, `release-plan`), never `issues.ts *` nor a `cmd*` prefix, and every pattern and command starts
+  `bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml` (`skills.spec.ts`);
   `file`, `track`, `deps` and `released` (alias `--dry-run` included) keep
   their permission prompt, and every subcommand refuses an unknown flag.
 - **The deny-list refuses rather than shrinks.** An empty private list, an

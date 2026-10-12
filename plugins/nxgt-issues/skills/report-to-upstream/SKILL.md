@@ -9,10 +9,10 @@ description: >-
   its latest release. A bug in one of the configured owners' packages is filed
   through nxgt-issues, never worked around silently.
 allowed-tools:
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve *)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions *)
 ---
 
 # Report to upstream
@@ -55,7 +55,7 @@ its full name only. When the product is known in prose by that word, add it:
 ## 1. Resolve
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve <package>
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts resolve <package>
 ```
 
 It prints `<package> -> owner/repo (public|private, installed x, latest y)`, or
@@ -65,8 +65,8 @@ issue create`. Reasons: `no-repository-field` (ask the package's session to add
 `repository`), `not-owner`, `issues-disabled`, `archived`, `not-found`,
 `unknown-package`, `rate-limited`, `unreachable`.
 
-For an outdated dependency, `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package>` prints the rows behind
-their latest release (read-only, but not pre-approved: it prompts); `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package> --file` puts them in the
+For an outdated dependency, `bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package>` prints the rows behind
+their latest release (read-only, but not pre-approved: it prompts); `bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts deps <package> --file` puts them in the
 package's one rolling dependencies issue (a write: it prompts like `file`). Then skip to step 5.
 
 ## 2. Write a minimal reproduction from scratch
@@ -84,7 +84,7 @@ what you expected, what happened, and a generic workaround if there is one.
 ## 3. File
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file <<'JSON'
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file <<'JSON'
 {
   "package": "@nxgt/example",
   "kind": "bug",
@@ -118,7 +118,7 @@ refusal go to stderr; stdout holds the result):
 | `commented <url> (duplicate of #n, closed)` + `fixed but not released yet` (0) | the fix is merged, not published | wait for the release; keep the workaround and its marker; step 4 with `#n` |
 | `released: #n reported this…` (0) | the fix is published; nothing was filed | bump the package to the fixed release and remove the workaround; only if it still fails on that release, run `file --new` |
 | `refused: the application repository … is public` (2) | filing from a public application could tie it to the report | ask the user (AskUserQuestion); only with their OK rerun with `--public-app` (`file` or `deps --file`) |
-| `candidates: …` (4) | open issues that may be the same | read them (`gh issue view`); same problem → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --duplicate-of <n>` with the same JSON; different → `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --new` |
+| `candidates: …` (4) | open issues that may be the same | read them (`gh issue view`); same problem → `bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --duplicate-of <n>` with the same JSON; different → `bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts file --new` |
 | `refused: <deny list could not be built>` (3) | the deny-list is incomplete: no `appDomains` configured, the owners' private repositories (or the token's organisations) could not be listed or came back empty, a workspace pattern could not be expanded, the directory is not in a git checkout, or `git config` failed | fix the named configuration (`.nxgt-issues.json`), or run `gh auth status`; never file by hand. Applies to `deps --file` too |
 | `refused: the text is not anonymous…` (3) | a private term or a credential was found | rewrite the named parts generically and run `file` again; never work around the scrub |
 | `refused: <reason>` (2) | the gate refused (exit 2 is also `NXGT_ISSUES_DISABLE`, which prints that on stderr) | tell the user; file nothing |
@@ -128,7 +128,7 @@ refusal go to stderr; stdout holds the result):
 ## 4. Track it in the application
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts track <<'JSON'
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts track <<'JSON'
 { "upstream": "owner/repo#12", "package": "@nxgt/example",
   "title": "parse() drops the last item", "summary": "We append a comma meanwhile." }
 JSON
@@ -157,7 +157,7 @@ with `git grep`).
 ## 5. Tell the sessions that have to act
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions owner/repo
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions owner/repo
 ```
 
 It lists the live sessions whose repository depends on a package of

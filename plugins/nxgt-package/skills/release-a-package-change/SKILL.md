@@ -77,8 +77,8 @@ release nothing, and `changeset status` will not ask for anything.
    [ -f "$issues" ] || issues="$(git rev-parse --show-toplevel)/plugins/nxgt-issues/scripts/issues.ts"
    [ -f "$issues" ] || issues=""
    # preview first (read-only), show it to the user, then the real run
-   [ -n "$issues" ] && bun "$issues" release-plan <package>@<version>
-   [ -n "$issues" ] && bun "$issues" released <package>@<version>
+   [ -n "$issues" ] && bun --no-env-file --config="${issues%/scripts/issues.ts}/bunfig.toml" "$issues" release-plan <package>@<version>
+   [ -n "$issues" ] && bun --no-env-file --config="${issues%/scripts/issues.ts}/bunfig.toml" "$issues" released <package>@<version>
    ```
 
    (The lookup is the one the `nxgt-issues` README documents: the install

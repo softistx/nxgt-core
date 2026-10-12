@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { removeTempDirs, tempDir } from './temp.fixtures';
-import { manifestsOf } from './workspaces';
+import { fromNodeModules, manifestsOf } from './workspaces';
 
 afterAll(removeTempDirs);
 
@@ -88,5 +88,30 @@ describe('manifestsOf', () => {
 			'package.json': { name: 'r', workspaces: ['../x/*'] },
 		});
 		expect(names(root, false)).toEqual(['r']);
+	});
+});
+
+describe('fromNodeModules', () => {
+	test('reads an installed package, scoped or not', () => {
+		const root = repo({
+			'node_modules/@acme/widget/package.json': { version: '1.0.0' },
+			'node_modules/zorblax/package.json': { version: '2.0.0' },
+		});
+		expect(fromNodeModules(root, '@acme/widget')?.version).toBe('1.0.0');
+		expect(fromNodeModules(root, 'zorblax')?.version).toBe('2.0.0');
+	});
+
+	test('a name that is a path returns undefined even when the file exists', () => {
+		const root = repo({
+			'a/b/package.json': { name: 'inside' },
+			'x/package.json': { name: 'planted', repository: 'acme/planted' },
+			'a/node_modules/.keep/package.json': {},
+		});
+		const dir = join(root, 'a', 'b');
+		expect(fromNodeModules(dir, '../x')).toBeUndefined();
+		expect(fromNodeModules(dir, '../../../x')).toBeUndefined();
+		expect(fromNodeModules(dir, '@acme/../../x')).toBeUndefined();
+		expect(fromNodeModules(dir, '/etc')).toBeUndefined();
+		expect(fromNodeModules(dir, '')).toBeUndefined();
 	});
 });

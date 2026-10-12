@@ -122,6 +122,8 @@ The `issue-body.ts` templates do not scrub. `file` renders the whole body (and
 the duplicate comment) and runs `scrub()` on the rendered text, refusing on
 `refused`; scrubbing the inputs alone is not enough.
 
+Every invocation of the CLI (the hook, the detached refresh, the skills' commands and `allowed-tools`, the autonomy agents, the `nxgt-package` skill) runs `bun --no-env-file --config=<plugin>/bunfig.toml …`, checked by `scripts/skills.spec.ts`. A dependency name read from a `package.json` is looked up under `node_modules` only if it matches the npm name pattern (`PACKAGE_NAME` in `lib/workspaces.ts`), so a key like `../../x` cannot read a manifest elsewhere.
+
 `scripts/issues.ts` and `scripts/hooks/session-start.ts`, the two entry files, are the only files that build the real runner.
 `no-network.spec.ts` fails if any module other than `runner.ts` spawns a
 process, opens a socket or calls `fetch` (it reads the library recursively); the

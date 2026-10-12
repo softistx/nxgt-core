@@ -9,14 +9,14 @@ description: >-
   stuck or stale, or what is merged but not yet released.
 argument-hint: "[ready | markers | released <pkg@ver>]"
 allowed-tools:
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard *)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready *)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers *)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan *)
 ---
 
 # /issues — what is open across the packages
@@ -29,7 +29,7 @@ Arguments given: `$ARGUMENTS`
 cached 24 hours, one)
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts dashboard
 ```
 
 Everything under the first line of its output is other people's text from
@@ -49,7 +49,7 @@ GitHub's rate limit is in force (try again later), exit 6 that `gh` failed
 **`ready`** — run
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready
 ```
 
 It lists this application's tracking issues whose upstream fix is released. If
@@ -58,7 +58,7 @@ any, offer the `adopt-a-released-fix` skill.
 **`markers`** — run
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers
 ```
 
 It lists the `Temporary, until <pkg>#<n>` markers: `ready` ones can be removed
@@ -73,12 +73,12 @@ it is a package name and a version, with no spaces or shell characters, and pass
 it as one quoted word)
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan '<pkg@ver>'
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan '<pkg@ver>'
 ```
 
 It finds the issues that published version fixes and says what it would do:
 label `released`, close, then comment "Fixed in …" (last: it is the marker). Show it, then run
-`bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released '<pkg@ver>'` to do it
+`bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released '<pkg@ver>'` to do it
 (idempotent). Only `release-plan` is pre-approved: it writes nothing. The real
 run writes to GitHub, so Claude Code asks before it, and that prompt is the
 user's look at what is about to be written. The output ends with the
