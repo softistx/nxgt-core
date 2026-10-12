@@ -153,8 +153,10 @@ const files = new GridFSService();
 GridFS also answers 404 with the keys `files.errors.file-not-found` and
 `files.errors.file-not-found-after-rename` (an id that is not in the bucket),
 and 400 with `errors.could-not-use-first-and-last-together` (`first` and
-`last` passed together to `paginate`). These keys are not in the package's
-translations, so they are shown as is unless your translator defines them.
+`last` passed together to `paginate`). The last one is translated by the
+shared `@nxgt/i18n` resources this package's `resources` include; the two
+`files.errors.*` keys are not in them yet, so they show as is unless your
+translator defines them.
 
 ## A slow start, or a rejection at boot
 
