@@ -1,5 +1,11 @@
 # @nxgt/shared-openapi
 
+## 2.1.2
+
+### Patch Changes
+
+- [#289](https://github.com/softistx/nxgt-core/pull/289) [`3e85f06`](https://github.com/softistx/nxgt-core/commit/3e85f064cc367c2caf6463f785a4cc7fbc4af4e7) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `generateOpenapiTS` and `defineHeyApiConfig` name the optional peer they need when it is not installed (`openapi-typescript`, `@hey-api/openapi-ts`) and how to install it, instead of the runtime's bare `Cannot find package`. The original error is kept as `cause`.
+
 ## 2.1.1
 
 ### Patch Changes
