@@ -15,6 +15,13 @@
  */
 
 import {
+	catalogues as servedCatalogues,
+	fallbackLocale as servedFallback,
+	loaders as servedLoaders,
+	locales as servedLocales,
+} from 'virtual:@nxgt/i18n-vue/catalogues';
+import servedFr from 'virtual:@nxgt/i18n-vue/locale/fr';
+import {
 	type CatalogueKey,
 	createI18n,
 	createTranslator,
@@ -84,6 +91,17 @@ createI18n({
 	},
 });
 const switched: Promise<void> = i18n.setLocale('en');
+// The modules i18nTypes({ lazy: true }) serves, typed by the file it writes
+// beside the types of t (generated/i18n.catalogues.d.ts).
+i18nTypes({ locales: ['en', 'fr'], lazy: true });
+const served = createI18n({
+	catalogues: servedCatalogues,
+	loaders: servedLoaders,
+	fallbackLocale: servedFallback,
+});
+await served.setLocale('fr');
+servedLocales satisfies readonly ('en' | 'fr')[];
+createI18n({ catalogues: { en, fr: servedFr } });
 setupNuxtI18n({
 	catalogues: { en, fr },
 	fallbackLocale: 'en',

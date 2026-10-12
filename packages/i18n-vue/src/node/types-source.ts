@@ -4,7 +4,7 @@ import type { ArgumentKind, Messages } from '../core/catalogues';
 import { keyVariants } from '../core/keys';
 
 /** The second line of every generated file, whatever its generator: how `writeTypes` knows a file is one. */
-const MARKER =
+export const MARKER =
 	'// Never edited, never committed: it types t() from the catalogues.';
 
 /** What `t` accepts for each kind — as `checkArguments` checks it. */
