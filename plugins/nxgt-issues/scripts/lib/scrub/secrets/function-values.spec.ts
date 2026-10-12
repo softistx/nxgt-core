@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { scrub } from './scrub';
+import { scrub } from '../scrub';
 
 const refused = (text: string) => scrub(text, {}).refused;
 const passes = (text: string) =>

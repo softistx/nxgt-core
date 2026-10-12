@@ -41,7 +41,7 @@ import { ensureLabels, LABELS } from './labels';
 import { type IssueReport, parseReport } from './report';
 import type { Resolved } from './resolve';
 import { resolvePackage } from './resolve';
-import type { DenyList } from './scrub';
+import type { DenyList } from './scrub/scrub';
 import { oneLine, untrustedHeader } from './untrusted';
 
 export interface FileFlags {

@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { harness, makeApp, removeTempDirs } from './cli.fixtures';
-import { buildDenyList, findDenied } from './deny';
 import { filingDenyList } from './deny-sources';
+import { buildDenyList, findDenied } from './scrub/deny';
 
 afterAll(removeTempDirs);
 

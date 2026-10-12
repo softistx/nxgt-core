@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { scrub, transform } from './scrub';
+import { scrub, transform } from '../scrub';
 
 const cwd = '/Users/jane/work/secret-app';
 

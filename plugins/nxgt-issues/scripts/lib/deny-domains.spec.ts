@@ -2,8 +2,8 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { harness, makeApp, removeTempDirs } from './cli.fixtures';
-import { findDenied } from './deny';
 import { DenyListIncomplete, filingDenyList } from './deny-sources';
+import { findDenied } from './scrub/deny';
 
 afterAll(removeTempDirs);
 

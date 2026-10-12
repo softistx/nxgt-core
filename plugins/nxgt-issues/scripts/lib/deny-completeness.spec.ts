@@ -10,13 +10,13 @@ import {
 	report,
 } from './cli.fixtures';
 import { EXIT } from './cli-context';
-import { findDenied } from './deny';
 import {
 	DenyListIncomplete,
 	filingDenyList,
 	PRIVATE_REPOS_TTL_MS,
 } from './deny-sources';
 import { fileCommand } from './file';
+import { findDenied } from './scrub/deny';
 import { tempDir } from './temp.fixtures';
 
 afterAll(removeTempDirs);

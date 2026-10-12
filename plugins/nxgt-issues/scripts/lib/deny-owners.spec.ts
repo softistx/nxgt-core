@@ -2,8 +2,8 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { callsOf, harness, makeApp } from './cli.fixtures';
-import { findDenied } from './deny';
 import { DenyListIncomplete, filingDenyList } from './deny-sources';
+import { findDenied } from './scrub/deny';
 import { removeTempDirs, tempDir } from './temp.fixtures';
 
 afterAll(removeTempDirs);

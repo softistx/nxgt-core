@@ -12,7 +12,7 @@ import { RateLimitedError } from './github';
 import { MarkerLookupError } from './markers-types';
 import { formatRepo } from './repo-id';
 import type { Refused, Resolved } from './resolve';
-import { type DenyList, scrub } from './scrub';
+import { type DenyList, scrub } from './scrub/scrub';
 import { declaredDependencies } from './workspaces';
 
 export type Checked<K extends string> =

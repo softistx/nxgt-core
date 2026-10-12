@@ -23,7 +23,7 @@ import {
 } from './issue-body';
 import { ensureLabels, hasLabel, LABELS } from './labels';
 import type { Resolved } from './resolve';
-import type { DenyList } from './scrub';
+import type { DenyList } from './scrub/scrub';
 
 export const DEPS_TITLE = 'Dependencies behind their latest release';
 
