@@ -201,6 +201,41 @@ file may add to it, even a sibling the first file does not itself have.
 { "line1": "…" }
 ```
 
+### Split files, loaded on demand
+
+A split catalogue cannot be handed to `loaders` as one `import()` of a JSON
+file: under `locales/fr/` it is several. With Vite, `i18nTypes({ lazy: true })`
+merges them for you and serves each locale as one module, so the folder
+layout and `loaders` go together with nothing else to write:
+
+```text
+locales/
+  en.json
+  en/mails.json
+  fr.json
+  fr/mails.json        # served with fr.json as one chunk
+```
+
+```ts
+// vite.config.ts
+i18nTypes({ locales: ['en', 'fr'], lazy: true });
+```
+
+```ts
+// src/main.ts
+import { catalogues, fallbackLocale, loaders } from 'virtual:@nxgt/i18n-vue/catalogues';
+
+const i18n = createI18n({ catalogues, loaders, fallbackLocale });
+```
+
+`virtual:@nxgt/i18n-vue/locale/fr` is `fr.json` and `fr/mails.json` merged —
+with the packages' `catalogues` under them, if any — exactly what the types
+are written from. See
+[Types: catalogues loaded on demand](types.md#catalogues-loaded-on-demand).
+Without Vite, merge the files in a build step of your own (`loadCatalogues`
+answers the merged catalogues) and write one JSON file per locale for
+`loaders` to import.
+
 ## Messages from a module
 
 Instead of `dir`, `messages` names a module — a path from the project's
