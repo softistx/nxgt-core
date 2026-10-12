@@ -5,6 +5,7 @@
  * takes, produced by the build instead of written by hand.
  */
 
+import type { ViteDevServer } from 'vite';
 import { catalogueModuleSource } from '../node/catalogue-module';
 import type { LoadedCatalogues } from '../node/load';
 import { MARKER } from '../node/types-source';
@@ -80,6 +81,38 @@ export function virtualModuleSource(
 		? loaded.catalogues[locale]
 		: undefined;
 	return catalogue === undefined ? undefined : catalogueModuleSource(catalogue);
+}
+
+/**
+ * The `resolveId` and `load` hooks that serve the modules for `locales`,
+ * from `current`: the catalogues last loaded and checked, loaded first if
+ * none were yet.
+ */
+export function virtualHooks(
+	locales: readonly string[],
+	current: () => Promise<LoadedCatalogues>,
+) {
+	return {
+		resolveId(id: string) {
+			return resolveVirtual(id, locales);
+		},
+		async load(id: string) {
+			if (!isVirtual(id)) return undefined;
+			return virtualModuleSource(id, await current());
+		},
+	};
+}
+
+/** In `vite dev`, after the catalogues changed and checked: drops the served modules from the module graph, and reloads the page. */
+export function invalidateServed(
+	server: ViteDevServer,
+	locales: readonly string[],
+): void {
+	for (const id of servedIds(locales)) {
+		const module = server.moduleGraph.getModuleById(id);
+		if (module !== undefined) server.moduleGraph.invalidateModule(module);
+	}
+	server.ws.send({ type: 'full-reload' });
 }
 
 /** Where the types of the served modules go: beside `out`, `i18n.d.ts` -> `i18n.catalogues.d.ts`. */

@@ -5,7 +5,7 @@
  */
 
 import { relative, resolve } from 'node:path';
-import type { Plugin } from 'vite';
+import type { Plugin, ViteDevServer } from 'vite';
 import {
 	type CatalogueSource,
 	checkCatalogueSource,
@@ -14,10 +14,8 @@ import {
 } from '../node/load';
 import { typesSource, writeTypes } from '../node/types-source';
 import {
-	isVirtual,
-	resolveVirtual,
-	servedIds,
-	virtualModuleSource,
+	invalidateServed,
+	virtualHooks,
 	virtualTypesFile,
 	virtualTypesSource,
 } from './virtual';
@@ -124,15 +122,7 @@ export function i18nTypes(options: I18nTypesOptions): Plugin {
 	return {
 		name: '@nxgt/i18n-vue:types',
 		...(lazy === true
-			? {
-					resolveId(id: string) {
-						return resolveVirtual(id, options.locales);
-					},
-					async load(id: string) {
-						if (!isVirtual(id)) return undefined;
-						return virtualModuleSource(id, served ?? (await generate()));
-					},
-				}
+			? virtualHooks(options.locales, async () => served ?? (await generate()))
 			: {}),
 		configResolved(config) {
 			root = config.root;
@@ -141,7 +131,7 @@ export function i18nTypes(options: I18nTypesOptions): Plugin {
 			await generate();
 		},
 		configureServer(server) {
-			const regenerate = async () => {
+			watchCatalogues(server, root, options, async () => {
 				try {
 					await generate();
 				} catch (error) {
@@ -151,35 +141,42 @@ export function i18nTypes(options: I18nTypesOptions): Plugin {
 					);
 					return;
 				}
-				if (lazy !== true) return;
-				for (const id of servedIds(options.locales)) {
-					const module = server.moduleGraph.getModuleById(id);
-					if (module !== undefined) server.moduleGraph.invalidateModule(module);
-				}
-				server.ws.send({ type: 'full-reload' });
-			};
-			// `messages`: only its own file is watched — not what it imports.
-			// See docs/guide/catalogues.md#splitting-catalogues.
-			if (options.messages !== undefined) {
-				const file = resolve(root, options.messages);
-				server.watcher.add(file);
-				server.watcher.on('change', (changed) => {
-					if (changed === file) void regenerate();
-				});
-				return;
-			}
-			// `dir`: every `.json` under it, at any depth — a folder file's path
-			// is a key prefix, so a change anywhere below counts. Watching `dir`
-			// itself, not only its current files, also catches a new one.
-			const dir = resolve(root, options.dir ?? 'locales');
-			server.watcher.add(dir);
-			const onFsEvent = (file: string) => {
-				const path = relative(dir, file);
-				if (path.startsWith('..') || !path.endsWith('.json')) return;
-				void regenerate();
-			};
-			server.watcher.on('add', onFsEvent);
-			server.watcher.on('change', onFsEvent);
+				if (lazy === true) invalidateServed(server, options.locales);
+			});
 		},
 	};
+}
+
+/**
+ * Runs `regenerate` in `vite dev` each time a catalogue changes: the
+ * `messages` module's own file, or every `.json` under `dir`.
+ */
+function watchCatalogues(
+	server: ViteDevServer,
+	root: string,
+	options: CatalogueSource,
+	regenerate: () => Promise<void>,
+): void {
+	// `messages`: only its own file is watched — not what it imports.
+	// See docs/guide/catalogues.md#splitting-catalogues.
+	if (options.messages !== undefined) {
+		const file = resolve(root, options.messages);
+		server.watcher.add(file);
+		server.watcher.on('change', (changed) => {
+			if (changed === file) void regenerate();
+		});
+		return;
+	}
+	// `dir`: every `.json` under it, at any depth — a folder file's path
+	// is a key prefix, so a change anywhere below counts. Watching `dir`
+	// itself, not only its current files, also catches a new one.
+	const dir = resolve(root, options.dir ?? 'locales');
+	server.watcher.add(dir);
+	const onFsEvent = (file: string) => {
+		const path = relative(dir, file);
+		if (path.startsWith('..') || !path.endsWith('.json')) return;
+		void regenerate();
+	};
+	server.watcher.on('add', onFsEvent);
+	server.watcher.on('change', onFsEvent);
 }
