@@ -15,14 +15,14 @@
 import { readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import type { CliContext } from './cli-context';
-import { buildDenyList, type DenyList } from './deny';
-import { unique } from './deny-terms';
 import {
 	DenyListIncomplete,
 	PRIVATE_REPOS_TTL_MS,
 	privateRepoNames,
 } from './private-repos';
 import { formatRepo, gitConfigPath, repoOfDirectory } from './repo-id';
+import { buildDenyList, type DenyList } from './scrub/deny';
+import { unique } from './scrub/deny-terms';
 import { manifestsOf, repoRoot } from './workspaces';
 
 export { denyOwners } from './private-repos';

@@ -6,7 +6,7 @@
  * (still untrusted data, but with nothing invisible or markup-like in it).
  */
 
-import { HIDDEN_SOURCE } from './hidden-chars';
+import { HIDDEN_SOURCE } from './scrub/hidden-chars';
 
 const GITHUB_TEXT = 'titles, labels, comments and names';
 
