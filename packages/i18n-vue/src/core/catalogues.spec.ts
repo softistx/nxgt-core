@@ -150,6 +150,24 @@ describe('checkCatalogues', () => {
 			'i18n: fr: a uses {n} as date, and en declares it as number',
 		);
 	});
+
+	test('reads every locale before comparing any: a message that does not parse wins over a missing key', () => {
+		expect(() =>
+			checkCatalogues(
+				{ en: { a: 'x', b: 'y' }, fr: { a: 'x' }, de: { a: '{n', b: 'y' } },
+				['en', 'fr', 'de'],
+				'en',
+			),
+		).toThrow(/^i18n: de: a is not a valid ICU message \(/);
+	});
+
+	test('checks the fallback locale first wherever it sits in locales', () => {
+		fails(
+			{ fr: { a: 'x' }, en: { a: 'x', b: 'y' } },
+			'i18n: fr: b is missing — en, the fallback locale, has it',
+			['fr', 'en'],
+		);
+	});
 });
 
 describe('layerCatalogues', () => {

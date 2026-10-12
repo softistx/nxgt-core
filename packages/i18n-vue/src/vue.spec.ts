@@ -209,6 +209,51 @@ describe('createI18n', () => {
 	});
 });
 
+describe('catalogues given up front, with no loaders', () => {
+	test('lists the locales in the order of the catalogues, the first the fallback', () => {
+		const i18n = createI18n({
+			catalogues: { fr: catalogues.fr, en: catalogues.en },
+		});
+		expect(i18n.locales).toEqual(['fr', 'en']);
+		expect(i18n.fallbackLocale).toBe('fr');
+		expect(i18n.locale.value).toBe('fr');
+	});
+
+	test('setLocale switches before the next line runs, with nothing to await', async () => {
+		const i18n = createI18n({ catalogues });
+		i18n.setLocale('fr');
+		expect(i18n.locale.value).toBe('fr');
+		expect(i18n.t('home.title')).toBe('Bienvenue');
+		const app = createSSRApp({
+			render() {
+				return h('p', this.t('home.title'));
+			},
+		}).use(i18n);
+		i18n.setLocale('en');
+		expect(await renderToString(app)).toBe('<p>Welcome</p>');
+	});
+
+	test('setLocale throws on bad input, rather than answering a rejection', () => {
+		const i18n = createI18n({ catalogues });
+		let threw = false;
+		try {
+			i18n.setLocale('de');
+		} catch {
+			threw = true;
+		}
+		expect(threw).toBe(true);
+		expect(i18n.locale.value).toBe('en');
+	});
+
+	test('a loaders key left undefined is no loaders at all', () => {
+		const i18n = createI18n({
+			catalogues,
+			loaders: undefined,
+		} as never);
+		expect(i18n.locales).toEqual(['en', 'fr']);
+	});
+});
+
 describe('the Vue plugin', () => {
 	test('adds t to every template, in the current locale', async () => {
 		const i18n = createI18n({ catalogues, locale: 'fr' });
