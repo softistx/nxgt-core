@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
 import { Hono } from 'hono';
+import { basicAuth } from 'hono/basic-auth';
 import { HTTPException } from 'hono/http-exception';
 import { type Env, env, rawEnv } from '../env';
 import { createErrorHandler, type ErrorHandlerOptions } from './error-handler';
@@ -236,5 +237,103 @@ describe('createErrorHandler — the stack in the log', () => {
 		setNodeEnv(nodeEnv);
 		await call(plainError, options);
 		expect(stackLogged()).toBe(expected);
+	});
+});
+
+describe('createErrorHandler — an HTTPException that carries a response', () => {
+	beforeEach(() => setNodeEnv('production'));
+
+	test("keeps the response's headers, as Hono's own handler does, and still answers JSON", async () => {
+		const hono = new Hono();
+		hono.use('/private', basicAuth({ username: 'u', password: 'p' }));
+		hono.get('/private', (c) => c.text('ok'));
+		hono.onError(createErrorHandler(translate));
+
+		const response = await hono.request('/private');
+		expect(response.status).toBe(401);
+		expect(response.headers.get('www-authenticate')).toBe(
+			'Basic realm="Secure Area"',
+		);
+		expect(response.headers.get('content-type')).toStartWith(
+			'application/json',
+		);
+		// basicAuth puts "Unauthorized" in its response's body, not in the
+		// exception's message, which is what the JSON body carries.
+		expect(await response.json()).toMatchObject({ status: 401, message: '' });
+	});
+
+	test('keeps a custom header but never the body headers of the response it replaces', async () => {
+		const { response, body } = await call(() => {
+			throw new HTTPException(429, {
+				message: 'slow down',
+				res: new Response('a much longer plain text body', {
+					headers: {
+						'Retry-After': '30',
+						'Content-Type': 'text/plain',
+						'Content-Length': '29',
+					},
+				}),
+			});
+		});
+		expect(response.status).toBe(429);
+		expect(response.headers.get('retry-after')).toBe('30');
+		expect(response.headers.get('content-type')).toStartWith(
+			'application/json',
+		);
+		expect(response.headers.get('content-length')).not.toBe('29');
+		expect(body).toMatchObject({ status: 429, message: 'slow down' });
+	});
+
+	test('appends every cookie after the ones a middleware set before the throw', async () => {
+		const hono = new Hono();
+		hono.use(async (c, next) => {
+			c.header('Set-Cookie', 'session=early; Path=/', { append: true });
+			await next();
+		});
+		hono.get('/boom', () => {
+			const res = new Response(null);
+			res.headers.append('Set-Cookie', 'a=1; Path=/');
+			res.headers.append('Set-Cookie', 'b=2; Path=/');
+			throw new HTTPException(401, { message: 'again', res });
+		});
+		hono.onError(createErrorHandler(translate));
+
+		const response = await hono.request('/boom');
+		expect(response.headers.getSetCookie()).toEqual([
+			'session=early; Path=/',
+			'a=1; Path=/',
+			'b=2; Path=/',
+		]);
+	});
+
+	test("copies neither the replaced body's headers nor the hop-by-hop ones, but keeps Content-Range", async () => {
+		const skipped = {
+			'Content-Disposition': 'attachment; filename=x.html',
+			'Content-Digest': 'sha-256=:abc=:',
+			'Repr-Digest': 'sha-256=:abc=:',
+			'Content-MD5': 'abc==',
+			ETag: '"abc"',
+			'Last-Modified': 'Mon, 12 Oct 2026 00:00:00 GMT',
+			Connection: 'close',
+			'Keep-Alive': 'timeout=5',
+			'Proxy-Connection': 'close',
+			TE: 'trailers',
+			Trailer: 'X-T',
+			Upgrade: 'websocket',
+		};
+		const { response } = await call(() => {
+			throw new HTTPException(416, {
+				message: 'out of range',
+				res: new Response(null, {
+					headers: { ...skipped, 'Content-Range': 'bytes */100' },
+				}),
+			});
+		});
+		for (const name of Object.keys(skipped))
+			expect({ name, value: response.headers.get(name) }).toEqual({
+				name,
+				value: null,
+			});
+		expect(response.headers.get('content-range')).toBe('bytes */100');
 	});
 });

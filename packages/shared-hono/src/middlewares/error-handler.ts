@@ -1,7 +1,7 @@
 import type { LocaleKey } from '@nxgt/i18n';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { logger } from '@nxgt/shared-logging';
-import type { ErrorHandler } from 'hono';
+import type { Context, ErrorHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { rawEnv } from '../env';
 
@@ -22,7 +22,9 @@ export type ErrorHandlerOptions = {
 /**
  * The `app.onError` handler: a `CustomException` answers its code and its
  * translated message, an `HTTPException` its status and message, anything
- * else 500 and `errors.internal-server-error`.
+ * else 500 and `errors.internal-server-error`. An `HTTPException` thrown with
+ * a `res` — `basicAuth` and `bearerAuth` throw one carrying `WWW-Authenticate`
+ * — keeps that response's headers, but not the ones that describe its body.
  *
  * Under `NODE_ENV=development` and `test` the body also carries a
  * `debugMessage` — the exception's own, the `HTTPException`'s stack, or the
@@ -79,6 +81,7 @@ export const createErrorHandler = <K extends LocaleKey = LocaleKey>(
 		}
 		if (err instanceof HTTPException) {
 			c.status(err.status);
+			if (err.res) keepHeaders(c, err.res.headers);
 			return c.json({
 				status: err.status,
 				message: err.message,
@@ -95,3 +98,36 @@ export const createErrorHandler = <K extends LocaleKey = LocaleKey>(
 		});
 	};
 };
+
+/**
+ * Not copied: the headers that describe the body being replaced by the JSON
+ * one, and the hop-by-hop ones, which belong to a connection. `Content-Range`
+ * is copied: a 416's total length describes the resource, not the body.
+ */
+const SKIPPED_HEADERS = new Set([
+	'content-type',
+	'content-length',
+	'content-encoding',
+	'transfer-encoding',
+	'content-disposition',
+	'content-digest',
+	'repr-digest',
+	'content-md5',
+	'etag',
+	'last-modified',
+	'connection',
+	'keep-alive',
+	'proxy-connection',
+	'te',
+	'trailer',
+	'upgrade',
+]);
+
+function keepHeaders(c: Context, headers: Headers): void {
+	for (const [name, value] of headers) {
+		if (SKIPPED_HEADERS.has(name) || name === 'set-cookie') continue;
+		c.header(name, value);
+	}
+	for (const cookie of headers.getSetCookie())
+		c.header('set-cookie', cookie, { append: true });
+}

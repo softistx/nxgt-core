@@ -62,8 +62,9 @@ app.onError(createErrorHandler(translate));
 
 `CustomException` becomes `{ status, message, timestamp }`, plus
 `debugMessage` in development and test, with `message` translated.
-`HTTPException` keeps its status and message. Anything else is a 500 with the
-translated `errors.internal-server-error`.
+`HTTPException` keeps its status and message, and the headers of a `res` it
+was thrown with (`WWW-Authenticate` from `basicAuth` or `bearerAuth`). Anything
+else is a 500 with the translated `errors.internal-server-error`.
 
 **`debugMessage` is only sent when `NODE_ENV` is `development` or `test`.**
 Under `production`, any other value, or an **unset** `NODE_ENV`, the body has
