@@ -210,7 +210,8 @@ What it adds to `setupNuxtI18n`:
 
 - **The locale is resolved the same way** — the state, the cookie,
   `requested`, the fallback locale — among `locales`, each of which is in
-  `catalogues` or `loaders`.
+  `catalogues` or `loaders`; one in neither is a `TypeError`
+  ([Troubleshooting](../troubleshooting.md#setuplazynuxti18n-locales-holds-locale-which-is-neither-in-catalogues-nor-in-loaders--give-each-locale-a-catalogue-or-a-loader)).
 - **A locale of `loaders` is loaded before the promise resolves**, so the
   server renders in it, never in the fallback locale first. A locale of
   `catalogues` calls no loader.
@@ -229,9 +230,10 @@ What it adds to `setupNuxtI18n`:
   ([Troubleshooting](../troubleshooting.md#setlocale-the-catalogue-of-locale-could-not-be-loaded)).
 
 Every composable — `useCookie`, `useState`, `useRequestHeaders` — is called
-before the first `await`, which is why the header is read up front rather
-than inside `requested`. Anything that needs Nuxt's context after the
-`await`, as `useHead` does, goes through `nuxtApp.runWithContext`.
+before the first `await`. `requested` runs before it too, but the header is
+read up front to keep every composable visibly before the first `await`.
+Anything that needs Nuxt's context after the `await`, as `useHead` does,
+goes through `nuxtApp.runWithContext`.
 
 A catalogue a loader answers is never cached per request: a loader that
 fetches and answers a new object each time does not grow the server's
