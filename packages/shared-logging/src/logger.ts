@@ -43,6 +43,7 @@ export function createLogger(options: {
 			message: info.message,
 		};
 		if (info.stack !== undefined) copy['stack'] = info.stack;
+		if (info.cause !== undefined) copy['cause'] = info.cause;
 		return copy;
 	});
 

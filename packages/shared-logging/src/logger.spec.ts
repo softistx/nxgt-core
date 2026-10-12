@@ -96,6 +96,28 @@ describe('logging an error', () => {
 		expect(lines.at(-1)).toEndWith('[error] The operation was aborted.');
 	});
 
+	test('the line keeps the stack, the cause and own fields such as code', () => {
+		const seen: winston.Logform.TransformableInfo[] = [];
+		const spy = new winston.transports.Stream({
+			stream: new Writable({ write: (_c, _e, done) => done() }),
+		});
+		spy.log = (info: winston.Logform.TransformableInfo, next: () => void) => {
+			seen.push(info);
+			next();
+		};
+		logger.add(spy);
+		const error = Object.assign(new Error('outer', { cause: 'inner' }), {
+			code: 'E1',
+		});
+		logger.error(error);
+		logger.remove(spy);
+		expect(seen.at(-1)).toMatchObject({
+			cause: 'inner',
+			code: 'E1',
+			stack: error.stack,
+		});
+	});
+
 	test('an error given as metadata keeps its message too', () => {
 		const error = new Error('meta');
 		logger.error('context', error);
