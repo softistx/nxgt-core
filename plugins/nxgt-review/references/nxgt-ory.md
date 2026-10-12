@@ -68,4 +68,4 @@ The reviewer may run all of the above. Do **not** run `bun run test` (it needs a
 - Server-only code lives in `*.server.ts`. Report any admin/tuples client, or any `serverEnv` read, that reaches client code.
 - Consumers (the two consumer repositories) reach this stack only by URL on the `proxy` network. Report any import or path reference into those repos.
 - The `@nxgt/shared-mongo` `Types`/`ObjectId` import rule is not stated in this repo's docs. This repo has no Mongo code to apply it to.
-- Commit format is `<type>: <Capitalized summary>`, with type one of `feat`, `fix`, `update`, `chore` or `docs`.
+- Commit format is `<type>: <Capitalized summary>`, with the types the "Commit messages" bullet of that repository's `AGENTS.md` lists; no copy here.

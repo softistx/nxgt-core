@@ -69,4 +69,4 @@ For a `config/` change, write the body in **consumer terms**: not "add
 members". Those files have no other changelog, and the person who needs the
 sentence is in another repository.
 
-Types in use here: `feat`, `fix`, `update`, `chore`, `docs`.
+Commit types: the "Commit messages" bullet of that repository's `AGENTS.md` lists them; no copy here.
