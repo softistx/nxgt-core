@@ -20,7 +20,9 @@ export function pick<Data extends object, Key extends keyof Data>(
 
 /**
  * A shallow copy of `data` without `keys`; `data` itself is left as it is.
- * A missing `data` gives `{}`.
+ * A missing `data` gives `{}`. The copy holds own enumerable properties
+ * only: a class instance or a Mongoose document comes back as a plain object
+ * (call `toObject()` on a document first).
  */
 export function omit<Data extends object, Key extends keyof Data>(
 	data: Data,
