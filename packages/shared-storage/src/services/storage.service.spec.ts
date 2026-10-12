@@ -303,6 +303,47 @@ describe.skipIf(!hasS3)('StorageService', () => {
 			expect(await response.text()).toBe('fetched');
 		});
 
+		test.each([
+			'with a space.txt',
+			'100% sure.txt',
+			'a#b.txt',
+			'what?.txt',
+			'café ünï.txt',
+			'a//b.txt',
+		])('fetches a key named %p as it was written', async (name) => {
+			const key = keyFor(name);
+			await service.write(key, `body of ${name}`);
+			const response = await service.fetch(key);
+			expect({ name, ok: response.ok, status: response.status }).toEqual({
+				name,
+				ok: true,
+				status: 200,
+			});
+			expect(await response.text()).toBe(`body of ${name}`);
+		});
+
+		test('passes the request through: a Range, and a HEAD', async () => {
+			const key = keyFor('ranged file.txt');
+			await service.write(key, 'abcdef');
+			const ranged = await service.fetch(key, {
+				headers: { Range: 'bytes=1-3' },
+			});
+			expect(ranged.status).toBe(206);
+			expect(await ranged.text()).toBe('bcd');
+			const head = await service.fetch(key, { method: 'HEAD' });
+			expect(head.status).toBe(200);
+			expect(head.headers.get('content-length')).toBe('6');
+		});
+
+		test('refuses a method it cannot sign', async () => {
+			const key = keyFor('patched.txt');
+			await service.write(key, 'x');
+			expectInternal(
+				await rejection(service.fetch(key, { method: 'PATCH' })),
+				'storage.errors.fetch-failed',
+			);
+		});
+
 		test('fetches from the bucket named in its options', async () => {
 			buckets.push(OTHER_BUCKET);
 			// Before the service exists: its constructor fires its own unawaited
