@@ -76,18 +76,39 @@ export async function compilerApi(helper: string): Promise<CompilerApi> {
 	return api;
 }
 
+/** Whether `error` is the runtime failing to find `pkg` itself. */
+function isMissing(error: unknown, pkg: string): boolean {
+	if (!(error instanceof Error)) return false;
+	const code = (error as { code?: unknown }).code;
+	return (
+		(code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') &&
+		error.message.includes(`'${pkg}'`)
+	);
+}
+
 /**
- * Loads a tool that reads the compiler API when it is imported. When the
- * import fails because there is no compiler API, the error says so and names
- * `helper`; any other failure is rethrown as it is.
+ * Loads `pkg`, a tool that reads the compiler API when it is imported. When
+ * `pkg` is not installed — it is an optional peer — the error names it and
+ * how to install it; when the import fails because there is no compiler API,
+ * the error says so. Both name `helper`, and any other failure is rethrown as
+ * it is.
  */
 export async function importTool<T>(
 	helper: string,
+	pkg: string,
 	load: () => Promise<T>,
 ): Promise<T> {
 	try {
 		return await load();
 	} catch (error) {
+		if (isMissing(error, pkg)) {
+			throw new Error(
+				`${helper} needs \`${pkg}\`, an optional peer of @nxgt/shared-openapi ` +
+					'that only a consumer generating clients installs. ' +
+					`Install it where the codegen runs: bun add -d ${pkg}`,
+				{ cause: error },
+			);
+		}
 		const { api, version } = await resolveTypeScript();
 		if (api !== undefined) throw error;
 		throw missingCompilerApi(helper, version, error);

@@ -24,6 +24,9 @@ refuses it next to TypeScript 6 or 7 unless told otherwise
 bun add -d @hey-api/openapi-ts openapi-typescript
 ```
 
+Without them, `generateOpenapiTS` and `defineHeyApiConfig` fail naming the
+missing peer and that command, with the runtime's own error as `cause`.
+
 ## The YAML ships in `openapi/`
 
 `bun build` bundles code and nothing else, so the fragments live in

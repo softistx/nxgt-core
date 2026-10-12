@@ -9,6 +9,7 @@ export async function defineHeyApiConfig(configurer?: Configurer) {
 	// Loaded here, not at module scope: see compiler-api.ts.
 	const { defineConfig } = await importTool(
 		'defineHeyApiConfig',
+		'@hey-api/openapi-ts',
 		() => import('@hey-api/openapi-ts'),
 	);
 	const defaultConfig: HeyApiConfig = {

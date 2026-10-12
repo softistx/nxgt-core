@@ -1,6 +1,6 @@
 import { mkdir, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { compilerApi } from './compiler-api';
+import { compilerApi, importTool } from './compiler-api';
 
 export async function generateOpenapiTS(
 	input: string | URL,
@@ -18,7 +18,11 @@ export async function generateOpenapiTS(
 		default: openapiTS,
 		astToString,
 		tsNullable,
-	} = await import('openapi-typescript');
+	} = await importTool(
+		'generateOpenapiTS',
+		'openapi-typescript',
+		() => import('openapi-typescript'),
+	);
 	const DATE = ts.factory.createTypeReferenceNode('Date');
 	const FILE = ts.factory.createTypeReferenceNode('File');
 
