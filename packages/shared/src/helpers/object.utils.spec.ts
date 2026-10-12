@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import { isEqual } from 'lodash';
-import { assign, cleanObject, toCamelCase, toSnakeCase } from './object.utils';
+import {
+	assign,
+	cleanObject,
+	omit,
+	toCamelCase,
+	toSnakeCase,
+} from './object.utils';
 
 describe('cleanObject', () => {
 	it('Should remove undefined properties', () => {
@@ -17,6 +23,27 @@ describe('cleanObject', () => {
 		const obj = { a: 1, b: null, c: 3 };
 		const cleaned = cleanObject(obj);
 		expect(cleaned).toEqual({ a: 1, b: null, c: 3 });
+	});
+});
+
+describe('omit', () => {
+	it('returns a copy without the key and leaves the caller object intact', () => {
+		const user = { name: 'Ada', password: 'secret' };
+		const safe = omit(user, 'password');
+		expect(safe).toEqual({ name: 'Ada' });
+		expect(safe).not.toBe(user);
+		expect(user).toEqual({ name: 'Ada', password: 'secret' });
+	});
+
+	it('takes a list of keys', () => {
+		const user = { name: 'Ada', password: 'secret', token: 't' };
+		expect(omit(user, ['password', 'token'])).toEqual({ name: 'Ada' });
+		expect(user.token).toBe('t');
+	});
+
+	it('gives an empty object for a missing input, as before', () => {
+		const missing = undefined as unknown as { a: number };
+		expect(omit(missing, 'a')).toEqual({});
 	});
 });
 

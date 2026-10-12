@@ -18,21 +18,21 @@ export function pick<Data extends object, Key extends keyof Data>(
 	return result;
 }
 
+/**
+ * A shallow copy of `data` without `keys`; `data` itself is left as it is.
+ * A missing `data` gives `{}`.
+ */
 export function omit<Data extends object, Key extends keyof Data>(
 	data: Data,
 	keys: Key | Key[],
 ): Omit<Data, Key> {
-	const result = data;
+	const result = { ...data };
 
-	if (Array.isArray(keys)) {
-		for (const key of keys) {
-			delete result?.[key];
-		}
-	} else {
-		delete result?.[keys];
+	for (const key of Array.isArray(keys) ? keys : [keys]) {
+		delete result[key];
 	}
 
-	return <Omit<Data, Key>>(result ?? {});
+	return result;
 }
 
 export function cast<T>(value: any) {
@@ -76,7 +76,7 @@ export function cleanObject<T extends object>(
 }
 
 /**
- * Assigns properties from one or more source objects to a target object, while removing any properties with undefined values from the sources. The original target object is not modified; instead, a new object is returned with the combined properties.
+ * Assigns properties from one or more source objects to `target`, skipping the sources' properties whose value is undefined. `target` itself is modified (a Mongoose document can be saved afterwards), and nothing is returned.
  * @param target - The target object to which properties will be assigned.
  * @param sources - One or more source objects from which properties will be copied. Properties with undefined values in the source objects will be ignored.
  */

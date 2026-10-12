@@ -54,7 +54,8 @@ people:
 | Helper | What it is for |
 | --- | --- |
 | `toObjectId` / `toObjectIds` | convert a string to an ObjectId |
-| `cleanObject` / `omit` | strip undefined before a Mongo write |
+| `cleanObject` | strip undefined before a Mongo write |
+| `pick` / `omit` | a copy with only, or without, some keys; the input is left as it is |
 | `isScopeAuthority` | SCOPE_* vs role/permission, for confidential clients |
 | `buildSort` / `SortDirection` | REST sort vocabulary — not the GraphQL one in `@nxgt/shared-mongo/filters` |
 
