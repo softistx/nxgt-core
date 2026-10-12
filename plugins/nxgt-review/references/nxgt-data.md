@@ -125,4 +125,4 @@ From the table in `AGENTS.md`:
 - Changesets, independent versions, `bun publish` through `scripts/publish.ts`; registry configuration in `bunfig.toml`, never `.npmrc`.
 - Every package public (never `private: true`), MIT, with its own `LICENSE`; `typescript` is a peer at `^6.0.3 || ^7.0.0` in every package (the root and the examples pin `~6.0.3`); siblings by `workspace:^`.
 - A README is the npm page: sections with an example each, an **API**, a **What does not compile** list where the package has one, and a **Traps** section; no private name.
-- Commit types: `feat`, `fix`, `update`, `chore`, `docs`, `typo`, and `ci` for the workflows and the setup action.
+- Commit types: the "Commit messages" bullet of that repository's `AGENTS.md` lists them; no copy here.
