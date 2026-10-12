@@ -206,13 +206,14 @@ const { setLocale } = useI18n();
 setLocale('fr');
 ```
 
-`setLocale` switches the page at once, and writes the locale to the payload
+`setLocale` switches the page at once for a locale already loaded; with
+`lazy`, once its chunk is loaded, so `await` it on the server. It writes the locale to the payload
 state and to the cookie (`path=/`, `SameSite=Lax`, a year), so the next page
 the server renders is in the new locale. A locale guessed from
 `Accept-Language` is **never** written: only a choice is remembered. The
 cookie is readable by the page's scripts, as Nuxt's `useCookie` makes it.
 
-Call `setLocale` from a route middleware or a server-side plugin to set a
+`await` `setLocale` from a route middleware or a server-side plugin to set a
 locale from the URL; on the server, the cookie is sent with the response.
 
 ## Types

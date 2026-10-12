@@ -38,7 +38,7 @@ const checked = new WeakMap<Messages, WeakMap<object, LoadedCatalogue>>();
 
 /**
  * A module namespace, told apart from a catalogue that has a `default` key,
- * by either of two rules:
+ * by any of three rules:
  *
  * - its `Symbol.toStringTag` is `'Module'`, as a native `import()` answers;
  * - or it mirrors its default export: an object `default`, at least one

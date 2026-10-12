@@ -109,7 +109,7 @@ i18n.locales; // ['en', 'fr', 'de']
 await i18n.setLocale('fr'); // fetched, checked against en, then switched
 ```
 
-It is opt-in: without `loaders`, nothing on this page applies. A loader is
+It is opt-in: without `loaders`, nothing on this page applies (the loader code still ships in `createI18n`, about +0.7 kB gzip). A loader is
 any function that answers a promise of the catalogue, or of a module whose
 default export is one — what `import()` of a JSON file answers. The record is
 plain JavaScript, so it is the same whoever writes it: by hand, as here, or
@@ -197,7 +197,7 @@ A failed load is not kept: the next `setLocale('fr')` runs the loader again.
 See [Troubleshooting](../troubleshooting.md#setlocale-the-catalogue-of-locale-could-not-be-loaded).
 
 The loader's answer is unwrapped to its `default` export when it is a
-module namespace, which is recognised by either of two rules:
+module namespace, which is recognised by any of three rules:
 
 - its `Symbol.toStringTag` is `'Module'`, as a native `import()` answers
   under Bun, Node or Vite in development;

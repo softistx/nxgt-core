@@ -351,7 +351,7 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
   `{ en, fr }` wrapped anew is the same set — so treat them as immutable.
 - **Any component with its own `t`** (a prop, a `setup` binding) hides the
   global one in its template — which is how `const { t } = useI18n()` works.
-- **What the types refuse is measured**: 23 cases in TypeScript, 7 in a
+- **What the types refuse is measured**: 26 cases in TypeScript, 7 in a
   template and 5 under Nuxt, each failing the typecheck the day it stops
   being refused. See [Types](docs/guide/types.md#type-safety-is-measured).
 
