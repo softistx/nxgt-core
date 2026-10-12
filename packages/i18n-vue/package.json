@@ -66,9 +66,10 @@
 	"scripts": {
 		"build": "bun run ../../build.ts",
 		"test": "bun test src",
-		"typecheck": "tsc --noEmit && bun run typecheck:types && bun run typecheck:nuxt",
+		"typecheck": "tsc --noEmit && bun run typecheck:types && bun run typecheck:nuxt && bun run typecheck:nuxt-lazy",
 		"typecheck:types": "bun run test/types/prepare.ts && bun run test/vue-tsc.ts --noEmit -p test/types/tsconfig.json",
-		"typecheck:nuxt": "bun run test/nuxt-app/link.ts && cd test/nuxt-app && nuxt prepare && bun run ../vue-tsc.ts -b"
+		"typecheck:nuxt": "bun run test/nuxt-app/link.ts && cd test/nuxt-app && nuxt prepare && bun run ../vue-tsc.ts -b",
+		"typecheck:nuxt-lazy": "bun run test/nuxt-lazy-app/link.ts && cd test/nuxt-lazy-app && nuxt prepare && bun run ../vue-tsc.ts -b"
 	},
 	"nxgt": {
 		"entrypoints": [

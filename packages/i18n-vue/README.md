@@ -278,6 +278,20 @@ included) or `messages`, and `catalogues` as for Vite, and `cookie` (default
 `'language'`). A change to a file the module read restarts `nuxt dev`. See
 [Nuxt](docs/guide/nuxt.md).
 
+`lazy: true` loads every locale but the fallback one on demand: the plugin
+holds the fallback catalogue alone, each other locale is a chunk of its own,
+and the server loads the visitor's before it renders, so the page is never in
+the fallback locale first. The catalogue it rendered in travels in the
+payload, so the browser hydrates without loading it again.
+
+```ts
+nxgtI18n: { locales: ['en', 'fr', 'de'], lazy: true },
+```
+
+`setLocale` then answers a promise that resolves once the chunk is loaded;
+`await` it on the server, in a route middleware for instance. See
+[What lazy generates](docs/guide/nuxt.md#what-lazy-generates).
+
 ## Outside Vue
 
 `createTranslator` is `@nxgt/i18n`'s translator, strict, and imports no
@@ -338,7 +352,7 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 - **Any component with its own `t`** (a prop, a `setup` binding) hides the
   global one in its template — which is how `const { t } = useI18n()` works.
 - **What the types refuse is measured**: 23 cases in TypeScript, 7 in a
-  template and 3 under Nuxt, each failing the typecheck the day it stops
+  template and 5 under Nuxt, each failing the typecheck the day it stops
   being refused. See [Types](docs/guide/types.md#type-safety-is-measured).
 
 ## Documentation

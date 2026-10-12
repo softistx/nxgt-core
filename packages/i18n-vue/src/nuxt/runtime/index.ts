@@ -12,14 +12,7 @@ import { type CatalogueLoaders, unwrapModule } from '../../core/loaders';
 import { parseAcceptLanguage, pickLocale } from '../../core/locale';
 import { createI18n, type I18n } from '../../vue/index';
 
-export { STATE_KEY } from '../state-key';
-
-/**
- * The key of the lazily loaded catalogue in Nuxt's payload: the catalogue the
- * server rendered in, when it came from a loader, so the browser hydrates in
- * it without loading it again.
- */
-export const CATALOGUE_STATE_KEY = '@nxgt/i18n-vue:catalogue';
+export { CATALOGUE_STATE_KEY, STATE_KEY } from '../state-key';
 
 /** What `setupNuxtI18n` needs from Nuxt. */
 export interface NuxtI18nContext {
