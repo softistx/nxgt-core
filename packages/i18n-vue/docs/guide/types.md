@@ -119,6 +119,8 @@ In a template, as in code:
 ```ts
 setLocale('de'); // not a locale of the catalogues
 i18n.locale.value = 'fr'; // read-only: use setLocale
+createI18n({ catalogues: { en }, loaders: { fr: './locales/fr.json' } }); // a loader is a function
+createI18n({ catalogues: { en }, loaders: { fr: () => fr } }); // that answers a promise: () => import('./locales/fr.json')
 ```
 
 A key that may be one of several (`ok ? 'a' : 'b'`) takes the arguments
@@ -174,7 +176,7 @@ its own.
 ## Type safety is measured
 
 The package's own tests hold what the types refuse:
-`test/types/refusals.ts` has **21** mistakes in TypeScript and
+`test/types/refusals.ts` has **23** mistakes in TypeScript and
 `test/types/refusals.vue` **7** in a template, checked by `vue-tsc` against a
 generated file; the Nuxt fixture adds **3** under Nuxt's own `tsconfig`. Each
 is an `@ts-expect-error` or `@vue-expect-error`, so a refusal that stops

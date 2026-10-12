@@ -104,6 +104,27 @@ const i18n = createI18n({
 createApp(App).use(i18n);
 ```
 
+Only the locales a visitor uses need to be downloaded: give the others as
+`loaders`, and `setLocale` fetches and checks a catalogue the first time it is
+asked for. Opt-in; `catalogues` alone works as it always has. The record is
+plain `import()` calls and needs no plugin: Bun, Vite, webpack and esbuild
+import JSON as is, and plain Node ESM with
+`import('./locales/fr.json', { with: { type: 'json' } })`.
+
+```ts
+const i18n = createI18n({
+	catalogues: { en }, // the fallback locale, and the start locale, are always here
+	loaders: { fr: () => import('./locales/fr.json'), de: () => import('./locales/de.json') },
+});
+await i18n.setLocale('fr'); // loads fr.json, checks it against en, then switches
+```
+
+Until the catalogue is loaded, `locale` and `t` stay on the previous locale;
+when calls overlap, the last one wins — a superseded call resolves without
+switching, or still rejects if its load failed. On a server, `await setLocale(…)`
+before rendering. See
+[Loading a locale on demand](docs/guide/vue.md#loading-a-locale-on-demand).
+
 `app.use(i18n)` adds `t` to every template and provides the i18n to
 `useI18n()`:
 
@@ -131,8 +152,8 @@ const choose = (event: Event) =>
 | --- | --- |
 | `t(key, args?)` | The message in the current locale. Reactive: a template or a `computed` re-runs when the locale changes |
 | `locale` | The current locale, a read-only `Ref` |
-| `setLocale(locale)` | Switches every `t` of the app. A locale the catalogues do not have **throws** |
-| `locales`, `fallbackLocale` | The catalogues' locales, and the reference one |
+| `setLocale(locale)` | Switches every `t` of the app, and answers a `Promise<void>`: already resolved for a loaded locale, which switches at once; resolved once the catalogue is loaded and checked for one in `loaders`, rejected if it cannot be. A locale in neither **throws** |
+| `locales`, `fallbackLocale` | The catalogues' locales then the `loaders`-only ones, and the reference one |
 | `has(key)` | Whether a key computed at run time is a message — `t` would throw otherwise |
 
 To remember a choice in a browser app, store it where `detectLocale` reads it:
@@ -263,6 +284,7 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 | Export | What it is |
 | --- | --- |
 | `createI18n(options)`, `I18n`, `I18nOptions` | The i18n of an app: a Vue plugin with a reactive locale |
+| `CatalogueLoader`, `CatalogueLoaders` | A locale's catalogue loaded on demand — `() => import('./locales/fr.json')` — and one per locale, for `loaders` |
 | `useI18n()` | The installed i18n, in a component or where `inject` works |
 | `createTranslator(catalogues, getLanguage)`, `Translate`, `LanguageProvider` | `t(key, args?, language?)` without Vue |
 | `pickLocale`, `parseAcceptLanguage`, `detectLocale`, `WantedLocales`, `DetectLocaleOptions` | Choosing the locale |
@@ -289,13 +311,16 @@ from the catalogue itself. See [Outside Vue](docs/guide/translator.md).
 - **A message is text.** Tags are not parsed (`<b>{name}</b>` formats to those
   characters), and Vue's `{{ }}` escapes the result. Never pass a message with
   arguments to `v-html`.
+- **`await setLocale(…)` on a server** when the locale is in `loaders`:
+  without it the page renders in the previous locale, since the catalogue
+  is not loaded yet. A locale of `catalogues` switches at once either way.
 - **Create one i18n per request on a server.** The locale is the i18n's own;
   one shared across requests would switch every visitor. The Nuxt module does
   this for you. The catalogues are checked once per set of catalogue objects —
   `{ en, fr }` wrapped anew is the same set — so treat them as immutable.
 - **Any component with its own `t`** (a prop, a `setup` binding) hides the
   global one in its template — which is how `const { t } = useI18n()` works.
-- **What the types refuse is measured**: 21 cases in TypeScript, 7 in a
+- **What the types refuse is measured**: 23 cases in TypeScript, 7 in a
   template and 3 under Nuxt, each failing the typecheck the day it stops
   being refused. See [Types](docs/guide/types.md#type-safety-is-measured).
 

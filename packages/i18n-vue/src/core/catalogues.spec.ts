@@ -3,7 +3,8 @@ import { expectThrow } from '../../test/expect-throw';
 import {
 	type Catalogues,
 	checkCatalogues,
-	layerCatalogues,
+	checkLocale,
+	type Messages,
 } from './catalogues';
 
 const check = (catalogues: Catalogues, locales = ['en', 'fr']) =>
@@ -150,60 +151,63 @@ describe('checkCatalogues', () => {
 			'i18n: fr: a uses {n} as date, and en declares it as number',
 		);
 	});
+
+	test('reads every locale before comparing any: a message that does not parse wins over a missing key', () => {
+		expect(() =>
+			checkCatalogues(
+				{ en: { a: 'x', b: 'y' }, fr: { a: 'x' }, de: { a: '{n', b: 'y' } },
+				['en', 'fr', 'de'],
+				'en',
+			),
+		).toThrow(/^i18n: de: a is not a valid ICU message \(/);
+	});
+
+	test('checks the fallback locale first wherever it sits in locales', () => {
+		fails(
+			{ fr: { a: 'x' }, en: { a: 'x', b: 'y' } },
+			'i18n: fr: b is missing — en, the fallback locale, has it',
+			['fr', 'en'],
+		);
+	});
 });
 
-describe('layerCatalogues', () => {
-	const ui: Catalogues = {
-		en: { common: { greeting: 'Hello {name},', footer: { why: 'Why' } } },
-		fr: {
-			common: { greeting: 'Bonjour {name},', footer: { why: 'Pourquoi' } },
-		},
-		de: { common: { greeting: 'Hallo {name},' } },
-	};
+describe('checkLocale', () => {
+	const reference = check({ en: { a: 'Hi {name}', b: 'Bye' } }, ['en']).get(
+		'en',
+	) as Messages;
 
-	test("merges each source under the project's catalogue, key by key", () => {
-		expect(
-			layerCatalogues([ui], {
-				en: {
-					common: { greeting: 'Hi {name},' },
-					welcome: { title: 'Welcome' },
-				},
-				fr: { welcome: { title: 'Bienvenue' } },
-			}),
-		).toEqual({
-			en: {
-				common: { greeting: 'Hi {name},', footer: { why: 'Why' } },
-				welcome: { title: 'Welcome' },
-			},
-			fr: {
-				common: { greeting: 'Bonjour {name},', footer: { why: 'Pourquoi' } },
-				welcome: { title: 'Bienvenue' },
-			},
-		});
+	test('answers one locale’s messages, compared with the reference', () => {
+		const messages = checkLocale(
+			{ a: 'Salut {name}', b: 'Au revoir' },
+			'fr',
+			'en',
+			reference,
+		);
+		expect([...messages.keys()]).toEqual(['a', 'b']);
+		expect(messages.get('a')?.args.get('name')).toBe('string');
 	});
 
-	test('layers the sources in order, the later over the earlier', () => {
-		expect(
-			layerCatalogues([ui, { en: { common: { greeting: 'Hey {name},' } } }], {
-				en: {},
-			})['en'],
-		).toEqual({ common: { greeting: 'Hey {name},', footer: { why: 'Why' } } });
+	test('refuses with the messages checkCatalogues gives', () => {
+		expectThrow(
+			() => checkLocale({ a: 'Salut {name}' }, 'fr', 'en', reference),
+			Error,
+			'i18n: fr: b is missing — en, the fallback locale, has it',
+		);
+		expectThrow(
+			() => checkLocale('Salut', 'fr', 'en', reference),
+			Error,
+			'i18n: fr: the catalogue must be an object of messages',
+		);
+		expectThrow(
+			() => checkLocale({ a: 'Salut {nom}', b: 'x' }, 'fr', 'en', reference),
+			Error,
+			'i18n: fr: a uses {nom}, which en does not declare',
+		);
 	});
 
-	test('a message replaces a group, and a group a message', () => {
-		expect(
-			layerCatalogues([{ en: { a: 'A', b: { c: 'C' } } }], {
-				en: { a: { d: 'D' }, b: 'B' },
-			})['en'],
-		).toEqual({ a: { d: 'D' }, b: 'B' });
-	});
-
-	test('keeps a __proto__ key a key, for the check to refuse', () => {
-		const project = JSON.parse('{"en":{"__proto__":{"x":"y"}}}');
-		const merged = layerCatalogues([{ en: { a: 'A' } }], project);
-		expect(Object.keys(merged['en'] as object)).toEqual(['a', '__proto__']);
-		expect(() => checkCatalogues(merged, ['en'], 'en')).toThrow(
-			'i18n: en: __proto__ is not camelCase',
+	test('the fallback locale is read, never compared with itself', () => {
+		expect(checkLocale({ only: 'x' }, 'en', 'en', reference).has('only')).toBe(
+			true,
 		);
 	});
 });
