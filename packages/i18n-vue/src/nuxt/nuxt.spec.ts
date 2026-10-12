@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expectThrow } from '../../test/expect-throw';
+import { type BuiltNuxtApp, buildAndServe } from '../../test/nuxt-server';
 import { checkModuleOptions, pluginSource } from './index';
 
 describe('checkModuleOptions', () => {
@@ -97,39 +98,17 @@ describe('pluginSource', () => {
  */
 describe('a Nuxt app built with the module', () => {
 	const app = join(import.meta.dir, '../../test/nuxt-app');
-	const nuxt = join(import.meta.dir, '../../node_modules/nuxt/bin/nuxt.mjs');
-	let server: ReturnType<typeof Bun.spawn> | undefined;
+	let built: BuiltNuxtApp | undefined;
 	let origin = '';
 	let buildLog = '';
 
 	beforeAll(async () => {
-		await Bun.$`bun run ${join(app, 'link.ts')}`.quiet();
-		const build = await Bun.$`node ${nuxt} build`.cwd(app).quiet().nothrow();
-		buildLog = `${build.stdout}${build.stderr}`;
-		if (build.exitCode !== 0)
-			throw new Error(`nuxt build failed:\n${buildLog}`);
-		const port = 30_000 + Math.floor(Math.random() * 20_000);
-		origin = `http://127.0.0.1:${port}`;
-		server = Bun.spawn(['node', join(app, '.output/server/index.mjs')], {
-			env: { ...process.env, PORT: String(port), HOST: '127.0.0.1' },
-			stdout: 'ignore',
-			stderr: 'ignore',
-		});
-		for (let attempt = 0; attempt < 100; attempt++) {
-			if (
-				await fetch(origin).then(
-					() => true,
-					() => false,
-				)
-			)
-				return;
-			await Bun.sleep(100);
-		}
-		throw new Error('the built Nuxt server did not answer');
+		built = await buildAndServe(app);
+		({ origin, buildLog } = built);
 	}, 180_000);
 
 	afterAll(() => {
-		server?.kill();
+		built?.stop();
 	});
 
 	const page = async (headers: Record<string, string>) =>
@@ -141,10 +120,7 @@ describe('a Nuxt app built with the module', () => {
 	});
 
 	test('writes the types of t under .nuxt/, from the catalogues, folder layout included', () => {
-		const types = join(
-			app,
-			'node_modules/.cache/nuxt/.nuxt/types/nxgt-i18n-vue.d.ts',
-		);
+		const types = join(built?.buildDir ?? app, 'types/nxgt-i18n-vue.d.ts');
 		expect(existsSync(types)).toBe(true);
 		const source = readFileSync(types, 'utf8');
 		expect(source).toContain("\t\t'home.greeting': { name: string | number };");
