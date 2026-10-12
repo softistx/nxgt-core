@@ -59,6 +59,7 @@ as `home.greeting`.
 - [`i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts`](#i18ntypes-out-must-be-the-path-of-a-dts-file-as-srcgeneratedi18ndts)
 - [`i18nTypes: lazy must be true or false, as i18nTypes({ locales, lazy: true })`](#i18ntypes-lazy-must-be-true-or-false-as-i18ntypes-locales-lazy-true-)
 - [`nxgtI18n: cookie must be a cookie name, as 'language'`](#nxgti18n-cookie-must-be-a-cookie-name-as-language)
+- [`setupLazyNuxtI18n: locales holds <locale>, which is neither in catalogues nor in loaders — …`](#setuplazynuxti18n-locales-holds-locale-which-is-neither-in-catalogues-nor-in-loaders--give-each-locale-a-catalogue-or-a-loader)
 
 **Catalogues**
 - [`i18n: <dir>/<locale>.json is missing — every locale has a catalogue`](#i18n-dirlocalejson-is-missing--every-locale-has-a-catalogue)
@@ -309,6 +310,22 @@ have, or is not a string. Letters, digits and `-_.` are safe:
 
 ```ts
 nxgtI18n: { locales: ['en', 'fr'], cookie: 'app_locale' }
+```
+
+### `setupLazyNuxtI18n: locales holds <locale>, which is neither in catalogues nor in loaders — give each locale a catalogue or a loader`
+
+A `TypeError`, as the rejection of `setupLazyNuxtI18n`'s promise, before
+anything is resolved: `locales` lists a locale with neither a catalogue nor
+a loader. A cookie or an `Accept-Language` header could pick it, and the
+i18n could never switch to it. Add its loader, or drop it from `locales`:
+
+```ts
+setupLazyNuxtI18n({
+	catalogues: { en },
+	loaders: { fr: () => import('~~/locales/fr.json') },
+	locales: ['en', 'fr'], // each one in catalogues or loaders
+	// …
+});
 ```
 
 ## Catalogues
@@ -602,6 +619,29 @@ try {
 } catch (error) {
 	console.error(error, (error as Error).cause);
 }
+```
+
+In a Nuxt plugin built on `setupLazyNuxtI18n`, the same error **rejects the
+plugin**: the locale resolved for the request — from the cookie, the state
+or `Accept-Language` — is in `loaders`, and its loader failed before
+anything was rendered, so Nuxt answers its error page. Look at the `cause`
+first: a chunk missing after a deployment, or an `import()` path that does
+not exist, are the usual ones. To render in the fallback locale instead,
+catch it in the plugin and set up again with the catalogues alone — the
+cookie keeps the visitor's choice for the next request. `context` is the
+object the plugin passes to `setupLazyNuxtI18n`, its composables called
+before the first `await` ([Nuxt](guide/nuxt.md#locales-loaded-on-demand)):
+
+```ts
+const context = { catalogues: { en }, loaders, locales, fallbackLocale: 'en', cookie, state, catalogue, requested };
+const i18n = await setupLazyNuxtI18n(context).catch((error) => {
+	console.error(error, (error as Error).cause);
+	return setupLazyNuxtI18n({
+		...context,
+		locales: Object.keys(context.catalogues),
+		loaders: {},
+	});
+});
 ```
 
 ### `setLocale: the loader of <locale> must answer a catalogue, or a module whose default export is one`

@@ -161,10 +161,92 @@ the cookie on each `setLocale`. Without the module, the types of `t` come from
 `/nuxt/runtime` in a plugin, never from `/nuxt`: that one is the module, and
 it imports `@nuxt/kit`.
 
+### Locales loaded on demand
+
+`setupLazyNuxtI18n` is the same plugin with some locales in `loaders`
+([Loading a locale on demand](vue.md#loading-a-locale-on-demand)): only the
+fallback locale ships in the plugin, and each other one is a chunk of its
+own. It is async, so the plugin is too:
+
+```ts
+// app/plugins/i18n.ts
+import type { Catalogue } from '@nxgt/i18n-vue';
+import {
+	CATALOGUE_STATE_KEY,
+	STATE_KEY,
+	setupLazyNuxtI18n,
+} from '@nxgt/i18n-vue/nuxt/runtime';
+import en from '~~/locales/en.json';
+
+export default defineNuxtPlugin({
+	name: 'i18n',
+	enforce: 'pre',
+	async setup(nuxtApp) {
+		// Every composable before the first await: Nuxt's context is gone after it.
+		const header = import.meta.server
+			? useRequestHeaders(['accept-language'])['accept-language']
+			: undefined;
+		const i18n = await setupLazyNuxtI18n({
+			catalogues: { en },
+			loaders: {
+				fr: () => import('~~/locales/fr.json'),
+				de: () => import('~~/locales/de.json'),
+			},
+			locales: ['en', 'fr', 'de'],
+			fallbackLocale: 'en',
+			cookie: useCookie('language', { path: '/', sameSite: 'lax', maxAge: 31536000 }),
+			state: useState<string | undefined>(STATE_KEY),
+			catalogue: useState<Catalogue | null | undefined>(CATALOGUE_STATE_KEY),
+			requested: () => (import.meta.server ? header : navigator.languages),
+		});
+		nuxtApp.vueApp.use(i18n);
+		// After the await: a composable needs the context back.
+		nuxtApp.runWithContext(() => useHead({ htmlAttrs: { lang: i18n.locale } }));
+	},
+});
+```
+
+What it adds to `setupNuxtI18n`:
+
+- **The locale is resolved the same way** — the state, the cookie,
+  `requested`, the fallback locale — among `locales`, each of which is in
+  `catalogues` or `loaders`; one in neither is a `TypeError`
+  ([Troubleshooting](../troubleshooting.md#setuplazynuxti18n-locales-holds-locale-which-is-neither-in-catalogues-nor-in-loaders--give-each-locale-a-catalogue-or-a-loader)).
+- **A locale of `loaders` is loaded before the promise resolves**, so the
+  server renders in it, never in the fallback locale first. A locale of
+  `catalogues` calls no loader.
+- **The catalogue the server rendered in travels in the payload**, under
+  `CATALOGUE_STATE_KEY` (`null` for a locale of `catalogues`). The browser
+  hydrates from it — no loader call, no flash of the fallback locale, no
+  hydration mismatch. The page's HTML grows by that one catalogue. Without
+  server rendering there is no payload, and the browser calls the loader
+  once.
+- **`setLocale` writes the state, the cookie and the catalogue state
+  together.** On the server, `await setLocale('de')` — from a route
+  middleware, say — renders in `de` and hydrates in it. A locale guessed from
+  `Accept-Language` is still never written to the cookie.
+- **A loader that rejects rejects the plugin**, with `setLocale: the
+  catalogue of <locale> could not be loaded`, and Nuxt shows its error page
+  ([Troubleshooting](../troubleshooting.md#setlocale-the-catalogue-of-locale-could-not-be-loaded)).
+
+Every composable — `useCookie`, `useState`, `useRequestHeaders` — is called
+before the first `await`. `requested` runs before it too, but the header is
+read up front to keep every composable visibly before the first `await`.
+Anything that needs Nuxt's context after the `await`, as `useHead` does,
+goes through `nuxtApp.runWithContext`.
+
+A catalogue a loader answers is never cached per request: a loader that
+fetches and answers a new object each time does not grow the server's
+memory. Keep the loaders' `import()` paths static, so the bundler makes one
+chunk per locale.
+
 ## What it does not do
 
 - **No locale in the URL.** There is no `/fr/…` routing, no alternate links,
   no SEO helpers. Read a prefix in your own middleware and call `setLocale`.
-- **No lazy loading.** Every catalogue is in the plugin, so in the client
-  bundle. Fine for tens of kilobytes; see the [roadmap](../roadmap.md).
+- **No lazy loading from the module yet.** The module's plugin holds every
+  catalogue, so the client bundle does. Fine for tens of kilobytes; beyond
+  that, write the plugin yourself with
+  [`setupLazyNuxtI18n`](#locales-loaded-on-demand), and see the
+  [roadmap](../roadmap.md).
 - **No hot reload of a message.** A catalogue change restarts `nuxt dev`.

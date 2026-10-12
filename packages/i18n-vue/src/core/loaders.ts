@@ -75,6 +75,15 @@ function isModule(value: unknown): value is { readonly default: unknown } {
 	);
 }
 
+/**
+ * What a loader answered, with a module namespace unwrapped to its default
+ * export by the rules of `isModule` above; anything else as it is. Internal:
+ * the Nuxt runtime reads it to put a loaded catalogue in the payload.
+ */
+export function unwrapModule(answer: unknown): unknown {
+	return isModule(answer) ? answer.default : answer;
+}
+
 async function loadCatalogue(
 	loaders: CatalogueLoaders,
 	locale: string,
@@ -92,7 +101,7 @@ async function loadCatalogue(
 			},
 		);
 	}
-	const catalogue = isModule(answer) ? answer.default : answer;
+	const catalogue = unwrapModule(answer);
 	if (!isObject(catalogue)) {
 		throw new TypeError(
 			`setLocale: the loader of ${locale} must answer a catalogue, or a module whose default export is one`,
