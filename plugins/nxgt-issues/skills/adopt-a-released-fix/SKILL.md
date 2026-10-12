@@ -9,10 +9,10 @@ description: >-
   upstream issue is closed **and** released, when `file` answers "released: #n reported this",
   or when asked what workarounds can go.
 allowed-tools:
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready *)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers *)
 ---
 
 # Adopt a released fix
@@ -25,7 +25,7 @@ worktree, so the main checkout and other sessions are never moved.
 ## 1. What is ready
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready --json
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts ready --json
 ```
 
 Each entry is a tracking issue of this repository whose upstream issue is
@@ -48,7 +48,7 @@ listed and leave the others alone (exit 6 with JSON is for `markers`, below).
 ## 2. Find the workarounds
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers --json
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers --json
 ```
 
 The entries with `"status": "ready"` are the markers (`file`, `line`) that
@@ -82,7 +82,7 @@ the upstream issue or the registry.
    **and** the workaround it marks (the code that exists only because of the
    defect), restoring the direct use of the package. Never remove a marker
    whose upstream issue is not the adopted one.
-3. Run `bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers`; the adopted issue must
+3. Run `bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts markers`; the adopted issue must
    no longer appear.
 4. Run the repository's green bar (its `AGENTS.md`: `verify`, typecheck, lint,
    tests). If the bug survives the bump, stop: restore the workaround and

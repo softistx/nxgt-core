@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { harness, makeApp, removeTempDirs } from './cli.fixtures';
 
 afterAll(removeTempDirs);
@@ -124,6 +124,30 @@ describe('sessions', () => {
 			'@nxgt/gadget@^2.0.0',
 			'@nxgt/widget@^1.2.0',
 		]);
+	});
+});
+
+describe('a dependency key that is a path', () => {
+	test('is not followed out of node_modules towards a planted package.json', () => {
+		const app = makeApp();
+		const planted = join(app, '..', 'planted-zorblax');
+		mkdirSync(planted, { recursive: true });
+		writeFileSync(
+			join(planted, 'package.json'),
+			JSON.stringify({ repository: 'softistx/nxgt-zorblax' }),
+		);
+		const escapePath = relative(join(app, 'node_modules'), planted);
+		expect(escapePath.startsWith('..')).toBe(true);
+		writeFileSync(
+			join(app, 'package.json'),
+			JSON.stringify({
+				name: 'acme',
+				dependencies: { [escapePath]: '^1.0.0' },
+			}),
+		);
+		expect(usesOf(app, { owner: 'softistx', repo: 'nxgt-zorblax' })).toEqual(
+			[],
+		);
 	});
 });
 

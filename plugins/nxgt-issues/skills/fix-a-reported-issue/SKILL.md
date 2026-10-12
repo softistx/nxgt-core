@@ -9,10 +9,10 @@ description: >-
   asks to work on a `consumer-report` issue, or when a published version
   contains a fix for one and its issue is still open.
 allowed-tools:
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan *)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions)
-  - Bash(bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan *)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions)
+  - Bash(bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions *)
 ---
 
 # Fix a reported issue
@@ -82,8 +82,8 @@ Fetch first, so the checkout has the release commit and its tag: `git fetch
 tag and the first-parent log locally.
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan <package>@<version>
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version>
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts release-plan <package>@<version>
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts released <package>@<version>
 ```
 
 The first (`release-plan`, read-only, pre-approved) lists what it would do. A
@@ -114,7 +114,7 @@ The output ends with `notify`: the applications' tracking issues that wait on
 the released issues. CI cannot message a session, so this step is yours:
 
 ```bash
-bun ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions <owner/repo>
+bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions <owner/repo>
 ```
 
 With `ListAgents`, find the live sessions it lists (and those whose repository

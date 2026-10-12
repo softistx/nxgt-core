@@ -155,11 +155,24 @@ export interface PackageManifest {
 export const asPackageManifest = (value: unknown): PackageManifest =>
 	value && typeof value === 'object' ? (value as PackageManifest) : {};
 
-/** The installed `package.json` of `pkg`, walking up from `start`. */
+/**
+ * What an npm package name looks like: no `..`, no separator but the scope's.
+ * A scoped name may start with `_` after its scope (`@scope/_x`), as npm
+ * allows; a leading `.` stays refused, so `@scope/..` cannot pass.
+ */
+export const PACKAGE_NAME =
+	/^(?:@[a-z0-9~-][\w.~-]*\/[\w~-]|[a-z0-9~-])[\w.~-]*$/i;
+
+/**
+ * The installed `package.json` of `pkg`, walking up from `start`. A name that
+ * is not an npm package name (a dependency key read from another worktree's
+ * `package.json` can be a path) reads nothing.
+ */
 export function fromNodeModules(
 	start: string,
 	pkg: string,
 ): PackageManifest | undefined {
+	if (!PACKAGE_NAME.test(pkg)) return undefined;
 	let dir = resolve(start);
 	for (;;) {
 		const manifest = join(dir, 'node_modules', pkg, 'package.json');
