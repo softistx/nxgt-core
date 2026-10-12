@@ -1,4 +1,3 @@
-import { STRINGS_UTILS } from '@nxgt/shared/helpers';
 import { CustomException } from '@nxgt/shared-exceptions';
 import { getLogger } from '@nxgt/shared-logging';
 import {
@@ -8,18 +7,58 @@ import {
 	type S3ListObjectsOptions,
 	type S3Options,
 } from 'bun';
-import { env } from '../env';
 import type { StorageLocaleKey } from '../i18n';
 import { MinioService } from './minio.service';
 
-export const S3_CREDENTIALS = {
-	endpoint: env.S3_ENDPOINT,
-	bucket: env.S3_BUCKET,
-	accessKeyId: env.S3_USER,
-	secretAccessKey: env.S3_PASSWORD,
-};
+import { S3_CREDENTIALS, type S3ClientWriteBody } from './s3-credentials';
 
-export type S3ClientWriteBody = Parameters<S3Client['write']>[1];
+export { S3_CREDENTIALS, type S3ClientWriteBody } from './s3-credentials';
+
+/** How long the URL `fetch` signs stays valid: it is used at once. */
+const FETCH_URL_TTL_SECONDS = 60;
+
+type PresignMethod = NonNullable<S3FilePresignOptions['method']>;
+
+/** The request's method, upper-cased; GET when none is given. */
+function presignMethod(method: string | undefined): PresignMethod {
+	const upper = (method ?? 'GET').toUpperCase();
+	if (['GET', 'HEAD', 'PUT', 'POST', 'DELETE'].includes(upper))
+		return upper as PresignMethod;
+	throw new TypeError(`StorageService.fetch cannot sign a ${method} request`);
+}
+
+/**
+ * The presigned URL signs only `host` and carries its own credentials: S3
+ * answers 403 to a request with an `x-amz-*` header it did not sign or a
+ * different `Host`, and refuses a second `Authorization`, so those headers are
+ * refused here instead. Write with metadata, an ACL or a checksum through
+ * `write`.
+ */
+function refuseUnsignedHeaders(headers: HeadersInit | undefined): void {
+	for (const name of new Headers(headers).keys()) {
+		if (name.startsWith('x-amz-'))
+			throw new TypeError(
+				`StorageService.fetch cannot sign the ${name} header: use write`,
+			);
+		if (name === 'host' || name === 'authorization')
+			throw new TypeError(
+				`StorageService.fetch cannot sign the ${name} header: the presigned URL sets it`,
+			);
+	}
+}
+
+/**
+ * Bun's network error carries the request URL in `path`, here a presigned
+ * one, signature included: the error that reaches the logger drops it.
+ */
+function withoutUrl(error: unknown): unknown {
+	if (!(error instanceof Error) || !('path' in error)) return error;
+	const copy = new Error(error.message, { cause: error.cause });
+	copy.name = error.name;
+	if (error.stack !== undefined) copy.stack = error.stack;
+	if ('code' in error) Object.assign(copy, { code: error.code });
+	return copy;
+}
 
 export class StorageService {
 	s3: S3Client;
@@ -131,16 +170,19 @@ export class StorageService {
 	) {
 		try {
 			await this.ensureExists(input, bucket === undefined ? {} : { bucket });
-			// The bucket goes in the options, never in the URL: Bun reads
-			// `S3_BUCKET` from the environment as the default bucket and then
-			// takes the whole `s3://` path as the key, so `s3://<bucket>/<key>`
-			// requested `/<S3_BUCKET>/<bucket>/<key>` — a 404 for every file.
-			return await fetch(STRINGS_UTILS.normalizeUrl(`s3://${input}`), {
-				...options,
-				s3: { ...S3_CREDENTIALS, bucket: bucket ?? this.bucket },
+			// A presigned URL, not `s3://<key>`: Bun's `s3://` fetch misses every
+			// key with a space, a `%` or a non-ASCII character (a 404 for a file
+			// `ensureExists` just found), encoded or not, while the client signs
+			// such a key correctly. The URL is signed for this request's method.
+			refuseUnsignedHeaders(options.headers);
+			const url = this.s3.presign(input, {
+				bucket: bucket ?? this.bucket,
+				method: presignMethod(options.method),
+				expiresIn: FETCH_URL_TTL_SECONDS,
 			});
+			return await fetch(url, options);
 		} catch (error) {
-			throw this.failure(error, 'storage.errors.fetch-failed');
+			throw this.failure(withoutUrl(error), 'storage.errors.fetch-failed');
 		}
 	}
 

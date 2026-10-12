@@ -303,6 +303,83 @@ describe.skipIf(!hasS3)('StorageService', () => {
 			expect(await response.text()).toBe('fetched');
 		});
 
+		test.each([
+			'with a space.txt',
+			'100% sure.txt',
+			'a#b.txt',
+			'what?.txt',
+			'café ünï.txt',
+			'a//b.txt',
+		])('fetches a key named %p as it was written', async (name) => {
+			const key = keyFor(name);
+			await service.write(key, `body of ${name}`);
+			const response = await service.fetch(key);
+			expect({ name, ok: response.ok, status: response.status }).toEqual({
+				name,
+				ok: true,
+				status: 200,
+			});
+			expect(await response.text()).toBe(`body of ${name}`);
+		});
+
+		test('passes the request through: a Range, and a HEAD', async () => {
+			const key = keyFor('ranged file.txt');
+			await service.write(key, 'abcdef');
+			const ranged = await service.fetch(key, {
+				headers: { Range: 'bytes=1-3' },
+			});
+			expect(ranged.status).toBe(206);
+			expect(await ranged.text()).toBe('bcd');
+			const head = await service.fetch(key, { method: 'HEAD' });
+			expect(head.status).toBe(200);
+			expect(head.headers.get('content-length')).toBe('6');
+		});
+
+		test('refuses a method it cannot sign', async () => {
+			const key = keyFor('patched.txt');
+			await service.write(key, 'x');
+			const error = await rejection(service.fetch(key, { method: 'PATCH' }));
+			expectInternal(error, 'storage.errors.fetch-failed');
+			expect((error as CustomException<string>).debugMessage).toContain(
+				'cannot sign a PATCH request',
+			);
+		});
+
+		test.each([
+			['x-amz-meta-owner', 'someone'],
+			['Host', 'elsewhere.example'],
+			['Authorization', 'Bearer token'],
+		])('refuses a %s header it cannot sign', async (name, value) => {
+			const key = keyFor('with header.txt');
+			await service.write(key, 'x');
+			const error = await rejection(
+				service.fetch(key, {
+					method: 'PUT',
+					body: 'y',
+					headers: { [name]: value },
+				}),
+			);
+			expectInternal(error, 'storage.errors.fetch-failed');
+			expect((error as CustomException<string>).debugMessage).toContain(
+				`cannot sign the ${name.toLowerCase()} header`,
+			);
+			expect(await service.file(key).text()).toBe('x');
+		});
+
+		test('signs a lower-case method, and a PUT with a body replaces the file', async () => {
+			const key = keyFor('put through fetch.txt');
+			await service.write(key, 'before');
+			const head = await service.fetch(key, { method: 'head' });
+			expect(head.status).toBe(200);
+			const put = await service.fetch(key, {
+				method: 'PUT',
+				body: 'after',
+				headers: { 'Content-Type': 'text/plain' },
+			});
+			expect(put.ok).toBe(true);
+			expect(await service.file(key).text()).toBe('after');
+		});
+
 		test('fetches from the bucket named in its options', async () => {
 			buckets.push(OTHER_BUCKET);
 			// Before the service exists: its constructor fires its own unawaited

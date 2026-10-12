@@ -24,7 +24,7 @@ type PutObjectResult = Awaited<ReturnType<Client['putObject']>>;
 type CopyObjectResult = Awaited<ReturnType<Client['copyObject']>>;
 type ListObjectsResult = ReturnType<Client['listObjects']>;
 
-import { S3_CREDENTIALS, type S3ClientWriteBody } from './storage.service';
+import { S3_CREDENTIALS, type S3ClientWriteBody } from './s3-credentials';
 
 export type MinioPutBody = Parameters<Client['putObject']>[2];
 export type GetObjectOptions = Parameters<Client['getObject']>[2];

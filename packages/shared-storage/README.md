@@ -43,7 +43,14 @@ new `StorageService` every time the field initializer ran.
 `StorageService` talks to Bun's `S3Client`: `write`, `list`, `file`,
 `exists`, `presign`, `delete`, `size`, `stat`, `unlink`, `fetch`. `fetch`
 takes a `bucket` option to read from another bucket; it defaults to the
-constructor's bucket, itself `S3_BUCKET` by default. MinIO methods whose
+constructor's bucket, itself `S3_BUCKET` by default. It fetches a URL presigned
+for the request's method (`GET`, `HEAD`, `PUT`, `POST` or `DELETE`; any other
+is a `fetch-failed`), so any key reads as it was written, a space, a `%` or a
+non-ASCII character included, and the rest of the request — `headers` such as
+`Range` or `Content-Type`, `signal`, a `PUT`'s `body` — goes through as given.
+The URL signs only the host and carries its own credentials, so an `x-amz-*`
+header (metadata, an ACL, a checksum), a `Host` or an `Authorization` header is
+refused as `fetch-failed`: write metadata with `write`. MinIO methods whose
 result types would otherwise leak minio's internal module are annotated
 through the public `Client` (`Awaited<ReturnType<Client['putObject']>>`) so a
 consumer's `.d.ts` resolves.
