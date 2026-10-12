@@ -215,6 +215,23 @@ and writes `src/generated/i18n.d.ts`. A catalogue that cannot be right
 | `messages` | — | A module whose default export is the resources object, or a function that returns it — instead of `dir`. Not with `dir` |
 | `catalogues` | `[]` | Catalogues a package ships, merged **under** yours key by key — pass the same to `layerCatalogues` at run time |
 | `out` | `'src/generated/i18n.d.ts'` | The file written. A file there that the plugin did not write is never replaced: that throws |
+| `lazy` | `false` | Also serve the catalogues as modules — the fallback locale's inline, every other one a chunk of its own — and write their types to `<out>.catalogues.d.ts` |
+
+With `lazy: true`, the plugin produces the `loaders` record for you, from
+the same merged catalogues as the types (folder layout and packages
+included):
+
+```ts
+// main.ts
+import { createI18n } from '@nxgt/i18n-vue';
+import { catalogues, fallbackLocale, loaders } from 'virtual:@nxgt/i18n-vue/catalogues';
+
+createApp(App).use(createI18n({ catalogues, loaders, fallbackLocale }));
+```
+
+`vite build` splits one chunk per non-fallback locale; in `vite dev`, a
+catalogue change reloads the page with the new modules. It is optional —
+`loaders` written by hand work the same.
 
 Splitting `locales/<locale>.json` into `locales/<locale>/*.json` — one file
 per feature, say — needs nothing but the files: `locales/en/mails.json` is
