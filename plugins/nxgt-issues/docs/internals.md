@@ -50,6 +50,8 @@ GraphQL calls described in the README.
 
 ## What the library holds
 
+Modules are named by file. The anonymity pass (`scrub.ts`, `fold.ts`, `hidden-chars.ts`, `hosts.ts`, `domains.ts`, `common-words.ts`, the `deny*.ts` files but `deny-sources.ts`) lives in `scripts/lib/scrub/`, and its credential rules (`secrets.ts` and the modules it calls) in `scripts/lib/scrub/secrets/`; it imports nothing from the rest of `lib/`. Every other module is in `scripts/lib/`.
+
 | module | role |
 | --- | --- |
 | `hook.ts` | the shell every hook of the plugin runs in |
