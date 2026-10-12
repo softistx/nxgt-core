@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expectThrow, expectThrowAsync } from '../../test/expect-throw';
 import { checkCatalogues } from '../core/catalogues';
+import { catalogueModuleSource } from './catalogue-module';
 import { checkCatalogueSource, loadCatalogues, loadMessages } from './load';
 import { typesSource, writeIfChanged, writeTypes } from './types-source';
 
@@ -79,6 +80,22 @@ describe('typesSource', () => {
 		expect(source).toContain("declare module '@nxgt/mail-i18n' {");
 		expect(source).toContain('\tinterface TemplateMessages {');
 		expect(source).not.toContain('I18nLocales');
+	});
+});
+
+describe('catalogueModuleSource', () => {
+	test('answers a module whose default export is the catalogue, whatever its strings hold', async () => {
+		const catalogue = {
+			home: {
+				title: 'L\'accueil "ici"',
+				'sign-in': 'Line\u2028break </script> {name} \\ end',
+			},
+		};
+		const source = catalogueModuleSource(catalogue);
+		expect(source).toStartWith('export default {');
+		const dir = project({ 'fr.js': source });
+		const module = await import(join(dir, 'fr.js'));
+		expect(module.default).toEqual(catalogue);
 	});
 });
 

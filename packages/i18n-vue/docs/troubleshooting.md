@@ -57,6 +57,7 @@ as `home.greeting`.
 - [`<i18nTypes|nxgtI18n>: dir and messages cannot both be set — messages replaces the folder`](#i18ntypesnxgti18n-dir-and-messages-cannot-both-be-set--messages-replaces-the-folder)
 - [`<i18nTypes|nxgtI18n>: catalogues must be a list of catalogues by locale, as [{ en: {...}, fr: {...} }]`](#i18ntypesnxgti18n-catalogues-must-be-a-list-of-catalogues-by-locale-as--en--fr--)
 - [`i18nTypes: out must be the path of a .d.ts file, as src/generated/i18n.d.ts`](#i18ntypes-out-must-be-the-path-of-a-dts-file-as-srcgeneratedi18ndts)
+- [`i18nTypes: lazy must be true or false, as i18nTypes({ locales, lazy: true })`](#i18ntypes-lazy-must-be-true-or-false-as-i18ntypes-locales-lazy-true-)
 - [`nxgtI18n: cookie must be a cookie name, as 'language'`](#nxgti18n-cookie-must-be-a-cookie-name-as-language)
 
 **Catalogues**
@@ -104,6 +105,7 @@ as `home.greeting`.
 
 **Type checking**
 - [`Package subpath './lib/tsc' is not defined by "exports"`](#package-subpath-libtsc-is-not-defined-by-exports)
+- [`Cannot find module 'virtual:@nxgt/i18n-vue/catalogues' or its corresponding type declarations`](#cannot-find-module-virtualnxgti18n-vuecatalogues-or-its-corresponding-type-declarations)
 
 **Traps that throw nothing**
 - [`t('…')` takes any string: no completion, no type error](#t-takes-any-string-no-completion-no-type-error)
@@ -289,6 +291,17 @@ i18nTypes({ locales: ['en', 'fr'], catalogues: [uiCatalogues] });
 that exports nothing; the types would still apply, but only a `.d.ts` says
 what the file is.
 
+### `i18nTypes: lazy must be true or false, as i18nTypes({ locales, lazy: true })`
+
+`lazy` was given something other than a boolean — a string such as
+`'yes'`, or the list of locales to load on demand. It only switches the
+served modules on or off: every locale but the fallback one is then loaded
+on demand.
+
+```ts
+i18nTypes({ locales: ['en', 'fr'], lazy: true });
+```
+
 ### `nxgtI18n: cookie must be a cookie name, as 'language'`
 
 `cookie` holds a space, `;`, `=` or another character a cookie name cannot
@@ -464,7 +477,8 @@ fallback locale has `{at, date}`, say. Use it as the fallback locale does.
 
 ### `i18n: <path> was not written by @nxgt/i18n-vue — point the types at a file of their own`
 
-The Vite plugin's `out` is a file that exists and was not written by
+The Vite plugin's `out` — or, with `lazy: true`, the `<out>.catalogues.d.ts`
+beside it — is a file that exists and was not written by
 `typesSource`: its first two lines are not a generated file's header, so it
 is yours. The plugin never replaces it. Point `out`
 elsewhere, or delete the file if it is a stale copy.
@@ -660,6 +674,20 @@ Until `vue-tsc` supports TypeScript 7, `t()` in a `.vue` template is
 unchecked under 7: an unknown key or a wrong argument in a template is not
 reported there, while the same call in a `.ts` file or a `<script>` is
 checked by `tsc` as before.
+
+### `Cannot find module 'virtual:@nxgt/i18n-vue/catalogues' or its corresponding type declarations`
+
+`tsc` or `vue-tsc` does not see the types of the modules
+`i18nTypes({ lazy: true })` serves. They are in their own file beside `out`
+— `src/generated/i18n.catalogues.d.ts` by default — written when Vite
+starts. Either Vite has not run yet (in CI, run `vite build` before the
+type check), `lazy` is not `true`, or your `tsconfig.json` names `out` alone
+in `files`: add the second file, or include `src/**/*.d.ts`.
+
+The same import failing in Vite itself (`Failed to resolve import
+"virtual:@nxgt/i18n-vue/catalogues"`) means the plugin runs without
+`lazy: true`, or not at all: add `i18nTypes({ locales, lazy: true })` to
+the config's `plugins`.
 
 ## Traps that throw nothing
 
