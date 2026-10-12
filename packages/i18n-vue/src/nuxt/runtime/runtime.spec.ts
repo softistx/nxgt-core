@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { ref, toRaw } from 'vue';
+import { reactive, ref, toRaw } from 'vue';
 import type { Catalogue } from '../../core/catalogues';
 import type { CatalogueLoaders } from '../../core/loaders';
 import { CATALOGUE_STATE_KEY, setupLazyNuxtI18n, setupNuxtI18n } from './index';
@@ -267,6 +267,52 @@ describe('setupLazyNuxtI18n', () => {
 		);
 	});
 
+	test('refuses a locale in neither catalogues nor loaders, before resolving', async () => {
+		const ctx = {
+			...lazyContext({ cookie: 'it' }),
+			locales: ['en', 'fr', 'de', 'it'],
+		};
+		await expect(setupLazyNuxtI18n(ctx)).rejects.toThrow(
+			new TypeError(
+				'setupLazyNuxtI18n: locales holds it, which is neither in catalogues nor in loaders — give each locale a catalogue or a loader',
+			),
+		);
+		await setupLazyNuxtI18n(ctx).catch((error: unknown) => {
+			expect((error as Error).constructor).toBe(TypeError);
+		});
+		expect(ctx.state.value).toBeUndefined();
+		expect(ctx.calls.de).toBe(0);
+	});
+
+	test('a payload catalogue that fails its check rejects the setup, without calling the loader', async () => {
+		const ctx = lazyContext({
+			state: 'de',
+			catalogue: { home: { title: 'Willkommen', extra: 'Mehr' } },
+		});
+		await expect(setupLazyNuxtI18n(ctx)).rejects.toThrow(
+			'i18n: de: home.extra is not a key of en, the fallback locale',
+		);
+		expect(ctx.calls.de).toBe(0);
+	});
+
+	test('a reactive payload reaches the check as the raw object', async () => {
+		// A getter sees the proxy as `this` when read through it.
+		const readers: unknown[] = [];
+		const raw = {
+			get home() {
+				readers.push(this);
+				return { title: 'Willkommen (payload)' };
+			},
+		};
+		const ctx = lazyContext({ state: 'de' });
+		ctx.catalogue.value = reactive(raw) as Catalogue;
+		const i18n = await setupLazyNuxtI18n(ctx);
+		expect(i18n.t('home.title')).toBe('Willkommen (payload)');
+		expect(readers.length).toBeGreaterThan(0);
+		expect(readers.every((reader) => reader === raw)).toBe(true);
+		expect(ctx.calls.de).toBe(0);
+	});
+
 	test('a loader that rejects rejects the setup', async () => {
 		const ctx = lazyContext({
 			cookie: 'de',
@@ -284,7 +330,11 @@ describe('setupLazyNuxtI18n', () => {
 			loader: () => Promise.reject(new Error('offline')),
 		});
 		const i18n = await setupLazyNuxtI18n(context).catch(() =>
-			setupLazyNuxtI18n({ ...context, locales: ['en'], loaders: {} }),
+			setupLazyNuxtI18n({
+				...context,
+				locales: Object.keys(context.catalogues),
+				loaders: {},
+			}),
 		);
 		expect(i18n.locale.value).toBe('en');
 		expect(context.state.value).toBe('en');
@@ -302,6 +352,7 @@ describe('setupLazyNuxtI18n', () => {
 			join(import.meta.dir, '../../../test/lazy-nuxt-requests.ts'),
 			'200',
 		]);
+		if (run.exitCode !== 0) console.error(run.stderr.toString());
 		expect(run.exitCode).toBe(0);
 		const { requests, alive } = JSON.parse(run.stdout.toString());
 		expect(requests).toBe(200);

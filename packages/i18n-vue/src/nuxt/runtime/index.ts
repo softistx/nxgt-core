@@ -128,13 +128,18 @@ export async function setupLazyNuxtI18n(
 ): Promise<I18n> {
 	const { catalogues, loaders, fallbackLocale, cookie, state, catalogue } =
 		context;
+	const isEager = (next: string) =>
+		isObject(catalogues) && Object.hasOwn(catalogues, next);
+	const isLazy = (next: string) =>
+		isObject(loaders) && Object.hasOwn(loaders, next);
+	checkLocales(context.locales, (next) => isEager(next) || isLazy(next));
 	const rendered = state.value;
 	const locale = resolveLocale(context, context.locales);
-	const isEager = (next: string) => Object.hasOwn(catalogues, next);
-	// The payload's catalogue, used once in place of the loader: only when the
-	// state was kept, so the catalogue state is the one rendered with it. Raw,
-	// since `useState` answers a reactive proxy of it.
-	let payload =
+	// The payload's catalogue, in place of the loader: only when the state was
+	// kept, so the catalogue state is the one rendered with it. Raw, since
+	// `useState` answers a reactive proxy of it. Once loaded it is cached by
+	// the i18n, and a failed check rejects the setup, so it is asked for once.
+	const payload =
 		!isEager(locale) && rendered === locale && isObject(catalogue.value)
 			? toRaw(catalogue.value)
 			: undefined;
@@ -151,7 +156,6 @@ export async function setupLazyNuxtI18n(
 			let answer: unknown;
 			if (lazy === locale && payload !== undefined) {
 				answer = payload;
-				payload = undefined;
 			} else {
 				answer = await loader();
 			}
@@ -183,4 +187,20 @@ export async function setupLazyNuxtI18n(
 		{ flush: 'sync' },
 	);
 	return i18n;
+}
+
+/**
+ * Refuses a `locales` entry that is neither in `catalogues` nor in `loaders`:
+ * resolved from a cookie or a header, it could never be switched to.
+ */
+function checkLocales(
+	locales: readonly string[],
+	isKnown: (locale: string) => boolean,
+): void {
+	const stray = locales.find((locale) => !isKnown(locale));
+	if (stray !== undefined) {
+		throw new TypeError(
+			`setupLazyNuxtI18n: locales holds ${stray}, which is neither in catalogues nor in loaders — give each locale a catalogue or a loader`,
+		);
+	}
 }
