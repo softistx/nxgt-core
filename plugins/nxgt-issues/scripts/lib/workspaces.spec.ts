@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { removeTempDirs, tempDir } from './temp.fixtures';
-import { fromNodeModules, manifestsOf } from './workspaces';
+import { fromNodeModules, manifestsOf, PACKAGE_NAME } from './workspaces';
 
 afterAll(removeTempDirs);
 
@@ -88,6 +88,35 @@ describe('manifestsOf', () => {
 			'package.json': { name: 'r', workspaces: ['../x/*'] },
 		});
 		expect(names(root, false)).toEqual(['r']);
+	});
+});
+
+describe('PACKAGE_NAME', () => {
+	test('accepts the names npm accepts, a scoped leading underscore included', () => {
+		for (const name of [
+			'@nxgt/x',
+			'lodash.merge',
+			'a-b',
+			'a~b',
+			'socket.io',
+			'@scope/_x',
+		])
+			expect(PACKAGE_NAME.test(name)).toBe(true);
+	});
+
+	test('refuses anything that could leave node_modules', () => {
+		for (const name of [
+			'..',
+			'../x',
+			'@a/../x',
+			'@a/..',
+			'@a/.x',
+			'a/b',
+			'@a/b/c',
+			'/etc',
+			'',
+		])
+			expect(PACKAGE_NAME.test(name)).toBe(false);
 	});
 });
 

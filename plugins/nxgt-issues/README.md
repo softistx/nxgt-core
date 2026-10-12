@@ -493,7 +493,7 @@ application's `appDomains` and `denyTerms`, see below).
   plugin's own, empty file), the refresh from the home directory. The skills'
   `allowed-tools` and commands, and the `issues.ts` calls of the `nxgt-autonomy`
   agents and the `nxgt-package` skill, carry the same flags
-  (`skills.spec.ts` checks every one), so a CLI run from inside an untrusted
+  (`skills.spec.ts` checks the skills, and every call of the CLI found by path, in any plugin file), so a CLI run from inside an untrusted
   repository loads neither its `bunfig.toml` nor its `.env`.
 - **Untrusted text.** Everything read from GitHub (titles, labels, bodies,
   comments, logins, repository names) and from the registry is data. Every CLI

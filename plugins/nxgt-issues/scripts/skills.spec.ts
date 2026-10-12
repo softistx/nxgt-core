@@ -70,8 +70,30 @@ describe('nxgt-issues skills run the CLI without the repository bunfig or .env',
 	}
 });
 
+const markdownFiles = (dir: string): string[] =>
+	readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+		if (entry.name === 'node_modules') return [];
+		const full = join(dir, entry.name);
+		if (entry.isDirectory()) return markdownFiles(full);
+		return /\.(md|json)$/.test(entry.name) ? [full] : [];
+	});
+
 describe('other plugins run issues.ts the same way', () => {
-	const others = [
+	/** A bun line that runs the CLI found by path, however `$issues` is spelled. */
+	const RUNS_ISSUES = /\bbun\b[^\n]*\$\{?issues\b/;
+
+	test('every bun call through $issues, in any plugin file, is flagged', () => {
+		const offenders: string[] = [];
+		for (const file of markdownFiles(PLUGINS)) {
+			lines(file).forEach((line, i) => {
+				if (RUNS_ISSUES.test(line) && !line.includes(LOOKUP_PREFIX))
+					offenders.push(`${file.slice(PLUGINS.length + 1)}:${i + 1}`);
+			});
+		}
+		expect(offenders).toEqual([]);
+	});
+
+	for (const path of [
 		join(PLUGINS, 'nxgt-autonomy', 'agents', 'queue-refiller.md'),
 		join(PLUGINS, 'nxgt-autonomy', 'agents', 'work-queue-auditor.md'),
 		join(
@@ -81,37 +103,20 @@ describe('other plugins run issues.ts the same way', () => {
 			'release-a-package-change',
 			'SKILL.md',
 		),
-		join(PLUGINS, 'nxgt-issues', 'README.md'),
-	];
-
-	for (const path of others) {
-		test(`${path.slice(PLUGINS.length + 1)}: every bun "$issues" call is flagged`, () => {
-			const calls = lines(path).filter((l) =>
-				/\bbun\b[^\n]*"\$issues"/.test(l),
-			);
-			if (!path.endsWith('README.md')) expect(calls.length).toBeGreaterThan(0);
-			for (const line of calls) {
-				expect(line).toContain(LOOKUP_PREFIX);
-			}
+	]) {
+		test(`${path.slice(PLUGINS.length + 1)} still runs the CLI through $issues`, () => {
+			expect(lines(path).some((l) => l.includes(LOOKUP_PREFIX))).toBe(true);
 		});
 	}
 
 	test('no plugin file teaches the plain `bun <plugin root>/scripts/issues.ts` form', () => {
 		const offenders: string[] = [];
-		const walk = (dir: string) => {
-			for (const entry of readdirSync(dir, { withFileTypes: true })) {
-				if (entry.name === 'node_modules') continue;
-				const full = join(dir, entry.name);
-				if (entry.isDirectory()) walk(full);
-				else if (/\.(md|json)$/.test(entry.name)) {
-					lines(full).forEach((l, i) => {
-						if (/bun \$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/issues\.ts/.test(l))
-							offenders.push(`${full}:${i + 1}`);
-					});
-				}
-			}
-		};
-		walk(PLUGINS);
+		for (const file of markdownFiles(PLUGINS)) {
+			lines(file).forEach((l, i) => {
+				if (/\bbun ["']?\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/issues\.ts/.test(l))
+					offenders.push(`${file.slice(PLUGINS.length + 1)}:${i + 1}`);
+			});
+		}
 		expect(offenders).toEqual([]);
 	});
 });
