@@ -46,5 +46,13 @@
 		"@hey-api/openapi-ts": "^0.99.0",
 		"openapi-typescript": "^7.13.0",
 		"typescript": "^6.0.3 || ^7.0.0"
+	},
+	"peerDependenciesMeta": {
+		"@hey-api/openapi-ts": {
+			"optional": true
+		},
+		"openapi-typescript": {
+			"optional": true
+		}
 	}
 }
