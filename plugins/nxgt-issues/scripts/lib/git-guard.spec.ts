@@ -676,6 +676,9 @@ describe('every git goes through the runner as a bare git', () => {
 			'deny-sources.ts',
 		])
 			expect(sees(base)).toBe(true);
+		// Only in a subfolder: a flat readdirSync would miss them and this fails.
+		expect(sources).toContain('scrub/scrub.ts');
+		expect(sources).toContain('scrub/secrets/literals.ts');
 	});
 
 	test('a "git" literal is only ever the first element of an argv (so hardenGit applies)', () => {
