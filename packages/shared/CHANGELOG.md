@@ -1,5 +1,11 @@
 # @nxgt/shared
 
+## 1.1.2
+
+### Patch Changes
+
+- [#292](https://github.com/softistx/nxgt-core/pull/292) [`1a07baf`](https://github.com/softistx/nxgt-core/commit/1a07bafd3439c37b5f1ffda5e67d255aa466526b) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `omit` returns a copy without the given keys and leaves the object passed in as it is; it used to delete the keys from that object and return it. A caller that relied on the deletion must use the returned object. The copy is a plain object of own enumerable properties, so a class instance or a Mongoose document loses its prototype: call `toObject()` on a document first. `assign`'s documentation now says what it does: it modifies `target` and returns nothing.
+
 ## 1.1.1
 
 ### Patch Changes

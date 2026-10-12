@@ -1,5 +1,11 @@
 # @nxgt/shared-openapi
 
+## 2.1.3
+
+### Patch Changes
+
+- [#297](https://github.com/softistx/nxgt-core/pull/297) [`4689cd5`](https://github.com/softistx/nxgt-core/commit/4689cd58d5a990e440bafaeb0a44d00997546df6) Thanks [@SteveGT96](https://github.com/SteveGT96)! - The package ships a `docs/` folder with a troubleshooting page: one entry per message a consumer can hit, headed by the exact text, with when it happens, why, and the fix. The README links it.
+
 ## 2.1.2
 
 ### Patch Changes
