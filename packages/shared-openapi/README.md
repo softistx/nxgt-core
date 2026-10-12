@@ -115,3 +115,9 @@ next to the code that reads them. Not before.
   without following it to the code that consumes it is how `sort` shipped.
 - **The `$ref` depth is the consumer's.** Isolated linker, no hoist, count
   from the file that contains the `$ref`.
+
+## Docs
+
+| Page | Read it when |
+| --- | --- |
+| [Troubleshooting](./docs/troubleshooting.md) | you have an error message in hand |
