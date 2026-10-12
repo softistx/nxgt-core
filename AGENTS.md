@@ -394,11 +394,12 @@ package change with a changeset. The script itself fails when a peer is
 installed by nobody, or when two packages' ranges disagree.
 
 **The one departure from nxgt-data's copy.** `UNINSTALLED` in the script
-(and its spec) names three peers no workspace installs, so there is nothing to
-rewrite or test: `@hey-api/openapi-ts` and `openapi-typescript`, the tools
-`@nxgt/shared-openapi`'s templates are run with, and `@nxgt/i18n-vue`'s optional
-`vite`. Any other peer nobody installs still fails the script. Without it the
-script fails at once on `@hey-api/openapi-ts`. The job also keeps its own
+(and its spec) names three peers the job never raises: `@hey-api/openapi-ts`
+and `openapi-typescript`, the optional peers `@nxgt/shared-openapi`'s templates
+are run with, installed at their floor as its devDependencies only so its types
+compile (no spec runs them), and `@nxgt/i18n-vue`'s optional `vite`, which no
+workspace installs. Any other peer nobody installs still fails the script.
+Without the list the script fails at once on `vite`. The job also keeps its own
 `timeout-minutes` of 8, as CI's.
 
 ### A new `@nxgt/ory-sdk` is found by a schedule, not by memory

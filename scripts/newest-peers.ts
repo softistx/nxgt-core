@@ -30,11 +30,12 @@ import { join } from 'node:path';
 import { ROOT } from './artifacts/packages';
 
 /**
- * Peers no workspace installs, so there is nothing to rewrite or test:
- * `@nxgt/shared-openapi` ships templates for the consumer's own codegen
- * run, and its two peers are the tools that run needs; `@nxgt/i18n-vue`'s
- * optional `vite` is the consumer's bundler. nxgt-core's only departure from
- * nxgt-data's copy; every other peer nobody installs still fails the script.
+ * Peers the job never raises: `@nxgt/shared-openapi`'s two optional peers are
+ * the tools the consumer's own codegen run needs, installed here at their
+ * floor as its devDependencies only so its types compile, and no spec runs
+ * them; `@nxgt/i18n-vue`'s optional `vite` is the consumer's bundler, which no
+ * workspace installs. nxgt-core's only departure from nxgt-data's copy; every
+ * other peer nobody installs still fails the script.
  */
 export const UNINSTALLED: ReadonlySet<string> = new Set([
 	'@hey-api/openapi-ts',
