@@ -1,7 +1,7 @@
 {
 	"errors": {
 		"write-failed": "Échec de l'envoi du fichier vers le stockage.",
-		"list-failed": "Échec de la liste des objets du stockage.",
+		"list-failed": "Impossible de lister les objets du stockage.",
 		"file-failed": "Échec de la récupération du fichier dans le stockage.",
 		"exists-failed": "Échec de la vérification de l'existence du fichier dans le stockage.",
 		"presign-failed": "Échec de la génération de l'URL présignée du fichier.",

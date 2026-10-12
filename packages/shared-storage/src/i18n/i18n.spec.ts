@@ -9,16 +9,30 @@ for (const file of SERVICES) {
 	const source = await Bun.file(
 		new URL(`../services/${file}`, import.meta.url),
 	).text();
-	for (const match of source.matchAll(
-		/'((?:storage|files)?\.?errors\.[a-z-]+)'/g,
-	)) {
+	for (const match of source.matchAll(/'((?:[a-z]+\.)?errors\.[a-z0-9-]+)'/g)) {
 		if (match[1]) keys.add(match[1]);
 	}
 }
 
 describe('translations of the thrown keys', () => {
-	test('the services throw keys at all', () => {
-		expect(keys.size).toBeGreaterThan(10);
+	// The exact set: a key the regex stops seeing fails here, not silently.
+	test('the services throw exactly these keys', () => {
+		expect([...keys].sort()).toEqual([
+			'errors.could-not-use-first-and-last-together',
+			'files.errors.file-not-found',
+			'files.errors.file-not-found-after-rename',
+			'storage.errors.delete-failed',
+			'storage.errors.exists-failed',
+			'storage.errors.fetch-failed',
+			'storage.errors.file-failed',
+			'storage.errors.file-not-found',
+			'storage.errors.list-failed',
+			'storage.errors.presign-failed',
+			'storage.errors.size-failed',
+			'storage.errors.stat-failed',
+			'storage.errors.unlink-failed',
+			'storage.errors.write-failed',
+		]);
 	});
 
 	for (const language of ['en', 'fr'] as const) {
