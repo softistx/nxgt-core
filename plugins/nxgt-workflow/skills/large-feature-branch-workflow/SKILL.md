@@ -182,9 +182,10 @@ when something looks wrong.
 
 ## Commit messages
 
-`<type>: <Capitalized summary>`, matching what `git log` already shows. Types:
-`feat`, `fix`, `update`, `chore`, `docs`, `refactor`, `tests`, `styles`,
-`typo`.
+`<type>: <Capitalized summary>`, matching what `git log` already shows. The
+types are the ones the repository's `AGENTS.md` lists, not a copy kept here:
+the sets differ (nxgt-core adds `test` and `ci`, for one), and a copy goes
+stale.
 
 Write the body for whoever has to act on it. When a change is consumed from
 another repository, that means **consumer terms**: not "add `Note#viewers`" but
