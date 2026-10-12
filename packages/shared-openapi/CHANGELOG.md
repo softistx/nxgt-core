@@ -1,5 +1,11 @@
 # @nxgt/shared-openapi
 
+## 2.1.1
+
+### Patch Changes
+
+- [#284](https://github.com/softistx/nxgt-core/pull/284) [`65d896e`](https://github.com/softistx/nxgt-core/commit/65d896ec06f6988f4123ed49459fbc612cfb61f5) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `@hey-api/openapi-ts` and `openapi-typescript` are optional peers. Installing `@nxgt/shared-openapi` next to TypeScript 6 or 7 with npm failed with `ERESOLVE`, because `openapi-typescript` declares `typescript ^5.x`, even for a consumer that only `$ref`s the YAML. Only a consumer that generates clients installs them now. Both are already loaded only when a codegen helper is called.
+
 ## 2.1.0
 
 ### Minor Changes

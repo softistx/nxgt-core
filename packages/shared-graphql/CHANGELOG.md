@@ -1,5 +1,11 @@
 # @nxgt/shared-graphql
 
+## 3.3.2
+
+### Patch Changes
+
+- [#282](https://github.com/softistx/nxgt-core/pull/282) [`48ffe46`](https://github.com/softistx/nxgt-core/commit/48ffe466b7677f8b641c61934f13b7754a6f6994) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `createMaskError` keeps the `path` and `locations` of a `CustomException`, a Mongoose error and an Ory outage. They reached the client without them, so it could not tell which field failed; a denial and an unexpected error already kept them.
+
 ## 3.3.1
 
 ### Patch Changes
