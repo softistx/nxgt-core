@@ -12,7 +12,11 @@
 import { type DenyList, EMPTY_DENY_LIST, findDenied } from './deny';
 import { normalize } from './fold';
 import { scrubHosts } from './hosts';
-import { findSecrets, looksLikeSecret, scrubKnownTokens } from './secrets';
+import {
+	findSecrets,
+	looksLikeSecret,
+	scrubKnownTokens,
+} from './secrets/secrets';
 
 export {
 	buildDenyList,
@@ -20,7 +24,7 @@ export {
 	type DenyList,
 	findDenied,
 } from './deny';
-export { findSecrets } from './secrets';
+export { findSecrets } from './secrets/secrets';
 
 /**
  * Hosts whose whole URL, path included, stays in a filing. Not `KEPT_DOMAINS`

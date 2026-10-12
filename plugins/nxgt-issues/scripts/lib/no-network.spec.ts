@@ -57,15 +57,22 @@ const fixtureFiles = scanned.filter((name) => name.includes('.fixtures.'));
 
 describe('no process or network outside runner.ts', () => {
 	test('the check sees the library', () => {
-		expect(libraryFiles).toContain('scrub.ts');
-		expect(libraryFiles).toContain('fold.ts');
+		// By base name: a file moved into a subfolder of lib/ is still seen.
+		const sees = (files: string[], base: string) =>
+			files.some((f) => f === base || f.endsWith(`/${base}`));
+		expect(sees(libraryFiles, 'scrub.ts')).toBe(true);
+		expect(sees(libraryFiles, 'fold.ts')).toBe(true);
 		expect(libraryFiles).not.toContain('runner.ts');
 	});
 
 	test('the check sees the hook entries and the fixtures', () => {
 		expect(libraryFiles).toContain('../hooks/session-start.ts');
-		expect(fixtureFiles).toContain('runner.fixtures.ts');
-		expect(fixtureFiles).toContain('release-checkout.fixtures.ts');
+		expect(fixtureFiles.some((f) => f.endsWith('runner.fixtures.ts'))).toBe(
+			true,
+		);
+		expect(
+			fixtureFiles.some((f) => f.endsWith('release-checkout.fixtures.ts')),
+		).toBe(true);
 	});
 
 	// A fixture's fake has `fetch` rules and a `fetches` list: only a call counts there.
@@ -98,7 +105,7 @@ describe('no process or network outside runner.ts', () => {
 			);
 			const imports = [
 				...source.matchAll(
-					/import\s+(type\s+)?[^;]*?from\s*['"]\.\/runner['"]/g,
+					/import\s+(type\s+)?[^;]*?from\s*['"](?:\.\.?\/)+runner['"]/g,
 				),
 			];
 			for (const found of imports) expect(found[1]).toBe('type ');

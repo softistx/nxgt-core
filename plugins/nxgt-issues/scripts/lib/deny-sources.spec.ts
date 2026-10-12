@@ -5,13 +5,13 @@ import { callsOf, harness, makeApp, removeTempDirs } from './cli.fixtures';
 
 afterAll(removeTempDirs);
 
-import { findDenied } from './deny';
 import {
 	DenyListIncomplete,
 	filingDenyList,
 	PRIVATE_REPOS_TTL_MS,
 	readDenyConfig,
 } from './deny-sources';
+import { findDenied } from './scrub/deny';
 
 const NOW = Date.parse('2026-10-10T12:00:00Z');
 

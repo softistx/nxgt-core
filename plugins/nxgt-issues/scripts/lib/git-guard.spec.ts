@@ -661,9 +661,25 @@ describe('gh', () => {
 
 describe('every git goes through the runner as a bare git', () => {
 	const lib = import.meta.dir;
-	const sources = readdirSync(lib).filter(
-		(f) => f.endsWith('.ts') && !/\.(spec|fixtures)\.ts$/.test(f),
-	);
+	// Recursive, and paths relative to lib/: a file moved into a subfolder stays checked.
+	const sources = (readdirSync(lib, { recursive: true }) as string[])
+		.map((f) => f.replaceAll('\\', '/'))
+		.filter((f) => f.endsWith('.ts') && !/\.(spec|fixtures)\.ts$/.test(f));
+	const sees = (base: string) =>
+		sources.some((f) => f === base || f.endsWith(`/${base}`));
+
+	test('the check sees the files that run git, wherever they live', () => {
+		for (const base of [
+			'markers.ts',
+			'track.ts',
+			'release-git.ts',
+			'deny-sources.ts',
+		])
+			expect(sees(base)).toBe(true);
+		// Only in a subfolder: a flat readdirSync would miss them and this fails.
+		expect(sources).toContain('scrub/scrub.ts');
+		expect(sources).toContain('scrub/secrets/literals.ts');
+	});
 
 	test('a "git" literal is only ever the first element of an argv (so hardenGit applies)', () => {
 		const offenders: string[] = [];

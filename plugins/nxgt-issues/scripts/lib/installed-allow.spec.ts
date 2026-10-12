@@ -2,10 +2,10 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeApp, PKG, removeTempDirs } from './cli.fixtures';
-import { buildDenyList } from './deny';
 import { allowFor } from './filing';
 import type { Resolved } from './resolve';
-import { scrub } from './scrub';
+import { buildDenyList } from './scrub/deny';
+import { scrub } from './scrub/scrub';
 
 afterAll(removeTempDirs);
 
