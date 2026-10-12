@@ -345,19 +345,23 @@ describe.skipIf(!hasS3)('StorageService', () => {
 			);
 		});
 
-		test('refuses an x-amz-* header it cannot sign', async () => {
-			const key = keyFor('with meta.txt');
+		test.each([
+			['x-amz-meta-owner', 'someone'],
+			['Host', 'elsewhere.example'],
+			['Authorization', 'Bearer token'],
+		])('refuses a %s header it cannot sign', async (name, value) => {
+			const key = keyFor('with header.txt');
 			await service.write(key, 'x');
 			const error = await rejection(
 				service.fetch(key, {
 					method: 'PUT',
 					body: 'y',
-					headers: { 'x-amz-meta-owner': 'someone' },
+					headers: { [name]: value },
 				}),
 			);
 			expectInternal(error, 'storage.errors.fetch-failed');
 			expect((error as CustomException<string>).debugMessage).toContain(
-				'cannot sign the x-amz-meta-owner header',
+				`cannot sign the ${name.toLowerCase()} header`,
 			);
 			expect(await service.file(key).text()).toBe('x');
 		});

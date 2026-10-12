@@ -28,13 +28,19 @@ function presignMethod(method: string | undefined): PresignMethod {
 }
 
 /**
- * The presigned URL signs only `host`: S3 answers 403 to a request carrying an
- * `x-amz-*` header it did not sign, so such a header is refused here instead.
- * Write with metadata, an ACL or a checksum through `write`.
+ * The presigned URL signs only `host` and carries its own credentials: S3
+ * answers 403 to a request with an `x-amz-*` header it did not sign or a
+ * different `Host`, and refuses a second `Authorization`, so those headers are
+ * refused here instead. Write with metadata, an ACL or a checksum through
+ * `write`.
  */
 function refuseUnsignedHeaders(headers: HeadersInit | undefined): void {
 	for (const name of new Headers(headers).keys()) {
-		if (name.startsWith('x-amz-'))
+		if (
+			name.startsWith('x-amz-') ||
+			name === 'host' ||
+			name === 'authorization'
+		)
 			throw new TypeError(
 				`StorageService.fetch cannot sign the ${name} header: use write`,
 			);
@@ -47,8 +53,9 @@ function refuseUnsignedHeaders(headers: HeadersInit | undefined): void {
  */
 function withoutUrl(error: unknown): unknown {
 	if (!(error instanceof Error) || !('path' in error)) return error;
-	const copy = new Error(error.message);
+	const copy = new Error(error.message, { cause: error.cause });
 	copy.name = error.name;
+	if (error.stack !== undefined) copy.stack = error.stack;
 	if ('code' in error) Object.assign(copy, { code: error.code });
 	return copy;
 }
