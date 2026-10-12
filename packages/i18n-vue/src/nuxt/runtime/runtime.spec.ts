@@ -267,6 +267,17 @@ describe('setupLazyNuxtI18n', () => {
 		);
 	});
 
+	test('loaders that is no object is refused by createI18n, not as stray locales', async () => {
+		const ctx = { ...lazyContext({ cookie: 'de' }), loaders: 'fr.json' };
+		await expect(
+			setupLazyNuxtI18n(
+				ctx as unknown as Parameters<typeof setupLazyNuxtI18n>[0],
+			),
+		).rejects.toThrow(
+			"createI18n: loaders must be an object of functions by locale, as { fr: () => import('./locales/fr.json') }",
+		);
+	});
+
 	test('refuses a locale in neither catalogues nor loaders, before resolving', async () => {
 		const ctx = {
 			...lazyContext({ cookie: 'it' }),

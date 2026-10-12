@@ -132,7 +132,11 @@ export async function setupLazyNuxtI18n(
 		isObject(catalogues) && Object.hasOwn(catalogues, next);
 	const isLazy = (next: string) =>
 		isObject(loaders) && Object.hasOwn(loaders, next);
-	checkLocales(context.locales, (next) => isEager(next) || isLazy(next));
+	// A record that is no object at all is left to createI18n, whose
+	// TypeError names it, rather than reported as every locale being stray.
+	if (isObject(catalogues) && isObject(loaders)) {
+		checkLocales(context.locales, (next) => isEager(next) || isLazy(next));
+	}
 	const rendered = state.value;
 	const locale = resolveLocale(context, context.locales);
 	// The payload's catalogue, in place of the loader: only when the state was
