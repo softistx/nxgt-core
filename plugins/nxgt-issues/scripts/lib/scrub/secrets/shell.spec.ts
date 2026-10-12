@@ -1,48 +1,213 @@
+// biome-ignore-all lint/suspicious/noTemplateCurlyInString: compose defaults are written as plain strings
 import { describe, expect, test } from 'bun:test';
 import { scrub } from '../scrub';
+import { findSecrets } from './secrets';
+import { passes, refused } from './secrets.fixtures';
 
-const refused = (text: string) => scrub(text, {}).refused;
-const passes = (text: string) =>
-	expect({ text, secrets: scrub(text, {}).secrets }).toEqual({
-		text,
-		secrets: [],
+const USERPASS = 'dXNlcjpwYXNz'; // user:pass
+const WORD = 'ZXhhbXBsZQ'; // example (no colon)
+
+describe('a Basic scheme followed by a compose default', () => {
+	test.each([
+		`Authorization: Basic \${CREDS:-${USERPASS}}`,
+		`curl -H "Authorization: Basic \${CREDS:-${USERPASS}}" https://x.example`,
+		`headers: { Authorization: \`Basic \${CREDS:-${USERPASS}}\` }`,
+		`Authorization: Basic \${CREDS:=${USERPASS}=}`,
+		`Authorization: Basic \${CREDS:-\${OTHER:-${USERPASS}}}`,
+	])('%p refuses', (text) => {
+		expect(findSecrets(text)).toContain('authorization');
 	});
 
-describe('a typed parameter named like a credential', () => {
 	test.each([
-		'function f(token: string) {',
-		'(token: string) => {',
-		'async function findSession(token: string) {',
-		'constructor(secret: string) {}',
-		'constructor(private readonly secret: string) {}',
-		'const fn = (password: string) => hash(password);',
-		'export function verifyJwt(token: string, secret: string) {',
-		'function f(secret: Buffer) {',
-		'function f(secret: Uint8Array) {',
-		'function f(secret: string | undefined) {',
-		'function f(secret: KeyObject) {',
-		'function f(key: CryptoKey, token?: string) {',
-	])('%p passes', passes);
+		`Authorization: Basic \${CREDS:-${WORD}}`,
+		'Authorization: Basic ${CREDS}',
+		'Authorization: Basic ${CREDS:-}',
+		'Authorization: Basic ${CREDS:-<base64>}',
+		`headers: { Authorization: \`Basic \${CREDS:-${WORD}}\` }`,
+	])('%p passes', (text) => {
+		expect(findSecrets(text)).toEqual([]);
+	});
+});
+
+describe('nested compose defaults', () => {
+	test.each([
+		'x ${A:-${B:-Bearer hunter2}}',
+		'x ${A:-${B:-${C:-Basic hunter2}}}',
+		'x ${A:=${B:-Token abc123}}',
+		'x ${A:-${B:-bearer hunter2}}',
+	])('%p refuses a short password after a scheme word', (text) => {
+		expect(findSecrets(text)).toContain('authorization');
+	});
 
 	test.each([
-		'login(password: Swordfish)',
-		'login(password: hunter2)',
-		'f(token: k3J9xQ2mZp7vR4tL, x)',
+		'x ${A:-${B:-}}',
+		'x ${A:-${B:-Bearer <token>}}',
+		'x ${A:-${B:-Bearer token}}',
+		'x ${A:-${B:-3600}}',
+	])('%p passes', (text) => {
+		expect(findSecrets(text)).toEqual([]);
+	});
+});
+
+describe('commands with a literal secret inside $(…) still hit the older rules', () => {
+	test.each([
+		'RESPONSE=$(curl -s -u admin:hunter2 https://api.example.com/v1/users)',
+		`STATUS=$(curl -s -o /dev/null -w '%{http_code}' -u admin:swordfish https://x.example.com)`,
+		'echo $(mysql -u root -phunter2 -e status)',
+		'echo $(redis-cli -a hunter2 ping)',
+		'x=$(docker login -u me --password hunter2 ghcr.io)',
+		'echo $(mytool --password hunter2)',
+		'x=$(echo -----BEGIN RSA PRIVATE KEY-----)',
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});
 });
 
-describe('JSON that continues after a placeholder or an error message', () => {
+describe('read-only commands are placeholders', () => {
 	test.each([
-		'{"sessionId":"<redacted>","path":"/auth/refresh"}',
-		'{"error":"JsonWebTokenError: invalid signature","sessionId":"<redacted>"}',
-		'{"error":"JsonWebTokenError: jwt expired","path":"/auth/refresh"}',
+		'JWT_SECRET=$(openssl rand -hex 32)',
+		'SESSION_SECRET=$(openssl rand -base64 32)',
+		'PASSWORD=$(pwgen 16 1)',
+		'JWT_SECRET=$(cat secret.txt)',
+		'TOKEN=$(curl -s https://example.com/token | jq -r .access_token)',
+		'API_KEY=$(grep API_KEY .env | cut -d= -f2)',
+		'KEY=$(vault kv get -field=access_key secret/minio)',
+		'KEY=$(op read op://vault/db/password)',
+		`SECRET=$(kubectl get secret minio -o jsonpath='{.data.secret}' | base64 -d)`,
+		'GITHUB_TOKEN=$(gh auth token) bun run release',
+		'TOKEN=$(gh auth token) gh api user',
+		'PGPASSWORD=$(cat /run/secrets/db_password) psql -h db',
+		'PGPASSWORD=$PGPASSWORD psql',
+		'PASS=$(cat .pass | tr -d "\\n")',
 	])('%p passes', passes);
 
 	test.each([
-		'{"sessionId":"<redacted>","token":"k3J9xQ2mZp7vR4tL"}',
-		'{"error":"JsonWebTokenError: invalid signature","password":"hunter2"}',
+		'PASSWORD=$(echo "hunter2")',
+		"TOKEN=$(printf 'k3J9xQ2mZp7vR4tL')",
+		'TOKEN=$(cat <<< k3J9xQ2mZp7vR4tL)',
+		'TOKEN=$(echo 1234)',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+});
+
+describe('commands that take a secret positionally', () => {
+	test.each([
+		'PASSWORD=$(xargs echo swordfish)',
+		'PASSWORD=$(env echo swordfish)',
+		'PASSWORD=$(expr swordfish)',
+		'PASSWORD=$(sudo echo swordfish)',
+		'mongosh -u admin -p swordfish',
+		'mongo --password swordfish',
+		'ldapsearch -x -D cn=admin -w swordfish',
+		'smbclient //host/share -U user%swordfish',
+		'x=$(mongosh -p swordfish)',
+		'HASH=$(htpasswd -nbB admin swordfish)',
+		'echo $(caddy hash-password --plaintext swordfish)',
+		'echo $(sshpass -p hunter2 ssh host)',
+		'x=$(docker login -u me -p hunter2)',
+		'openssl passwd -6 swordfish',
+		'mkpasswd swordfish',
+		'sshpass -p swordfish ssh host',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		'HASH=$(htpasswd -nbB "$U" "$P")',
+		'sshpass -p "$PASS" ssh host',
+		'sshpass -f /run/secrets/ssh ssh host',
+		'mongosh -u admin -p "$MONGO_PASSWORD"',
+		'ldapsearch -x -W -D cn=admin',
+		'smbclient //host/share -U "$SMB_USER%$SMB_PASS"',
+		'T=$(sudo cat /run/secrets/token)',
+		'mkpasswd -m sha-512 "$PASS"',
+		'docker login -u me --password-stdin ghcr.io',
+	])('%p passes', passes);
+});
+
+describe('pathological input', () => {
+	const lines = (count: number, line: (i: number) => string) =>
+		Array.from({ length: count }, (_, i) => line(i)).join('\n');
+	const time = (text: string) => {
+		const started = performance.now();
+		scrub(text, {});
+		return performance.now() - started;
+	};
+
+	test('a 90 KB text of unclosed substitutions scrubs in under 500 ms', () => {
+		const text = lines(3000, (i) => `x${i}=$(echo "a ${i} unclosed`);
+		expect(text.length).toBeGreaterThan(80_000);
+		expect(time(text)).toBeLessThan(500);
+	});
+
+	test('a 140 KB text of comparisons scrubs in under 500 ms', () => {
+		const text = lines(
+			3000,
+			(i) => `if (m${i} === 'GET' || kind === 'x${i}') {}`,
+		);
+		expect(time(text)).toBeLessThan(500);
+	});
+});
+
+describe('a command substitution that holds a literal value', () => {
+	test.each([
+		'curl -H "Authorization: Basic $(echo -n admin:hunter2 | base64)" https://api.example.com/x',
+		`curl -H "Authorization: Basic $(echo -n 'admin:Tr0ub4dor&3' | base64)" https://api.example.com/x`,
+		'Authorization: Basic $(echo YWRtaW46aHVudGVyMg==)',
+		'API_KEY=$(echo k3J9xQ2mZp7vR4tL)',
+		'API_KEY="$(echo sk-live-k3J9xQ2mZp7vR4tLabcd)"',
+		'password: $(echo Tr0ub4dor)',
+		'const password = `$(echo Tr0ub4dor)`',
+		`DATABASE_PASSWORD=$(printf 'Tr0ub4dor&3')`,
+		'curl -H "X-Api-Key: $(printf k3J9xQ2mZp7vR4tL)" https://api.example.com/x',
+		'secret: "$(k3J9xQ2mZp7vR4tL)"',
+		'PASSWORD=$(echo hunter2)',
+		'curl -u "$(echo admin):hunter2" https://api.example.com/x',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		'PASSWORD=$(cat secret)',
+		'PASSWORD=$(cat /run/secrets/db_password)',
+		'curl -H "Authorization: Basic $(echo -n "$U:$P" | base64)" https://api.example.com/x',
+		'TOKEN=$(gh auth token)',
+		'API_KEY=$(cat ~/.config/zorblax/key)',
+	])('%p passes', passes);
+});
+
+describe('shell variables as placeholders', () => {
+	test.each([
+		'password: "$UPERSECRET"',
+		'curl -u "admin:$TOPSECRETWORD" https://api.example.com/x',
+	])('%p refuses', (text) => {
+		expect(refused(text)).toBe(true);
+	});
+
+	test.each([
+		'curl -u "$ADMIN_USER:$ADMIN_PASSWORD" https://api.example.com/x',
+		'curl -u "$USER:$PASS" https://api.example.com/x',
+		'curl -u "$U:$P" https://api.example.com/x',
+		'curl -u "$' +
+			'{ADMINUSER}:$' +
+			'{ADMINPASSWORD}" https://api.example.com/x',
+	])('%p passes', passes);
+});
+
+describe('shell variables are placeholders', () => {
+	test.each([
+		'curl -u "$ADMIN_USER:$ADMIN_PASSWORD" https://api.example.com/x',
+		'curl -u "$USER:$PASS" https://api.example.com/x',
+		`curl -u \${USER}:\${PASS} https://api.example.com/x`,
+		'curl -H "Authorization: Basic $(echo -n "$U:$P" | base64)" https://api.example.com/x',
+		'curl -H "Authorization: Bearer $TOKEN" https://api.example.com/x',
+	])('%p passes', passes);
+
+	test.each([
+		'curl -u admin:hunter2 https://api.example.com/x',
+		'curl -u "admin:Hunter2!" https://api.example.com/x',
+		'curl -u "$USER:Hunter2!" https://api.example.com/x',
 	])('%p refuses', (text) => {
 		expect(refused(text)).toBe(true);
 	});
@@ -106,52 +271,6 @@ describe('requirepass', () => {
 	])('%p passes', passes);
 });
 
-describe('compound PascalCase types', () => {
-	test.each([
-		'function f(token: AccessToken) {',
-		'function f(password: PasswordInput) {',
-		'type Session = { token: SessionToken; }',
-		'constructor(secret: ConfigService) {}',
-		'function f(token: JwtPayload, other: number) {',
-		'function f(token: AccessToken | undefined) {',
-	])('%p passes', passes);
-
-	// A single capitalised word is a value as likely as a type; known types
-	// (Buffer, KeyObject…) and compound names (two or more humps) are the rule.
-	test.each([
-		'login(password: Swordfish)',
-		'function f(token: Hunter2) {',
-		'const o = { token: SessionToken }',
-	])('%p refuses', (text) => {
-		expect(refused(text)).toBe(true);
-	});
-});
-
-describe('a compound type needs a signature, not an assignment', () => {
-	test.each([
-		'helm install x --set auth.rootPassword=ChangeMe,auth.username=admin',
-		'DbConfig(user=admin, password=ChangeMe, port=5432)',
-		'Config(host=db, password=CorrectHorseBatteryStaple)',
-		'export DB_PASSWORD=ChangeMe;',
-		'DB_PASSWORD=CorrectHorse; psql',
-		'environment: { POSTGRES_PASSWORD: ChangeMe, POSTGRES_DB: app }',
-		'{ password: CorrectHorse, user: admin }',
-		'password: MySecret, user: admin',
-		'login(password: CorrectHorse)',
-	])('%p refuses', (text) => {
-		expect(refused(text)).toBe(true);
-	});
-
-	test.each([
-		'(token: AccessToken)',
-		'constructor(private readonly secret: ConfigService)',
-		'type Session = { token: SessionToken; }',
-		'interface Opts { password: PasswordInput; }',
-		`constructor(\n  private readonly token: AccessToken,\n  private readonly other: UserService,\n) {}`,
-		'const f = async (password: PasswordInput, user: User) => {}',
-	])('%p passes', passes);
-});
-
 describe('name:=default and name:?message expansions', () => {
 	test.each([
 		`: "\${DB_PASSWORD:=swordfish}"`,
@@ -198,23 +317,6 @@ describe('requirepass flags are literals, the bare directive is read as prose or
 		'--requirepass $$REDIS_PASSWORD',
 		'--requirepass "$REDIS_PASSWORD"',
 	])('%p passes', passes);
-});
-
-describe('class fields and declarations typed with a name', () => {
-	test.each([
-		`class AuthState {\n  token: AccessToken;\n}`,
-		`class Signer {\n  private secret: SigningSecret;\n}`,
-		`class Signer extends Base implements Keyed {\n  token?: SessionToken;\n}`,
-		'let token: AccessToken;',
-		'declare const token: AccessToken;',
-	])('%p passes', passes);
-
-	test.each([
-		'class Box {\n  password: Hunter2024;\n}',
-		'const o = {\n  token: SessionToken;\n}',
-	])('%p refuses', (text) => {
-		expect(refused(text)).toBe(true);
-	});
 });
 
 describe("compose defaults are judged by the name's last word", () => {
@@ -315,7 +417,7 @@ describe('redis directives after config set, in prose and in quotes', () => {
 	])('%p passes', passes);
 });
 
-describe('round 9: fused auth names, authkey flag, scheme defaults, vault ids', () => {
+describe('fused auth names, authkey flag, scheme defaults, vault ids', () => {
 	test.each([
 		'      - TS_AUTHKEY=Hunter2024',
 		'export TAILSCALE_AUTHKEY="k3J9xQ2mPz7vL8wq"',
@@ -344,92 +446,5 @@ describe('round 9: fused auth names, authkey flag, scheme defaults, vault ids', 
 		`\${OAUTH_CLIENT_ID:-my-app}`,
 		`\${SESSION_ID:-x}`,
 		`\${AWS_ACCESS_KEY_ID:-AKIAEXAMPLE}`,
-	])('%p passes', passes);
-});
-
-describe('round 10: short Basic credentials, header defaults, goauth', () => {
-	test.each([
-		`\${AUTH_HEADER:-Basic dXNlcjpwYXNz}`,
-		`\${AUTH_HEADER:-Basic ZGVtbzpkZW1v}`,
-		`\${AUTH_HEADER:-Basic YXBwOmhlbGxv}`,
-		`Authorization: \${AUTH_HEADER:-Bearer swordfish}`,
-		`curl -H "Authorization: \${AUTH_HEADER:-Bearer devtoken}" https://x.example.com`,
-		'command: ["tailscale", "up", "--authkey", "Hunter2024"]',
-	])('%p refuses', (text) => {
-		expect(refused(text)).toBe(true);
-	});
-
-	test.each([
-		`\${PLAN:-Basic subscription}`,
-		`\${TIER:-Basic membership}`,
-		`\${MSG:-Basic authentication}`,
-		`\${X:-Basic YOUR_BASE64_HERE}`,
-		`\${MSG:-Bearer credentials required}`,
-		`Authorization: \${AUTH_HEADER}`,
-		"GOAUTH='netrc'",
-		'set GOAUTH=netrc',
-		`\${GOAUTH:-netrc}`,
-	])('%p passes', passes);
-});
-
-describe('round 11: scheme words under credential names, quoted header defaults', () => {
-	test.each([
-		`\${AUTH_HEADER:-Bearer swordfish}`,
-		`AUTH_HEADER: \${AUTH_HEADER:-Bearer changeme}`,
-		`- AUTH_HEADER=\${AUTH_HEADER:-Bearer devtoken}`,
-		`API_AUTH_HEADER: "\${API_AUTH_HEADER:-Token supersecret}"`,
-		`\${AUTH_HEADER:-Digest secretvalue}`,
-		`Authorization: "\${AUTH_HEADER:-Bearer swordfish}"`,
-		`Authorization: '\${AUTH_HEADER:-Bearer swordfish}'`,
-		`headers: { Authorization: "\${AUTH_HEADER:-Bearer swordfish}" }`,
-		`\${X:-Basic dXNlcjpwYXNzMQ}`,
-		`\${AUTH_HEADER:-Basic admin:hunter2}`,
-		`\${X:-Basic admin:hunter2}`,
-	])('%p refuses', (text) => {
-		expect(refused(text)).toBe(true);
-	});
-
-	test.each([
-		`\${AUTH_HEADER:-Bearer xxxxxxxxxxxx}`,
-		`\${AUTH_HEADER:-Bearer token}`,
-		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
-		`\${TITLE:-Bearer authentication guide}`,
-		`\${HINT:-Digest authentication required}`,
-		`\${PLAN:-Basic subscription}`,
-		`\${TIER:-Basic membership}`,
-		`\${MSG:-Basic authentication}`,
-		`\${MSG:-Bearer swordfish}`,
-	])('%p passes', passes);
-});
-
-describe('round 12: header names without auth, filler with digits, placeholder words', () => {
-	test.each([
-		`\${AUTHORIZATION_HEADER:-Bearer swordfish}`,
-		`API_AUTHORIZATION: \${API_AUTHORIZATION:-Bearer devtoken}`,
-		`- PROXY_AUTHORIZATION=\${PROXY_AUTHORIZATION:-Basic supersecret}`,
-		`HTTP_AUTHORIZATION: "\${HTTP_AUTHORIZATION:-Token changeme}"`,
-		`\${AUTHZ_HEADER:-Bearer swordfish}`,
-		`\${UPSTREAM_HEADER:-Bearer swordfish}`,
-		`\${AUTHORIZATION:=Bearer swordfish}`,
-		`\${AUTHORIZATION-Bearer swordfish}`,
-		`\${AUTH_HEADER:-Token SK_LIVE_ABC123XYZ}`,
-		`\${AUTH_HEADER:-Digest YourSecretKey2024}`,
-		`\${AUTH_HEADER:-Bearer changeme}`,
-		'Bearer YOUR_TOKEN_2',
-		'Bearer YOUR_K3J9XQ2MP7VL',
-		`\${MSG:-Token your_k3J9xQ2mP7vL}`,
-		`\${MSG:-Token ABC123_DEF456}`,
-	])('%p refuses', (text) => {
-		expect(refused(text)).toBe(true);
-	});
-
-	test.each([
-		`\${AUTH_HEADER:-Bearer YOUR_TOKEN}`,
-		`\${AUTH_HEADER:-Basic YOUR_BASE64_HERE}`,
-		`\${AUTH_HEADER:-Bearer redacted}`,
-		`\${AUTH_HEADER:-Bearer placeholder}`,
-		`\${AUTH_HEADER:-Bearer REDACTED}`,
-		'Set the header to Bearer YOUR_TOKEN',
-		`\${MSG:-Basic YOUR_BASE64_HERE}`,
 	])('%p passes', passes);
 });
