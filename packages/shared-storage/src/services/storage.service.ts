@@ -36,13 +36,13 @@ function presignMethod(method: string | undefined): PresignMethod {
  */
 function refuseUnsignedHeaders(headers: HeadersInit | undefined): void {
 	for (const name of new Headers(headers).keys()) {
-		if (
-			name.startsWith('x-amz-') ||
-			name === 'host' ||
-			name === 'authorization'
-		)
+		if (name.startsWith('x-amz-'))
 			throw new TypeError(
 				`StorageService.fetch cannot sign the ${name} header: use write`,
+			);
+		if (name === 'host' || name === 'authorization')
+			throw new TypeError(
+				`StorageService.fetch cannot sign the ${name} header: the presigned URL sets it`,
 			);
 	}
 }
