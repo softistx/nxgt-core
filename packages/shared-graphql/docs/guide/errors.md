@@ -55,7 +55,7 @@ new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 
 ## What a client receives — Yoga, through `createMaskError`
 
-| Thrown | `extensions.code` | `extensions.http.status` | message |
+| Thrown | `extensions.code` | HTTP status (`extensions.http`, not in the body) | message |
 | --- | --- | --- | --- |
 | a `denial()` | its code | 401, 403 or 404 | its key, translated with your `translate` |
 | `CustomException.unauthenticated()` | `UNAUTHENTICATED` | 401 | translated key |
@@ -88,8 +88,9 @@ new ApolloServer({ formatError: createFormatError(translate, isProduction) });
 }
 ```
 
-The response's HTTP status is 404 here: Yoga reads `extensions.http`, applies
-it when it is the only error of the response, and leaves it out of the body.
+The response's HTTP status is 404 here: Yoga answers the highest
+`extensions.http.status` among the response's errors, and leaves `http` out of
+the body.
 Every error `createMaskError` builds keeps the `path` and `locations` of the
 one Yoga handed it.
 
@@ -193,7 +194,7 @@ caller, wraps `serviceUnavailableError` and adds the rule that decides
 
 graphql-js wraps every error a resolver throws in a `GraphQLError`. A wrapper
 around a plain `Error` — a driver's `connect ECONNREFUSED 10.0.0.5:27017` — is
-replaced by the mask message, as Yoga's default mask does; its `path` is kept.
+replaced by the mask message, as Yoga's default mask does; its `path` and `locations` are kept.
 In development (`isDev`) the original is in `extensions.debugMessage`; Yoga does not
 derive `isDev` from `NODE_ENV` for a custom `maskError`, so pass
 `maskedErrors: { maskError, isDev: process.env.NODE_ENV === 'development' }`.
