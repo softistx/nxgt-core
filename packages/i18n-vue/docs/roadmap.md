@@ -46,7 +46,7 @@ server and hydrates from the payload.
   checked. `i18nTypes({ lazy: true })` serves them as Vite modules,
   the Nuxt module's `lazy: true` loads them on the server and hydrates from
   the payload, and `setupLazyNuxtI18n` does the same for a hand-written
-  plugin. `catalogues` alone works as before.
+  plugin. `catalogues` alone works as before (the API and the generated plugin and types are unchanged; `createI18n` carries the loader code, about +0.7 kB gzip).
 - **TypeScript 7 as well as 6** — the `typescript` peer accepts either. Under
   7, `tsc` checks the `.ts` files and the `.vue` templates go unchecked until
   `vue-tsc` runs on 7; see the troubleshooting page.

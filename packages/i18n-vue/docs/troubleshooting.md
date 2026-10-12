@@ -395,7 +395,7 @@ Two sources define the same key: `locales/en.json` already has `mails` and
 prefix (`locales/en/mails.json` and `locales/en/mails/welcome.json`, whether
 or not `welcome` also happens to be one of `mails.json`'s own keys). A file's
 own prefix is its alone — nothing else may add to it. Keep the message in one
-place. See [Splitting catalogues](catalogues.md#splitting-catalogues).
+place. See [Splitting catalogues](guide/catalogues.md#splitting-catalogues).
 
 ### `i18n: <dir>/<locale>/<file> is missing — <dir>/<fallback>/<file> exists`
 
@@ -674,7 +674,7 @@ loaders: { fr: () => import('./locales/fr.json') } // a JSON module: its default
 ```
 
 The loader's answer is unwrapped to its `default` export when it is a
-module namespace, which is recognised by either of two rules:
+module namespace, which is recognised by any of three rules:
 
 - its `Symbol.toStringTag` is `'Module'`, as a native `import()` answers
   under Bun, Node or Vite in development;

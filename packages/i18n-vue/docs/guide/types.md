@@ -251,7 +251,7 @@ its own.
 ## Type safety is measured
 
 The package's own tests hold what the types refuse:
-`test/types/refusals.ts` has **23** mistakes in TypeScript and
+`test/types/refusals.ts` has **26** mistakes in TypeScript and
 `test/types/refusals.vue` **7** in a template, checked by `vue-tsc` against a
 generated file; the Nuxt fixtures add **5** under Nuxt's own `tsconfig` — 3
 in the eager one, 2 in the one with `lazy: true`. Each

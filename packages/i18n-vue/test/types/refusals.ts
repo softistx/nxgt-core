@@ -11,7 +11,7 @@
  * The calls that **must keep compiling** are here too, unmarked: a refusal
  * that refuses the correct call is a bug.
  *
- * **Twenty-three plausible mistakes, twenty-three refused.**
+ * **Twenty-six plausible mistakes, twenty-six refused.**
  */
 
 import {
@@ -31,7 +31,7 @@ import {
 	useI18n,
 } from '@nxgt/i18n-vue';
 import type { ModuleOptions } from '@nxgt/i18n-vue/nuxt';
-import { setupNuxtI18n } from '@nxgt/i18n-vue/nuxt/runtime';
+import { setupLazyNuxtI18n, setupNuxtI18n } from '@nxgt/i18n-vue/nuxt/runtime';
 import { i18nTypes } from '@nxgt/i18n-vue/vite';
 import { ref } from 'vue';
 import en from './locales/en.json';
@@ -202,4 +202,24 @@ createI18n({ catalogues: { en }, loaders: { fr: './locales/fr.json' } });
 // @ts-expect-error — a function answering a Promise.
 createI18n({ catalogues: { en }, loaders: { fr: () => fr } });
 
-export { badCookie, current, locale, options, picked, switched };
+// 24. A lazy option that is not a boolean.
+// @ts-expect-error — lazy: true.
+i18nTypes({ locales: ['en', 'fr'], lazy: 'yes' });
+
+// 25. A module option lazy that is a number.
+// @ts-expect-error — lazy: true.
+const badLazy: ModuleOptions = { locales: ['en'], lazy: 1 };
+
+// 26. A lazy Nuxt context with no loaders.
+// @ts-expect-error — loaders: { fr: () => import('./locales/fr.json') }.
+setupLazyNuxtI18n({
+	catalogues: { en },
+	locales: ['en', 'fr'],
+	fallbackLocale: 'en',
+	cookie: ref<string | null | undefined>(null),
+	state: ref<string | undefined>(),
+	catalogue: ref(null),
+	requested: () => 'fr',
+});
+
+export { badCookie, badLazy, current, locale, options, picked, switched };
