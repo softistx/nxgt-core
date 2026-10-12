@@ -35,6 +35,8 @@ type Translate<K extends LocaleKey> = (
  * `GraphQLError` thrown on purpose — or raised by validation — passes, and one
  * that only wraps a plain `Error` a resolver threw is replaced by `message`,
  * so an internal message never reaches the client.
+ * Each error it builds keeps the `path` and `locations` of the one Yoga
+ * handed it, so the client still sees which field failed.
  *
  * `debugMessage` (a `CustomException`'s, an outage's) and an unexpected
  * error's original reach the client only when Yoga's `isDev` is true. Yoga
@@ -57,7 +59,7 @@ export function createMaskError<K extends LocaleKey>(
 				: error;
 
 		if (isOryUnavailable(original))
-			return serviceUnavailableError(original, isDev === true);
+			return located(serviceUnavailableError(original, isDev === true), error);
 
 		const key = denialMessageKey(original);
 		if (key !== undefined) {
@@ -71,7 +73,7 @@ export function createMaskError<K extends LocaleKey>(
 			original instanceof CustomException ||
 			original instanceof mongoose.MongooseError
 		) {
-			return exceptionError(original, translate, isDev);
+			return located(exceptionError(original, translate, isDev), error);
 		}
 
 		if (isOriginalGraphQLError(error)) return error;
@@ -107,6 +109,14 @@ function exceptionError<K extends LocaleKey>(
 			},
 		},
 	);
+}
+
+/** `masked` again, at the place `error` happened. */
+function located(masked: GraphQLError, error: unknown): GraphQLError {
+	return new GraphQLError(masked.message, {
+		...locationOf(error),
+		extensions: masked.extensions,
+	});
 }
 
 /** Where the masked error happened, kept so the client still sees a `path`. */

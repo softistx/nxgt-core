@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { OryUnavailable } from '@nxgt/ory-sdk';
 import { CustomException, ErrorCode } from '@nxgt/shared-exceptions';
-import { GraphQLError } from 'graphql';
+import { mongoose } from '@nxgt/shared-mongo';
+import { GraphQLError, Source } from 'graphql';
 import { denial } from './denial';
 import { createFormatError } from './format-error';
 import { createMaskError } from './mask-error';
@@ -110,6 +111,31 @@ describe('createMaskError', () => {
 		expect(error.message).toBe('Unexpected error.');
 		expect(error.extensions['code']).toBe(ErrorCode.InternalServerError);
 		expect(error.path).toEqual(['note']);
+	});
+
+	it('keeps the path of an exception, a Mongoose error and an outage', () => {
+		const thrown = [
+			CustomException.notFound({ message: 'errors.x' }),
+			new mongoose.Error.CastError('ObjectId', 'nope', '_id'),
+			new OryUnavailable('keto', 503, null),
+		];
+		for (const original of thrown) {
+			const error = mask(
+				new GraphQLError(original.message, {
+					originalError: original,
+					path: ['note'],
+					positions: [7],
+					source: new Source('{ note { id } }'),
+				}),
+				'Unexpected error.',
+				false,
+			) as GraphQLError;
+			expect({ name: original.name, path: error.path }).toEqual({
+				name: original.name,
+				path: ['note'],
+			});
+			expect(error.locations).toEqual([{ line: 1, column: 8 }]);
+		}
 	});
 
 	it('lets a GraphQLError thrown on purpose through', () => {
