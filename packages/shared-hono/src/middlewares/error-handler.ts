@@ -99,17 +99,33 @@ export const createErrorHandler = <K extends LocaleKey = LocaleKey>(
 	};
 };
 
-/** Headers that describe the body being replaced by the JSON one. */
-const BODY_HEADERS = new Set([
+/**
+ * Not copied: the headers that describe the body being replaced by the JSON
+ * one, and the hop-by-hop ones, which belong to a connection. `Content-Range`
+ * is copied: a 416's total length describes the resource, not the body.
+ */
+const SKIPPED_HEADERS = new Set([
 	'content-type',
 	'content-length',
 	'content-encoding',
 	'transfer-encoding',
+	'content-disposition',
+	'content-digest',
+	'repr-digest',
+	'content-md5',
+	'etag',
+	'last-modified',
+	'connection',
+	'keep-alive',
+	'proxy-connection',
+	'te',
+	'trailer',
+	'upgrade',
 ]);
 
 function keepHeaders(c: Context, headers: Headers): void {
 	for (const [name, value] of headers) {
-		if (BODY_HEADERS.has(name) || name === 'set-cookie') continue;
+		if (SKIPPED_HEADERS.has(name) || name === 'set-cookie') continue;
 		c.header(name, value);
 	}
 	for (const cookie of headers.getSetCookie())

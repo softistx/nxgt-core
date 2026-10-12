@@ -23,10 +23,20 @@ Every body also carries `status`, the same number as the response's, and
 
 An `HTTPException` thrown with a `res` keeps that response's headers: Hono's
 `basicAuth` and `bearerAuth` throw one carrying `WWW-Authenticate`, and a
-`Retry-After` or a `Set-Cookie` you put there reaches the client too. The body
-is still the JSON above, so `Content-Type`, `Content-Length`,
-`Content-Encoding` and `Transfer-Encoding` are not copied. The `res` body is
-not read: `message` is the exception's own, which `basicAuth` leaves empty.
+`Retry-After` or a `Set-Cookie` you put there reaches the client too, after
+the cookies a middleware set before the throw. The body is still the JSON
+above, so the headers that describe the replaced body are not copied
+(`Content-Type`, `Content-Length`, `Content-Encoding`, `Transfer-Encoding`,
+`Content-Disposition`, `ETag`, `Last-Modified`, `Content-Digest`,
+`Repr-Digest`, `Content-MD5`), nor are the hop-by-hop ones (`Connection`,
+`Keep-Alive`, `Proxy-Connection`, `TE`, `Trailer`, `Upgrade`).
+`Content-Range` is copied, for a 416. The `res` body is not read: `message` is
+the exception's own, which `basicAuth` leaves empty.
+
+Never pass an upstream's `Response` as `res`
+(`throw new HTTPException(502, { res: await fetch(upstream) })`): its
+`Set-Cookie`, `Location` or `Cache-Control` would reach your client under your
+origin. Build the `res` with the headers you mean to send.
 
 An `HTTPException`'s `message` and a `CustomException`'s message key reach the
 client in every environment, production included (a key the translator does
