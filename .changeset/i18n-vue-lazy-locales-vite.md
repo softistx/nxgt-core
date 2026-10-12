@@ -1,5 +1,0 @@
----
-"@nxgt/i18n-vue": minor
----
-
-`i18nTypes` takes an optional `lazy: true` that serves the catalogues as modules for `createI18n`'s `loaders`: `virtual:@nxgt/i18n-vue/catalogues` exports `fallbackLocale`, `locales`, `catalogues` (the fallback locale's alone, inline) and `loaders` (one `import('virtual:@nxgt/i18n-vue/locale/<locale>')` per other locale, so `vite build` emits a chunk per locale). Each locale module is the merged catalogue — flat file, folder layout and packages' `catalogues` — exactly what the types are written from. In `vite dev`, a catalogue change that checks invalidates the modules and reloads the page; a broken one is logged and the modules keep the last good catalogues. Their types go to a second file beside `out`, `<out>.catalogues.d.ts` (`src/generated/i18n.catalogues.d.ts` by default). Without `lazy`, nothing changes: no module is served and `i18n.d.ts` is byte for byte the same; with it, `i18n.d.ts` is unchanged too. New error: `i18nTypes: lazy must be true or false, as i18nTypes({ locales, lazy: true })`, a `TypeError`.

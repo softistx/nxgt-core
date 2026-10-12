@@ -44,7 +44,7 @@
     },
     "packages/i18n-vue": {
       "name": "@nxgt/i18n-vue",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@formatjs/icu-messageformat-parser": "3.5.20",
         "intl-messageformat": "12.1.2",
