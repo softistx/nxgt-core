@@ -22,6 +22,19 @@ export interface Catalogue {
 export type Catalogues = Readonly<Record<string, Catalogue>>;
 
 /**
+ * One locale's catalogue, fetched when `setLocale` first asks for it:
+ * `() => import('./locales/fr.json')`. It answers the catalogue, or a module
+ * whose default export is one — what a dynamic `import()` of a JSON file
+ * answers under Bun, Vite or Node.
+ */
+export type CatalogueLoader = () => Promise<
+	Catalogue | { readonly default: Catalogue }
+>;
+
+/** A loader per locale: `{ fr: () => import('./locales/fr.json') }`. */
+export type CatalogueLoaders = Readonly<Record<string, CatalogueLoader>>;
+
+/**
  * What an argument is, from the way a message uses it: `{n, number}` and
  * `{n, plural, …}` a number, `{at, date}` a date, anything else a string.
  */
@@ -253,10 +266,48 @@ function checkNoConventionCollision(
 }
 
 /**
+ * Reads one locale's catalogue into its messages: objects of camelCase or
+ * kebab-case keys, no two keys that are one key in two conventions, and
+ * every message valid ICU.
+ */
+function readLocale(catalogue: unknown, locale: string): Messages {
+	const flat = new Map<string, string>();
+	flatten(catalogue, locale, '', flat);
+	checkNoConventionCollision(locale, flat.keys());
+	return new Map(
+		[...flat].map(([key, text]) => [key, analyse(text, locale, key)]),
+	);
+}
+
+/**
+ * Checks one locale's catalogue on its own — read, then compared with
+ * `reference`, the fallback locale's messages, unless it is the fallback
+ * locale itself — and answers its messages. What `setLocale` runs on a
+ * catalogue loaded on demand; `checkCatalogues` runs the same two steps over
+ * every locale.
+ */
+export function checkLocale(
+	catalogue: unknown,
+	locale: string,
+	fallbackLocale: string,
+	reference: Messages,
+): Messages {
+	const messages = readLocale(catalogue, locale);
+	if (locale !== fallbackLocale) {
+		compare(locale, messages, fallbackLocale, reference);
+	}
+	return messages;
+}
+
+/**
  * Checks the catalogues of every locale and answers their messages. A
  * catalogue that is not objects of camelCase or kebab-case keys, a message
  * that does not parse, and a locale that differs from the fallback locale in
  * its keys or its arguments **throw**, naming the locale and the key.
+ *
+ * Every locale is read before any is compared, so a message that does not
+ * parse is reported before a key missing in another locale — the order
+ * `checkLocale` alone, one locale at a time, cannot give.
  */
 export function checkCatalogues(
 	catalogues: Catalogues,
@@ -265,15 +316,7 @@ export function checkCatalogues(
 ): ReadonlyMap<string, Messages> {
 	const out = new Map<string, Messages>();
 	for (const locale of locales) {
-		const flat = new Map<string, string>();
-		flatten(catalogues[locale], locale, '', flat);
-		checkNoConventionCollision(locale, flat.keys());
-		out.set(
-			locale,
-			new Map(
-				[...flat].map(([key, text]) => [key, analyse(text, locale, key)]),
-			),
-		);
+		out.set(locale, readLocale(catalogues[locale], locale));
 	}
 	const reference = out.get(fallbackLocale) as Messages;
 	for (const locale of locales) {

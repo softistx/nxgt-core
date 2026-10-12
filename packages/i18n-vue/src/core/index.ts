@@ -8,6 +8,8 @@ export { checkArguments } from './arguments';
 export {
 	type ArgumentKind,
 	type Catalogue,
+	type CatalogueLoader,
+	type CatalogueLoaders,
 	type Catalogues,
 	checkCatalogues,
 	isKeySegment,

@@ -3,7 +3,9 @@ import { expectThrow } from '../../test/expect-throw';
 import {
 	type Catalogues,
 	checkCatalogues,
+	checkLocale,
 	layerCatalogues,
+	type Messages,
 } from './catalogues';
 
 const check = (catalogues: Catalogues, locales = ['en', 'fr']) =>
@@ -166,6 +168,47 @@ describe('checkCatalogues', () => {
 			{ fr: { a: 'x' }, en: { a: 'x', b: 'y' } },
 			'i18n: fr: b is missing — en, the fallback locale, has it',
 			['fr', 'en'],
+		);
+	});
+});
+
+describe('checkLocale', () => {
+	const reference = check({ en: { a: 'Hi {name}', b: 'Bye' } }, ['en']).get(
+		'en',
+	) as Messages;
+
+	test('answers one locale’s messages, compared with the reference', () => {
+		const messages = checkLocale(
+			{ a: 'Salut {name}', b: 'Au revoir' },
+			'fr',
+			'en',
+			reference,
+		);
+		expect([...messages.keys()]).toEqual(['a', 'b']);
+		expect(messages.get('a')?.args.get('name')).toBe('string');
+	});
+
+	test('refuses with the messages checkCatalogues gives', () => {
+		expectThrow(
+			() => checkLocale({ a: 'Salut {name}' }, 'fr', 'en', reference),
+			Error,
+			'i18n: fr: b is missing — en, the fallback locale, has it',
+		);
+		expectThrow(
+			() => checkLocale('Salut', 'fr', 'en', reference),
+			Error,
+			'i18n: fr: the catalogue must be an object of messages',
+		);
+		expectThrow(
+			() => checkLocale({ a: 'Salut {nom}', b: 'x' }, 'fr', 'en', reference),
+			Error,
+			'i18n: fr: a uses {nom}, which en does not declare',
+		);
+	});
+
+	test('the fallback locale is read, never compared with itself', () => {
+		expect(checkLocale({ only: 'x' }, 'en', 'en', reference).has('only')).toBe(
+			true,
 		);
 	});
 });

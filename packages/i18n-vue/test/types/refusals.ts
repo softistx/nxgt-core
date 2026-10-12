@@ -11,7 +11,7 @@
  * The calls that **must keep compiling** are here too, unmarked: a refusal
  * that refuses the correct call is a bug.
  *
- * **Twenty-one plausible mistakes, twenty-one refused.**
+ * **Twenty-three plausible mistakes, twenty-three refused.**
  */
 
 import {
@@ -70,6 +70,13 @@ i18nTypes({
 	out: 'src/generated/i18n.d.ts',
 });
 const options: ModuleOptions = { locales: ['en', 'fr'], cookie: 'lang' };
+// A locale loaded on demand: a dynamic import of a JSON catalogue, awaited.
+const lazy = createI18n({
+	catalogues: { en },
+	loaders: { fr: () => import('./locales/fr.json') },
+});
+await lazy.setLocale('fr');
+const switched: Promise<void> = i18n.setLocale('en');
 setupNuxtI18n({
 	catalogues: { en, fr },
 	fallbackLocale: 'en',
@@ -162,4 +169,12 @@ const badCookie: ModuleOptions = { locales: ['en'], cookie: 1 };
 // @ts-expect-error — 'mails.welcome.title'.
 i18n.t('mails.welcome.titel');
 
-export { badCookie, current, locale, options, picked };
+// 22. A loader written as the path of the catalogue.
+// @ts-expect-error — () => import('./locales/fr.json').
+createI18n({ catalogues: { en }, loaders: { fr: './locales/fr.json' } });
+
+// 23. A loader that answers the catalogue itself, not a promise of it.
+// @ts-expect-error — a function answering a Promise.
+createI18n({ catalogues: { en }, loaders: { fr: () => fr } });
+
+export { badCookie, current, locale, options, picked, switched };

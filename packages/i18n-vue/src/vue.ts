@@ -8,12 +8,14 @@ import {
 } from 'vue';
 import { checkArguments } from './core/arguments';
 import {
+	type CatalogueLoaders,
 	type Catalogues,
 	checkCatalogues,
 	type Messages,
 } from './core/catalogues';
 import { isObject, LOCALE } from './core/guards';
 import { keyVariants } from './core/keys';
+import { onDemandCatalogues } from './core/loaders';
 import { createFormatter, type Formatter } from './core/translator';
 import type {
 	Locale,
@@ -26,9 +28,17 @@ import type {
 export interface I18nOptions {
 	/** A catalogue per locale, as `{ en, fr }`. Checked when `createI18n` runs. */
 	readonly catalogues: Catalogues;
-	/** The reference every other locale is checked against. Default the first locale of `catalogues`. */
+	/**
+	 * A loader per locale whose catalogue is fetched on demand, as
+	 * `{ fr: () => import('./locales/fr.json') }`: the first `setLocale` to it
+	 * runs the loader, checks the catalogue against the fallback locale, and
+	 * switches once both are done. Optional; a locale that is also in
+	 * `catalogues` is already loaded, and its loader never runs.
+	 */
+	readonly loaders?: CatalogueLoaders;
+	/** The reference every other locale is checked against. Default the first locale of `catalogues`; always one of `catalogues`. */
 	readonly fallbackLocale?: string;
-	/** The locale to start in — from `pickLocale` or `detectLocale`. Default `fallbackLocale`. */
+	/** The locale to start in — from `pickLocale` or `detectLocale`. Default `fallbackLocale`; always one of `catalogues`. */
 	readonly locale?: string;
 }
 
@@ -36,12 +46,24 @@ export interface I18nOptions {
 export interface I18n {
 	/** The current locale, reactive. Change it with `setLocale`. */
 	readonly locale: Readonly<Ref<Locale>>;
-	/** Every locale of the catalogues, in their order. */
+	/** Every locale of the catalogues, in their order, then every locale only `loaders` has. */
 	readonly locales: readonly Locale[];
 	/** The reference locale. */
 	readonly fallbackLocale: Locale;
-	/** Switches every `t` of the app to `locale`. A locale the catalogues do not have **throws**. */
-	setLocale(locale: Locale): void;
+	/**
+	 * Switches every `t` of the app to `locale`. A locale that is neither in
+	 * the catalogues nor in `loaders`, or that is not a string, **throws**
+	 * synchronously.
+	 *
+	 * A loaded locale switches at once, and the promise is already resolved.
+	 * One loaded on demand switches once its catalogue is loaded and checked;
+	 * until then `locale` and `t` stay on the previous locale. The promise
+	 * resolves when the switch is done, and rejects when the catalogue could
+	 * not be loaded or cannot be right — the locale then unchanged. When
+	 * calls overlap, the last one wins. On a server, `await` it before
+	 * rendering.
+	 */
+	setLocale(locale: Locale): Promise<void>;
 	/** The message `key` in the current locale. An unknown key, or an argument that cannot be right, **throws**. Reactive: a template re-renders when the locale changes. */
 	t<K extends MessageKey>(key: K, ...args: MessageArgsOf<K>): string;
 	/** Whether `key` is a message of the catalogues — for a key computed at run time. */
@@ -118,6 +140,9 @@ function prepare(
 
 function checkOptions(options: I18nOptions): {
 	locales: string[];
+	/** The locales only `loaders` has, in its order. */
+	lazyLocales: string[];
+	loaders: CatalogueLoaders;
 	fallbackLocale: string;
 	locale: string;
 } {
@@ -143,19 +168,49 @@ function checkOptions(options: I18nOptions): {
 			'createI18n: catalogues holds something that is not a locale — key each catalogue by a BCP 47 tag, as en or pt-BR',
 		);
 	}
+	const loaders = checkLoaders(options.loaders);
 	const fallbackLocale = options.fallbackLocale ?? (locales[0] as string);
 	if (!locales.includes(fallbackLocale)) {
 		throw new TypeError(
-			'createI18n: fallbackLocale must be a locale of the catalogues',
+			Object.hasOwn(loaders, fallbackLocale)
+				? 'createI18n: fallbackLocale must be a locale of the catalogues, not one loaded on demand — the reference is checked when createI18n runs'
+				: 'createI18n: fallbackLocale must be a locale of the catalogues',
 		);
 	}
 	const locale = options.locale ?? fallbackLocale;
 	if (!locales.includes(locale)) {
 		throw new TypeError(
-			'createI18n: locale must be a locale of the catalogues — pick one with pickLocale',
+			Object.hasOwn(loaders, locale)
+				? 'createI18n: locale must be a locale of the catalogues, not one loaded on demand — start in a loaded locale, then await setLocale(locale)'
+				: 'createI18n: locale must be a locale of the catalogues — pick one with pickLocale',
 		);
 	}
-	return { locales, fallbackLocale, locale };
+	return {
+		locales,
+		lazyLocales: Object.keys(loaders).filter((lazy) => !locales.includes(lazy)),
+		loaders,
+		fallbackLocale,
+		locale,
+	};
+}
+
+/** `loaders` checked: an object of functions keyed by locale, or `{}` when not given. */
+function checkLoaders(loaders: unknown): CatalogueLoaders {
+	if (loaders === undefined) return {};
+	if (
+		!isObject(loaders) ||
+		!Object.values(loaders).every((loader) => typeof loader === 'function')
+	) {
+		throw new TypeError(
+			"createI18n: loaders must be an object of functions by locale, as { fr: () => import('./locales/fr.json') }",
+		);
+	}
+	if (!Object.keys(loaders).every((locale) => LOCALE.test(locale))) {
+		throw new TypeError(
+			'createI18n: loaders holds something that is not a locale — key each loader by a BCP 47 tag, as fr or pt-BR',
+		);
+	}
+	return loaders as CatalogueLoaders;
 }
 
 /**
@@ -178,18 +233,37 @@ function checkOptions(options: I18nOptions): {
  * request when rendering on a server: the locale is the i18n's own. The
  * catalogues are checked once per set of catalogue objects, so treat them as
  * immutable.
+ *
+ * `loaders` fetches a locale's catalogue on demand instead — the same
+ * record whoever writes it, by hand or a build plugin:
+ *
+ * ```ts
+ * const i18n = createI18n({
+ *   catalogues: { en },
+ *   loaders: { fr: () => import('./locales/fr.json') },
+ * });
+ * await i18n.setLocale('fr'); // loaded, checked, then switched
+ * ```
  */
 export function createI18n(options: I18nOptions): I18n {
 	const checked = checkOptions(options);
-	const locales = checked.locales as Locale[];
+	const eager = checked.locales as Locale[];
+	const locales = [...eager, ...checked.lazyLocales] as Locale[];
 	const fallbackLocale = checked.fallbackLocale as Locale;
 	const { messages, format, canonical } = prepare(
 		options.catalogues,
-		locales,
+		eager,
 		fallbackLocale,
 	);
 	const reference = messages.get(fallbackLocale) as Messages;
+	const onDemand = onDemandCatalogues(
+		checked.loaders,
+		fallbackLocale,
+		reference,
+	);
 	const locale: ShallowRef<Locale> = shallowRef(checked.locale as Locale);
+	/** Bumped by every `setLocale`: a load that ends after a later call switches nothing. */
+	let latest = 0;
 
 	const i18n: I18n = {
 		locale,
@@ -204,7 +278,14 @@ export function createI18n(options: I18nOptions): I18n {
 					'setLocale: the locale is not a locale of the catalogues — pick one with pickLocale',
 				);
 			}
-			locale.value = next;
+			const call = ++latest;
+			if (messages.has(next) || onDemand.get(next) !== undefined) {
+				locale.value = next;
+				return Promise.resolve();
+			}
+			return onDemand.load(next).then(() => {
+				if (call === latest) locale.value = next;
+			});
 		},
 		t(key: string, args: unknown = {}) {
 			// Read first, so a template that throws below still re-renders on a switch.
@@ -222,9 +303,16 @@ export function createI18n(options: I18nOptions): I18n {
 				throw new Error(`t: ${key} is not a key of the catalogues`);
 			}
 			checkArguments('t', key, declared, args);
+			const lazy = onDemand.get(current);
 			const message =
-				messages.get(current)?.get(actualKey as string) ?? declared;
-			return format(current, key, message.text, args as MessageArgs);
+				(lazy?.messages ?? messages.get(current))?.get(actualKey as string) ??
+				declared;
+			return (lazy?.format ?? format)(
+				current,
+				key,
+				message.text,
+				args as MessageArgs,
+			);
 		},
 		has(key): key is MessageKey {
 			return (

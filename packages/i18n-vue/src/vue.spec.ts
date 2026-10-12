@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { computed, createSSRApp, defineComponent, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
-import { expectThrow } from '../test/expect-throw';
+import { expectThrow, expectThrowAsync } from '../test/expect-throw';
+import lazyEn from '../test/lazy-locales/en.json';
+import type { Catalogue, CatalogueLoader } from './core/catalogues';
 import { createI18n, useI18n } from './vue';
 
 const catalogues = {
@@ -251,6 +253,365 @@ describe('catalogues given up front, with no loaders', () => {
 			loaders: undefined,
 		} as never);
 		expect(i18n.locales).toEqual(['en', 'fr']);
+	});
+});
+
+/** A promise settled from outside, to hold a loader mid-flight. */
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason: unknown) => void;
+	const promise = new Promise<T>((ok, ko) => {
+		resolve = ok;
+		reject = ko;
+	});
+	return { promise, resolve, reject };
+}
+
+/** A loader that counts its calls and answers `answer()` each time. */
+function counted(answer: () => Promise<unknown>) {
+	const loader = Object.assign(
+		() => {
+			loader.calls += 1;
+			return answer();
+		},
+		{ calls: 0 },
+	);
+	return loader as typeof loader & CatalogueLoader;
+}
+
+/** A copy of `fr`, so a spec's catalogue object is its own and the check cache never hides it. */
+const freshFr = (): Catalogue => structuredClone(catalogues.fr);
+
+describe('catalogues loaded on demand', () => {
+	const en = catalogues.en;
+
+	test('keeps locale and t on the previous locale until the catalogue is loaded and checked', async () => {
+		const fr = deferred<Catalogue>();
+		const i18n = createI18n({
+			catalogues: { en },
+			loaders: { fr: () => fr.promise },
+		});
+		const title = computed(() => i18n.t('home.title'));
+		const done = i18n.setLocale('fr');
+		expect(done).toBeInstanceOf(Promise);
+		expect(i18n.locale.value).toBe('en');
+		expect(title.value).toBe('Welcome');
+		fr.resolve(freshFr());
+		await done;
+		expect(i18n.locale.value).toBe('fr');
+		expect(title.value).toBe('Bienvenue');
+		expect(i18n.t('home.items', { count: 2 })).toBe('2 articles');
+	});
+
+	test('a locale already loaded switches synchronously, and answers a resolved promise', async () => {
+		const i18n = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => freshFr() },
+		});
+		await i18n.setLocale('fr');
+		const back = i18n.setLocale('en');
+		expect(i18n.locale.value).toBe('en');
+		expect(back).toBeInstanceOf(Promise);
+		expect(await back).toBeUndefined();
+		i18n.setLocale('fr');
+		expect(i18n.locale.value).toBe('fr');
+		expect(i18n.t('home.title')).toBe('Bienvenue');
+	});
+
+	test('a locale of the catalogues still switches synchronously, and answers a resolved promise', async () => {
+		const i18n = createI18n({ catalogues });
+		const done = i18n.setLocale('fr');
+		expect(i18n.locale.value).toBe('fr');
+		expect(done).toBeInstanceOf(Promise);
+		expect(await done).toBeUndefined();
+	});
+
+	test('calls a loader once, concurrent calls included', async () => {
+		const fr = counted(async () => freshFr());
+		const i18n = createI18n({ catalogues: { en }, loaders: { fr } });
+		await Promise.all([i18n.setLocale('fr'), i18n.setLocale('fr')]);
+		expect(fr.calls).toBe(1);
+		i18n.setLocale('en');
+		await i18n.setLocale('fr');
+		expect(fr.calls).toBe(1);
+		expect(i18n.locale.value).toBe('fr');
+	});
+
+	test('the last call wins, whichever load ends first', async () => {
+		const fr = deferred<Catalogue>();
+		const de = deferred<Catalogue>();
+		const i18n = createI18n({
+			catalogues: { en },
+			loaders: { fr: () => fr.promise, de: () => de.promise },
+		});
+		const toFr = i18n.setLocale('fr');
+		const toDe = i18n.setLocale('de');
+		de.resolve(freshFr());
+		await toDe;
+		expect(i18n.locale.value).toBe('de');
+		fr.resolve(freshFr());
+		await toFr;
+		expect(i18n.locale.value).toBe('de');
+	});
+
+	test('a switch to a loaded locale wins over a load still pending', async () => {
+		const fr = deferred<Catalogue>();
+		const loader = counted(() => fr.promise);
+		const i18n = createI18n({ catalogues: { en }, loaders: { fr: loader } });
+		const toFr = i18n.setLocale('fr');
+		i18n.setLocale('en');
+		fr.resolve(freshFr());
+		await toFr;
+		expect(i18n.locale.value).toBe('en');
+		// Loaded all the same: the next switch is synchronous, the loader not called again.
+		i18n.setLocale('fr');
+		expect(i18n.locale.value).toBe('fr');
+		expect(loader.calls).toBe(1);
+	});
+
+	test('a loader that rejects: the cause kept, the locale unchanged, and the next call retries', async () => {
+		const offline = new Error('offline');
+		let fail = true;
+		const fr = counted(async () => {
+			if (fail) throw offline;
+			return freshFr();
+		});
+		const i18n = createI18n({ catalogues: { en }, loaders: { fr } });
+		const error = await expectThrowAsync(
+			() => i18n.setLocale('fr'),
+			Error,
+			'setLocale: the catalogue of fr could not be loaded',
+		);
+		expect(error.cause).toBe(offline);
+		expect(i18n.locale.value).toBe('en');
+		fail = false;
+		await i18n.setLocale('fr');
+		expect(fr.calls).toBe(2);
+		expect(i18n.locale.value).toBe('fr');
+	});
+
+	test('a loader that throws before answering a promise is a load that failed', async () => {
+		const i18n = createI18n({
+			catalogues: { en },
+			loaders: {
+				fr: () => {
+					throw new Error('no such chunk');
+				},
+			},
+		});
+		await expectThrowAsync(
+			() => i18n.setLocale('fr'),
+			Error,
+			'setLocale: the catalogue of fr could not be loaded',
+		);
+	});
+
+	test('a catalogue that cannot be right is refused with the check’s own message, and not kept', async () => {
+		const fr = counted(async () => ({ home: { title: 'Bienvenue' } }));
+		const i18n = createI18n({ catalogues: { en }, loaders: { fr } });
+		await expectThrowAsync(
+			() => i18n.setLocale('fr'),
+			Error,
+			'i18n: fr: home.greeting is missing — en, the fallback locale, has it',
+		);
+		expect(i18n.locale.value).toBe('en');
+		await expectThrowAsync(
+			() => i18n.setLocale('fr'),
+			Error,
+			'i18n: fr: home.greeting is missing — en, the fallback locale, has it',
+		);
+		expect(fr.calls).toBe(2);
+	});
+
+	test('takes a module whose default export is the catalogue, or the catalogue itself', async () => {
+		const enOnly = { home: { title: 'Welcome', greeting: 'Hello {name}' } };
+		const fromModule = createI18n({
+			catalogues: { en: enOnly },
+			loaders: { fr: () => import('../test/lazy-locales/fr.json') },
+		});
+		await fromModule.setLocale('fr');
+		expect(fromModule.t('home.greeting', { name: 'Ada' })).toBe('Bonjour Ada');
+		const plain = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => freshFr() },
+		});
+		await plain.setLocale('fr');
+		expect(plain.t('home.title')).toBe('Bienvenue');
+	});
+
+	test('unwraps a module only: a plain object with a default key is a catalogue', async () => {
+		const i18n = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => ({ default: freshFr() }) },
+		});
+		await expectThrowAsync(
+			() => i18n.setLocale('fr'),
+			Error,
+			'i18n: fr: home.greeting is missing — en, the fallback locale, has it',
+		);
+	});
+
+	test('refuses an answer that is not a catalogue, with a TypeError', async () => {
+		const message =
+			'setLocale: the loader of fr must answer a catalogue, or a module whose default export is one';
+		for (const answer of [
+			() => Promise.resolve('fr'),
+			() => Promise.resolve(null),
+			() => Promise.resolve([]),
+			// A module with no default export.
+			() => import('../test/expect-throw'),
+		]) {
+			const i18n = createI18n({
+				catalogues: { en },
+				loaders: { fr: answer as never },
+			});
+			await expectThrowAsync(() => i18n.setLocale('fr'), TypeError, message);
+			expect(i18n.locale.value).toBe('en');
+		}
+	});
+
+	test('lists the catalogues’ locales, then those only loaded on demand', () => {
+		const loader = async () => freshFr();
+		expect(
+			createI18n({ catalogues: { en }, loaders: { de: loader, fr: loader } })
+				.locales,
+		).toEqual(['en', 'de', 'fr']);
+		expect(
+			createI18n({ catalogues, loaders: { de: loader, fr: loader } }).locales,
+		).toEqual(['en', 'fr', 'de']);
+	});
+
+	test('a locale in both is already loaded: its loader is never called', async () => {
+		const fr = counted(async () => ({}));
+		const i18n = createI18n({ catalogues, loaders: { fr } });
+		i18n.setLocale('fr');
+		expect(i18n.locale.value).toBe('fr');
+		expect(i18n.t('home.title')).toBe('Bienvenue');
+		expect(fr.calls).toBe(0);
+		expect(
+			createI18n({ catalogues, loaders: { fr }, locale: 'fr' }).t('home.title'),
+		).toBe('Bienvenue');
+	});
+
+	test('checks a catalogue object once across instances, and a new object again', async () => {
+		const fr = freshFr();
+		const first = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => fr },
+		});
+		await first.setLocale('fr');
+		// Seen only if the same object were checked again: the cache hides it.
+		(fr as Record<string, unknown>)['late'] = 'Tard';
+		const second = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => fr },
+		});
+		await second.setLocale('fr');
+		expect(second.t('home.title')).toBe('Bienvenue');
+		const third = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => ({ ...fr }) },
+		});
+		await expectThrowAsync(
+			() => third.setLocale('fr'),
+			Error,
+			'i18n: fr: late is not a key of en, the fallback locale',
+		);
+	});
+
+	test('formats each loaded catalogue with its own messages', async () => {
+		const salut = freshFr() as { home: Record<string, string> };
+		salut.home['title'] = 'Salut';
+		const one = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => freshFr() },
+		});
+		const two = createI18n({
+			catalogues: { en },
+			loaders: { fr: async () => salut },
+		});
+		await one.setLocale('fr');
+		await two.setLocale('fr');
+		expect(one.t('home.title')).toBe('Bienvenue');
+		expect(two.t('home.title')).toBe('Salut');
+	});
+
+	test('refuses a wiring mistake in loaders with a TypeError', () => {
+		const fails = (options: unknown, message: string) =>
+			expectThrow(() => createI18n(options as never), TypeError, message);
+		const loader = async () => freshFr();
+		const shape =
+			"createI18n: loaders must be an object of functions by locale, as { fr: () => import('./locales/fr.json') }";
+		fails({ catalogues: { en }, loaders: 'fr' }, shape);
+		fails({ catalogues: { en }, loaders: null }, shape);
+		fails({ catalogues: { en }, loaders: [loader] }, shape);
+		fails({ catalogues: { en }, loaders: { fr: './locales/fr.json' } }, shape);
+		fails(
+			{ catalogues: { en }, loaders: { French: loader } },
+			'createI18n: loaders holds something that is not a locale — key each loader by a BCP 47 tag, as fr or pt-BR',
+		);
+		fails(
+			{ catalogues: { en }, loaders: { fr: loader }, fallbackLocale: 'fr' },
+			'createI18n: fallbackLocale must be a locale of the catalogues, not one loaded on demand — the reference is checked when createI18n runs',
+		);
+		fails(
+			{ catalogues: { en }, loaders: { fr: loader }, locale: 'fr' },
+			'createI18n: locale must be a locale of the catalogues, not one loaded on demand — start in a loaded locale, then await setLocale(locale)',
+		);
+		// A locale in neither keeps the message it always had.
+		fails(
+			{ catalogues: { en }, loaders: { fr: loader }, locale: 'de' },
+			'createI18n: locale must be a locale of the catalogues — pick one with pickLocale',
+		);
+		fails(
+			{ catalogues: { en }, loaders: { fr: loader }, fallbackLocale: 'de' },
+			'createI18n: fallbackLocale must be a locale of the catalogues',
+		);
+	});
+
+	test('setLocale still throws on bad input synchronously, before any loader', () => {
+		const fr = counted(async () => freshFr());
+		const i18n = createI18n({ catalogues: { en }, loaders: { fr } });
+		expectThrow(
+			() => i18n.setLocale(1 as never),
+			TypeError,
+			'setLocale: the locale must be a string, as fr',
+		);
+		expectThrow(
+			() => i18n.setLocale('de'),
+			Error,
+			'setLocale: the locale is not a locale of the catalogues — pick one with pickLocale',
+		);
+		expect(fr.calls).toBe(0);
+	});
+});
+
+describe('on a plain Bun server, with no Vite and no Nuxt', () => {
+	// What a backend writes by hand: a static import for the fallback locale, a
+	// dynamic import per other locale. No plugin produced this record.
+	const loaders = { fr: () => import('../test/lazy-locales/fr.json') };
+
+	const render = async (locale: string) => {
+		const i18n = createI18n({ catalogues: { en: lazyEn }, loaders });
+		await i18n.setLocale(locale);
+		const app = createSSRApp({
+			render() {
+				return h('p', this.t('home.greeting', { name: 'Ada' }));
+			},
+		}).use(i18n);
+		return renderToString(app);
+	};
+
+	test('renders each request in its locale once setLocale is awaited', async () => {
+		const [fr, en] = await Promise.all([render('fr'), render('en')]);
+		expect(fr).toBe('<p>Bonjour Ada</p>');
+		expect(en).toBe('<p>Hello Ada</p>');
+	});
+
+	test('translates with t alone, with no app at all', async () => {
+		const i18n = createI18n({ catalogues: { en: lazyEn }, loaders });
+		await i18n.setLocale('fr');
+		expect(i18n.t('home.title')).toBe('Bienvenue');
 	});
 });
 

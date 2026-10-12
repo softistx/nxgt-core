@@ -1,0 +1,6 @@
+{
+	"home": {
+		"title": "Bienvenue",
+		"greeting": "Bonjour {name}"
+	}
+}
