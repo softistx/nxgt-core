@@ -49,8 +49,8 @@ export function languageFromSources(): Language | undefined {
 		} catch {
 			continue;
 		}
-		if (SUPPORTED_LANGUAGES.includes(answer as Language)) {
-			return answer as Language;
+		if (typeof answer === 'string' && SUPPORTED_LANGUAGES.includes(answer)) {
+			return answer;
 		}
 	}
 	return undefined;
