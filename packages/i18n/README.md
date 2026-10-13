@@ -135,9 +135,9 @@ two copies of this package in one app — one a dependency of
 `@nxgt/shared-hono`, one the app's own — share it.
 
 A server knows the language from its request, and a browser keeps it in
-`localStorage`. Asking both serves either without a caller changing anything. Pass a provider (a
-function or a `Language` literal) to `createTranslator` if you want one source
-and not the other.
+`localStorage`. Asking both serves either without a caller changing anything.
+Pass a provider (a function or a language name) to `createTranslator` if you
+want one source and not the other.
 
 `SUPPORTED_LANGUAGES` is derived from the registered catalogues, not typed out,
 and it is live: a registration shows in it.
