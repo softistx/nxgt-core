@@ -6,6 +6,7 @@ export * from './catalogues';
 export * from './consts';
 export * from './i18n.browser';
 export * from './merge';
+export * from './parse';
 export * from './resources';
 export * from './sources';
 export * from './types';

@@ -60,12 +60,12 @@
 		"size": "The length of the field ''{path}'' must be between {min} and {max}.",
 		"past": "The value for the field ''{path}'' must be a valid date before {limit}.",
 		"future": "The value for the field ''{path}'' must be a valid date after {limit}.",
-		"email": "The value for the field ''{path}'' must be {numberOfDomains, plural, =0 {a valid email address} =1 {an email address within the domain ''{domains}''} other {an email address within one of the following domains: [{domains}]}.",
+		"email": "The value for the field ''{path}'' must be {numberOfDomains, plural, =0 {a valid email address} =1 {an email address within the domain ''{domains}''} other {an email address within one of the following domains: [{domains}]}}.",
 		"ip": "The value for the field ''{path}'' must be a valid IP address.",
 		"ipv4": "The value for the field ''{path}'' must be a valid IPv4 address.",
 		"ipv6": "The value for the field ''{path}'' must be a valid IPv6 address.",
 		"mac": "The value for the field ''{path}'' must be a valid MAC address.",
-		"url": "The value for the field ''{path}'' must be {numberOfDomains, plural, =0 {a valid URL} =1 {a URL within the domain ''{domains}''} other {a URL within one of the following domains: [{domains}]}.",
+		"url": "The value for the field ''{path}'' must be {numberOfDomains, plural, =0 {a valid URL} =1 {a URL within the domain ''{domains}''} other {a URL within one of the following domains: [{domains}]}}.",
 		"uuid": "The value for the field ''{path}'' must be a valid UUID.",
 		"guid": "The value for the field ''{path}'' must be a valid GUID.",
 		"ssn": "The value for the field ''{path}'' must be a valid social security number(SSN).",
@@ -79,7 +79,7 @@
 		"positive": "The value for the field ''{path}'' must be a positive number.",
 		"negative": "The value for the field ''{path}'' must be a negative number.",
 		"no-scalars": "Invalid type: ''{type}'' is not a scalar type.",
-		"not-null": "The value for {length, plural, =0 {the field} other {each item of the field} ''{path}'' should not be null.",
+		"not-null": "The value for {length, plural, =0 {the field} other {each item of the field}} ''{path}'' should not be null.",
 		"required": "The value for the field ''{path}'' is required.",
 		"time": "The value for the field ''{path}'' must be a valid time in the format HH:mm."
 	}

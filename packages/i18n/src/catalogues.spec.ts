@@ -155,3 +155,25 @@ describe('a key the language lacks', () => {
 		expect(translate('errors' as any, undefined, 'en')).toBe('errors');
 	});
 });
+
+describe('registerCatalogue with { replace: true }', () => {
+	it('drops the keys an earlier registration had, keeping the package’s', () => {
+		registerCatalogue('en', {
+			retired: 'Old',
+			errors: { 'not-found': 'Gone' },
+		});
+		registerCatalogue('en', { kept: 'New' }, { replace: true });
+		expect(translate('retired' as any, undefined, 'en')).toBe('retired');
+		expect(translate('kept' as any, undefined, 'en')).toBe('New');
+		expect(translate('errors.not-found', undefined, 'en')).toBe(
+			resources.en.errors['not-found'],
+		);
+		expect(registeredCatalogues()['en']).not.toHaveProperty('retired');
+	});
+
+	it('registers a new language as a merge would', () => {
+		registerCatalogue('de', { hallo: 'Hallo' }, { replace: true });
+		expect(SUPPORTED_LANGUAGES).toContain('de');
+		expect(translate('hallo' as any, undefined, 'de')).toBe('Hallo');
+	});
+});

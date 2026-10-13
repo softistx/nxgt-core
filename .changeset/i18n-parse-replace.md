@@ -1,0 +1,9 @@
+---
+"@nxgt/i18n": minor
+---
+
+Adds `parseMessage`, a `replace` option for `registerCatalogue`, and fixes seven built-in messages.
+
+- `parseMessage(message)` parses an ICU message the way `translate` formats it. It returns each argument the message uses with its kind: `argument`, `number`, `date`, `time`, `select`, `plural`, `selectordinal` or `tag`. A message that does not parse throws a `MessageSyntaxError`, a `SyntaxError` with the parser's `code`, the `source`, the `offset`, `line` and `column`, and the parser's error as `cause`. A skeleton the parser refuses without a location has the code `INVALID_SKELETON` and no position; one it locates keeps its own code. An app that loads its catalogues from a database can check them without depending on the parser itself (#312). `@formatjs/icu-messageformat-parser` is now a direct dependency, with the same caret range that `intl-messageformat`'s pin falls within, so an install resolves one copy while `intl-messageformat` is current. A lockfile that keeps an older `intl-messageformat` can hold two.
+- `registerCatalogue(language, catalogue, { replace: true })` drops what was registered for that language before registering the new catalogue. A reload can therefore remove a retired key. The package's own messages stay underneath (#313).
+- Seven built-in messages were not valid ICU, so `translate` logged an error and returned their raw text. Five were missing the `}` that closes their plural, and they now format with the arguments they name: `validation.errors.email` and `validation.errors.url` in `en` and `fr`, and `validation.errors.not-null` in `en`. In `fr`, `validation.errors.not-blank` and `validation.errors.not-empty` lose their plural on `length`, which their callers never pass. They now read `Le champ '…' ne doit pas être vide.`, matching English.

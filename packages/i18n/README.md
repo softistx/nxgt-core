@@ -69,6 +69,12 @@ setFallbackLanguage('fr');
   `SUPPORTED_LANGUAGES`, `getLanguage()` accepts it from a source or
   `localStorage`, and `translate` answers in it. Registering the same language
   again merges again; nothing is removed.
+- `registerCatalogue(language, catalogue, { replace: true })` drops what was
+  registered for that language before, then registers `catalogue`. A reload
+  from a database uses it, so a key retired since the last load disappears.
+  It drops every earlier registration for that language, whichever module
+  made it. The package's own messages stay underneath either way. The options
+  are typed `RegisterCatalogueOptions`.
 - `setFallbackLanguage(language)` changes what `getLanguage()` answers when
   nothing names a language (`'en'` until then). The language must have a
   catalogue; otherwise it throws a `RangeError`, so register a new language
@@ -104,6 +110,48 @@ replaces a branch, and the other way round. `undefined` and `null` are
 skipped, so an override never erases a message. The inputs are not changed,
 and a `__proto__` key is ignored. The result is typed as `base`; keys an
 override adds are not in that type.
+
+### Checking a message: `parseMessage`
+
+`parseMessage(message)` parses an ICU message the way `translate` formats it,
+and answers the arguments it uses, with their kinds:
+
+```ts
+import { MessageSyntaxError, parseMessage } from '@nxgt/i18n';
+
+parseMessage('{n, plural, one {# file by {who}} other {# files}}');
+// [{ name: 'n', kind: 'plural' }, { name: 'who', kind: 'argument' }]
+
+try {
+	parseMessage('Hello {name');
+} catch (error) {
+	if (error instanceof MessageSyntaxError) {
+		error.code; // 'EXPECT_ARGUMENT_CLOSING_BRACE'
+		error.line; error.column; // 1, 7
+	}
+}
+```
+
+- Each `{ name, kind }` pair is listed once, in the order it first appears,
+  including inside plural and select branches and tags. A name used two ways,
+  such as `{n}` and `{n, number}`, appears twice, which is how a check finds it.
+  The result is a `MessageArgument[]`, and `kind` is an `ArgumentKind`.
+- The kinds are `argument`, `number`, `date`, `time`, `select`, `plural`,
+  `selectordinal` and `tag`. A tag such as `<b>…</b>` is formatted by a
+  function the caller passes under that name.
+- A message that does not parse throws a `MessageSyntaxError`, a
+  `SyntaxError` carrying the parser's `code`, the `source`, and the `offset`,
+  `line` and `column` where parsing failed. A plural or select without an
+  `other` branch is refused, as the formatter refuses it. A skeleton the
+  parser locates keeps its own code (`INVALID_NUMBER_SKELETON`,
+  `EXPECT_DATE_TIME_SKELETON`). One it refuses without saying where, such as
+  `{d, date, ::YYYY}`, has the code `INVALID_SKELETON` and no position. `cause`
+  is the parser's own error.
+
+Use it to check a catalogue loaded from a database, at load time or in a spec:
+every message parses, keeps to the ICU subset the app allows, and uses each
+argument with the same kind in every language. `translate` itself never
+throws: a message that does not parse is logged and returned as it is.
 
 ## Where the language comes from
 
