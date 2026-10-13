@@ -39,8 +39,9 @@ t('users.greeting', { name });
 `translate` reads this package's catalogues (`en` and `fr`, under `errors`,
 `common`, `validation`, `zod`) and every catalogue registered on top of them
 (see below). Pass your own catalogues to `createTranslator` when a service has
-messages this package does not. A missing key returns the key itself, not a
-throw.
+messages this package does not. A key the language lacks, or a language with no
+catalogue at all, is looked up in the fallback language. Only when that misses
+too does the translator answer the key itself, never a throw.
 
 `LocaleKey` is `keyof` the flattened English catalogue — that is the type
 `CustomException.message` uses. `Language` is `string` since 3.0, and
@@ -75,12 +76,15 @@ setFallbackLanguage('fr');
 - `registeredCatalogues()` answers the catalogues `translate` reads, by
   language.
 
-The state lives on `globalThis`, as the language sources do: two copies of this
-package in one app share it.
+The state lives on `globalThis`, as the language sources do: two 3.x copies of
+this package in one app share it, and the keys a newer copy ships reach both.
+A 2.x copy shares the language sources but not the catalogues: it refuses a
+language it does not ship and answers in English. Every `@nxgt/*` package an
+app uses has to resolve `@nxgt/i18n` 3 before its registrations reach it.
 
 A language registered with only the app's keys has none of the package's
-`errors`, `validation` and `zod` messages, and `translate` answers those keys
-as they are. Register them in that language too.
+`errors`, `validation` and `zod` messages, and `translate` answers those in the
+fallback language. Register them in that language too to have them translated.
 
 ### `mergeCatalogues`
 
@@ -130,9 +134,8 @@ skipped. Registering one twice keeps one. The registry is on `globalThis`, so
 two copies of this package in one app — one a dependency of
 `@nxgt/shared-hono`, one the app's own — share it.
 
-The two consuming monorepos had forked exactly this — one read the request, the
-other read `localStorage` — and neither could run where the other did. Asking
-both serves either without a caller changing anything. Pass a provider (a
+A server knows the language from its request, and a browser keeps it in
+`localStorage`. Asking both serves either without a caller changing anything. Pass a provider (a
 function or a `Language` literal) to `createTranslator` if you want one source
 and not the other.
 
@@ -148,6 +151,8 @@ and it is live: a registration shows in it.
   with `setFallbackLanguage()`.
 - `SUPPORTED_LANGUAGES` is a `readonly string[]` that grows when a language is
   registered.
+- A key the language lacks is looked up in the fallback language before the
+  key itself is answered. Until 3.0, the key itself was answered right away.
 
 ### Since 2.0
 
@@ -177,3 +182,8 @@ a source as a server does, or relies on `localStorage`.
 - **ICU formatting failures are swallowed** (`console.error`) and the
   unformatted message is returned. A bad `{name}` in a catalogue is a log
   line, not a 500.
+- **Registering throws on bad input, at startup rather than per request.**
+  `registerCatalogue('', …)`, `registerCatalogue('__proto__', …)` and a
+  catalogue that is not an object throw a `TypeError`, and so does
+  `mergeCatalogues(null, …)`. `setFallbackLanguage()` for a language with no
+  catalogue throws a `RangeError`.

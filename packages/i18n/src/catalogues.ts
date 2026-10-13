@@ -2,8 +2,19 @@ import { mergeCatalogues } from './merge';
 import { resources } from './resources';
 import type { Catalogue, Language } from './types';
 
+type ByLanguage = Record<Language, Catalogue>;
+
+/**
+ * The shape every 3.x copy of this package agrees on. It is a contract
+ * between versions: a field added here needs a new symbol name.
+ */
 type State = {
-	catalogues: Record<Language, Catalogue>;
+	/** Each copy's built-in catalogues, merged: a newer copy's keys join. */
+	base: ByLanguage;
+	/** What the app registered, merged per language. */
+	registered: ByLanguage;
+	/** `base` under `registered`, what `translate` reads. */
+	catalogues: ByLanguage;
 	languages: Language[];
 	fallback: Language;
 };
@@ -12,18 +23,45 @@ type State = {
  * One state for the process, on `globalThis`, as the language sources are:
  * an app can hold two copies of this package — one a dependency of
  * `@nxgt/shared-hono`, one its own — and a catalogue registered through
- * either must translate through both.
+ * either must translate through both. A 2.x copy has no such state and sees
+ * none of it.
  */
-const STATE = Symbol.for('@nxgt/i18n/catalogues');
+const STATE = Symbol.for('@nxgt/i18n/catalogues@3');
+
+/** No prototype: a language is a key, and `constructor` is a fine name. */
+const byLanguage = (): ByLanguage => Object.create(null);
+
+function refresh(state: State, language: Language): void {
+	state.catalogues[language] = mergeCatalogues(
+		state.base[language] ?? {},
+		state.registered[language] ?? {},
+	);
+	if (!state.languages.includes(language)) state.languages.push(language);
+}
 
 function state(): State {
 	const global = globalThis as { [STATE]?: State };
 	global[STATE] ??= {
-		catalogues: { ...resources },
-		languages: Object.keys(resources),
+		base: byLanguage(),
+		registered: byLanguage(),
+		catalogues: byLanguage(),
+		languages: [],
 		fallback: 'en',
 	};
 	return global[STATE];
+}
+
+// Each copy adds its built-in catalogues when it loads: keys a newer copy
+// ships reach every copy, and a key both ship keeps the first one's message.
+{
+	const shared = state();
+	for (const [language, catalogue] of Object.entries(resources)) {
+		shared.base[language] = mergeCatalogues(
+			catalogue,
+			shared.base[language] ?? {},
+		);
+		refresh(shared, language);
+	}
 }
 
 /**
@@ -31,7 +69,7 @@ function state(): State {
  * and whatever was registered on top. The object is live — a registration
  * shows in it — and is read-only to callers.
  */
-export function registeredCatalogues(): Readonly<Record<Language, Catalogue>> {
+export function registeredCatalogues(): Readonly<ByLanguage> {
 	return state().catalogues;
 }
 
@@ -54,12 +92,21 @@ export function registerCatalogue(
 	language: Language,
 	catalogue: Catalogue,
 ): void {
-	if (typeof language !== 'string' || language === '') {
-		throw new TypeError('@nxgt/i18n: registerCatalogue needs a language name');
+	if (
+		typeof language !== 'string' ||
+		language === '' ||
+		language === '__proto__'
+	) {
+		throw new TypeError(
+			`@nxgt/i18n: registerCatalogue needs a language name, got ${JSON.stringify(language)}`,
+		);
 	}
-	const { catalogues, languages } = state();
-	catalogues[language] = mergeCatalogues(catalogues[language] ?? {}, catalogue);
-	if (!languages.includes(language)) languages.push(language);
+	const shared = state();
+	shared.registered[language] = mergeCatalogues(
+		shared.registered[language] ?? {},
+		catalogue,
+	);
+	refresh(shared, language);
 }
 
 /** The language `getLanguage()` answers when nothing else names one. */

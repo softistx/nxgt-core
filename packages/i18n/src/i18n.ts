@@ -37,6 +37,26 @@ export function getLanguage(): Language {
 	return getFallbackLanguage();
 }
 
+/**
+ * The message under `key` in `language`'s catalogue, if that language has one
+ * of its own (not `constructor` through the prototype) and the key leads to a
+ * message, not a branch.
+ */
+function messageIn(
+	resources: Record<string, any>,
+	language: string,
+	key: string,
+): string | undefined {
+	if (!Object.hasOwn(resources, language)) return undefined;
+	const message = _.get(resources[language], key);
+	return typeof message === 'string' ? message : undefined;
+}
+
+/**
+ * A translator over `resources`. A key the language lacks — or a language
+ * with no catalogue at all — is looked up in the fallback language
+ * (`getFallbackLanguage()`), and only then answered as the key itself.
+ */
 export function createTranslator<K extends string = LocaleKey>(
 	resources: Record<string, any> = {},
 	localeProvider: LanguageProvider = getLanguage,
@@ -50,9 +70,16 @@ export function createTranslator<K extends string = LocaleKey>(
 			typeof provideLanguage === 'function'
 				? provideLanguage()
 				: provideLanguage;
-		let message: string = _.get(resources[language], key) ?? key;
+		let locale = language;
+		let found = messageIn(resources, language, key);
+		const fallback = getFallbackLanguage();
+		if (found === undefined && fallback !== language) {
+			found = messageIn(resources, fallback, key);
+			locale = fallback;
+		}
+		let message = found ?? key;
 		try {
-			message = new IntlMessageFormat(message, language).format(context);
+			message = new IntlMessageFormat(message, locale).format(context);
 		} catch (e) {
 			console.error(e);
 		}
