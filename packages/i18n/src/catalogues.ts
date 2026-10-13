@@ -81,16 +81,27 @@ export function supportedLanguages(): readonly Language[] {
 	return state().languages;
 }
 
+export type RegisterCatalogueOptions = {
+	/**
+	 * Replace what was registered for the language instead of merging over
+	 * it: a reload drops the keys it no longer has. The package's own
+	 * catalogue stays underneath either way.
+	 */
+	replace?: boolean;
+};
+
 /**
  * Registers `catalogue` for `language`, merged deeply over what that language
  * already has (`mergeCatalogues`): a key it names wins, a key it leaves out
  * keeps the package's message. A language with no catalogue yet becomes
  * supported — `getLanguage()` accepts it from a source or `localStorage`, and
- * `translate` answers in it.
+ * `translate` answers in it. With `{ replace: true }`, earlier registrations
+ * for the language are dropped first.
  */
 export function registerCatalogue(
 	language: Language,
 	catalogue: Catalogue,
+	{ replace = false }: RegisterCatalogueOptions = {},
 ): void {
 	if (
 		typeof language !== 'string' ||
@@ -103,7 +114,7 @@ export function registerCatalogue(
 	}
 	const shared = state();
 	shared.registered[language] = mergeCatalogues(
-		shared.registered[language] ?? {},
+		replace ? {} : (shared.registered[language] ?? {}),
 		catalogue,
 	);
 	refresh(shared, language);
