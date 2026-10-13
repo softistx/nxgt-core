@@ -1,7 +1,7 @@
 import { IntlMessageFormat } from 'intl-messageformat';
 import _ from 'lodash';
-import { FALLBACK_LANGUAGE, LANGUAGE_KEY, SUPPORTED_LANGUAGES } from './consts';
-import { resources } from './resources';
+import { getFallbackLanguage, registeredCatalogues } from './catalogues';
+import { LANGUAGE_KEY, SUPPORTED_LANGUAGES } from './consts';
 import { languageFromSources } from './sources';
 import type {
 	Language,
@@ -18,7 +18,7 @@ import type {
  *    context, which `@nxgt/shared-hono` registers for Hono and
  *    `@alxia/i18n` for alxia;
  * 2. `localStorage`, when that object exists;
- * 3. the fallback language.
+ * 3. the fallback language — `'en'`, or what `setFallbackLanguage()` set.
  *
  * Until 2.0 this read Hono's request context itself, through
  * `hono/context-storage`, which tied every consumer — a browser bundle, an
@@ -32,11 +32,9 @@ export function getLanguage(): Language {
 	if (fromSource !== undefined) return fromSource;
 	if (typeof localStorage !== 'undefined') {
 		const stored = localStorage.getItem(LANGUAGE_KEY);
-		if (SUPPORTED_LANGUAGES.includes(stored as Language)) {
-			return stored as Language;
-		}
+		if (stored !== null && SUPPORTED_LANGUAGES.includes(stored)) return stored;
 	}
-	return FALLBACK_LANGUAGE;
+	return getFallbackLanguage();
 }
 
 export function createTranslator<K extends string = LocaleKey>(
@@ -63,4 +61,8 @@ export function createTranslator<K extends string = LocaleKey>(
 	};
 }
 
-export const translate = createTranslator(resources);
+/**
+ * Translates with this package's catalogues and every one registered on top
+ * (`registerCatalogue`), in `getLanguage()`'s language.
+ */
+export const translate = createTranslator(registeredCatalogues());
