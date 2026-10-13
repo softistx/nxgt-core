@@ -1,5 +1,18 @@
 # @nxgt/shared-hono
 
+## 4.4.0
+
+### Minor Changes
+
+- [#310](https://github.com/softistx/nxgt-core/pull/310) [`b0a632f`](https://github.com/softistx/nxgt-core/commit/b0a632fa015beeaa5151e6dfc4b32802a88f45cf) Thanks [@SteveGT96](https://github.com/SteveGT96)! - `c.get('language')` is typed `string`, following `@nxgt/i18n` 3.0, where `Language` is any registered language rather than `'en' | 'fr'`. Code that assigned it to `'en' | 'fr'` now narrows it itself, for example with `SUPPORTED_LANGUAGES.includes()`. Runtime behaviour is unchanged.
+
+### Patch Changes
+
+- Updated dependencies [[`c9269f2`](https://github.com/softistx/nxgt-core/commit/c9269f29506896877a81d5b39d1f7b532efea3bb)]:
+  - @nxgt/i18n@3.0.0
+  - @nxgt/shared-exceptions@1.1.2
+  - @nxgt/shared-mongo@1.2.3
+
 ## 4.3.2
 
 ### Patch Changes
