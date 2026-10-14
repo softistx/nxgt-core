@@ -723,6 +723,19 @@ peers" job rewrites both root fields to `^7.0.0` and runs everything else on
 7, codegen's TS 7 branch included. Raising the root to 7 waits for `vue-tsc`
 to run on it.
 
+**`bun check` does not replace tsc here.** Bun 1.4.3's built-in checker
+(there is no `bun tsc`) reported the same result as `tsc --noEmit` on all
+thirteen packages after a build, and the same five planted errors at the same
+positions (TS2322, TS2578, TS7006, TS2305, TS2339), about eight times faster
+(1.8 s against 13.9 s in total, measured 2026-10-14). Three things keep tsc:
+`bun check` checks with the TypeScript 6.0.3 Bun embeds, not the
+`typescript` the workspace installs, so the "Newest peers" job would check 6
+while claiming 7, and the thirteen packages' peer
+`typescript: ^6.0.3 || ^7.0.0` would go untested at its newest end; it emits
+no declarations, so `build.ts`'s `tsc --emitDeclarationOnly` stays; and at
+the root, `bun check` runs the `check` script (Biome) instead. `vue-tsc`
+keeps the `.vue` checks either way.
+
 ### The issues a release fixed are closed by a job of their own
 
 After `release` publishes, the `close-issues` job of `.github/workflows/release.yml`
