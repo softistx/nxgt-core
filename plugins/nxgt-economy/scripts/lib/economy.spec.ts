@@ -22,6 +22,16 @@ describe('buildRule', () => {
 		])
 			expect(rule).toContain(word);
 	});
+	test('states that Opus plans and Sonnet implements', () => {
+		const rule = buildRule({ CLAUDE_CODE_SUBAGENT_MODEL: 'sonnet' });
+		expect(rule).toContain('Opus plans, Sonnet implements');
+		expect(rule).toContain('Token economy');
+	});
+	test('sends bulk messages to Sonnet', () => {
+		const rule = buildRule({ CLAUDE_CODE_SUBAGENT_MODEL: 'sonnet' });
+		expect(rule).toContain('Bulk messages between sessions');
+		expect(rule).toContain('Token economy');
+	});
 	test('adds the note when the subagent model is unset', () => {
 		const rule = buildRule({});
 		expect(rule).toContain('env.CLAUDE_CODE_SUBAGENT_MODEL=sonnet');
@@ -49,6 +59,31 @@ describe('agentReminder', () => {
 		expect(text).toContain('run on sonnet');
 		expect(text).toContain('model: "haiku"');
 		expect(text).toContain('model: "opus"');
+	});
+	test('mentions sonnet for an implementation in the generic reminder', () => {
+		expect(agentReminder(agent({ prompt: 'x' }), {})).toContain(
+			'model: "sonnet"',
+		);
+	});
+	test('tells a Plan agent without a model to pass opus', () => {
+		const text = agentReminder(agent({ subagent_type: 'Plan' }), {});
+		expect(text).toContain('model: "opus"');
+		expect(text).toContain('Plan agent');
+	});
+	test('stays silent for a Plan agent that passes opus', () => {
+		expect(
+			agentReminder(agent({ subagent_type: 'Plan', model: 'opus' }), {}),
+		).toBeUndefined();
+	});
+	test('stays silent for a Plan agent that passes sonnet', () => {
+		expect(
+			agentReminder(agent({ subagent_type: 'Plan', model: 'sonnet' }), {}),
+		).toBeUndefined();
+	});
+	test('matches Plan exactly, so lowercase gets the generic reminder', () => {
+		const text = agentReminder(agent({ subagent_type: 'plan' }), {});
+		expect(text).toContain('model: "sonnet"');
+		expect(text).not.toContain('a Plan agent writes');
 	});
 	test("names the main session's model when the env is unset", () => {
 		expect(agentReminder(agent({}), {})).toContain("the main session's model");

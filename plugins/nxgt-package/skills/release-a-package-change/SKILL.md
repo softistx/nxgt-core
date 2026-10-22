@@ -98,7 +98,9 @@ release nothing, and `changeset status` will not ask for anything.
    `package.json`): the version, what changed, what it must do (bump, adapt,
    nothing) — beside the `/crew announce`, per "Merges and releases" in
    `~/.claude/CLAUDE.md`. A session already told in step 7 gets one message
-   covering both.
+   covering both. When there are several, the sends of steps 7 and 8 go to
+   an agent with `model: "sonnet"` ("Bulk messages between sessions go to
+   Sonnet", "Token economy" in `~/.claude/CLAUDE.md`).
 9. **Only then**, bump the dependency in the consumer and open its PR.
 
 ## What a changeset has to say

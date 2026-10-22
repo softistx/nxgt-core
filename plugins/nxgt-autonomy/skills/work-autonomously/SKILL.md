@@ -125,8 +125,10 @@ Per item, in this order, and nothing skipped:
    are done once its conditions hold, except the gates it keeps for the
    owner's yes. After a publish, also tell every consumer session with
    `SendMessage`, beside the `/crew announce` ("Merges and releases"): the
-   version, what changed, what the consumer must do. With neither, open the PR
-   and ask.
+   version, what changed, what the consumer must do; when there are several, the sends go
+   to an agent with `model: "sonnet"` ("Bulk messages between sessions go to
+   Sonnet", "Token economy" in `~/.claude/CLAUDE.md`). With neither, open the
+   PR and ask.
    **Then the `main` step, after each merge into `develop`:** ask the owner
    through `AskUserQuestion` (section 4, with the 5-minute timeout) whether to
    move `main`. A yes moves it, fast-forward only (`git merge --ff-only` from
@@ -260,7 +262,9 @@ When *In flight* is empty, or everything left in it is blocked:
    act, and this is that case: a request to act on approved work. For each,
    send one `SendMessage` naming the candidates it found for that session's
    repository — first line self-contained, one message per session, no
-   follow-ups, no acknowledgement of a reply; "working on X" or "released Y"
+   follow-ups, no acknowledgement of a reply; when there are several, the
+   sends go to an agent with `model: "sonnet"` ("Bulk messages between sessions
+   go to Sonnet", "Token economy" in `~/.claude/CLAUDE.md`); "working on X" or "released Y"
    goes through `/crew announce` instead; in the main
    conversation `ListAgents` (and `notify_when_idle`) are yours to check
    first when it could not. Without the owner's go-ahead, run

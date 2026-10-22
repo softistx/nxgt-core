@@ -7,7 +7,7 @@ through the Agent tool's `model` parameter.
 | part | what it does |
 | --- | --- |
 | `SessionStart` hook | puts the rule below in context at the start of every session |
-| `PreToolUse` hook, matcher `Agent` | when an agent is spawned without a `model` (and is not a fork), adds a one-line reminder naming the model it will run on |
+| `PreToolUse` hook, matcher `Agent` | when an agent is spawned without a `model` (and is not a fork), adds a one-line reminder naming the model it will run on; a `Plan` agent without a model is reminded to pass `opus` |
 
 ## Install
 
@@ -23,7 +23,7 @@ The hooks need `bun` on the `PATH`.
 
 Haiku for mechanical and read-only work, sonnet for ordinary implementation, opus
 passed explicitly for architecture and costly mistakes; the full text is in
-`scripts/lib/economy.ts`.
+`scripts/lib/economy.ts`. Plans are Opus's and implementations Sonnet's, per "Token economy" in `~/.claude/CLAUDE.md`, which the hook cites.
 
 ## Make sonnet the subagent default
 
