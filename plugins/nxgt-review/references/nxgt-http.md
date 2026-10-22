@@ -76,7 +76,7 @@ Each of these copies must be changed together with its twin. Report a change to 
 - **Import rule:** the `Types`/`ObjectId`-from-`@nxgt/shared-mongo` rule is not stated here, because no package in this repo depends on Mongo.
 - **Conventions:**
   - Biome, with tabs and single quotes.
-  - Commits follow `<type>: <Capitalized summary>`, with the types the "Commit messages" bullet of that repository's `AGENTS.md` lists; no copy here.
+  - Commit messages: "Commits" in the owner's global `~/.claude/CLAUDE.md`, which that repository's `AGENTS.md` cites; no copy here.
   - Repo scripts are TypeScript run by Bun Shell, never `.sh`.
   - Specs sit next to the code they test, in folders by role (`client/`, `request/`, `reply/`, `middleware/`).
   - A package `README.md` is its npm page: organized by section, with a copy-paste example each, and it never names a private application.
