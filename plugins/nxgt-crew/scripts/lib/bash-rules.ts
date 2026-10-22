@@ -13,22 +13,26 @@ import {
 	describe,
 	type PlaceOf,
 	type Verdict,
+	worktreeOf,
 	worktreesOf,
 } from './conflicts';
 import { recentEdits } from './holds';
-import { isInside } from './paths';
+import { isHomeOrAbove, isInside } from './paths';
 import type { SessionRecord } from './record';
 import { sameRepository } from './scope';
 
 /** Whether a peer stands in, edited in, or claims something at or under `target`. */
 function heldUnder(peer: SessionRecord, target: string, ctx: Context): boolean {
 	if (isInside(peer.cwd, target)) return true;
-	if (peer.worktree && isInside(peer.worktree, target)) return true;
+	const own = worktreeOf(peer, ctx.home);
+	if (own && isInside(own, target)) return true;
 	if (peer.claims.some((c) => isInside(c.path, target))) return true;
 	return recentEdits(peer, ctx.now, ctx.settings).some(
 		(e) =>
 			isInside(e.path, target) ||
-			(e.worktree !== undefined && isInside(e.worktree, target)),
+			(e.worktree !== undefined &&
+				!isHomeOrAbove(e.worktree, ctx.home) &&
+				isInside(e.worktree, target)),
 	);
 }
 
@@ -38,12 +42,18 @@ type Rule<K extends Op['kind']> = (
 	ctx: Context,
 ) => Verdict;
 
-const treeRule: Rule<'tree'> = (op, placeOf, { peers, now, settings }) => {
+const treeRule: Rule<'tree'> = (
+	op,
+	placeOf,
+	{ peers, now, settings, home },
+) => {
 	const worktree = op.dir === undefined ? undefined : placeOf(op.dir).worktree;
 	if (!worktree) return ALLOW;
 	return block(
 		`\`git ${op.verb}\` would move HEAD or rewrite files in the worktree ${worktree}, which another live session is working in.`,
-		peers.filter((p) => worktreesOf(p.record, now, settings).has(worktree)),
+		peers.filter((p) =>
+			worktreesOf(p.record, now, settings, home).has(worktree),
+		),
 		now,
 	);
 };
@@ -98,8 +108,8 @@ const forcePushRule: Rule<'force-push'> = (op, placeOf, { peers, now }) => {
 };
 
 const deleteRule: Rule<'delete'> = (op, _placeOf, ctx) => {
-	const { peers, now, settings, self } = ctx;
-	const mine = [...worktreesOf(self, now, settings)];
+	const { peers, now, settings, self, home } = ctx;
+	const mine = [...worktreesOf(self, now, settings, home)];
 	for (const path of op.paths) {
 		const holding = peers.filter((p) => heldUnder(p.record, path, ctx));
 		if (holding.length) {
@@ -112,11 +122,13 @@ const deleteRule: Rule<'delete'> = (op, _placeOf, ctx) => {
 		// A worktree nested in a peer's (`<repo>/.claude/worktrees/x`) is still
 		// this session's own: the containment that counts is the innermost.
 		if (mine.some((t) => isInside(path, t))) continue;
-		const inside = peers.filter(
-			(p) =>
+		const inside = peers.filter((p) => {
+			const wt = worktreeOf(p.record, home);
+			return (
 				p.record.claims.some((c) => isInside(path, c.path)) ||
-				(p.record.worktree !== undefined && isInside(path, p.record.worktree)),
-		);
+				(wt !== undefined && isInside(path, wt))
+			);
+		});
 		if (inside.length) {
 			return block(
 				`${path} is inside a worktree or folder that belongs to another live session, and this session does not work there.`,

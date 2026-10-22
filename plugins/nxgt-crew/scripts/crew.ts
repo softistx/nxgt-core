@@ -37,7 +37,7 @@ import {
 import { readRoadmaps } from './lib/roadmaps';
 import { readSettings } from './lib/settings';
 import { crewHome, readAll, readOne, write, writeMerged } from './lib/store';
-import { probePid } from './lib/system';
+import { probePid, realHome } from './lib/system';
 
 const KINDS: readonly AnnouncementKind[] = [
 	'working',
@@ -112,7 +112,9 @@ function listSessions(): void {
 			`${JSON.stringify({ self: self ?? null, peers: peers.map((p) => ({ liveness: p.liveness, ...p.record })) }, null, 2)}\n`,
 		);
 	} else {
-		process.stdout.write(`${listing(self, peers, now, settings)}\n`);
+		process.stdout.write(
+			`${listing(self, peers, now, settings, realHome())}\n`,
+		);
 	}
 }
 
@@ -171,9 +173,10 @@ function alignSessions(): void {
 	const sessions = [...(self ? [self] : []), ...peers.map((p) => p.record)];
 	const views = sessions.map((record) => ({
 		record,
-		roadmaps: [...worktreesOf(record, now, settings)].flatMap((wt) =>
-			// The record's remote belongs to its own worktree only.
-			readRoadmaps(wt, wt === record.worktree ? record.remote : undefined),
+		roadmaps: [...worktreesOf(record, now, settings, realHome())].flatMap(
+			(wt) =>
+				// The record's remote belongs to its own worktree only.
+				readRoadmaps(wt, wt === record.worktree ? record.remote : undefined),
 		),
 	}));
 	const result = align(views);

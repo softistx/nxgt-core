@@ -1,7 +1,17 @@
 /** The hooks end to end, over one session's life and a peer's (see `hooks.harness.ts`). */
 
 import { describe, expect, test } from 'bun:test';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { $ } from 'bun';
 import {
@@ -240,5 +250,87 @@ describe('a session’s life', () => {
 				await pre('bbbbbbbb-2', 'Edit', { file_path: join(repo, 'a.ts') }),
 			),
 		).toBeUndefined();
+	});
+});
+
+describe('a git repository in the home folder (#320)', () => {
+	const start = (id: string, cwd: string, fakeHome: string) =>
+		run(
+			'session-start.ts',
+			{
+				session_id: id,
+				cwd,
+				hook_event_name: 'SessionStart',
+				source: 'startup',
+			},
+			{ HOME: fakeHome },
+		);
+
+	test('SessionStart warns, and the stray repository is no worktree', async () => {
+		const fakeHome = realpathSync(
+			mkdtempSync(join(tmpdir(), 'nxgt-crew-home-')),
+		);
+		try {
+			expect(fakeHome.startsWith(realpathSync(tmpdir()))).toBe(true);
+			await $`git init -q ${fakeHome}`.quiet();
+			const sub = join(fakeHome, 'notes');
+			mkdirSync(sub);
+			const r = await start('hhhhhhhh-1', sub, fakeHome);
+			expect(r.out?.['hookSpecificOutput']?.additionalContext).toContain(
+				'~/.git exists',
+			);
+			const rec = JSON.parse(
+				readFileSync(join(home, 'sessions', 'hhhhhhhh-1.json'), 'utf8'),
+			);
+			expect(rec.worktree).toBeUndefined();
+		} finally {
+			rmSync(fakeHome, { recursive: true, force: true });
+		}
+	});
+
+	test('SessionStart stays quiet without ~/.git', async () => {
+		const fakeHome = realpathSync(
+			mkdtempSync(join(tmpdir(), 'nxgt-crew-home-')),
+		);
+		try {
+			const r = await start('hhhhhhhh-2', fakeHome, fakeHome);
+			expect(r.out?.['hookSpecificOutput']?.additionalContext).not.toContain(
+				'~/.git exists',
+			);
+		} finally {
+			rmSync(fakeHome, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('HOME that is a symlink (#320)', () => {
+	test('a subfolder session records no worktree', async () => {
+		const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'nxgt-crew-link-')));
+		try {
+			expect(tmp.startsWith(realpathSync(tmpdir()))).toBe(true);
+			const real = join(tmp, 'real');
+			const link = join(tmp, 'link');
+			mkdirSync(real);
+			await $`git init -q ${real}`.quiet();
+			symlinkSync(real, link);
+			const sub = join(real, 'notes');
+			mkdirSync(sub);
+			await run(
+				'session-start.ts',
+				{
+					session_id: 'llllllll-1',
+					cwd: sub,
+					hook_event_name: 'SessionStart',
+					source: 'startup',
+				},
+				{ HOME: link },
+			);
+			const rec = JSON.parse(
+				readFileSync(join(home, 'sessions', 'llllllll-1.json'), 'utf8'),
+			);
+			expect(rec.worktree).toBeUndefined();
+		} finally {
+			rmSync(tmp, { recursive: true, force: true });
+		}
 	});
 });

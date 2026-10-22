@@ -8,13 +8,14 @@
  */
 
 import { statSync } from 'node:fs';
+import { worktreeOf } from '../lib/conflicts';
 import { claim, recordEdit } from '../lib/holds';
 import { runHook } from '../lib/hook';
 import { isInside } from '../lib/paths';
 import { gitIsStale, heartbeat } from '../lib/record';
 import { load, type Session } from '../lib/session';
 import { writeMerged } from '../lib/store';
-import { gitPlace, probePid } from '../lib/system';
+import { gitPlace, probePid, realHome } from '../lib/system';
 import { claimsFromMktemp, editedPath } from '../lib/tools';
 
 /**
@@ -31,12 +32,15 @@ function isFreshFolder(path: string, session: Session): boolean {
 	} catch {
 		return false;
 	}
-	return !session.peers.some(
-		({ record }) =>
+	const home = realHome();
+	return !session.peers.some(({ record }) => {
+		const wt = worktreeOf(record, home);
+		return (
 			isInside(path, record.cwd) ||
-			(record.worktree !== undefined && isInside(path, record.worktree)) ||
-			record.claims.some((c) => isInside(path, c.path)),
-	);
+			(wt !== undefined && isInside(path, wt)) ||
+			record.claims.some((c) => isInside(path, c.path))
+		);
+	});
 }
 
 await runHook(async (input) => {

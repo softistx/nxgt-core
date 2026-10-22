@@ -20,13 +20,13 @@ import { markWarned } from '../lib/holds';
 import { runHook } from '../lib/hook';
 import { load } from '../lib/session';
 import { writeMerged } from '../lib/store';
-import { gitPlace, placeResolver, probePid } from '../lib/system';
+import { gitPlace, placeResolver, probePid, realHome } from '../lib/system';
 import { editedPath } from '../lib/tools';
 
 await runHook(async (input) => {
 	const session = load(input, process.env, probePid);
 	const { self, peers, now, settings } = session;
-	const ctx = { self, peers, now, settings };
+	const ctx = { self, peers, now, settings, home: realHome() };
 	const cwd = input.cwd ?? self.cwd;
 
 	let verdict: Verdict = { decision: 'allow', warned: [] };

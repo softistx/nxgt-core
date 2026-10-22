@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { evaluateBash } from './bash-rules';
 import { parseCommand } from './command';
+import { evaluateEdit } from './conflicts';
 import {
 	bash,
 	ctx,
@@ -233,5 +234,47 @@ describe('publishing', () => {
 	test('with no peers it still records the release', () => {
 		const v = bash('npm publish', []);
 		expect(v.decision === 'allow' && v.publish).toBe('publishing: npm publish');
+	});
+});
+
+describe('a peer recorded with the home folder as its worktree (#320)', () => {
+	const strayed = () =>
+		record('stray', {
+			cwd: '/home/u/notes',
+			worktree: '/home/u',
+			edits: [{ path: '/home/u/n.md', worktree: '/home/u', at: minutesAgo(2) }],
+		});
+
+	test('does not block an rm under home', () => {
+		expect(
+			bash('rm -rf /home/u/workspace/worktrees/x', [strayed()]).decision,
+		).toBe('allow');
+	});
+
+	test('does not block a git worktree remove under home', () => {
+		expect(
+			bash('git worktree remove /home/u/workspace/worktrees/x', [strayed()])
+				.decision,
+		).toBe('allow');
+	});
+
+	test('does not warn on an edit under home', () => {
+		const stray = { worktree: '/home/u', repo: '/home/u/.git' };
+		const v = evaluateEdit('/home/u/notes/b.md', stray, ctx([strayed()]));
+		expect(v.decision).toBe('allow');
+		if (v.decision === 'allow') expect(v.context).toBeUndefined();
+	});
+
+	test('a peer with a real worktree still blocks', () => {
+		const real = record('real', {
+			cwd: '/home/u/workspace/worktrees/x',
+			worktree: '/home/u/workspace/worktrees/x',
+		});
+		expect(denied(bash('rm -rf /home/u/workspace/worktrees/x', [real]))).toBe(
+			true,
+		);
+		expect(
+			denied(bash('git worktree remove /home/u/workspace/worktrees/x', [real])),
+		).toBe(true);
 	});
 });

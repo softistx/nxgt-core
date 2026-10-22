@@ -28,12 +28,25 @@
 import { currentWork } from './announcements';
 import { recentEdits, shouldWarn } from './holds';
 import type { Peer } from './liveness';
-import { isInside } from './paths';
+import { isHomeOrAbove, isInside } from './paths';
 import { type GitPlace, label, type SessionRecord } from './record';
 import type { Settings } from './settings';
 import { ago } from './time';
 
 export { isInside };
+
+/**
+ * A peer's worktree, or `undefined` when the record (written before #320 was
+ * fixed) holds the home folder or an ancestor: that is no worktree.
+ */
+export function worktreeOf(
+	record: SessionRecord,
+	home: string,
+): string | undefined {
+	return record.worktree && !isHomeOrAbove(record.worktree, home)
+		? record.worktree
+		: undefined;
+}
 
 export type Verdict =
 	| { readonly decision: 'deny'; readonly reason: string }
@@ -52,22 +65,35 @@ export interface Context {
 	readonly peers: readonly Peer[];
 	readonly now: Date;
 	readonly settings: Settings;
+	/** The home folder, for `isHomeOrAbove`; the caller passes `realHome()`. */
+	readonly home: string;
 }
 
 export type PlaceOf = (dir: string) => GitPlace;
 
 export const ALLOW: Verdict = { decision: 'allow', warned: [] };
 
-/** The worktrees a session is working in: where it stands, and where it edited recently. */
+/**
+ * The worktrees a session is working in: where it stands, and where it edited
+ * recently. The home folder and its ancestors are no worktree
+ * (records written before #320 was fixed).
+ */
 export function worktreesOf(
 	record: SessionRecord,
 	now: Date,
 	settings: Settings,
+	home: string,
 ): Set<string> {
 	const out = new Set<string>();
-	if (record.worktree) out.add(record.worktree);
+	const own = worktreeOf(record, home);
+	if (own) out.add(own);
 	for (const e of recentEdits(record, now, settings)) {
-		if (e.worktree) out.add(e.worktree);
+		if (
+			e.worktree &&
+			(home === undefined || !isHomeOrAbove(e.worktree, home))
+		) {
+			out.add(e.worktree);
+		}
 	}
 	return out;
 }
@@ -117,7 +143,7 @@ export function evaluateEdit(
 	place: GitPlace,
 	ctx: Context,
 ): Verdict {
-	const { peers, now, settings, self } = ctx;
+	const { peers, now, settings, self, home } = ctx;
 	const sameFile = peers.filter((p) =>
 		recentEdits(p.record, now, settings).some((e) => e.path === file),
 	);
@@ -142,7 +168,7 @@ export function evaluateEdit(
 	if (!worktree) return ALLOW;
 	const toWarn = peers.filter(
 		(p) =>
-			worktreesOf(p.record, now, settings).has(worktree) &&
+			worktreesOf(p.record, now, settings, home).has(worktree) &&
 			shouldWarn(self, p.record.sessionId, now),
 	);
 	if (!toWarn.length) return ALLOW;

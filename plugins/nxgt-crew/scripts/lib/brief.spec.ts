@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { announce } from './announcements';
-import { brief, digest, listing, partition } from './brief';
+import { brief, digest, homeGitWarning, listing, partition } from './brief';
 import { minutesAgo, NOW, peer, record, SETTINGS } from './fixtures';
 
 const self = record('self-000000', {
@@ -40,7 +40,7 @@ describe('partition', () => {
 
 describe('brief', () => {
 	test('alone', () => {
-		expect(brief(self, [], NOW, SETTINGS)).toBe(
+		expect(brief(self, [], NOW, SETTINGS, '/home/u')).toBe(
 			'nxgt-crew: this session is self-000, in /repo on develop. No other live session is registered.',
 		);
 	});
@@ -51,6 +51,7 @@ describe('brief', () => {
 			[peer(sibling), peer(faraway, 'idle')],
 			NOW,
 			SETTINGS,
+			'/home/u',
 		);
 		expect(text).toContain('2 other live sessions');
 		expect(text.indexOf('Same repository:')).toBeLessThan(
@@ -92,6 +93,7 @@ describe('listing', () => {
 			[peer(sibling)],
 			NOW,
 			SETTINGS,
+			'/home/u',
 		);
 		expect(text.split('\n')[0]).toBe(
 			'This session: self-000 [self-000] — /repo on develop',
@@ -100,8 +102,24 @@ describe('listing', () => {
 	});
 
 	test('an unregistered session still sees its peers', () => {
-		const text = listing(undefined, [peer(sibling)], NOW, SETTINGS);
+		const text = listing(undefined, [peer(sibling)], NOW, SETTINGS, '/home/u');
 		expect(text).toContain('not registered');
 		expect(text).toContain('core [sibling-]');
+	});
+});
+
+describe('homeGitWarning', () => {
+	test('present when <home>/.git exists', () => {
+		const seen: string[] = [];
+		const w = homeGitWarning('/home/u', (p) => {
+			seen.push(p);
+			return true;
+		});
+		expect(seen).toEqual(['/home/u/.git']);
+		expect(w).toContain('~/.git exists');
+	});
+
+	test('absent otherwise', () => {
+		expect(homeGitWarning('/home/u', () => false)).toBeUndefined();
 	});
 });
