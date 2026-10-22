@@ -4,11 +4,12 @@
  * returns "unknown" instead of throwing.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { hostname } from 'node:os';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { homedir, hostname } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { $ } from 'bun';
 import type { PidProbe } from './liveness';
+import { isHomeOrAbove } from './paths';
 import type { GitPlace } from './record';
 
 /**
@@ -35,6 +36,15 @@ export function originOf(worktree: string): string | undefined {
 	return url || undefined;
 }
 
+/** The home folder as git prints paths: symlinks resolved. */
+export function realHome(): string {
+	try {
+		return realpathSync(homedir());
+	} catch {
+		return homedir();
+	}
+}
+
 export async function gitPlace(dir: string): Promise<GitPlace> {
 	const at = existingDir(dir);
 	const rev =
@@ -43,6 +53,8 @@ export async function gitPlace(dir: string): Promise<GitPlace> {
 			.nothrow();
 	if (rev.exitCode !== 0) return {};
 	const [worktree, repo] = rev.stdout.toString().trim().split('\n');
+	// A repository at or above the home folder is never a session's worktree (#320).
+	if (worktree && isHomeOrAbove(worktree, realHome())) return {};
 	// `symbolic-ref`, not `rev-parse --abbrev-ref HEAD`: it also names the
 	// unborn branch of a repository with no commit, and fails on a detached HEAD.
 	const head = await $`git -C ${at} symbolic-ref --short -q HEAD`

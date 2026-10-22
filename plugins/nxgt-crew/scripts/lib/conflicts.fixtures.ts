@@ -25,6 +25,8 @@ export const OTHER: GitPlace = {
 	branch: 'develop',
 };
 
+export const HOME = '/home/u';
+
 export const self = record('self', { cwd: '/tmp/wt', ...WT });
 export const inMain = announce(
 	record('peer-main', {
@@ -46,6 +48,7 @@ export const ctx = (
 	peers: peers.map((p) => peer(p)),
 	now: NOW,
 	settings: SETTINGS,
+	home: HOME,
 });
 
 export const places: Record<string, GitPlace> = {
@@ -61,7 +64,7 @@ export const bash = (
 	me = self,
 ) =>
 	evaluateBash(
-		parseCommand(command, { cwd, home: '/home/u' }),
+		parseCommand(command, { cwd, home: HOME }),
 		placeOf,
 		ctx(peers, me),
 	);

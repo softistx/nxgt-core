@@ -97,6 +97,7 @@ The folder is `$NXGT_CREW_HOME` when set, else `$CLAUDE_CONFIG_DIR/nxgt-crew`.
 }
 ```
 
+- **A repository at or above the home folder is never a session's worktree**: a stray `~/.git` is ignored when the worktree is recorded, when the guard reads a peer's record (including records written before) and when `mktemp` folders are claimed, and SessionStart warns about it (softistx/nxgt-core#320).
 - **No file contents and no secrets**: paths, a branch, timestamps, and
   one-line announcements a session chose to make. The release announcement
   the guard records for a publish drops `VAR=value` prefixes and masks the

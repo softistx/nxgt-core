@@ -5,14 +5,15 @@
  * — same repository first — in Claude's context.
  */
 
-import { appendFileSync } from 'node:fs';
-import { brief } from '../lib/brief';
+import { appendFileSync, existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { brief, homeGitWarning } from '../lib/brief';
 import { runHook } from '../lib/hook';
 import { sweepable } from '../lib/liveness';
 import { register } from '../lib/record';
 import { load } from '../lib/session';
 import { readAll, remove, write } from '../lib/store';
-import { claudeProcess, gitPlace, probePid } from '../lib/system';
+import { claudeProcess, gitPlace, probePid, realHome } from '../lib/system';
 
 await runHook(async (input) => {
 	const session = load(input, process.env, probePid);
@@ -53,12 +54,12 @@ await runHook(async (input) => {
 	return {
 		hookSpecificOutput: {
 			hookEventName: 'SessionStart',
-			additionalContext: brief(
-				self,
-				session.peers,
-				session.now,
-				session.settings,
-			),
+			additionalContext: [
+				homeGitWarning(homedir(), existsSync),
+				brief(self, session.peers, session.now, session.settings, realHome()),
+			]
+				.filter(Boolean)
+				.join('\n'),
 		},
 	};
 });

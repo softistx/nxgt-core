@@ -33,6 +33,7 @@ export function peerBlock(
 	self: SessionRecord,
 	now: Date,
 	settings: Settings,
+	home: string,
 ): string {
 	const r = peer.record;
 	const where = r.worktree ?? r.cwd;
@@ -43,7 +44,7 @@ export function peerBlock(
 	];
 	const shared =
 		self.worktree !== undefined &&
-		worktreesOf(r, now, settings).has(self.worktree);
+		worktreesOf(r, now, settings, home).has(self.worktree);
 	if (shared) lines.push('  shares this session’s worktree');
 	for (const a of r.announcements.slice(0, 3)) {
 		lines.push(`  ${a.kind}: ${a.text} (${ago(a.at, now)})`);
@@ -71,6 +72,7 @@ export function brief(
 	peers: readonly Peer[],
 	now: Date,
 	settings: Settings,
+	home: string,
 ): string {
 	const here = self.worktree ?? self.cwd;
 	const branch = self.branch ? ` on ${self.branch}` : '';
@@ -84,11 +86,12 @@ export function brief(
 	];
 	if (same.length) {
 		parts.push('Same repository:');
-		for (const p of same) parts.push(peerBlock(p, self, now, settings));
+		for (const p of same) parts.push(peerBlock(p, self, now, settings, home));
 	}
 	if (elsewhere.length) {
 		parts.push(same.length ? 'Elsewhere:' : 'Other repositories:');
-		for (const p of elsewhere) parts.push(peerBlock(p, self, now, settings));
+		for (const p of elsewhere)
+			parts.push(peerBlock(p, self, now, settings, home));
 	}
 	parts.push(
 		'The crew guard blocks an edit to a file a live peer edited recently, and a checkout, reset, stash, rebase or worktree removal where a live peer works. /crew lists sessions and records an announcement; the session-coordinator agent checks alignment before a release or a change to a shared repository.',
@@ -114,10 +117,11 @@ export function listing(
 	peers: readonly Peer[],
 	now: Date,
 	settings: Settings,
+	home: string,
 ): string {
 	if (!self) {
 		const lines = peers.map((p) =>
-			peerBlock(p, { ...p.record, worktree: undefined }, now, settings),
+			peerBlock(p, { ...p.record, worktree: undefined }, now, settings, home),
 		);
 		return [
 			'nxgt-crew: this session is not registered (the hooks have not run for it).',
@@ -131,5 +135,15 @@ export function listing(
 			.slice(0, 3)
 			.map((a) => `  ${a.kind}: ${a.text} (${ago(a.at, now)})`),
 	];
-	return [...mine, brief(self, peers, now, settings)].join('\n');
+	return [...mine, brief(self, peers, now, settings, home)].join('\n');
+}
+
+/** The SessionStart warning about a stray `<home>/.git` (#320), or `undefined`. */
+export function homeGitWarning(
+	home: string,
+	exists: (path: string) => boolean,
+): string | undefined {
+	return exists(`${home.replace(/\/+$/, '')}/.git`)
+		? 'nxgt-crew: ~/.git exists — a repository in the home folder; remove it (it makes every folder under ~ look like one repository).'
+		: undefined;
 }
