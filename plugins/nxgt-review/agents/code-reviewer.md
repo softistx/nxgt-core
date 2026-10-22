@@ -259,8 +259,10 @@ reference may set its own. Every rule below means that number.
 **Repository conventions**
 - A new `.sh` file: automation is a TypeScript file run by Bun, with Bun
   Shell.
-- A commit message that is not `<type>: <Capitalized summary>` with a type
-  the repository lists.
+- A commit message or PR title that does not follow "Commits" in the
+  owner's global `~/.claude/CLAUDE.md`. A repository's `AGENTS.md` or
+  reference that still states another format is stale: say so, and hold the
+  commits to the global rule.
 - A secret, a token, a real credential, or a local absolute path committed.
 
 ## How to report

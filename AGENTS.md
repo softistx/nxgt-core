@@ -27,8 +27,8 @@ on these packages, never the reverse.
 
 ## Rules every repository shares
 
-Worktrees, integration branches, merges and releases, questions to the owner
-and how sessions work together are the owner's global rules, in
+Worktrees, integration branches, commits, merges and releases, questions to
+the owner and how sessions work together are the owner's global rules, in
 `~/.claude/CLAUDE.md`; they are not restated here. What follows is
 `nxgt-core`'s own.
 
@@ -874,10 +874,6 @@ Inherited from both monorepos and unchanged:
   not the `<template>`, so it reports a binding used only in the template as
   unused: `biome.json` turns `noUnusedVariables` and `noUnusedImports` off for
   `**/*.vue`, and `vue-tsc` is what checks them.
-- Commit messages: `<type>: <Capitalized summary>`, types `feat`, `fix`,
-  `update`, `chore`, `docs`, `typo`, `test` for a commit that only adds or
-  changes specs (nxgt-core's own addition, 2026-10-12), and `ci` for the
-  workflows and the setup action.
 
 Established here, and applying to all four repositories:
 

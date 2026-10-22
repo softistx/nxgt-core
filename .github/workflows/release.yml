@@ -54,8 +54,8 @@ jobs:
         with:
           version-script: bun run changeset:version
           publish-script: bun run changeset:publish
-          pr-title: 'chore: Version packages'
-          commit-message: 'chore: Version packages'
+          pr-title: 'chore: version packages'
+          commit-message: 'chore: version packages'
           # v2 ignores GITHUB_TOKEN in env for its own GitHub API calls.
           github-token: ${{ secrets.GITHUB_TOKEN }}
         env:

@@ -182,10 +182,10 @@ when something looks wrong.
 
 ## Commit messages
 
-`<type>: <Capitalized summary>`, matching what `git log` already shows. The
-types are the ones the repository's `AGENTS.md` lists, not a copy kept here:
-the sets differ (nxgt-core adds `test` and `ci`, for one), and a copy goes
-stale.
+The form is "Commits" in the owner's global `~/.claude/CLAUDE.md`, for every
+commit and every PR title (slice PRs and the effort's PR alike), not a copy
+kept here. Older commits in `git log`, or a repository's `AGENTS.md` or
+reference that states another form, are stale; follow the rule.
 
 Write the body for whoever has to act on it. When a change is consumed from
 another repository, that means **consumer terms**: not "add `Note#viewers`" but
