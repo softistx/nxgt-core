@@ -41,5 +41,5 @@ leaks an internal, a `files` entry that ships more than intended, or a
 dependency moved from `peerDependencies` into `dependencies` — which quietly
 makes this repository responsible for a version the consumer used to choose.
 
-Commit types: the "Commit messages" bullet of this repository's `AGENTS.md`,
-which lists them (with `test` and `ci` beside the shared ones); no copy here.
+Commit messages: "Commits" in the owner's global `~/.claude/CLAUDE.md`, which
+this repository's `AGENTS.md` cites among the shared rules; no copy here.

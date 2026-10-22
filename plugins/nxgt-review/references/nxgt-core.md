@@ -241,4 +241,4 @@ From the table in `AGENTS.md`:
 - A fix here is a release before it is a consumer PR. A consumer PR opened
   before the version answers on `registry.npmjs.org` is not reviewable.
 - `CHANGELOG.md` is generated; a hand edit is a finding, except a line rewritten to remove a private name (an application, or an internal name for the set of applications).
-- Commit types: the "Commit messages" bullet of this repository's `AGENTS.md` lists them (with `test` and `ci`); no copy here.
+- Commit messages: "Commits" in the owner's global `~/.claude/CLAUDE.md`, which this repository's `AGENTS.md` cites among the shared rules; no copy here.
