@@ -129,7 +129,9 @@ The `report-to-upstream` skill drives this flow:
 4. `issues.ts track` — the private tracking issue in the application, then the
    `// Temporary, until <pkg>#<n>` markers.
 5. `issues.ts sessions owner/repo` with `ListAgents` — one `SendMessage` to
-   each session that has to act.
+   each session that has to act; when there are several consumer sends, they
+   go to an agent with `model: "sonnet"` ("Bulk messages between sessions go to
+   Sonnet", "Token economy" in `~/.claude/CLAUDE.md`).
 
 ### What `file` reads and does
 

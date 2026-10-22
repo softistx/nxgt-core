@@ -17,6 +17,8 @@ const RULE = [
 	'- `haiku`: mechanical and read-only work — locating a file, symbol or log line; reading a log or CI output and reporting what failed; one question to a docs page; polling a status; listing, counting, comparing; a rename or one-line fix with an exact spec.',
 	'- `sonnet` (the subagent default when CLAUDE_CODE_SUBAGENT_MODEL=sonnet): implementation from a clear plan, writing or fixing specs, documentation, read-only review of a small diff, a multi-file search that needs judgement.',
 	'- `opus`, passed explicitly: architecture and plans, a hard bug of unknown cause, the review before a PR into develop, anything costly to undo.',
+	'- Opus plans, Sonnet implements: "Token economy" in ~/.claude/CLAUDE.md. A Plan agent takes model: "opus"; an implementation agent takes model: "sonnet".',
+	'- Bulk messages between sessions (the same send to several sessions) go to an agent with model: "sonnet": "Token economy" in ~/.claude/CLAUDE.md.',
 	"- Don't spawn an agent for a single lookup one command does. Run independent agents in parallel, each with a self-contained prompt. Don't re-read a file you just edited. Never dump a whole log or transcript into context; filter it first.",
 ].join('\n');
 
@@ -48,7 +50,9 @@ export function agentReminder(input: ToolInput, env: Env): string | undefined {
 	const args = input.tool_input ?? {};
 	if (typeof args.model === 'string' && args.model.trim()) return undefined;
 	if (args.subagent_type === 'fork') return undefined;
+	if (args.subagent_type === 'Plan')
+		return 'nxgt-economy: a Plan agent writes a plan, and every plan is Opus\'s ("Token economy" in ~/.claude/CLAUDE.md): pass model: "opus".';
 	const running =
 		env['CLAUDE_CODE_SUBAGENT_MODEL']?.trim() || "the main session's model";
-	return `nxgt-economy: this agent will run on ${running}, unless its definition pins a model. Pass model: "haiku" for mechanical or read-only work, or model: "opus" for architecture, a hard bug or the review before a PR.`;
+	return `nxgt-economy: this agent will run on ${running}, unless its definition pins a model. Pass model: "haiku" for mechanical or read-only work, model: "sonnet" for an implementation, or model: "opus" for a plan, a hard bug or the review before a PR.`;
 }

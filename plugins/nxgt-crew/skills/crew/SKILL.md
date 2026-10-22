@@ -45,7 +45,9 @@ should follow), `note`. Keep it to one line a peer can act on:
 A `release` announce does not replace telling the consumers: after a publish,
 `SendMessage` each live session whose repository depends on the package (the
 version, what changed, what it must do), per "Merges and releases" in
-`~/.claude/CLAUDE.md`.
+`~/.claude/CLAUDE.md`; when there are several, the sends go to an agent with
+`model: "sonnet"` ("Bulk messages between sessions go to Sonnet", "Token
+economy" in `~/.claude/CLAUDE.md`).
 
 A **`plan`** names its roadmap entry, so the alignment pass can match it.
 Record one **only after the owner accepted the entry** through

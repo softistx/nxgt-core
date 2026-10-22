@@ -118,7 +118,9 @@ bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROO
 ```
 
 With `ListAgents`, find the live sessions it lists (and those whose repository
-is named in `notify`) and send **one** `SendMessage` to each: the package and
+is named in `notify`) and send **one** `SendMessage` to each (when there are several, the sends go to an
+agent with `model: "sonnet"`: "Bulk messages between sessions go to Sonnet",
+"Token economy" in `~/.claude/CLAUDE.md`): the package and
 version, what was fixed, and what to do (`adopt-a-released-fix`: bump, remove
 the `Temporary, until` markers, close the tracking issue). Applications with no
 live session find the fix in their SessionStart digest. Nobody to tell is a

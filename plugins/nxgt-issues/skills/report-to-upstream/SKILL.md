@@ -164,7 +164,11 @@ It lists the live sessions whose repository depends on a package of
 `owner/repo`. With `ListAgents`, find the session working in `owner/repo`
 itself and those listed: send **one** `SendMessage` to each that has to act —
 the package's session (the issue URL and kind), and a consumer that uses the
-affected API (the URL and the workaround). None when nobody has to act.
+affected API (the URL and the workaround). None when nobody has to act. The
+message to the package's session stays with this session; when there are
+several consumer sends, they go to an agent with `model: "sonnet"` ("Bulk
+messages between sessions go to Sonnet", "Token economy" in
+`~/.claude/CLAUDE.md`).
 
 ## 6. Report
 
