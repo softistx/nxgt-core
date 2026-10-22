@@ -110,4 +110,4 @@ From the table in `AGENTS.md`:
 - `typescript` is `^6.0.3` everywhere; siblings by `workspace:^`.
 - A README is the npm page: sections with an example each, an **API** and a
   **Traps** section, no private name.
-- Commit types: the "Commit messages" bullet of that repository's `AGENTS.md` lists them; no copy here.
+- Commit messages: "Commits" in the owner's global `~/.claude/CLAUDE.md`, which that repository's `AGENTS.md` cites; no copy here.
