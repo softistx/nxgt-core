@@ -80,7 +80,7 @@ develop
    after the merge into `develop`, and no answer leaves `main` where it is.
 6. **Merge each slice into the integration branch without asking once it is
    green**, as "Merges and releases" in `~/.claude/CLAUDE.md` defines it —
-   the green bar passes, the `code-reviewer` reports `ready: true`, the `documentation-auditor` reports
+   the green bar passes, the `code-reviewer` (which may run on `model: "sonnet"` for a slice into `feat/*`) reports `ready: true`, the `documentation-auditor` reports
    `ok: true` when a public surface changed, and no owner decision is open —
    and name the four in the slice PR's description. Without that file, a
    repository's `AGENTS.md` decides, else ask.
@@ -170,7 +170,9 @@ when something looks wrong.
   That last one is the perspective no single-domain reviewer has, because it
   means comparing what several independent agents each did for the same class
   of problem. Give every agent the same context and an explicit instruction
-  that this is a read-only investigation.
+  that this is a read-only investigation. Each deep-review agent takes
+  `model: "opus"` ("Opus plans and reviews, Sonnet and Haiku write the code",
+  "Token economy" in `~/.claude/CLAUDE.md`).
 - **What to look at**: bugs, tech debt, duplication, cross-app consistency, and
   — first — whether any slice widened the access surface. The repository's
   reference file names what that means concretely there.

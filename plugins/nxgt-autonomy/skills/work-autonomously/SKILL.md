@@ -104,7 +104,11 @@ Per item, in this order, and nothing skipped:
    this first PR. Work on it in a worktree of its own, as "Git worktrees" in
    `~/.claude/CLAUDE.md` says; without that file, when the main checkout is
    busy or another session is in the repository.
-2. **Do the work**, smallest coherent slice first.
+2. **Do the work**, smallest coherent slice first. The code goes to an agent
+   with `model: "sonnet"`, or `model: "haiku"` for the mechanical; the session
+   writes it itself only when Sonnet failed or went in circles on it, or the
+   bug's cause is unknown, judged on the task ("Opus plans and reviews, Sonnet and Haiku write the code", "Token economy"
+   in `~/.claude/CLAUDE.md`).
 3. **Measure it** — the repo's own green bar (`bun run check`, `typecheck`,
    `build`, the tests CI cannot run), and the behaviour itself where behaviour
    changed. Not "should work": a command and its output.
@@ -112,7 +116,10 @@ Per item, in this order, and nothing skipped:
    measurement, the reason a line exists. A reader of `git log` should not need
    the PR.
 5. **Review, then document.** `nxgt-review:review-before-a-pr` on the branch,
-   apply what it finds; then `nxgt-docs:keep-docs-current` — the docs audit,
+   apply what it finds (the reviewer runs on Opus for the deep review of a PR
+   into `develop` and for what Sonnet cannot do, on `model: "sonnet"` for a small
+   diff, a slice into `feat/*` or a docs or spec check: "Token economy" in
+   `~/.claude/CLAUDE.md`); then `nxgt-docs:keep-docs-current` — the docs audit,
    `docs/` troubleshooting and roadmap included. Both, on every PR, in that
    order.
 6. **Open the PR**, wait for CI, **merge it when the rules below allow it**,

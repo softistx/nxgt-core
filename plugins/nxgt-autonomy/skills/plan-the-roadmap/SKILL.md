@@ -85,8 +85,8 @@ reason, so it is not proposed again.
 
 ### 3. Plan each entry
 
-Run a **`Plan`** agent with `model: "opus"` per entry ("Opus plans, Sonnet
-implements", "Token economy" in `~/.claude/CLAUDE.md`) — in parallel when the
+Run a **`Plan`** agent with `model: "opus"` per entry ("Opus plans and
+reviews, Sonnet and Haiku write the code", "Token economy" in `~/.claude/CLAUDE.md`) — in parallel when the
 entries are independent. Ask it for:
 
 1. the steps, smallest coherent slice first;
@@ -185,8 +185,9 @@ When another session took it, leave the roadmap to that session. Without
 
 `work-autonomously` takes each queue item: one branch, one PR, review then
 docs, merged per the repository's `AGENTS.md`. The implementation of each slice
-goes to an agent with `model: "sonnet"` ("Opus plans, Sonnet implements",
-"Token economy" in `~/.claude/CLAUDE.md`, which also lists the exceptions). When the item's branch is cut,
+goes to an agent with `model: "sonnet"`, or `model: "haiku"` for a mechanical one
+("Opus plans and reviews, Sonnet and Haiku write the code", "Token economy" in
+`~/.claude/CLAUDE.md`, which also lists when Opus writes code). When the item's branch is cut,
 `roadmap-keeper` moves the entry to **Now**, in that item's first PR.
 
 ### 7. Verify
