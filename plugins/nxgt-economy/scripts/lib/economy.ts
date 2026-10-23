@@ -14,10 +14,10 @@ export function disabled(env: Env): boolean {
 
 const RULE = [
 	"nxgt-economy: token economy. The main session should run on the strongest model; delegate light work to a lighter one with the Agent tool's `model` parameter. NXGT_ECONOMY_DISABLE=1 turns this off.",
-	'- `haiku`: mechanical and read-only work — locating a file, symbol or log line; reading a log or CI output and reporting what failed; one question to a docs page; polling a status; listing, counting, comparing; a rename or one-line fix with an exact spec.',
-	'- `sonnet` (the subagent default when CLAUDE_CODE_SUBAGENT_MODEL=sonnet): implementation from a clear plan, writing or fixing specs, documentation, read-only review of a small diff, a multi-file search that needs judgement.',
-	'- `opus`, passed explicitly: architecture and plans, a hard bug of unknown cause, the review before a PR into develop, anything costly to undo.',
-	'- Opus plans, Sonnet implements: "Token economy" in ~/.claude/CLAUDE.md. A Plan agent takes model: "opus"; an implementation agent takes model: "sonnet".',
+	'- `haiku`: mechanical and read-only work — locating a file, symbol or log line; reading a log or CI output and reporting what failed; one question to a docs page; polling a status; listing, counting, comparing. It also writes mechanical code: a rename, a one-line fix with an exact spec, a mechanical edit.',
+	'- `sonnet` (the subagent default when CLAUDE_CODE_SUBAGENT_MODEL=sonnet): implementation from a clear plan, writing or fixing specs, documentation, a review Sonnet can do (a small diff, a slice into feat/*, a docs or spec check), a multi-file search that needs judgement.',
+	'- `opus`, passed explicitly: plans and architecture, every other review (always the deep review of a PR into develop), a bug of unknown cause, code Sonnet failed at or went in circles on, a decision costly to undo.',
+	'- Opus plans and reviews, Sonnet and Haiku write the code; Opus writes code only when Sonnet really cannot, judged on the task: "Token economy" in ~/.claude/CLAUDE.md.',
 	'- Bulk messages between sessions (the same send to several sessions) go to an agent with model: "sonnet": "Token economy" in ~/.claude/CLAUDE.md.',
 	"- Don't spawn an agent for a single lookup one command does. Run independent agents in parallel, each with a self-contained prompt. Don't re-read a file you just edited. Never dump a whole log or transcript into context; filter it first.",
 ].join('\n');
@@ -52,7 +52,13 @@ export function agentReminder(input: ToolInput, env: Env): string | undefined {
 	if (args.subagent_type === 'fork') return undefined;
 	if (args.subagent_type === 'Plan')
 		return 'nxgt-economy: a Plan agent writes a plan, and every plan is Opus\'s ("Token economy" in ~/.claude/CLAUDE.md): pass model: "opus".';
+	if (
+		typeof args.subagent_type === 'string' &&
+		(args.subagent_type === 'code-reviewer' ||
+			args.subagent_type.endsWith(':code-reviewer'))
+	)
+		return 'nxgt-economy: a review takes a model ("Token economy" in ~/.claude/CLAUDE.md): pass model: "opus" for the deep review of a PR into develop and any review Sonnet cannot do, or model: "sonnet" for a small diff, a slice into feat/*, a docs or spec check.';
 	const running =
 		env['CLAUDE_CODE_SUBAGENT_MODEL']?.trim() || "the main session's model";
-	return `nxgt-economy: this agent will run on ${running}, unless its definition pins a model. Pass model: "haiku" for mechanical or read-only work, model: "sonnet" for an implementation, or model: "opus" for a plan, a hard bug or the review before a PR.`;
+	return `nxgt-economy: this agent will run on ${running}, unless its definition pins a model. Pass model: "haiku" for mechanical work (a rename, a one-line fix with an exact spec) or a read-only lookup, model: "sonnet" for code or a review Sonnet can do, or model: "opus" for a plan, a deep review or a bug of unknown cause.`;
 }

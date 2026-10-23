@@ -22,9 +22,13 @@ describe('buildRule', () => {
 		])
 			expect(rule).toContain(word);
 	});
-	test('states that Opus plans and Sonnet implements', () => {
+	test('states that Opus plans and reviews, Sonnet and Haiku write the code', () => {
 		const rule = buildRule({ CLAUDE_CODE_SUBAGENT_MODEL: 'sonnet' });
-		expect(rule).toContain('Opus plans, Sonnet implements');
+		expect(rule).toContain(
+			'Opus plans and reviews, Sonnet and Haiku write the code',
+		);
+		expect(rule).toContain('Opus writes code only when Sonnet really cannot');
+		expect(rule).toContain('a review Sonnet can do');
 		expect(rule).toContain('Token economy');
 	});
 	test('sends bulk messages to Sonnet', () => {
@@ -60,10 +64,42 @@ describe('agentReminder', () => {
 		expect(text).toContain('model: "haiku"');
 		expect(text).toContain('model: "opus"');
 	});
-	test('mentions sonnet for an implementation in the generic reminder', () => {
-		expect(agentReminder(agent({ prompt: 'x' }), {})).toContain(
-			'model: "sonnet"',
+	test('mentions sonnet for code and haiku for mechanical work in the generic reminder', () => {
+		const text = agentReminder(agent({ prompt: 'x' }), {});
+		expect(text).toContain('model: "sonnet"');
+		expect(text).toContain('model: "haiku" for mechanical work');
+	});
+	test('tells a code-reviewer without a model to pass opus or sonnet', () => {
+		for (const subagent_type of [
+			'code-reviewer',
+			'nxgt-review:code-reviewer',
+		]) {
+			const text = agentReminder(agent({ subagent_type }), {});
+			expect(text).toContain('a review takes a model');
+			expect(text).toContain('model: "opus"');
+			expect(text).toContain('model: "sonnet"');
+		}
+	});
+	test('stays silent for a code-reviewer that passes a model', () => {
+		expect(
+			agentReminder(
+				agent({ subagent_type: 'nxgt-review:code-reviewer', model: 'sonnet' }),
+				{},
+			),
+		).toBeUndefined();
+	});
+	test('gives xcode-reviewer the generic reminder', () => {
+		const text = agentReminder(agent({ subagent_type: 'xcode-reviewer' }), {});
+		expect(text).toContain('this agent will run on');
+		expect(text).not.toContain('a review takes a model');
+	});
+	test('gives another agent type the generic reminder', () => {
+		const text = agentReminder(
+			agent({ subagent_type: 'nxgt-docs:documentation-auditor' }),
+			{},
 		);
+		expect(text).toContain('this agent will run on');
+		expect(text).not.toContain('a review takes a model');
 	});
 	test('tells a Plan agent without a model to pass opus', () => {
 		const text = agentReminder(agent({ subagent_type: 'Plan' }), {});

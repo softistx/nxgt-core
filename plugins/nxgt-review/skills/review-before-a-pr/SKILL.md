@@ -31,6 +31,10 @@ Not for a one-line typo, a changeset-only change, or a Version PR.
 2. Delegate to the `code-reviewer` agent. Name the scope — "the branch
    against `origin/develop`", "the diff since `<sha>`", "`packages/<name>`".
    For an effort, give it the integration branch and say which slice is new.
+   Pass `model: "opus"` for the deep review of a PR into `develop` and for
+   anything Sonnet cannot review; `model: "sonnet"` is enough for a small diff,
+   a slice into `feat/*` or a docs or spec check ("Opus plans and reviews,
+   Sonnet and Haiku write the code", "Token economy" in `~/.claude/CLAUDE.md`).
 3. In parallel, when a public surface changed, delegate to
    `documentation-auditor` (plugin `nxgt-docs`). The reviewer does not audit
    documentation.
