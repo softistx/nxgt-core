@@ -397,8 +397,12 @@ drift the table does not describe.
   *Traps*, *Documentation*, *Type safety, counted*, *Licence*, and the
   refusal count; the detail lives in the package's `docs/`, and the words
   follow `packages/janus/docs/guide/vocabulary.md`.
-- Commits are `<type>(<package>): <Capitalized summary>`, the scope a
-  package's directory name, no scope for the repository; the types are
-  `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `build` (build
-  configuration: tsconfig, bundler, packaging), and `revert`, once. Pull
+- Commit messages: "Commits" in the owner's global `~/.claude/CLAUDE.md`,
+  which that repository's `AGENTS.md` cites ("Commits and merges"); what is
+  its own: the scope is a package's directory name without `@nxgt/` (two
+  packages as `docs(janus, janus-telemetry): …`), no scope for a change to
+  the repository (`ci:`, `chore:`, `docs:`), `build` for build configuration
+  (tsconfig, bundler, packaging), and an identifier at the start of the
+  description keeps its case (`fix(janus-hono): bindJanus binds …`). Commits
+  before 2026-10-23 used capitalised summaries and are not flagged. Pull
   requests merge with a merge commit, never squashed or rebased.
