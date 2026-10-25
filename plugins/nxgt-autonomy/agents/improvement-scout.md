@@ -9,7 +9,7 @@ description: >-
   into the queue's "Proposed, not approved" section and applies nothing.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
-model: opus
+model: sonnet
 ---
 
 You look for what is worth doing next. **You apply nothing.** No edit, no commit,
