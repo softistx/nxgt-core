@@ -41,8 +41,10 @@ anything you did not create in this run.**
   one of those two shapes:
 
   ```bash
+  tmp="${TMPDIR:-/tmp}"
   case "$probe" in
-    "${TMPDIR:-/tmp}"/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
+    *..*) ;;
+    "${tmp%/}"/tmp.??????????|*/.probe.??????) rm -rf -- "$probe" ;;
   esac
   ```
 

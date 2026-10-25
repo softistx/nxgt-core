@@ -40,8 +40,10 @@ anything you did not create in this run.**
   one of those two shapes:
 
   ```bash
+  tmp="${TMPDIR:-/tmp}"
   case "$probe" in
-    "${TMPDIR:-/tmp}"/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
+    *..*) ;;
+    "${tmp%/}"/tmp.??????????|*/.probe.??????) rm -rf -- "$probe" ;;
   esac
   ```
 
@@ -227,6 +229,19 @@ reference may set its own. Every rule below means that number.
   Do report a *new* one, and a listed copy whose two sides have drifted apart
   in a way the table does not describe.
 - Code that reaches into another package's internals rather than its exports.
+- In an application, a part another application could reuse — a component,
+  a helper, a hook or a module — written in the application with no upstream
+  issue and no `Temporary, until <pkg>#<n>` marker ("The same holds for every
+  reusable part" in ~/.claude/CLAUDE.md). A component belongs in
+  `@nxgt/material`, the rest in its `@alxia/*` or `@nxgt/*` package. **Fix:**
+  ask the owner first (the schoolz and healthix apps through their reporting
+  session); on a yes, file the issue through nxgt-issues
+  (`report-to-upstream`), send it to the session that owns the package, and
+  keep the app's copy only behind the marker until the release. The UI side
+  is check 14 of `ux-reviewer` in the `ui-ux` plugin (softistx/plugins); cite
+  it rather than repeating it. **Evidence:** the grep across the owner's
+  packages that shows nothing covers the part yet, and `gh issue list` on
+  that package.
 
 **Tests**
 - A new branch in the code with no spec reaching it; a failure path with no
