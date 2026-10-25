@@ -40,7 +40,7 @@ anything you did not create in this run.**
 
   ```bash
   case "$probe" in
-    "${TMPDIR:-/tmp}"/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
+    "${TMPDIR%/}"/tmp.*|/tmp/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
   esac
   ```
 
