@@ -53,7 +53,7 @@ is the one exception.
   tmp="${TMPDIR:-/tmp}"
   case "$probe" in
     *..*) ;;
-    "${tmp%/}"/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
+    "${tmp%/}"/tmp.??????????|*/.probe.??????) rm -rf -- "$probe" ;;
   esac
   ```
 
