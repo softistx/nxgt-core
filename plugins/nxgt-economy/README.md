@@ -38,6 +38,15 @@ Subagents inherit the main model unless told otherwise. Set this in
 
 When the variable is unset, the `SessionStart` hook says so.
 
+## Agents pin their own model
+
+Every agent of this marketplace pins a `model:` in its frontmatter by the same
+rule: `opus` for a reviewer, a planner or a decision costly to undo
+(`code-reviewer`, `improvement-scout`, `queue-refiller`,
+`unanswered-question-resolver`), `sonnet` for the rest. A pin beats
+`CLAUDE_CODE_SUBAGENT_MODEL`, and a `model` passed on the Agent call beats the
+pin.
+
 ## What it does not do
 
 - It changes no permission and no tool input, and never blocks a call: the

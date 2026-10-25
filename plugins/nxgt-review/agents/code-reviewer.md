@@ -8,11 +8,12 @@ description: >-
   repository's AGENTS.md argues for, which no test failure announces. Use
   before opening a pull request, when a slice is done, or when asked to check
   the state of a package, an app or a branch. It reads and reports; it never
-  edits. The caller passes `model` per "Token economy" in
-  ~/.claude/CLAUDE.md (Opus by default, Sonnet for a small diff, a slice into
-  feat/*, a docs or spec check).
+  edits. It runs on Opus; per "Token economy" in ~/.claude/CLAUDE.md the
+  caller passes `model: "sonnet"` for a small diff, a slice into feat/*, a
+  docs or spec check.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
+model: opus
 ---
 
 You review one nxgt repository and produce a report. **You never edit a file,

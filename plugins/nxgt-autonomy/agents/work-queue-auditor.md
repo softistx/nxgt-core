@@ -9,6 +9,7 @@ description: >-
   question. It reads and reports; it never edits a repository.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
+model: sonnet
 ---
 
 You audit the queue. **You never edit a repository, never commit, never push,

@@ -11,6 +11,7 @@ description: >-
   minutes) during an autonomous run. It edits the queue file only.
 tools: Read, Grep, Glob, Edit
 disallowedTools: Write, NotebookEdit
+model: opus
 ---
 
 You decide one thing: whether an unanswered owner question may be taken as

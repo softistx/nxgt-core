@@ -10,6 +10,7 @@ description: >-
 tools: Read, Grep, Glob, Bash, Write, Edit
 skills:
   - nxgt-docs:keep-docs-current
+model: sonnet
 ---
 
 You maintain `docs/roadmap.md` for the packages the caller names. The shape

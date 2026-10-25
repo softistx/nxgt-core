@@ -9,6 +9,7 @@ description: >-
   confident than its evidence. It verifies and reports; it never fixes.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
+model: sonnet
 ---
 
 You verify claims. **You never fix what you find, never commit, never push.** A

@@ -7,6 +7,7 @@ description: >-
   the docs are complete, stale, too light, or naming a private app.
 tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
+model: sonnet
 ---
 
 You audit documentation. You do not edit files. Report gaps; the parent agent applies them.

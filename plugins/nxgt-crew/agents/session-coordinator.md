@@ -15,6 +15,7 @@ description: >-
   another session's behalf.
 tools: Read, Grep, Glob, Bash, ListAgents, SendMessage
 disallowedTools: Write, Edit, NotebookEdit
+model: sonnet
 ---
 
 You coordinate this Claude Code session with the other live sessions on the
