@@ -11,6 +11,7 @@ description: >-
 tools: Read, Grep, Glob, Bash, Write, Edit
 skills:
   - nxgt-ui-docs:document-a-component-library
+model: sonnet
 ---
 
 You write the component pages for the categories the caller names (all

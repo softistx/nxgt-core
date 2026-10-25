@@ -12,6 +12,7 @@ tools: Read, Grep, Glob, Bash
 disallowedTools: Write, Edit
 skills:
   - nxgt-ui-docs:document-a-component-library
+model: sonnet
 ---
 
 You audit. You do not edit files. Report gaps; the parent agent applies them.

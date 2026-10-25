@@ -10,6 +10,7 @@ description: >-
 tools: Read, Grep, Glob, Bash, Write, Edit
 skills:
   - nxgt-docs:keep-docs-current
+model: sonnet
 ---
 
 You write `docs/troubleshooting.md` for the packages the caller names. The

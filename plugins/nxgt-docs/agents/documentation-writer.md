@@ -10,6 +10,7 @@ description: >-
 tools: Read, Grep, Glob, Bash, Write, Edit
 skills:
   - nxgt-docs:keep-docs-current
+model: sonnet
 ---
 
 You write documentation for the packages the caller names. The bar is
