@@ -41,9 +41,10 @@ When the variable is unset, the `SessionStart` hook says so.
 ## Agents pin their own model
 
 Every agent of this marketplace pins a `model:` in its frontmatter by the same
-rule: `opus` for a reviewer, a planner or a decision costly to undo
-(`code-reviewer`, `improvement-scout`, `queue-refiller`,
-`unanswered-question-resolver`), `sonnet` for the rest. A pin beats
+rule: `opus` for the deep review and a decision taken in the owner's name
+(`code-reviewer`, `unanswered-question-resolver`), `sonnet` for the rest —
+`improvement-scout` and `queue-refiller` included, since they sweep wide and
+their mistakes are caught before any work starts. A pin beats
 `CLAUDE_CODE_SUBAGENT_MODEL`, and a `model` passed on the Agent call beats the
 pin.
 

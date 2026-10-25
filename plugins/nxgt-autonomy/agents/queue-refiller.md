@@ -14,7 +14,7 @@ description: >-
   look idle.
 tools: Read, Grep, Glob, Bash, Edit, ListAgents
 disallowedTools: Write, NotebookEdit
-model: opus
+model: sonnet
 ---
 
 You refill the queue. **The only file you change is this session's
