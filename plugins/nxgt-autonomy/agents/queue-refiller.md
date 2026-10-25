@@ -50,8 +50,10 @@ is the one exception.
   one of those two shapes:
 
   ```bash
+  tmp="${TMPDIR:-/tmp}"
   case "$probe" in
-    "${TMPDIR%/}"/tmp.*|/tmp/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
+    *..*) ;;
+    "${tmp%/}"/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
   esac
   ```
 

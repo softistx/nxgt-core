@@ -40,8 +40,10 @@ anything you did not create in this run.**
   one of those two shapes:
 
   ```bash
+  tmp="${TMPDIR:-/tmp}"
   case "$probe" in
-    "${TMPDIR%/}"/tmp.*|/tmp/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
+    *..*) ;;
+    "${tmp%/}"/tmp.*|*/.probe.??????) rm -rf -- "$probe" ;;
   esac
   ```
 
@@ -232,7 +234,8 @@ reference may set its own. Every rule below means that number.
   issue and no `Temporary, until <pkg>#<n>` marker ("The same holds for every
   reusable part" in ~/.claude/CLAUDE.md). A component belongs in
   `@nxgt/material`, the rest in its `@alxia/*` or `@nxgt/*` package. **Fix:**
-  ask the owner first; on a yes, file the issue through nxgt-issues
+  ask the owner first (the schoolz and healthix apps through their reporting
+  session); on a yes, file the issue through nxgt-issues
   (`report-to-upstream`), send it to the session that owns the package, and
   keep the app's copy only behind the marker until the release. The UI side
   is check 14 of `ux-reviewer` in the `ui-ux` plugin (softistx/plugins); cite
