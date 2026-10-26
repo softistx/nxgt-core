@@ -320,12 +320,12 @@ Sibling sessions
   - <session / repo>: idle since <time> — candidates for it: <names> | active | siblings: not checked
 For the main session
   - announce each In flight line with a roadmap entry (/crew announce --kind plan), then
-    after the /clear stop, launch LAUNCH NEXT through work-autonomously, one task per context
+    after the /clear question, launch LAUNCH NEXT through work-autonomously, one task per context
   - for each idle sibling above: one SendMessage naming its candidates, the first line self-contained — only a request to act on approved work ("Sessions working together" in ~/.claude/CLAUDE.md); status goes through /crew announce; no acknowledgements
   - run plan-the-roadmap on the Proposed items: they are owner questions
 ```
 
-The session launches the `LAUNCH NEXT` items after its `/clear` stop, one task per context.
+The session launches the `LAUNCH NEXT` items after its `/clear` question (on "Oui" or when chained), one task per context.
 
 `LAUNCH NEXT` naming an item that is not under *In flight* is a
 contradiction; so is an *In flight* line that the `Mandate:` line does not

@@ -105,8 +105,8 @@ describe('buildMandate', () => {
 		],
 		['no hand-back', /Never end a turn by handing back or waiting/],
 		[
-			'the /clear reminder at a task boundary',
-			/except at a task boundary: save the next step in the queue, then end with « Tâche terminée — faites \/clear, puis "reprends" ; reprise depuis <path> »/,
+			'the /clear question at a task boundary',
+			/except at a task boundary: save the next step in the queue, then ask « Tâche terminée — `\/clear` maintenant \? » with AskUserQuestion, giving the resume path/,
 		],
 		[
 			'review, then docs',
