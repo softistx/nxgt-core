@@ -189,7 +189,7 @@ goes to an agent with `model: "sonnet"`, or `model: "haiku"` for a mechanical on
 ("Opus plans and reviews, Sonnet and Haiku write the code", "Token economy" in
 `~/.claude/CLAUDE.md`, which also lists when Opus writes code). When the item's branch is cut,
 `roadmap-keeper` moves the entry to **Now**, in that item's first PR. Each queue
-item is a task that ends with the `/clear` stop (`work-autonomously` section 2,
+item is a task that ends with the `/clear` question (`work-autonomously` section 2,
 step 8).
 
 ### 7. Verify

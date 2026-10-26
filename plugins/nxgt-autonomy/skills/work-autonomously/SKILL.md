@@ -8,8 +8,8 @@ description: >-
   when the owner said to keep going, else the scout) and plan the roadmap
   instead of stopping. Owner decisions go through interactive questions,
   recommended option first; a question unanswered after 5 minutes goes to
-  the unanswered-question-resolver. It stops at each task boundary on the
-  /clear reminder, never starts unapproved work, and never takes an
+  the unanswered-question-resolver. It asks at each task boundary
+  whether to /clear, never starts unapproved work, and never takes an
   irreversible step without an explicit answer. Read it at the start of a
   session, when an item lands, and
   before ending any turn.
@@ -21,7 +21,7 @@ description: >-
 
 **This is the default mode of every session in a git repository, not something
 a phrase switches on.** The owner's standing instruction, which does not need repeating: **carry on
-without me, merge as you go, finish everything queued.** Each task still ends on the `/clear` stop
+without me, merge as you go, finish everything queued.** Each task still ends on the `/clear` question
 (section 2, step 8). "Merge as you go" is
 what "Merges and releases" in `~/.claude/CLAUDE.md` allows — slices, `develop`
 and publishes included, once its conditions hold — and stops at the gates it
@@ -154,13 +154,18 @@ Per item, in this order, and nothing skipped:
 8. **Save the resume point, then stop.** The task is done (merged, published
    or abandoned): write the queue's next step, the open PRs and the worktrees
    where the next task will read them — the queue's In flight line, or a
-   "Resume here" note at its top. End the turn with the reminder, « Tâche
-   terminée — faites `/clear`, puis "reprends" ; reprise depuis `<path>` »
+   "Resume here" note at its top. Then ask, through AskUserQuestion in
+   French, « Tâche terminée — `/clear` maintenant ? » with the resume path
    ("A finished task ends with a reminder to `/clear`", "Token economy" in
-   `~/.claude/CLAUDE.md`). **Start nothing more until the owner has cleared
-   the session**; after the owner's `/clear` and "reprends", re-read this
-   skill and the queue, then take the next item. With no next task, the
-   reminder carries no resume path. A slice of a larger effort is a task too.
+   `~/.claude/CLAUDE.md`). Owner present: the recommended option is « Oui, je
+   fais `/clear` puis "reprends" (Recommandé) », the other « Non, continue dans
+   ce contexte ». On "Oui", **start nothing more**; after the `/clear` and
+   "reprends", re-read this skill and the queue, then take the next item.
+   Owner away (said to continue without waiting) or no answer after 5
+   minutes: the recommended option is, as the one exception, « Non, continue
+   sans `/clear` (Recommandé) », recorded as "Assumed, not answered", and the
+   next task is chained. With no next task, the question carries no resume
+   path. A slice of a larger effort is a task too.
 
 A PR that cannot merge (a blocked check, a permission the owner must grant) moves
 to **Blocked on the user** with the exact blocker — it does not stay in flight
@@ -275,9 +280,9 @@ When *In flight* is empty, or everything left in it is blocked:
    mandate), and returns `LAUNCH NEXT`. With `nxgt-crew`, record each *In
    flight* line that has a roadmap entry with `/crew announce --kind plan`
    (`plan-the-roadmap` step 5) — the refiller cannot — then launch those
-   items through section 2, in order — after the `/clear` stop of step 8: the
-   session saves them as the resume point, stops, and launches them on
-   resume, one task per context. It also names the **sibling sessions that
+   items through section 2, in order — after the `/clear` question of step 8: the
+   session saves them as the resume point, asks, and launches them on
+   "Oui" or on resume, one task per context. It also names the **sibling sessions that
    look idle**; it cannot message them. "Sessions working together" in
    `~/.claude/CLAUDE.md` allows a `SendMessage` only when the recipient has to
    act, and this is that case: a request to act on approved work. For each,
@@ -300,11 +305,11 @@ When *In flight* is empty, or everything left in it is blocked:
    questions.
 
 **If the auditor finds remaining work, continue instead of stopping** — across
-the `/clear`: the next task is saved and resumed, not dropped. That is
+the `/clear` question: the next task is saved and resumed or chained, not dropped. That is
 the continuation trigger, and it is the auditor's answer that decides it — not a
 feeling that there is more to do. **Never end a turn by handing back or
 waiting**: a turn ends on work done and questions asked, not on "let me know".
-The one exception is a task boundary, which ends on the `/clear` reminder
+The one exception is a task boundary, which ends on the `/clear` question
 (section 2, step 8): a saved resume point, not a hand-back.
 
 ## 6. What the report says
