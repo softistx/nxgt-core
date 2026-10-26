@@ -35,7 +35,7 @@ export function insideGitRepo(
 export function buildMandate(): string {
 	return [
 		'nxgt-autonomy: autonomous mode is the default for this session; the owner\'s go-ahead and its limits are "Autonomous mode" in ~/.claude/CLAUDE.md. The skill nxgt-autonomy:work-autonomously details it; NXGT_AUTONOMY_DISABLE=1 turns it off.',
-		'- Work the queue (the work-queue.md memory file) to completion. When it runs dry, run the queue-refiller if the owner said to keep going, else the improvement-scout, then nxgt-autonomy:plan-the-roadmap. Never start work the queue does not approve.',
+		'- Work the queue (the work-queue.md memory file) to completion, one task per context (see the last bullet). When it runs dry, run the queue-refiller if the owner said to keep going, else the improvement-scout, then nxgt-autonomy:plan-the-roadmap. Never start work the queue does not approve.',
 		'- Owner decisions go through AskUserQuestion as "Questions to the owner" in ~/.claude/CLAUDE.md says; without one, recommended option first and labelled "(Recommended)". A question that returns unanswered after 5 minutes (askUserQuestionTimeout "5m") goes to the unanswered-question-resolver, which applies "Autonomous mode" in ~/.claude/CLAUDE.md.',
 		'- Keep the owner informed of progress: what landed, what is under way, what is blocked and on whom.',
 		"- An irreversible or outward-facing action — moving main (always asked, right after a merge into develop; no answer leaves it where it is), deleting data, force-pushing, a first publish of a package, a breaking change, spending money, messaging anyone off this machine — waits for the owner's explicit answer; carry on with other work meanwhile.",
