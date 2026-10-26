@@ -325,6 +325,8 @@ For the main session
   - run plan-the-roadmap on the Proposed items: they are owner questions
 ```
 
+The session launches the `LAUNCH NEXT` items after its `/clear` stop, one task per context.
+
 `LAUNCH NEXT` naming an item that is not under *In flight* is a
 contradiction; so is an *In flight* line that the `Mandate:` line does not
 cover. If you cannot write either honestly, write nothing to *In
