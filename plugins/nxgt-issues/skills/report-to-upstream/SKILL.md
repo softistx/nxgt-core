@@ -154,7 +154,21 @@ Otherwise mark every workaround in the code with the upstream issue:
 Then run `track` again so the tracking issue lists the markers (it finds them
 with `git grep`).
 
-## 5. Tell the sessions that have to act
+## 5. Put an agent on the issue, tell the sessions
+
+**Whoever reports an issue delegates an agent on it** (owner, 2026-10-27):
+every issue filed here, whether a bug, a missing feature, a wrong doc or a gap
+(a component, a reusable part), gets, right after filing, a fresh agent in a
+worktree of the package's repository
+(`~/workspace/worktrees/<repository>/<slug>`), one agent per issue, working it
+with `fix-a-reported-issue`. No owner question first and no waiting for the
+package's session; the owner is asked only about a real design doubt. The
+agent works it like any slice under "Merges and releases"; with no session
+open on the package, this session publishes it. The application keeps its
+workaround marked `Temporary, until <pkg>#<n>` until the release.
+
+Once the fix is merged, this session informs the related sessions when needed
+(below). It is information only: nobody is asked to act.
 
 ```bash
 bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROOT}/scripts/issues.ts sessions owner/repo
@@ -162,9 +176,10 @@ bun --no-env-file --config=${CLAUDE_PLUGIN_ROOT}/bunfig.toml ${CLAUDE_PLUGIN_ROO
 
 It lists the live sessions whose repository depends on a package of
 `owner/repo`. With `ListAgents`, find the session working in `owner/repo`
-itself and those listed: send **one** `SendMessage` to each that has to act —
-the package's session (the issue URL and kind), and a consumer that uses the
-affected API (the URL and the workaround). None when nobody has to act. The
+itself and those listed: send **one** `SendMessage` to each that has to be
+told, once the fix is merged — the package's session, if one is open (the issue, the PR,
+the merge commit; nothing to do), and a consumer that uses the affected API
+(the URL and the workaround). None when nobody has to be told. The
 message to the package's session stays with this session; when there are
 several consumer sends, they go to an agent with `model: "sonnet"` ("Bulk
 messages between sessions go to Sonnet", "Token economy" in
