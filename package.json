@@ -29,12 +29,12 @@
 		"@changesets/changelog-github": "^1.0.1",
 		"@changesets/cli": "^3.0.1",
 		"@nxgt/ory-sdk": "^0.2.0",
-		"@types/bun": "^1.4.0",
+		"@types/bun": "^1.4.4",
 		"stx-sdk": "^1.1.0",
 		"typescript": "~6.0.3"
 	},
 	"overrides": {
 		"typescript": "~6.0.3"
 	},
-	"packageManager": "bun@1.4.3"
+	"packageManager": "bun@1.4.4"
 }

@@ -42,7 +42,7 @@
 	},
 	"devDependencies": {
 		"@hey-api/openapi-ts": "^0.99.0",
-		"@types/bun": "^1.4.0",
+		"@types/bun": "^1.4.4",
 		"openapi-typescript": "^7.13.0"
 	},
 	"peerDependencies": {
