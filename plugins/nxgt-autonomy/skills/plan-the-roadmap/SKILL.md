@@ -199,7 +199,9 @@ edited on the issues in the same step; the entry moves Next → Now → Shipped.
 docs, merged per the repository's `AGENTS.md`. The implementation of each slice
 goes to an agent with `model: "sonnet"`, or `model: "haiku"` for a mechanical one
 ("Opus plans and reviews, Sonnet and Haiku write the code", "Token economy" in
-`~/.claude/CLAUDE.md`, which also lists when Opus writes code). When the item's branch is cut,
+`~/.claude/CLAUDE.md`, which also lists when Opus writes code), each slice by its own
+fresh agent, stopped once its PR is merged and its issue closed ("One agent per
+issue", same section). When the item's branch is cut,
 `roadmap-keeper` moves the entry to **Now**, in that item's first PR. Each queue
 item is a task that ends with the `/clear` question (`work-autonomously` section 2,
 step 8).
