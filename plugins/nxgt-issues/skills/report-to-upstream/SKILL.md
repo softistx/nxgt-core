@@ -179,7 +179,10 @@ It lists the live sessions whose repository depends on a package of
 itself and those listed: send **one** `SendMessage` to each that has to be
 told, once the fix is merged — the package's session, if one is open (the issue, the PR,
 the merge commit; nothing to do), and a consumer that uses the affected API
-(the URL and the workaround). None when nobody has to be told. The
+(the URL and the workaround). The publish of the fix is announced under
+"Merges and releases" (`~/.claude/CLAUDE.md`) and always asks every consumer
+to bump; "uses the affected API" filters only the extra adapt note. None when
+nobody has to be told. The
 message to the package's session stays with this session; when there are
 several consumer sends, they go to an agent with `model: "sonnet"` ("Bulk
 messages between sessions go to Sonnet", "Token economy" in
