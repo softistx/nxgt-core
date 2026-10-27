@@ -124,7 +124,10 @@ Per item, in this order, and nothing skipped:
    `~/.claude/CLAUDE.md`); then `nxgt-docs:keep-docs-current` — the docs audit,
    `docs/` troubleshooting and roadmap included. Both, on every PR, in that
    order.
-6. **Open the PR**, wait for CI, **merge it when the rules below allow it**,
+6. **Open the PR** (a queue item from a plan carries its issue: `Fixes #n` in
+   the body; into `feat/*` it does not auto-close, so close it on merge and
+   tick the tracking issue; "Plans become issues and a roadmap" in
+   `~/.claude/CLAUDE.md`), wait for CI, **merge it when the rules below allow it**,
    delete the branch, refresh the main checkout and **remove the item's
    worktree** if it had one ("Git worktrees" in `~/.claude/CLAUDE.md`, else
    `git worktree remove` and `git worktree prune`). **Merges and releases

@@ -271,7 +271,9 @@ A *Proposed, not approved* line says what it needs from the owner:
 - <repo> <package> — **<bold name>** — recommended: <option> — needs the owner: <irreversible: … | breaking: … | feature outside the mandate | no mandate | planned by <session>> — refilled <date>
 ```
 
-Write most-blocking first. Touch no other line, and no other section. A sliced
+Write most-blocking first. Touch no other line, and no other section. A line for a plan's slice keeps the `#n` of its issue ("Plans become issues
+and a roadmap", `~/.claude/CLAUDE.md`); you create no issue, so say in the line
+when it has none yet. A sliced
 item gets one line per slice with `slice k of n` / `last slice`, as
 `plan-the-roadmap` step 5 says. You do not write the roadmap: when an item
 comes from, or creates, a roadmap entry, `roadmap-keeper` moves it to **Now**
