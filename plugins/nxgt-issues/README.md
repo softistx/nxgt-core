@@ -23,17 +23,18 @@ Maintainer details: [docs/internals.md](docs/internals.md)
 
 ## The loop end to end
 
-1. **Application side, reporting.** A session hits a defect in an `@nxgt/*`
-   package: `report-to-upstream` resolves the package's repository, writes a
+1. **Application side, reporting.** A session hits a defect, a missing
+   feature or a wrong doc in an `@nxgt/*` package: `report-to-upstream` resolves the package's repository, writes a
    minimal reproduction from scratch, files the scrubbed issue (or comments on
    a duplicate), opens a private tracking issue labelled `upstream`, marks the
    workaround `// Temporary, until <pkg>#<n>` and puts an agent on the issue
    right away, in a worktree of the package's repository (owner, 2026-10-27:
-   a gap gets an issue and an agent, no owner question first). A session open
-   on the package is only informed, once the fix is merged.
+   whoever reports an issue delegates an agent on it, no owner question first). Once the fix is
+   merged, the reporter informs the package's session if one is open and
+   the consumer sessions waiting on it (information only).
 2. **Package side.** The agent (or a package session that sees the issue in
    its SessionStart context) works it like any slice; with no session open on the package, the session that
-   found the gap publishes it. `fix-a-reported-issue` queues it (`bug`,
+   reported the issue publishes it. `fix-a-reported-issue` queues it (`bug`,
    `documentation`, `dependencies` In flight; `enhancement` Proposed), writes the regression
    test, and fixes it in a PR whose description says `Fixes #<n>`; the
    integration PR into `develop` carries the keyword for a sliced fix.
