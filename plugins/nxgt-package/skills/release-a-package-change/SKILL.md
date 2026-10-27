@@ -95,8 +95,10 @@ release nothing, and `changeset status` will not ask for anything.
    when the PR fixed no reported issue.
 8. **Tell the consumer sessions.** After the publish, `SendMessage` each live
    session whose repository depends on the package (`ListAgents` plus their
-   `package.json`): the version, what changed, what it must do (bump, adapt,
-   nothing) — beside the `/crew announce`, per "Merges and releases" in
+   `package.json`): "bump to X" plus what changed and what to adapt — never "nothing to do":
+   every consumer bumps to each published version, even an additive or patch
+   one, and its session queues the bump as a small fix and lands it unasked —
+   beside the `/crew announce`, per "Merges and releases" in
    `~/.claude/CLAUDE.md`. A session already told in step 7 gets one message
    covering both. When there are several, the sends of steps 7 and 8 go to
    an agent with `model: "sonnet"` ("Bulk messages between sessions go to
@@ -135,8 +137,9 @@ Rules, in order of how often they are broken:
   first consumer to install it died on `Unknown type: \"Void\"`". A changelog
   entry that only describes the fix cannot be matched against the bug someone
   is currently looking at.
-- **Say what a consumer must do,** if anything. "Nothing that compiles today
-  changes" is worth writing. So is "every subclass that reads `uid` must now
+- **Say what a consumer must adapt,** if anything; the bump itself is always
+  due ("Merges and releases" in `~/.claude/CLAUDE.md`). "Nothing that compiles
+  today changes" is worth writing. So is "every subclass that reads `uid` must now
   say `TokenPrincipal`."
 - **One changeset per change, not per package.** A changeset lists every package
   it bumps; two changesets for one change give the changelog two half-stories.
@@ -148,8 +151,8 @@ Rules, in order of how often they are broken:
   all three.
 - **Bump honestly.** `patch` for a fix, `minor` for anything additive, `major`
   for a removal or a changed signature. Both monorepos pin with `^`, so a
-  `major` is a manual bump in every consumer and a `minor` arrives on the next
-  `bun update` — which means an accidental behaviour change published as a
+  `major` is a manual bump in every consumer and a `minor` still needs its bump, since a
+  `^0.x` range does not take a 0.x minor on its own — which means an accidental behaviour change published as a
   `patch` reaches production without anybody deciding to take it.
 
 ## The documentation that ships with the change

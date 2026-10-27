@@ -44,10 +44,11 @@ should follow), `note`. Keep it to one line a peer can act on:
 "published @nxgt/mail 0.5.0 — sendMail now takes a Transport".
 A `release` announce does not replace telling the consumers: after a publish,
 `SendMessage` each live session whose repository depends on the package (the
-version, what changed, what it must do), per "Merges and releases" in
+message says "bump to X" plus what to adapt, never "nothing to do"), per "Merges and releases" in
 `~/.claude/CLAUDE.md`; when there are several, the sends go to an agent with
 `model: "sonnet"` ("Bulk messages between sessions go to Sonnet", "Token
-economy" in `~/.claude/CLAUDE.md`).
+economy" in `~/.claude/CLAUDE.md`). A session that receives such a message
+queues the bump as a small fix and lands it without waiting to be asked.
 
 A **`plan`** names its roadmap entry, so the alignment pass can match it.
 Record one **only after the owner accepted the entry** through

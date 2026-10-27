@@ -142,7 +142,9 @@ Per item, in this order, and nothing skipped:
    are done once its conditions hold, except the gates it keeps for the
    owner's yes. After a publish, also tell every consumer session with
    `SendMessage`, beside the `/crew announce` ("Merges and releases"): the
-   version, what changed, what the consumer must do; when there are several, the sends go
+   "bump to X" plus what to adapt, never "nothing to do" (every consumer bumps
+   to each published version); a consumer session that gets it queues the bump as a
+   small fix and lands it unasked; when there are several, the sends go
    to an agent with `model: "sonnet"` ("Bulk messages between sessions go to
    Sonnet", "Token economy" in `~/.claude/CLAUDE.md`). With neither, open the
    PR and ask.
