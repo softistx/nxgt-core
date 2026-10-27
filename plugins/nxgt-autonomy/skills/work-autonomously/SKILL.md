@@ -111,6 +111,11 @@ Per item, in this order, and nothing skipped:
    writes it itself only when Sonnet failed or went in circles on it, or the
    bug's cause is unknown, judged on the task ("Opus plans and reviews, Sonnet and Haiku write the code", "Token economy"
    in `~/.claude/CLAUDE.md`).
+   **One agent per issue** ("Token economy" in `~/.claude/CLAUDE.md`): each
+   item is worked by its own fresh agent; the `SendMessage` follow-up (review
+   or CI fixes) goes to that same item's agent only. Once its PR is merged and
+   its issue closed, stop that agent (`TaskStop`) and give the next item a new
+   one — no agent chains several items.
 3. **Measure it** — the repo's own green bar (`bun run check`, `typecheck`,
    `build`, the tests CI cannot run), and the behaviour itself where behaviour
    changed. Not "should work": a command and its output.
