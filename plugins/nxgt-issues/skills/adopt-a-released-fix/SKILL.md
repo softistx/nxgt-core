@@ -74,8 +74,9 @@ the upstream issue or the registry.
 
 ## 3. Bump, remove, verify
 
-1. Bump the package only when the installed or declared version is older than
-   `version` (never downgrade). Edit the range in each `package.json` that
+1. A consumer bumps on every publish, not only for its own fix ("Merges and
+   releases", `~/.claude/CLAUDE.md`). Bump the package only when the installed or
+   declared version is older than `version` (never downgrade). Edit the range in each `package.json` that
    declares it, then run `bun install` to refresh the lockfile (not `bun add`
    at a workspace root).
 2. For each `ready` marker, open the file at `line`: delete the marker comment

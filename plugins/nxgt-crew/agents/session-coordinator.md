@@ -62,8 +62,9 @@ you must ask the caller for in your report rather than guess.
    with `SendMessage`:
    - announcing a release this session is making, with the version and
      whether it breaks anything — and, after a publish, telling every consumer
-     session (`ListAgents` plus their `package.json`): the version, what
-     changed, what it must do (bump, adapt, nothing), beside the `/crew
+     session (`ListAgents` plus their `package.json`): "bump to X" plus what
+     to adapt, never "nothing to do" (every consumer bumps to each published
+     version), beside the `/crew
      announce` ("Merges and releases" in `~/.claude/CLAUDE.md`);
    - asking before touching a file, branch or worktree it holds — and, if it
      agrees, that it release its files with `/crew yield` (only it can);
