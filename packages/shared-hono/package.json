@@ -71,7 +71,7 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@types/bun": "^1.4.0",
+		"@types/bun": "^1.4.4",
 		"@types/lodash": "^4.17.25",
 		"jose": "^6.2.9"
 	},
