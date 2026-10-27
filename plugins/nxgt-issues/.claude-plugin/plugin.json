@@ -1,7 +1,7 @@
 {
 	"name": "nxgt-issues",
 	"description": "Closes the loop between the applications and the in-house packages they consume: a consumer files an anonymous, deduplicated issue on the package's repository and keeps a private tracking issue, the package side sees its open issues at session start, and a released fix is adopted by the application and its markers removed. It ships the reporter (the report-to-upstream skill and the issues.ts CLI), the SessionStart hook and the application's side of the loop (the adopt-a-released-fix skill, issues.ts ready and markers), the /issues dashboard (the issues skill, issues.ts dashboard) and the release side (the fix-a-reported-issue skill, issues.ts released and the close-released-issues.ts script and its lib a library repository copies into its release workflow).",
-	"version": "1.0.18",
+	"version": "1.0.19",
 	"author": {
 		"name": "softistx"
 	}

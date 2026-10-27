@@ -27,11 +27,14 @@ Maintainer details: [docs/internals.md](docs/internals.md)
    package: `report-to-upstream` resolves the package's repository, writes a
    minimal reproduction from scratch, files the scrubbed issue (or comments on
    a duplicate), opens a private tracking issue labelled `upstream`, marks the
-   workaround `// Temporary, until <pkg>#<n>` and tells the package's session
-   with one `SendMessage`.
-2. **Package side.** The package's session sees the issue in its SessionStart
-   context. `fix-a-reported-issue` queues it (`bug`, `documentation`,
-   `dependencies` In flight; `enhancement` Proposed), writes the regression
+   workaround `// Temporary, until <pkg>#<n>` and puts an agent on the issue
+   right away, in a worktree of the package's repository (owner, 2026-10-27:
+   a gap gets an issue and an agent, no owner question first). A session open
+   on the package is only informed, once the fix is merged.
+2. **Package side.** The agent (or a package session that sees the issue in
+   its SessionStart context) works it like any slice; with no session open on the package, the session that
+   found the gap publishes it. `fix-a-reported-issue` queues it (`bug`,
+   `documentation`, `dependencies` In flight; `enhancement` Proposed), writes the regression
    test, and fixes it in a PR whose description says `Fixes #<n>`; the
    integration PR into `develop` carries the keyword for a sliced fix.
    `nxgt-autonomy`'s auditor and refiller keep the queue and the issues in step.
@@ -129,7 +132,8 @@ The `report-to-upstream` skill drives this flow:
 4. `issues.ts track` — the private tracking issue in the application, then the
    `// Temporary, until <pkg>#<n>` markers.
 5. `issues.ts sessions owner/repo` with `ListAgents` — one `SendMessage` to
-   each session that has to act; when there are several consumer sends, they
+   the package's session once the fix is merged (informed only) and to each
+   consumer that uses the affected API; when there are several sends, they
    go to an agent with `model: "sonnet"` ("Bulk messages between sessions go to
    Sonnet", "Token economy" in `~/.claude/CLAUDE.md`).
 

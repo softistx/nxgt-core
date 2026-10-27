@@ -234,12 +234,12 @@ reference may set its own. Every rule below means that number.
   issue and no `Temporary, until <pkg>#<n>` marker ("The same holds for every
   reusable part" in ~/.claude/CLAUDE.md). A component belongs in
   `@nxgt/material`, the rest in its `@alxia/*` or `@nxgt/*` package. **Fix:**
-  ask the owner first (the schoolz and healthix apps through their reporting
-  session); on a yes, file the issue through nxgt-issues
-  (`report-to-upstream`), send it to the session that owns the package, and
-  keep the app's copy only behind the marker until the release. The UI side
-  is check 14 of `ux-reviewer` in the `ui-ux` plugin (softistx/plugins); cite
-  it rather than repeating it. **Evidence:** the grep across the owner's
+  file the issue through nxgt-issues (`report-to-upstream`) and put an agent
+  on it in a worktree of the package's repository, with no owner question
+  first ("A gap in an in-house package gets an issue and an agent", owner,
+  2026-10-27); keep the app's copy only behind the marker until the release.
+  The UI side is check 14 of `ux-reviewer` in the `ui-ux` plugin
+  (softistx/plugins); cite it rather than repeating it. **Evidence:** the grep across the owner's
   packages that shows nothing covers the part yet, and `gh issue list` on
   that package.
 
