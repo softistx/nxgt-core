@@ -127,8 +127,15 @@ explicit answer. Keep planning the other entries meanwhile.
 
 ### 5. Queue the accepted entries
 
+**First make the plan issues and a roadmap entry** ("Plans become issues and a
+roadmap", `~/.claude/CLAUDE.md`), before any queue line or branch: one GitHub
+issue per slice (or one tracking issue listing them) on the repository that
+does the work, and `roadmap-keeper` writes the effort's entry in
+`docs/roadmap.md`. An owner answer that changes the plan edits both. A plan
+that lives only in the queue is not finished.
+
 Write each accepted plan into *In flight* as a queue item, most-blocking
-first: one line with the repository, the package, the roadmap entry's bold
+first: one line with the repository, the package, the issue number (`#n`), the roadmap entry's bold
 name, the decisions the owner took, and the first step. Remove it from
 *Proposed, not approved* if it was there.
 
@@ -182,6 +189,11 @@ When another session took it, leave the roadmap to that session. Without
 `nxgt-crew`, skip the announcement.
 
 ### 6. Execute
+
+Keep the issues and the roadmap current as the work goes: a slice PR says
+`Fixes #n` (a PR into `feat/*` does not auto-close it, so close the issue on
+merge and tick the tracking issue); an added, dropped or redrawn slice is
+edited on the issues in the same step; the entry moves Next → Now → Shipped.
 
 `work-autonomously` takes each queue item: one branch, one PR, review then
 docs, merged per the repository's `AGENTS.md`. The implementation of each slice

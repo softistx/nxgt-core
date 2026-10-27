@@ -8,7 +8,7 @@ and ask the owner only what only the owner can decide.
 | --- | --- |
 | `SessionStart` hook | puts the mandate below in context at the start of every session in a git repository |
 | skill `work-autonomously` | the loop: one item, one branch, one PR — reviewed, documented, merged; it points at the `nxgt-issues` SessionStart context and the `/issues` dashboard as queue input |
-| skill `plan-the-roadmap` | the planning cycle that refills the queue from candidates and roadmap entries, in eight steps; with `nxgt-crew` enabled, it aligns with other sessions (`/crew align`) and records accepted entries (`/crew announce --kind plan`) |
+| skill `plan-the-roadmap` | the planning cycle that refills the queue from candidates and roadmap entries, in eight steps — an approved plan becomes issues and a roadmap entry before any work starts, kept current as it goes; with `nxgt-crew` enabled, it aligns with other sessions (`/crew align`) and records accepted entries (`/crew announce --kind plan`) |
 | agent `work-queue-auditor` | reconciles the queue with `git log` and `gh pr list`, and the roadmaps with the queue; with `nxgt-issues` installed, also the owner's open upstream issues (filed but untracked, released but not adopted, reported but not queued); says what remains |
 | agent `improvement-scout` | proposes improvements into the queue, applies none |
 | agent `green-bar-verifier` | refuses to call anything done that was not measured |
