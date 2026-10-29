@@ -203,8 +203,8 @@ goes to an agent with `model: "sonnet"`, or `model: "haiku"` for a mechanical on
 fresh agent, stopped once its PR is merged and its issue closed ("One agent per
 issue", same section). When the item's branch is cut,
 `roadmap-keeper` moves the entry to **Now**, in that item's first PR. Each queue
-item is a task that ends with the `/clear` question (`work-autonomously` section 2,
-step 8).
+item is a task that ends signalled, with the `/clear` question only when it saves
+tokens (`work-autonomously` section 2, step 8).
 
 ### 7. Verify
 
