@@ -171,18 +171,14 @@ Per item, in this order, and nothing skipped:
    - **Clearing needed** (a heavy context, or the next task does not use what
      it holds): write the queue's next step, the open PRs and the worktrees
      where the next task will read them (the queue's In flight line, or a
-     "Resume here" note at its top), then ask, through AskUserQuestion in
-     French, « Tâche terminée — `/clear` maintenant ? » with the resume path
-     and the reason. Owner present: the recommended option is « Oui, je fais
-     `/clear` puis "reprends" (Recommandé) », the other « Non, continue dans
-     ce contexte ». On "Oui", **start nothing more**; after the `/clear` and
-     "reprends", re-read this skill and the queue, then take the next item.
-     Owner away (said to continue without waiting) or no answer after 5
-     minutes: the recommended option is, as the one exception, « Non, continue
-     sans `/clear` (Recommandé) », recorded as "Assumed, not answered", and the
-     next task is chained. In the night window the question is not asked: the
-     session saves the resume file and chains. With no next task, the
-     question carries no resume path.
+     "Resume here" note at its top), then ask « Tâche terminée — `/clear`
+     maintenant ? » through AskUserQuestion, with the resume path and the
+     reason, as "Token economy" in `~/.claude/CLAUDE.md` says (options, owner
+     away, night window). On "Oui", **start nothing more**; after the `/clear`
+     and "reprends", re-read this skill and the queue, then take the next
+     item. The one exception: owner away or no answer after 5 minutes, the
+     recommended option is « Non, continue sans `/clear` (Recommandé) »,
+     recorded as "Assumed, not answered", and the next task is chained.
 
    A slice of a larger effort is a task too.
 
