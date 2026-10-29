@@ -9,7 +9,7 @@ description: >-
   instead of stopping. Owner decisions go through interactive questions,
   recommended option first; a question unanswered after 5 minutes goes to
   the unanswered-question-resolver. It signals each finished task and
-  asks about /clear only when clearing saves tokens, never starts unapproved work, and never takes an
+  asks the /clear question after every merged PR and published version, never starts unapproved work, and never takes an
   irreversible step without an explicit answer. Read it at the start of a
   session, when an item lands, and
   before ending any turn.
@@ -21,8 +21,8 @@ description: >-
 
 **This is the default mode of every session in a git repository, not something
 a phrase switches on.** The owner's standing instruction, which does not need repeating: **carry on
-without me, merge as you go, finish everything queued.** Each finished task is signalled, and the `/clear` question
-is asked only when it saves tokens (section 2, step 8). "Merge as you go" is
+without me, merge as you go, finish everything queued.** Each finished task (every merged PR and every published version) is signalled, and the `/clear` question
+is asked every time (section 2, step 8). "Merge as you go" is
 what "Merges and releases" in `~/.claude/CLAUDE.md` allows — slices, `develop`
 and publishes included, once its conditions hold — and stops at the gates it
 keeps for the owner's explicit yes in every mode: moving `main`, a package's
@@ -161,24 +161,20 @@ Per item, in this order, and nothing skipped:
    the changeset of one slice of it: a `slice k of n` item leaves the entry
    under **Now**, a `last slice` item moves it (see `plan-the-roadmap`,
    steps 5, 6 and 8).
-8. **Signal the finished task, then chain or ask `/clear`.** The task is done
-   (merged, published or abandoned): report it at once in a short line (what
-   landed, its commit, what was checked, what starts next). Then apply "A
-   finished task is signalled; `/clear` is asked only when it saves tokens",
-   "Token economy" in `~/.claude/CLAUDE.md`:
-   - **Clearing not needed** (the context is light and the next task uses
-     it): chain the next task in the same context, without asking.
-   - **Clearing needed** (a heavy context, or the next task does not use what
-     it holds): write the queue's next step, the open PRs and the worktrees
-     where the next task will read them (the queue's In flight line, or a
-     "Resume here" note at its top), then ask « Tâche terminée — `/clear`
-     maintenant ? » through AskUserQuestion, with the resume path and the
-     reason, as "Token economy" in `~/.claude/CLAUDE.md` says (options, owner
-     away, night window). On "Oui", **start nothing more**; after the `/clear`
-     and "reprends", re-read this skill and the queue, then take the next
-     item. The one exception: owner away or no answer after 5 minutes, the
-     recommended option is « Non, continue sans `/clear` (Recommandé) »,
-     recorded as "Assumed, not answered", and the next task is chained.
+8. **Signal the finished task, then ask `/clear`.** Every merged PR and every
+   published version ends a task: report it at once in a short line (what
+   landed, its commit or version, what was checked, what starts next), then
+   ask the `/clear` question every time. Do not carry its wording here; apply
+   "Every finished task is signalled, and followed by the `/clear` question" in
+   `~/.claude/CLAUDE.md`: save the resume file first, ask « Tâche terminée —
+   `/clear` maintenant ? » through AskUserQuestion, and on "Oui" **start nothing
+   more** (after the `/clear` and "reprends", re-read this skill and the queue,
+   then take the next item). Only the same PR's follow-ups and the immediate next
+   step of the same publish do not end a task; "the context is still light" is
+   never a reason to skip. Skipped only in the night window, when the owner is
+   away (recommended option « Non, continue sans `/clear` », recorded as
+   "Assumed, not answered", next task chained), and while another owner question
+   is open.
 
    A slice of a larger effort is a task too.
 
@@ -297,7 +293,7 @@ When *In flight* is empty, or everything left in it is blocked:
    (`plan-the-roadmap` step 5) — the refiller cannot — then launch those
    items through section 2, in order — after step 8: the
    session saves them as the resume point and launches them, in a fresh context
-   when step 8 asked for a `/clear` and the owner said yes, else in the same one. It also names the **sibling sessions that
+   when step 8's `/clear` question got a yes, else in the same one. It also names the **sibling sessions that
    look idle**; it cannot message them. "Sessions working together" in
    `~/.claude/CLAUDE.md` allows a `SendMessage` only when the recipient has to
    act, and this is that case: a request to act on approved work. For each,

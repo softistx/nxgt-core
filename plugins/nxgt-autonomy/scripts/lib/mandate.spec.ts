@@ -105,8 +105,8 @@ describe('buildMandate', () => {
 		],
 		['no hand-back', /Never end a turn by handing back or waiting/],
 		[
-			'the /clear question only when it saves tokens',
-			/except when clearing saves tokens: report the finished task in a short line, chain the next one, and only then save the next step in the queue and ask « Tâche terminée — `\/clear` maintenant \? » with AskUserQuestion, giving the resume path and the reason clearing is needed/,
+			'the /clear question at every task boundary',
+			/except at a task boundary: every merged PR and published version is reported in a short line, then save the next step in the queue and ask « Tâche terminée — `\/clear` maintenant \? » with AskUserQuestion, giving the resume path/,
 		],
 		[
 			'review, then docs',
